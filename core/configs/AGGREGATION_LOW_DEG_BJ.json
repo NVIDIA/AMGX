@@ -1,0 +1,26 @@
+{
+    "config_version": 2, 
+    "determinism_flag": 1, 
+    "solver": {
+        "print_grid_stats": 1, 
+        "algorithm": "AGGREGATION", 
+        "obtain_timings": 1, 
+        "solver": "AMG", 
+        "smoother": "BLOCK_JACOBI", 
+        "print_solve_stats": 1, 
+        "presweeps": 2, 
+        "selector": "SIZE_2", 
+        "convergence": "RELATIVE_MAX_CORE", 
+        "coarsest_sweeps": 2, 
+        "max_iters": 100, 
+        "monitor_residual": 1, 
+        "min_coarse_rows": 2, 
+        "relaxation_factor": 0.75, 
+        "scope": "main", 
+        "max_levels": 1000, 
+        "postsweeps": 2, 
+        "tolerance": 0.1, 
+        "norm": "L1", 
+        "cycle": "V"
+    }
+}

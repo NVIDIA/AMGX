@@ -1,0 +1,50 @@
+# Copyright (c) 2011-2016 NVIDIA CORPORATION. All Rights Reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+# CUDA Toolkit location
+cc = cc
+CC = CC
+COMMON_L = -ldl -lamgxsh -L../lib -Wl,-rpath=../lib
+CUDA_DIR = $(CRAY_CUDATOOLKIT_DIR)
+CUDA_L = -lcudart -L$(CUDA_DIR)/lib64
+CUDA_I = -I$(CUDA_DIR)/include
+MPI_DIR = $(CRAY_MPICH2_DIR)
+MPI_L = -lmpich -L$(MPI_DIR)/lib
+MPI_I = -I$(MPI_DIR)/include
+
+# Examples
+amgx_capi:
+	$(cc) -O2 amgx_capi.c $(CUDA_I) -o amgx_capi $(CUDA_L) $(COMMON_L)
+
+amgx_mpi_capi:
+	$(cc) -O2 amgx_mpi_capi.c $(CUDA_I) $(MPI_I) -o amgx_mpi_capi $(CUDA_L) $(MPI_L) $(COMMON_L)
+
+amgx_capi_dynamic:
+	$(cc) -O2 amgx_capi.c -o amgx_capi_dynamic $(CUDA_I) -DAMGX_DYNAMIC_LOADING $(CUDA_L) $(COMMON_L)
+
+amgx_mpi_capi_dynamic:
+	$(cc) -O2 amgx_mpi_capi.c -o amgx_mpi_capi_dynamic $(CUDA_I) $(MPI_I) -DAMGX_DYNAMIC_LOADING $(CUDA_L) $(COMMON_L) $(MPI_L)
+
+amgx_mpi_capi_agg:
+	$(cc) -O2 amgx_mpi_capi_agg.c $(CUDA_I) $(MPI_I) -o amgx_mpi_capi_agg $(CUDA_L) $(COMMON_L) $(MPI_L)
+
+amgx_mpi_capi_cla:
+	$(cc) -O2 amgx_mpi_capi_cla.c $(CUDA_I) $(MPI_I) -o amgx_mpi_capi_cla $(CUDA_L) $(COMMON_L) $(MPI_L)
+
+# All
+all: amgx_capi amgx_mpi_capi amgx_capi_dynamic amgx_mpi_capi_dynamic amgx_mpi_capi_agg amgx_mpi_capi_cla
+
+# Clean
+clean:
+	rm -f amgx_capi
+	rm -f amgx_mpi_capi
+	rm -f amgx_capi_dynamic
+	rm -f amgx_mpi_capi_dynamic
+	rm -f amgx_mpi_capi_cla
+	rm -f amgx_mpi_capi_agg
+	rm -f *.o

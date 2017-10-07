@@ -1,0 +1,31 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "use_scalar_norm": 1, 
+        "min_coarse_rows": 32, 
+        "matrix_coloring_scheme": "PARALLEL_GREEDY", 
+        "smoother": "BLOCK_JACOBI", 
+        "print_solve_stats": 1, 
+        "obtain_timings": 1, 
+        "relaxation_factor": 0.5, 
+        "weight_formula": 1, 
+        "tolerance": 0.001, 
+        "norm": "L2", 
+        "postsweeps": 3, 
+        "merge_singletons": 2, 
+        "presweeps": 0, 
+        "selector": "MULTI_PAIRWISE", 
+        "scope": "main", 
+        "convergence": "RELATIVE_MAX_CORE", 
+        "cycle": "F", 
+        "print_grid_stats": 1, 
+        "algorithm": "AGGREGATION", 
+        "solver": "AMG", 
+        "aggregation_passes": 1, 
+        "max_uncolored_percentage": 0.05, 
+        "coarse_solver": "DENSE_LU_SOLVER", 
+        "max_iters": 1, 
+        "monitor_residual": 1, 
+        "max_levels": 20
+    }
+}

@@ -1,0 +1,24 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "matrix_coloring_scheme": "MIN_MAX", 
+        "max_uncolored_percentage": 0.15, 
+        "algorithm": "AGGREGATION", 
+        "obtain_timings": 1, 
+        "solver": "AMG", 
+        "smoother": "MULTICOLOR_DILU", 
+        "print_solve_stats": 1, 
+        "presweeps": 1, 
+        "selector": "SIZE_2", 
+        "coarsest_sweeps": 2, 
+        "max_iters": 1000, 
+        "monitor_residual": 1, 
+        "scope": "main", 
+        "max_levels": 1000, 
+        "postsweeps": 1, 
+        "tolerance": 0.1, 
+        "print_grid_stats": 1, 
+        "norm": "L1", 
+        "cycle": "V"
+    }
+}

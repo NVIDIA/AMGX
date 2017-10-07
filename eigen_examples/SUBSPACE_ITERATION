@@ -1,0 +1,6 @@
+config_version=2
+default:eig_solver=SUBSPACE_ITERATION
+default:eig_max_iters=256
+default:eig_tolerance=1e-2
+default:eig_which=largest
+default:eig_wanted_count=4

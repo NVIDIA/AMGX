@@ -1,0 +1,53 @@
+Refer to the QuickStartGuide for detailed installation and usage instructions:
+http://code.google.com/p/cusp-library/wiki/QuickStartGuide
+
+
+Instructions for the Impatient
+------------------------------
+
+    0) Verify that CUDA 4.x is installed
+        $ nvcc --version
+        nvcc: NVIDIA (R) Cuda compiler driver
+        Copyright (c) 2005-2011 NVIDIA Corporation
+        Built on Fri_Jan_13_01:52:47_PST_2012
+        Cuda compilation tools, release 4.1, V0.2.1221
+
+    1) Download Cusp v0.3.x
+        http://cusp-library.googlecode.com/files/cusp-v0.3.0.zip
+    
+    2) Extract contents of ZIP files to the CUDA include directory:
+        /usr/local/cuda/include/ on a Linux and Mac OSX
+        C:\CUDA\include\ on a Windows system
+    
+    3) Save the following program to a file named version.cu
+
+        #include <thrust/version.h>
+        #include <cusp/version.h>
+        #include <iostream>
+
+        int main(void)
+        {
+            std::cout << "The following libraries were found:" << std::endl;
+
+            std::cout << "    CUDA   v" << (CUDA_VERSION / 1000) << "." <<
+                                           (CUDA_VERSION % 1000) / 10 << std::endl;
+
+            std::cout << "    Thrust v" << THRUST_MAJOR_VERSION << "." << 
+                                           THRUST_MINOR_VERSION << "." << 
+                                           THRUST_SUBMINOR_VERSION << std::endl;
+
+            std::cout << "    Cusp   v" << CUSP_MAJOR_VERSION << "." << 
+                                           CUSP_MINOR_VERSION << "." << 
+                                           CUSP_SUBMINOR_VERSION << std::endl;
+
+            return 0;
+        }
+
+    4) Compile version.cu with nvcc to verify installation
+        $ nvcc version.cu -o version
+        $ ./version
+        The following libraries were found:
+            CUDA   v4.1
+            Thrust v1.5.1
+            Cusp   v0.3.0
+

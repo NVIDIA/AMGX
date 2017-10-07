@@ -1,0 +1,28 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "preconditioner": {
+            "print_grid_stats": 1, 
+            "print_vis_data": 0, 
+            "solver": "AMG", 
+            "print_solve_stats": 0, 
+            "presweeps": 1, 
+            "max_iters": 1, 
+            "monitor_residual": 0, 
+            "store_res_history": 0, 
+            "scope": "amg", 
+            "cycle": "V", 
+            "postsweeps": 1
+        }, 
+        "solver": "FGMRES", 
+        "print_solve_stats": 1, 
+        "obtain_timings": 1, 
+        "max_iters": 100, 
+        "monitor_residual": 1, 
+        "gmres_n_restart": 20, 
+        "convergence": "RELATIVE_INI_CORE", 
+        "scope": "main", 
+        "tolerance": 0.0001, 
+        "norm": "L2"
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "preconditioner": {
+            "scope": "precond", 
+            "solver": "MULTICOLOR_DILU"
+        }, 
+        "solver": "CG", 
+        "print_solve_stats": 1, 
+        "obtain_timings": 1, 
+        "max_iters": 20, 
+        "monitor_residual": 1, 
+        "scope": "main", 
+        "tolerance": 1e-06, 
+        "norm": "L2"
+    }
+}

@@ -1,0 +1,20 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "print_grid_stats": 1, 
+        "algorithm": "AGGREGATION", 
+        "coarseAgenerator": "THRUST", 
+        "solver": "AMG", 
+        "smoother": "BLOCK_JACOBI", 
+        "print_solve_stats": 1, 
+        "presweeps": 1, 
+        "selector": "SIZE_2", 
+        "obtain_timings": 1, 
+        "max_iters": 100, 
+        "monitor_residual": 1, 
+        "scope": "main", 
+        "postsweeps": 1, 
+        "tolerance": 0.1, 
+        "cycle": "V"
+    }
+}

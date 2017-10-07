@@ -1,0 +1,33 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "preconditioner": {
+            "error_scaling": 0, 
+            "print_grid_stats": 1, 
+            "algorithm": "AGGREGATION", 
+            "solver": "AMG", 
+            "smoother": "BLOCK_JACOBI", 
+            "presweeps": 0, 
+            "selector": "SIZE_2", 
+            "coarse_solver": "NOSOLVER", 
+            "max_iters": 1, 
+            "min_coarse_rows": 32, 
+            "relaxation_factor": 0.75, 
+            "scope": "amg", 
+            "max_levels": 100, 
+            "postsweeps": 3, 
+            "cycle": "V"
+        }, 
+        "use_scalar_norm": 1, 
+        "solver": "FGMRES", 
+        "print_solve_stats": 1, 
+        "obtain_timings": 1, 
+        "max_iters": 1000, 
+        "monitor_residual": 1, 
+        "gmres_n_restart": 32, 
+        "convergence": "RELATIVE_INI", 
+        "scope": "main", 
+        "tolerance": 0.0001, 
+        "norm": "L2"
+    }
+}

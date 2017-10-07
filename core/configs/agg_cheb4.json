@@ -1,0 +1,37 @@
+{
+    "config_version": 2, 
+    "determinism_flag": 1, 
+    "solver": {
+        "print_grid_stats": 1, 
+        "algorithm": "AGGREGATION", 
+        "obtain_timings": 1, 
+        "error_scaling": 3,
+        "solver": "AMG", 
+        "smoother": 
+        {
+            "solver": "CHEBYSHEV",
+            "preconditioner" : 
+            {
+                "solver": "JACOBI_L1",
+                "max_iters": 1
+            },
+            "max_iters": 1,
+            "chebyshev_polynomial_order" : 4,
+            "chebyshev_lambda_estimate_mode" : 2
+        },
+        "presweeps": 0, 
+        "postsweeps": 1, 
+        "print_solve_stats": 1, 
+        "selector": "SIZE_8", 
+        "coarsest_sweeps": 1, 
+        "max_iters": 200, 
+        "monitor_residual": 1, 
+        "min_coarse_rows": 2, 
+        "scope": "main", 
+        "max_levels": 1000, 
+        "convergence": "RELATIVE_INI_CORE", 
+        "tolerance": 1e-06, 
+        "norm": "L2",
+        "cycle": "V"
+    }
+}

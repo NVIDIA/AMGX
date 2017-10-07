@@ -1,0 +1,19 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "print_grid_stats": 1, 
+        "solver": "AMG", 
+        "print_solve_stats": 1, 
+        "presweeps": 1, 
+        "obtain_timings": 1, 
+        "max_iters": 100, 
+        "monitor_residual": 1, 
+        "convergence": "ABSOLUTE", 
+        "scope": "main", 
+        "max_levels": 100, 
+        "cycle": "W", 
+        "tolerance": 1e-06, 
+        "norm": "L2", 
+        "postsweeps": 1
+    }
+}

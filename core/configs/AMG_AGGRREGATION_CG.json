@@ -1,0 +1,22 @@
+{
+    "config_version": 2, 
+    "solver": {
+        "print_grid_stats": 1, 
+        "solver": "AMG", 
+        "algorithm":"AGGREGATION",
+        "selector": "SIZE_4",
+        "print_solve_stats": 1, 
+        "smoother": "JACOBI_L1",
+        "presweeps": 0, 
+        "postsweeps": 3,
+        "obtain_timings": 1, 
+        "max_iters": 100, 
+        "monitor_residual": 1, 
+        "convergence": "ABSOLUTE", 
+        "scope": "main", 
+        "max_levels": 100, 
+        "cycle": "CG", 
+        "tolerance": 1e-06, 
+        "norm": "L2" 
+    }
+}

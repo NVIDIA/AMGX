@@ -5,3 +5,4 @@
 plugin_config.cu
 *.sublime-project
 *.sublime-workspace
+core/src/version.cu

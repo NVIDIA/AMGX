@@ -1,18 +1,11 @@
-# Algebraic Multigrid on NVIDIA GPUs
+# Algebraic Multigrid Solver (AmgX) Library
 
+AmgX is a GPU accelerated core solver library that speeds up computationally intense linear solver portion of simulations. The library includes a flexible solver composition system that allows a user to easily construct complex nested solvers and preconditioners. The library is well suited for implicit unstructured methods.
+The AmgX library offers optimized methods for massive parallelism, the flexibility to choose how the solvers are constructed, and is accessible through a simple C API that abstracts the parallelism and scale across a single or multiple GPUs using user provided MPI.
 
-This library provides C API to implementation of popular linear solvers optimized for NVIDIA GPUs that can run on single or multiple GPUs using user provided MPI. 
+This is the source of the [AMGX library](https://developer.nvidia.com/amgx) on the NVIDIA Registered Developer Program portal.
 
-## Table of Contents
-
-* [About](#about)
-* [Quickstart](#quickstart)
-  * [Building AMGX](#building)
-  * [Running examples](#running)
-* [Further reading](#further-reading)
-
-## <a name="about"></a> About
-AMGX library features:
+Key features of the library include:
 * fp32, fp64 and mixed precision solve
 * Complex datatype support (currently limited)
 * Scalar or coupled block systems
@@ -22,22 +15,30 @@ AMGX library features:
 * Krylov methods: CG, BiCGSTAB, GMRES, etc. with optional preconditioning
 * Various smoother: Jacobi, Gauss-Seidel, Incomplete LU, Chebyshev Polynomial, etc.
 * A lot of exposed parameters for algorithms via solver configuration in JSON format
-* Modular structure for easy implementation of own methods
+* Modular structure for easy implementation of your own methods
+* Linux and Windows support
 
-You can also check out these case studies and white papers:
+Check out these case studies and white papers:
   * [AmgX: Multi-Grid Accelerated Linear Solvers for Industrial Applications](http://devblogs.nvidia.com/parallelforall/amgx-multi-grid-accelerated-linear-solvers-industrial-applications/)
   * [AmgX V1.0: Enabling Reservoir Simulation with Classical AMG](http://devblogs.nvidia.com/parallelforall/amgx-v1-0-enabling-reservoir-simulation-with-classical-amg/)
   * [
 AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Iterative Methods](https://research.nvidia.com/publication/amgx-library-gpu-accelerated-algebraic-multigrid-and-preconditioned-iterative-methods)
 
+## Table of Contents
+
+* [Quickstart](#quickstart)
+  * [Building AMGX](#building)
+  * [Running examples](#running)
+* [Further reading](#further-reading)
+
 ## <a name="quickstart"></a> Quickstart
 
-Here are the instructions on how to build library and run an example solver on the matrix in the [Matrix Market](http://math.nist.gov/MatrixMarket/) format file. 
+Here are the instructions on how to build library and run an example solver on the matrix in the [Matrix Market](http://math.nist.gov/MatrixMarket/) format file. By default provided examples use vector of ones as RHS of the linear system and vector of zeros as initial solution. In order to provide you own values for RHS and initial solution edit the examples.
 
 ### Dependencies
 
 In order to build project you would need [CMake](https://cmake.org/) and [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit
-). If you want to try distributed version of AMGX library you will also need MPI implementation, such as [OpenMPI](https://www.open-mpi.org/) for Linux or [MPICH](https://www.mpich.org/downloads/) for Windows. You will need compiler with c++11 support (for example GCC 4.8 or MSVC 14.0.
+). If you want to try distributed version of AMGX library you will also need MPI implementation, such as [OpenMPI](https://www.open-mpi.org/) for Linux or [MPICH](https://www.mpich.org/downloads/) for Windows. You will need compiler with c++11 support (for example GCC 4.8 or MSVC 14.0).
 
 ### <a name="building"></a> Building
 Typical build commands from the project root:
@@ -54,7 +55,7 @@ Therer are few custom CMake flags that you could use:
 cmake ....  -DCUDA_ARCH="35 52 60" ....
 ```
 - CMAKE_NO_MPI: Boolean value. If True then non-MPI (single GPU) build will be forced. Results in smaller sized library which could be run on systems without MPI installed. If not specified then MPI build would be enabled if FindMPI script found any MPI installation.
-- AMGX_NO_RPATH: Boolean value. By default CMake adds -rpath flags to binaries. Setting this flag to True tell CMake to not do that - useful when you want to control environment by yourself.
+- AMGX_NO_RPATH: Boolean value. By default CMake adds -rpath flags to binaries. Setting this flag to True tell CMake to not do that - useful for controlling execution environment.
 
 CMakeLists uses FindCUDA and FindMPI module scripts to locate corresponding software 
 so refer to those scripts from your CMake installation for module-specific flags.
@@ -67,7 +68,7 @@ enabled.
 
 ### <a name="running"></a> Running examples
 
-Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory in the root folder. Sample AMGX solvers configurations are located in the [core/configs](core/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows. 
+Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [core/configs](core/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows. 
 
 #### Running single GPU example from the build directory:
 
@@ -110,6 +111,7 @@ Total Time: 0.00169123
 #### Running multi GPU example from the build directory:
 
 ```bash
+> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../core/configs/FGMRES_AGGREGATION.json
 Process 0 selecting device 0
 Process 1 selecting device 0
 AMGX version 2.0.0-public-build125
@@ -166,9 +168,9 @@ Total Time: 0.0170917
 
 ## <a name="further-reading"></a> Further reading
 
-See [API reference doc](docs/AMGX_Reference.pdf) for detailed description of the interface. In the next few weeks we will be providing more information and details on the project such as:
-  * Plans on the project development
+See [API reference doc](doc/AMGX_Reference.pdf) for detailed description of the interface. In the next few weeks we will be providing more information and details on the project such as:
+  * Plans on the project development and priorities
   * Issues
   * Information on contributing
-  * Providing information on solver configurations
-  * Providing more information on the code and algorithms
+  * Information on solver configurations
+  * Information on the code and algorithms

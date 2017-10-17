@@ -60,11 +60,12 @@ CUDA_ADD_EXECUTABLE(amgx_tests_launcher src/utest.cu ${tests_obj_all})
 # create executables for host and device, scalar and block version
 # set(libs_all ${cusparse_library})
 
-IF(CMAKE_C_COMPILER MATCHES cl)
+GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
+IF(CMAKE_C_COMPILER_NAME MATCHES cl)
   set(libs_all ${cusparse_library})
-ELSE(CMAKE_C_COMPILER MATCHES cl)
+ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
   set(libs_all ${cusparse_library} rt dl)
-ENDIF(CMAKE_C_COMPILER MATCHES cl)
+ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
 target_link_libraries(amgx_tests_launcher amgx ${libs_all})

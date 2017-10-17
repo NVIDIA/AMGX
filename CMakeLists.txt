@@ -167,11 +167,12 @@ if (AMGX_keep_intermediate)
 endif(AMGX_keep_intermediate)
 
 #windows/linux specific settings for C
-IF(CMAKE_C_COMPILER MATCHES cl)
+GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
+IF(CMAKE_C_COMPILER_NAME MATCHES cl)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" CACHE STRING "nvcc flags")
-ELSE(CMAKE_C_COMPILER MATCHES cl)
+ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Xcompiler=-rdynamic;-Xcompiler=-fPIC;-Xcompiler=-fvisibility=default" CACHE STRING "nvcc flags")
-ENDIF(CMAKE_C_COMPILER MATCHES cl)
+ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
 
 # VS: include object files in target property SOURCES
 # otherwise a workaround for extracting ${obj_all} is necessary below

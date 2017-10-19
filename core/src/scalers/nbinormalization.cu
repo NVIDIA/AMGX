@@ -125,19 +125,19 @@ __device__ __inline__ T warpReduceSum(T val)
 {
     if (warpSize > 16) { val += utils::shfl_down(val, 16, warpSize); }
 
-    __syncwarp();
+    utils::syncwarp();
 
     if (warpSize > 8) { val += utils::shfl_down(val, 8, warpSize); }
 
-    __syncwarp();
+    utils::syncwarp();
 
     if (warpSize > 4) { val += utils::shfl_down(val, 4, warpSize); }
 
-    __syncwarp();
+    utils::syncwarp();
 
     if (warpSize > 2) { val += utils::shfl_down(val, 2, warpSize); }
 
-    __syncwarp();
+    utils::syncwarp();
 
     if (warpSize > 1) { val += utils::shfl_down(val, 1, warpSize); }
 

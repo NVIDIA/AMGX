@@ -25,7 +25,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <algorithm> // std::max
 #include "amg_config.h"
 #include "convergence/combined_rel_ini_abs.h"
 

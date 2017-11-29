@@ -40,6 +40,8 @@ CUDA_INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/base/include)
 set(tests_all ${tests_all} src/testframework.cu src/test_utils.cu src/unit_test.cu)
 
 CUDA_ADD_LIBRARY(amgx_tests_library STATIC ${tests_all})
+add_dependencies(amgx_tests_library amgx)
+target_link_libraries(amgx_tests_library amgx)
 
 # workaround
 get_target_property(src_tmp amgx_tests_library SOURCES)
@@ -68,7 +70,7 @@ ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
-target_link_libraries(amgx_tests_launcher amgx ${libs_all})
+target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all})
 
 if(${AMGX_PUBLIC_RELEASE} MATCHES "FALSE")
   install(TARGETS amgx_tests_launcher DESTINATION "lib/tests")

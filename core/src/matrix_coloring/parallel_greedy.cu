@@ -37,6 +37,8 @@
 #include <thrust/extrema.h>
 #include <sm_utils.inl>
 
+#include <algorithm>
+
 // Pseudo-random number generator
 
 namespace amgx

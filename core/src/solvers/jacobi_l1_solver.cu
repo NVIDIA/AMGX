@@ -37,6 +37,8 @@
 #include <miscmath.h>
 #include <amgx_cusparse.h>
 
+#include <algorithm>
+
 namespace amgx
 {
 

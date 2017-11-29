@@ -42,6 +42,7 @@
 
 #include <thrust/extrema.h> // for minmax_element
 
+#include <algorithm>
 #include <assert.h>
 #include <matrix_io.h>
 

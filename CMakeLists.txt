@@ -58,7 +58,7 @@ IF(WIN32)
   set(CMAKE_C_FLAGS_RELEASE        "/MT /O2 /Ob2 /D NDEBUG" CACHE STRING "" FORCE)
   set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MT /O2 /Ob2 /D NDEBUG" CACHE STRING "" FORCE)
 
-  set(CMAKE_CXX_FLAGS                "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /bigobj" CACHE STRING "" FORCE)
+  set(CMAKE_CXX_FLAGS                "/DWIN32 /D_WINDOWS /DNOMINMAX /W3 /GR /EHsc /bigobj" CACHE STRING "" FORCE)
   set(CMAKE_CXX_FLAGS_DEBUG          "/D_DEBUG /Zl /Zi /Ob0 /Od /RTC1" CACHE STRING "" FORCE)
   set(CMAKE_CXX_FLAGS_MINSIZEREL     "/D_DEBUG /Zl /Zi /Ob0 /Od /RTC1" CACHE STRING "" FORCE)
   set(CMAKE_CXX_FLAGS_RELEASE        "/MT /O2 /Ob2 /DNDEBUG" CACHE STRING "Force flags. /Zl is used to remove deps" FORCE)
@@ -169,6 +169,9 @@ else()
     set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call" CACHE STRING "Release compiler flags")
     set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
     set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+	if(WIN32)
+		set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
+	endif()
 endif()
 
 #keep intermediate files
@@ -367,7 +370,7 @@ endif (target_all)
 
 find_library_local_first(cublas_library cublas "The cuBLAS CUDA library")
 find_library_local_first(cusparse_library cusparse "The cusparse CUDA library")
-find_library_local_first(cusolver_library cusolver "The cusparse CUDA library")
+find_library_local_first(cusolver_library cusolver "The cusolver CUDA library")
 
 IF (WIN32)
   target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library})

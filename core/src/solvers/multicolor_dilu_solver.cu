@@ -44,6 +44,8 @@
 
 #include <amgx_types/util.h>
 
+#include <algorithm>
+
 #define AMGX_ILU_COLORING
 
 using namespace std;

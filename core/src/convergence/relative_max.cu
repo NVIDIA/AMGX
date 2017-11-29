@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm> // std::max
 #include "amg_config.h"
 #include "convergence/relative_max.h"
 #include <numerical_zero.h>

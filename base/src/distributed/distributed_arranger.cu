@@ -40,6 +40,7 @@
 #include <util.h>
 #include <sm_utils.inl>
 #include <csr_multiply.h>
+#include <algorithm>
 
 #include <amgx_types/util.h>
 

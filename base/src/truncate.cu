@@ -29,6 +29,7 @@
 #include <specific_spmv.h>
 #include <basic_types.h>
 #include <util.h>
+#include <algorithm>
 
 #include "amgx_types/util.h"
 

@@ -45,6 +45,8 @@
 
 #include "amgx_types/util.h"
 
+#include <algorithm>
+
 //trick to get nvcc to print a defined value
 //(__CUDA_ARCH__) @ compile time:
 //

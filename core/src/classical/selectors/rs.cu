@@ -47,7 +47,7 @@ typedef std::pair< int, int> pair_type; // give it a more meaningful name
 
 struct compare
 {
-    bool operator()(const pair_type &a, const pair_type &b)
+    bool operator()(const pair_type &a, const pair_type &b) const
     {
         if (a.first < b.first) { return true; }
         else if ( (a.first == b.first) && (b.second < a.second) ) { return true; }

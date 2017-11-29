@@ -26,6 +26,7 @@
  */
 
 #include <amgx_lapack.h>
+#include <algorithm>
 
 #ifdef AMGX_USE_MAGMA
 #define ADD_ 1

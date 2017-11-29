@@ -44,7 +44,7 @@
 #include <cassert>
 
 #include <logger.h>
-
+#include <algorithm>
 #include <chrono>
 
 namespace amgx

@@ -28,6 +28,7 @@
 #include <amgx_timer.h>
 
 #include <sstream>
+#include <algorithm>
 
 #ifdef AMGX_WITH_MPI
 #include <mpi.h>

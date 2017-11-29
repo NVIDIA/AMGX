@@ -28,6 +28,8 @@
 #include "amg_config.h"
 #include "convergence/combined_rel_ini_abs.h"
 
+#include <algorithm>
+
 namespace amgx
 {
 template<typename TConfig>

@@ -95,8 +95,18 @@ if (OPENMP_FOUND)
 endif()
 
 # install paths
-set(CMAKE_INSTALL_PREFIX "..")
-set(CMAKE_INSTALL_RPATH "\$ORIGIN/../")
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX ".." CACHE PATH "Path where AMGX will be installed" FORCE)
+endif()
+# add CMAKE_INSTALL_PREFIX/lib to the RPATH to be used when installing,
+# but only if it's not a system directory
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+     "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+if("${isSystemDir}" STREQUAL "-1")
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # ignore rpath completely, if requested:

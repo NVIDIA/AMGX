@@ -408,7 +408,7 @@ void fill_A_kernel_1x1( const int  R_num_rows,
         // Update the diagonal.
         if ( HAS_DIAG )
         {
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
             r_diag = utils::warp_reduce<1, utils::Add>( r_diag );
 #else
             types::util<Value_type>::volcast(r_diag, s_diag + threadIdx.x);
@@ -883,7 +883,7 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
         {
             if ( !FORCE_DETERMINISM )
             {
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
                 ac_diag = utils::warp_reduce<NxN, utils::Add>( ac_diag );
 #else
                 types::util<Value_type>::volcast(ac_diag, s_bcast_ac_val + threadIdx.x);
@@ -1079,7 +1079,7 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
         {
             if ( !FORCE_DETERMINISM )
             {
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
                 ac_diag = utils::warp_reduce<NxN, utils::Add>( ac_diag );
 #else
                 types::util<Value_type>::volcast(ac_diag, s_bcast_ac_val + threadIdx.x);

@@ -208,7 +208,7 @@ void find_max_neighbor_kernel_and_propagate_used_colors( const int A_num_rows,
         }
 
         //BEGIN: Reduce used_colors/max_hashes amongst subwarps
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
@@ -355,7 +355,7 @@ void color_kernel_greedy_onlymax(
         }
 
         //reduce used colors bit by bit.
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
@@ -624,7 +624,7 @@ void color_kernel_greedy_gtlt(
         //is_max_vertex = row_gt_count==0;
         //is_min_vertex = false;
         //reduce used colors bit by bit.
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)

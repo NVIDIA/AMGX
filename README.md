@@ -56,6 +56,7 @@ cmake ....  -DCUDA_ARCH="35 52 60" ....
 ```
 - CMAKE_NO_MPI: Boolean value. If True then non-MPI (single GPU) build will be forced. Results in smaller sized library which could be run on systems without MPI installed. If not specified then MPI build would be enabled if FindMPI script found any MPI installation.
 - AMGX_NO_RPATH: Boolean value. By default CMake adds -rpath flags to binaries. Setting this flag to True tell CMake to not do that - useful for controlling execution environment.
+- MKL_ROOT_DIR and MAGMA_ROOT_DIR: string values. MAGMA/MKL functionality is used to accelerate some of the AMGX eigensolvers. Those solvers will return error 'not supported' if AMGX was not build with MKL/MAGMA support.
 
 CMakeLists uses FindCUDA and FindMPI module scripts to locate corresponding software 
 so refer to those scripts from your CMake installation for module-specific flags.

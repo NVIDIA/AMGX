@@ -347,7 +347,7 @@ namespace
 {
 #ifdef AMGX_USE_LAPACK
 
-extern "C"
+/*extern "C"
 void cblas_dgemv(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
                  const int N, const double alpha, const double *A, const int lda, const double *X,
                  const int incX, const double beta, double *Y, const int incY);
@@ -356,6 +356,16 @@ extern "C"
 void cblas_sgemv(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
                  const int N, const float alpha, const float *A, const int lda, const float *X,
                  const int incX, const float beta, float *Y, const int incY);
+
+extern "C"
+void cblas_cgemv(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
+                 const int N, const cuComplex alpha, const cuComplex *A, const int lda, const cuComplex *X,
+                 const int incX, const cuComplex beta, cuComplex *Y, const int incY);
+
+extern "C"
+void cblas_zgemv(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
+                 const int N, const cuDoubleComplex alpha, const cuDoubleComplex *A, const int lda, const cuDoubleComplex *X,
+                 const int incX, const cuDoubleComplex beta, cuDoubleComplex *Y, const int incY);*/
 
 void mkl_gemv_dispatch(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
                        const int N, const double alpha, const double *A, const int lda, const double *X,
@@ -369,6 +379,36 @@ void mkl_gemv_dispatch(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, co
                        const int incX, const float beta, float *Y, const int incY)
 {
     cblas_sgemv(order, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+}
+
+void mkl_gemv_dispatch(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
+                       const int N, const cuComplex alpha, const cuComplex *A, const int lda, const cuComplex *X,
+                       const int incX, const cuComplex beta, cuComplex *Y, const int incY)
+{
+    cblas_cgemv(order, TransA, M, N, 
+                reinterpret_cast<const void*>(&alpha), 
+                reinterpret_cast<const void*>(A), 
+                lda, 
+                reinterpret_cast<const void*>(X), 
+                incX, 
+                reinterpret_cast<const void*>(&beta), 
+                reinterpret_cast<void*>(Y), 
+                incY);
+}
+
+void mkl_gemv_dispatch(const CBLAS_ORDER order, const CBLAS_TRANSPOSE TransA, const int M,
+                       const int N, const cuDoubleComplex alpha, const cuDoubleComplex *A, const int lda, const cuDoubleComplex *X,
+                       const int incX, const cuDoubleComplex beta, cuDoubleComplex *Y, const int incY)
+{
+    cblas_zgemv(order, TransA, M, N, 
+                reinterpret_cast<const void*>(&alpha), 
+                reinterpret_cast<const void*>(A), 
+                lda, 
+                reinterpret_cast<const void*>(X), 
+                incX, 
+                reinterpret_cast<const void*>(&beta), 
+                reinterpret_cast<void*>(Y), 
+                incY);
 }
 
 template <typename T>
@@ -409,22 +449,48 @@ void gemv_extnd(bool trans, const Vector &A, const Vector &x, Vector &y, int m, 
 namespace
 {
 #ifdef AMGX_USE_LAPACK
-extern "C" void cblas_strsv (const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
+/*extern "C" void cblas_strsv (const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
                              const int N, const float *A, const int lda, float *X, const int incX);
 
 extern "C" void cblas_dtrsv (const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
                              const int N, const double *A, const int lda, double *X, const int incX);
+
+extern "C" void cblas_ctrsv (const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
+                             const int N, const cuComplex *A, const int lda, cuComplex *X, const int incX);
+
+extern "C" void cblas_ztrsv (const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
+                             const int N, const cuDoubleComplex *A, const int lda, cuDoubleComplex *X, const int incX);*/
+
 void mkl_trsv_dispatch(const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
                        const int N, const float *A, const int lda, float *X, const int incX)
-{ cblas_strsv (order, Uplo, TransA, Diag, N, A, lda, X, incX);}
+{   
+    cblas_strsv (order, Uplo, TransA, Diag, N, A, lda, X, incX);
+}
+
 void mkl_trsv_dispatch(const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
                        const int N, const double *A, const int lda, double *X, const int incX)
-{ cblas_dtrsv (order, Uplo, TransA, Diag, N, A, lda, X, incX);}
+{   
+    cblas_dtrsv (order, Uplo, TransA, Diag, N, A, lda, X, incX);
+}
+
+void mkl_trsv_dispatch(const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
+                       const int N, const cuComplex *A, const int lda, cuComplex *X, const int incX)
+{   
+    cblas_ctrsv (order, Uplo, TransA, Diag, N, A, lda, X, incX);
+}
+
+void mkl_trsv_dispatch(const CBLAS_ORDER order, const CBLAS_UPLO Uplo, const CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
+                       const int N, const cuDoubleComplex *A, const int lda, cuDoubleComplex *X, const int incX)
+{   
+    cblas_ztrsv (order, Uplo, TransA, Diag, N, A, lda, X, incX);
+}
 
 template <typename T>
 void mkl_trsv(CBLAS_ORDER order, CBLAS_UPLO Uplo, CBLAS_TRANSPOSE TransA, const CBLAS_DIAG Diag,
               int N, const T *A, int lda, T *X, int incX)
-{    mkl_trsv_dispatch(order, Uplo, TransA, Diag, N, A, lda, X, incX);}
+{   
+    mkl_trsv_dispatch(order, Uplo, TransA, Diag, N, A, lda, X, incX);
+}
 #endif
 }
 

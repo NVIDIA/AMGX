@@ -232,7 +232,7 @@ struct used_color_structure_64_bit
     template<int CTA_SIZE, int WARP_SIZE>
     __device__ __forceinline__ void sync_subwarp(const int sublane_id)
     {
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
@@ -380,7 +380,7 @@ unsigned long long int box_id :
     __device__ __forceinline__ void sync_subwarp(const int sublane_id)
     {
         used_color_structure_64_bit_colorbox<N_COLORBOXES_BITS> tmps;
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)

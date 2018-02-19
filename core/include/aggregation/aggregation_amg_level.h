@@ -85,7 +85,11 @@ class Aggregation_AMG_Level_Base : public AMG_Level<T_Config>
 
         friend class Aggregation_AMG_Level_Base<TConfig1>;
 
+#ifdef _WIN32
         Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng);
+#else
+        __attribute__((optimize("O2"))) Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng);
+#endif
 
         virtual void transfer_level(AMG_Level<TConfig1> *ref_lvl);
 

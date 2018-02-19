@@ -320,14 +320,15 @@ endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
 #include magma
 if (MAGMA_ROOT_DIR)
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_MAGMA")
-  #include_directories(${MAGMA_ROOT_DIR}/include)
   CUDA_INCLUDE_DIRECTORIES(${MAGMA_ROOT_DIR}/include)
+  set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a)
 endif(MAGMA_ROOT_DIR)
 #include lapack (MKL)
 if (MKL_ROOT_DIR)
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_LAPACK")
-  #include_directories(${MKL_ROOT_DIR}/include)
   CUDA_INCLUDE_DIRECTORIES(${MKL_ROOT_DIR}/include)
+  #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
+  set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
 #create a list of all sources in amgx
@@ -380,24 +381,20 @@ if(MPI_FOUND)
     target_link_libraries( amgxsh ${MPI_C_LIBRARIES})
 endif(MPI_FOUND)
 
-#include magma
+#link magma
 if (MAGMA_ROOT_DIR)
-  #WARNING: the MAGMA library was build with "LIB = -lmkl_gf_lp64 -lmkl_gnu_thread -lmkl_core -lpthread -lcublas -lcudart -lm -fopenmp"
-  set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a ${OPENBLAS_ROOT_DIR}/lib/libopenblas.so)
   target_link_libraries(amgx   ${magma_libs})
   target_link_libraries(amgxsh ${magma_libs})
-endif (MAGMA_ROOT_DIR)
-#include lapack (MKL)
-if(MKL_ROOT_DIR)
-  #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
-  #In particular, in this case Intel MKL 10.3.6 link advisor reported: -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -fopenmp -lpthread
-  set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/em64t/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/em64t/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/em64t/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
+endif(MAGMA_ROOT_DIR)
+#link lapack (MKL)
+if (MKL_ROOT_DIR)
   target_link_libraries(amgx   ${mkl_libs} )
   target_link_libraries(amgxsh ${mkl_libs})
 endif(MKL_ROOT_DIR)
 
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")
+
 export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples

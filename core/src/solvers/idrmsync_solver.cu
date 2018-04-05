@@ -505,7 +505,9 @@ void IDRMSYNC_Solver< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPre
         int size, int s, int numprox, int pid, int offsetvec)
 {
     Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > *Aptr =  dynamic_cast<Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > * >(this->m_A);
+#ifdef AMGX_WITH_MPI
     Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &A   = *Aptr;
+#endif
 
     if ( !Aptr )  //not a matrix!
     {
@@ -534,7 +536,9 @@ void IDRMSYNC_Solver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
         int size, int s, int numprox, int pid, int offsetvec)
 {
     Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > *Aptr =  dynamic_cast<Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > * >(this->m_A);
+#ifdef AMGX_WITH_MPI
     Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > &A   = *Aptr;
+#endif
 
     if ( !Aptr )  //not a matrix!
     {

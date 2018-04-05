@@ -30,6 +30,7 @@
 #include <thrust/count.h>
 #include <hash_workspace.h>
 
+#include <algorithm>
 #include <assert.h>
 
 namespace amgx

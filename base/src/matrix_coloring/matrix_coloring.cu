@@ -38,6 +38,7 @@
 #include <thrust/binary_search.h>
 #include <assert.h>
 #include <sm_utils.inl>
+#include <algorithm>
 
 #include <amgx_types/util.h>
 #include <amgx_types/math.h>

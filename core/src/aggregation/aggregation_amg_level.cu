@@ -47,6 +47,7 @@
 #include <string>
 #include <string.h>
 #include <iostream>
+#include <algorithm>
 #include <amgx_timer.h>
 
 #include <amgx_types/util.h>

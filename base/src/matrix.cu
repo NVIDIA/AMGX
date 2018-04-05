@@ -38,6 +38,7 @@
 #include <permute.h>
 #include <multiply.h>
 #include <amgx_types/util.h>
+#include <algorithm>
 
 template<typename T>
 struct row_length : public thrust::unary_function<T, T>

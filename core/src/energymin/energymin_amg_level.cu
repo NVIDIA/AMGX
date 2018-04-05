@@ -50,6 +50,7 @@
 
 #include <profile.h>
 #include <string>
+#include <algorithm>
 
 namespace amgx
 {

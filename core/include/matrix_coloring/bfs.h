@@ -42,7 +42,7 @@ template<int CTA_SIZE, int WARP_SIZE, class T> __device__ __forceinline__ T warp
     const int warpId = utils::warp_id();
     const int laneId = utils::lane_id();
     T value = input;
-#if __CUDA_ARCH__ >= 350
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
     for (int i = 1; i < WARP_SIZE; i *= 2)

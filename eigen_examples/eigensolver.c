@@ -8,6 +8,9 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "amgx_c.h"
 #include "amgx_eig_c.h"
 
@@ -93,20 +96,63 @@ int main(int argc, const char **argv)
   AMGX_Mode mode;
   if ((pidx = findParamIndex(argv, argc, "-mode")) != -1)
   {
-    if (strncmp(argv[pidx + 1], "hDDI", 100)==0)
-      mode = AMGX_mode_hDDI;
-    else if (strncmp(argv[pidx + 1], "hDFI", 100)==0)
-      mode = AMGX_mode_hDFI;
-    else if (strncmp(argv[pidx + 1], "hFFI", 100)==0)
-      mode = AMGX_mode_hFFI;
-    else if (strncmp(argv[pidx + 1], "dDDI", 100)==0)
+      if (strncmp(argv[pidx + 1], "hDDI", 100) == 0)
+      {
+          mode = AMGX_mode_hDDI;
+      }
+      else if (strncmp(argv[pidx + 1], "hDFI", 100) == 0)
+      {
+          mode = AMGX_mode_hDFI;
+      }
+      else if (strncmp(argv[pidx + 1], "hFFI", 100) == 0)
+      {
+          mode = AMGX_mode_hFFI;
+      }
+      else if (strncmp(argv[pidx + 1], "dDDI", 100) == 0)
+      {
+          mode = AMGX_mode_dDDI;
+      }
+      else if (strncmp(argv[pidx + 1], "dDFI", 100) == 0)
+      {
+          mode = AMGX_mode_dDFI;
+      }
+      else if (strncmp(argv[pidx + 1], "dFFI", 100) == 0)
+      {
+          mode = AMGX_mode_dFFI;
+      }
+      else if (strncmp(argv[pidx + 1], "hCCI", 100) == 0)
+      {
+          mode = AMGX_mode_hZZI;
+      }
+      else if (strncmp(argv[pidx + 1], "hZCI", 100) == 0)
+      {
+          mode = AMGX_mode_hZCI;
+      }
+      else if (strncmp(argv[pidx + 1], "hZZI", 100) == 0)
+      {
+          mode = AMGX_mode_hZZI;
+      }
+      else if (strncmp(argv[pidx + 1], "dCCI", 100) == 0)
+      {
+          mode = AMGX_mode_dCCI;
+      }
+      else if (strncmp(argv[pidx + 1], "dZCI", 100) == 0)
+      {
+          mode = AMGX_mode_dZCI;
+      }
+      else if (strncmp(argv[pidx + 1], "dZZI", 100) == 0)
+      {
+          mode = AMGX_mode_dZZI;
+      }
+      else
+      {
+          errAndExit("ERROR: invalid mode");
+      }
+  }
+  else
+  {
+      printf("Warning: No mode specified, using dDDI by default.\n");
       mode = AMGX_mode_dDDI;
-    else if (strncmp(argv[pidx + 1], "dDFI", 100)==0)
-      mode = AMGX_mode_dDFI;
-    else if (strncmp(argv[pidx + 1], "dFFI", 100)==0)
-      mode = AMGX_mode_dFFI;
-    else
-      errAndExit("Incorrect eigensolver mode!");
   }
 
   int pidy = findParamIndex(argv,argc,"-c");

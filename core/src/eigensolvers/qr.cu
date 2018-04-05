@@ -36,6 +36,7 @@
 #include <fstream>
 #include <blas.h>
 #include <norm.h>
+#include <algorithm>
 
 namespace amgx
 {

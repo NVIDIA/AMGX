@@ -26,6 +26,7 @@
  */
 
 #include <amgx_lapack.h>
+#include <algorithm>
 
 #ifdef AMGX_USE_MAGMA
 #define ADD_ 1
@@ -156,9 +157,17 @@ int lapack_geev_dispatch(char *jobvl, char *jobvr, int *n, cuComplex *a,
                          int *ldvl, cuComplex *vr, int *ldvr, cuComplex *work,
                          int *lwork, int *info)
 {
-    return cgeev_(jobvl, jobvr, n, reinterp_cast<fcomplex *>(a),
-                  lda, reinterp_cast<fcomplex *>(wr), reinterp_cast<fcomplex *>(wi), reinterp_cast<fcomplex *>(vl),
-                  ldvl, reinterp_cast<fcomplex *>(vr), ldvr, work, reinterp_cast<fcomplex *>(lwork),
+    return cgeev_(jobvl, jobvr, n, 
+                  reinterpret_cast<fcomplex *>(a),
+                  lda, 
+                  reinterpret_cast<fcomplex *>(wr), 
+                  reinterpret_cast<fcomplex *>(wi), 
+                  reinterpret_cast<fcomplex *>(vl),
+                  ldvl, 
+                  reinterpret_cast<fcomplex *>(vr), 
+                  ldvr, 
+                  reinterpret_cast<fcomplex *>(work), 
+                  lwork,
                   info);
 }
 
@@ -167,9 +176,17 @@ int lapack_geev_dispatch(char *jobvl, char *jobvr, int *n, cuDoubleComplex *a,
                          int *ldvl, cuDoubleComplex *vr, int *ldvr, cuDoubleComplex *work,
                          int *lwork, int *info)
 {
-    return cgeev_(jobvl, jobvr, n, reinterp_cast<dcomplex *>(a),
-                  lda, reinterp_cast<dcomplex *>(wr), reinterp_cast<dcomplex *>(wi), reinterp_cast<dcomplex *>(vl),
-                  ldvl, reinterp_cast<dcomplex *>(vr), ldvr, work, reinterp_cast<dcomplex *>(lwork),
+    return zgeev_(jobvl, jobvr, n, 
+                  reinterpret_cast<dcomplex *>(a),
+                  lda, 
+                  reinterpret_cast<dcomplex *>(wr), 
+                  reinterpret_cast<dcomplex *>(wi), 
+                  reinterpret_cast<dcomplex *>(vl),
+                  ldvl, 
+                  reinterpret_cast<dcomplex *>(vr), 
+                  ldvr, 
+                  reinterpret_cast<dcomplex *>(work), 
+                  lwork,
                   info);
 }
 
@@ -340,13 +357,13 @@ int magma_trtri_dispatch(magma_uplo_t uplo, magma_diag_t diag, int n, double *a,
 int magma_trtri_dispatch(magma_uplo_t uplo, magma_diag_t diag, int n, cuComplex *a,
                          int lda, int *info)
 {
-    return magma_strtri_gpu(uplo, diag, n, a, lda, info);
+    return magma_ctrtri_gpu(uplo, diag, n, a, lda, info);
 }
 
 int magma_trtri_dispatch(magma_uplo_t uplo, magma_diag_t diag, int n, cuDoubleComplex *a,
                          int lda, int *info)
 {
-    return magma_dtrtri_gpu(uplo, diag, n, a, lda, info);
+    return magma_ztrtri_gpu(uplo, diag, n, a, lda, info);
 }
 
 template <typename T>
@@ -389,12 +406,13 @@ int ssygv_(int *itype, char *jobz, char *uplo, int *n,
            float *a, int *lda, float *b, int *ldb,
            float *w, float *work, int *lwork, int *info);
 
-int csygv_(int *itype, char *jobz, char *uplo, int *n,
+extern "C"
+int chegv_(int *itype, char *jobz, char *uplo, int *n,
            fcomplex *a, int *lda, fcomplex *b, int *ldb,
            fcomplex *w, fcomplex *work, int *lwork, int *info);
 
 extern "C"
-int zsygv_(int *itype, char *jobz, char *uplo, int *n,
+int zhegv_(int *itype, char *jobz, char *uplo, int *n,
            dcomplex *a, int *lda, dcomplex *b, int *ldb,
            dcomplex *w, dcomplex *work, int *lwork, int *info);
 
@@ -416,18 +434,18 @@ int lapack_sygv_dispatch(int *itype, char *jobz, char *uplo, int *n,
                          cuComplex *a, int *lda, cuComplex *b, int *ldb,
                          cuComplex *w, cuComplex *work, int *lwork, int *info)
 {
-    return csygv_(itype, jobz, uplo, n,
-                  reinterp_cast<fcomplex *>(a), lda, reinterp_cast<fcomplex *>(b), ldb,
-                  reinterp_cast<fcomplex *>(w), reinterp_cast<fcomplex *>(work), lwork, info);
+    return chegv_(itype, jobz, uplo, n,
+                  reinterpret_cast<fcomplex *>(a), lda, reinterpret_cast<fcomplex *>(b), ldb,
+                  reinterpret_cast<fcomplex *>(w), reinterpret_cast<fcomplex *>(work), lwork, info);
 }
 
 int lapack_sygv_dispatch(int *itype, char *jobz, char *uplo, int *n,
                          cuComplex *a, int *lda, cuDoubleComplex *b, int *ldb,
                          cuDoubleComplex *w, cuDoubleComplex *work, int *lwork, int *info)
 {
-    return zsygv_(itype, jobz, uplo, n,
-                  reinterp_cast<dcomplex *>(a), lda, reinterp_cast<dcomplex *>(b), ldb,
-                  reinterp_cast<dcomplex *>(w), reinterp_cast<dcomplex *>(work), lwork, info);
+    return zhegv_(itype, jobz, uplo, n,
+                  reinterpret_cast<dcomplex *>(a), lda, reinterpret_cast<dcomplex *>(b), ldb,
+                  reinterpret_cast<dcomplex *>(w), reinterpret_cast<dcomplex *>(work), lwork, info);
 }
 
 template <typename T>

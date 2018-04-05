@@ -44,6 +44,7 @@
 #include <thrust/logical.h>
 #include <profile.h>
 #include <sm_utils.inl>
+#include <algorithm>
 
 // TODO: Have 2 groups of 16 threads collaborate
 // TODO: Add support for outside diagonal

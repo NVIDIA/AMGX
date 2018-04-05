@@ -43,6 +43,7 @@
 #include <memory_intrinsics.h>
 #include <thrust/replace.h>
 
+#include <algorithm>
 
 #define GET_COLORS_THRUST 0
 #define GET_COLORS_TWOPASS 1

@@ -58,7 +58,7 @@ IF(WIN32)
   set(CMAKE_C_FLAGS_RELEASE        "/MT /O2 /Ob2 /D NDEBUG" CACHE STRING "" FORCE)
   set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MT /O2 /Ob2 /D NDEBUG" CACHE STRING "" FORCE)
 
-  set(CMAKE_CXX_FLAGS                "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /bigobj" CACHE STRING "" FORCE)
+  set(CMAKE_CXX_FLAGS                "/DWIN32 /D_WINDOWS /DNOMINMAX /W3 /GR /EHsc /bigobj" CACHE STRING "" FORCE)
   set(CMAKE_CXX_FLAGS_DEBUG          "/D_DEBUG /Zl /Zi /Ob0 /Od /RTC1" CACHE STRING "" FORCE)
   set(CMAKE_CXX_FLAGS_MINSIZEREL     "/D_DEBUG /Zl /Zi /Ob0 /Od /RTC1" CACHE STRING "" FORCE)
   set(CMAKE_CXX_FLAGS_RELEASE        "/MT /O2 /Ob2 /DNDEBUG" CACHE STRING "Force flags. /Zl is used to remove deps" FORCE)
@@ -95,8 +95,18 @@ if (OPENMP_FOUND)
 endif()
 
 # install paths
-set(CMAKE_INSTALL_PREFIX "..")
-set(CMAKE_INSTALL_RPATH "\$ORIGIN/../")
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX ".." CACHE PATH "Path where AMGX will be installed" FORCE)
+endif()
+# add CMAKE_INSTALL_PREFIX/lib to the RPATH to be used when installing,
+# but only if it's not a system directory
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+     "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+if("${isSystemDir}" STREQUAL "-1")
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # ignore rpath completely, if requested:
@@ -159,6 +169,9 @@ else()
     set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call" CACHE STRING "Release compiler flags")
     set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
     set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+	if(WIN32)
+		set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
+	endif()
 endif()
 
 #keep intermediate files
@@ -227,12 +240,7 @@ ENDIF(CUDA_VERSION_MAJOR MATCHES 8)
 
 #if compiling against CUDA Toolkit 9.x
 IF(CUDA_VERSION_MAJOR MATCHES 9)
-  IF(CUDA_VERSION_MINOR MATCHES 0)
-    SET(CUDA_ARCH "50 52 60 70" CACHE STRING "Target Architectures (SM50 SM52 SM60 SM70), multiple are allowed")
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DCUDA90_COMPILER")
-  ELSE(CUDA_VERSION_MINOR MATCHES 0)
-    message( FATAL_ERROR "Default flags for CUDA 9.5 are not set. Edit CMakeLists.txt to set them" )
-  ENDIF(CUDA_VERSION_MINOR MATCHES 0)
+  SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
 ENDIF(CUDA_VERSION_MAJOR MATCHES 9)
 
 #replace ' ' with ; to match the proper cmake format
@@ -312,14 +320,15 @@ endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
 #include magma
 if (MAGMA_ROOT_DIR)
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_MAGMA")
-  #include_directories(${MAGMA_ROOT_DIR}/include)
   CUDA_INCLUDE_DIRECTORIES(${MAGMA_ROOT_DIR}/include)
+  set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a)
 endif(MAGMA_ROOT_DIR)
 #include lapack (MKL)
 if (MKL_ROOT_DIR)
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_LAPACK")
-  #include_directories(${MKL_ROOT_DIR}/include)
   CUDA_INCLUDE_DIRECTORIES(${MKL_ROOT_DIR}/include)
+  #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
+  set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
 #create a list of all sources in amgx
@@ -357,7 +366,7 @@ endif (target_all)
 
 find_library_local_first(cublas_library cublas "The cuBLAS CUDA library")
 find_library_local_first(cusparse_library cusparse "The cusparse CUDA library")
-find_library_local_first(cusolver_library cusolver "The cusparse CUDA library")
+find_library_local_first(cusolver_library cusolver "The cusolver CUDA library")
 
 IF (WIN32)
   target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library})
@@ -372,24 +381,20 @@ if(MPI_FOUND)
     target_link_libraries( amgxsh ${MPI_C_LIBRARIES})
 endif(MPI_FOUND)
 
-#include magma
+#link magma
 if (MAGMA_ROOT_DIR)
-  #WARNING: the MAGMA library was build with "LIB = -lmkl_gf_lp64 -lmkl_gnu_thread -lmkl_core -lpthread -lcublas -lcudart -lm -fopenmp"
-  set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a ${OPENBLAS_ROOT_DIR}/lib/libopenblas.so)
   target_link_libraries(amgx   ${magma_libs})
   target_link_libraries(amgxsh ${magma_libs})
-endif (MAGMA_ROOT_DIR)
-#include lapack (MKL)
-if(MKL_ROOT_DIR)
-  #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
-  #In particular, in this case Intel MKL 10.3.6 link advisor reported: -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -fopenmp -lpthread
-  set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/em64t/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/em64t/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/em64t/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
+endif(MAGMA_ROOT_DIR)
+#link lapack (MKL)
+if (MKL_ROOT_DIR)
   target_link_libraries(amgx   ${mkl_libs} )
   target_link_libraries(amgxsh ${mkl_libs})
 endif(MKL_ROOT_DIR)
 
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")
+
 export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples

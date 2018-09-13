@@ -38,7 +38,6 @@ FILE(GLOB_RECURSE SRCS "src/*.cu")
 
 CUDA_ADD_LIBRARY(amgx_base STATIC ${SRCS} ${CMAKE_SOURCE_DIR}/plugin_config.cu)
 
-install(FILES
-  include/amgx_config.h
-  include/amgx_c.h
+install(DIRECTORY
+  include/
   DESTINATION include)

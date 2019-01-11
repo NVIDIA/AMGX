@@ -325,8 +325,9 @@ void run()
 
     for (int i = 0; i < max_reuse_levels; i++)
     {
-        temp_case.config_string = base_string;
-        temp_case.config_string += ", main_solver:structure_reuse_levels=" + static_cast<std::ostringstream *>( &(std::ostringstream() << i) )->str() + ", ";
+        std::ostringstream config_string;
+        config_string << base_string << ", main_solver:structure_reuse_levels=" << i << ", ";
+        temp_case.config_string = config_string.str();
         temp_case.use_pre_setup = false;
         test_cases.push_back(temp_case);
     }

@@ -243,6 +243,11 @@ IF(CUDA_VERSION_MAJOR MATCHES 9)
   SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
 ENDIF(CUDA_VERSION_MAJOR MATCHES 9)
 
+#if compiling against CUDA Toolkit 10.x
+IF(CUDA_VERSION_MAJOR MATCHES 10)
+  SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
+ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
+
 #replace ' ' with ; to match the proper cmake format
 STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})
 

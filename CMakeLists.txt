@@ -65,6 +65,15 @@ IF(WIN32)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /O2 /Ob2 /DNDEBUG" CACHE STRING "Force flags. /Zl is used to remove deps" FORCE)
 ENDIF(WIN32)
 
+# disabling specific warnings
+if(CMAKE_COMPILER_IS_GNUCXX)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
+    # we throw in ~Matrix(), we assume any error fatal so std::terminate call is ok
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-terminate")
+  endif()
+endif()
+
+
 # min compiler requirements
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)

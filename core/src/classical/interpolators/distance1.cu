@@ -36,7 +36,6 @@
 #include <set>
 #include <vector>
 #include <algorithm>
-#include <cmath> // std::signbit
 #include <assert.h>
 
 #include <thrust/count.h>

@@ -45,6 +45,14 @@ struct is_non_neg
     }
 };
 
+template< typename T >
+__device__ __forceinline__
+bool
+sign( T x ) 
+{ 
+	return x >= T(0); 
+}
+
 
 __global__
 void coarseMarkKernel(int *cf_map, int *mark, const int numEntries);

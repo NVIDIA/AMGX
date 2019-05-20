@@ -227,48 +227,53 @@ PolynomialSolverBase<T_Config>::solve_finalize( VVector &b, VVector &x )
 }
 
 template<class T_Config>
-void poly_postsmooth(const Matrix<T_Config> &A, const Vector<T_Config> &B, Vector<T_Config> &C, cusp::relaxation::polynomial<typename T_Config::MatPrec, typename T_Config::MemSpace> &poly)
+struct poly_smooth
 {
-    FatalError("Mixed precision is not supported for scalar matrix type", AMGX_ERR_NOT_IMPLEMENTED);
-}
+    static void poly_postsmooth(const Matrix<T_Config> &A, const Vector<T_Config> &B, Vector<T_Config> &C, cusp::relaxation::polynomial<typename T_Config::MatPrec, typename T_Config::MemSpace> &poly)
+    {
+        FatalError("Mixed precision is not supported for scalar matrix type", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+    static void poly_presmooth(const Matrix<T_Config> &A, const Vector<T_Config> &B, Vector<T_Config> &C, cusp::relaxation::polynomial<typename T_Config::MatPrec, typename T_Config::MemSpace> &poly)
+    {
+        FatalError("Mixed precision is not supported for scalar matrix type", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+};
 
 template<AMGX_MemorySpace t_memSpace, AMGX_IndPrecision t_indInt>
-void poly_postsmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &C, cusp::relaxation::polynomial<float, typename MemorySpaceMap<t_memSpace>::Type> &poly)
+struct poly_smooth<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt>>
 {
-    MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > *) &A);
-    poly.postsmooth(wA, B, C);
-    cudaCheckError();
-}
+    static void poly_postsmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &C, cusp::relaxation::polynomial<double, typename MemorySpaceMap<t_memSpace>::Type> &poly)
+    {
+        MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > *) &A);
+        poly.postsmooth(wA, B, C);
+        cudaCheckError();
+    }
+
+    static void poly_presmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &C, cusp::relaxation::polynomial<double, typename MemorySpaceMap<t_memSpace>::Type> &poly)
+    {
+        MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > *) &A);
+        poly.presmooth(wA, B, C);
+        cudaCheckError();
+    }
+};
 
 template<AMGX_MemorySpace t_memSpace, AMGX_IndPrecision t_indInt>
-void poly_postsmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &C, cusp::relaxation::polynomial<double, typename MemorySpaceMap<t_memSpace>::Type> &poly)
+struct poly_smooth<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt>>
 {
-    MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > *) &A);
-    poly.postsmooth(wA, B, C);
-    cudaCheckError();
-}
+    static void poly_postsmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &C, cusp::relaxation::polynomial<float, typename MemorySpaceMap<t_memSpace>::Type> &poly)
+    {
+        MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > *) &A);
+        poly.postsmooth(wA, B, C);
+        cudaCheckError();
+    }
 
-template<class T_Config>
-void poly_presmooth(const Matrix<T_Config> &A, const Vector<T_Config> &B, Vector<T_Config> &C, cusp::relaxation::polynomial<typename T_Config::MatPrec, typename T_Config::MemSpace> &poly)
-{
-    FatalError("Mixed precision is not supported for scalar matrix type", AMGX_ERR_NOT_IMPLEMENTED);
-}
-
-template<AMGX_MemorySpace t_memSpace, AMGX_IndPrecision t_indInt>
-void poly_presmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &C, cusp::relaxation::polynomial<float, typename MemorySpaceMap<t_memSpace>::Type> &poly)
-{
-    MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > *) &A);
-    poly.presmooth(wA, B, C);
-    cudaCheckError();
-}
-
-template<AMGX_MemorySpace t_memSpace, AMGX_IndPrecision t_indInt>
-void poly_presmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > &C, cusp::relaxation::polynomial<double, typename MemorySpaceMap<t_memSpace>::Type> &poly)
-{
-    MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matDouble, t_indInt> > *) &A);
-    poly.presmooth(wA, B, C);
-    cudaCheckError();
-}
+    static void poly_presmooth(const Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &A, const Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &B, Vector<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > &C, cusp::relaxation::polynomial<float, typename MemorySpaceMap<t_memSpace>::Type> &poly)
+    {
+        MatrixCusp<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt>, cusp::csr_format> wA((Matrix<TemplateConfig<t_memSpace, AMGX_vecFloat, AMGX_matFloat, t_indInt> > *) &A);
+        poly.presmooth(wA, B, C);
+        cudaCheckError();
+    }
+};
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void PolynomialSolver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::smooth_1x1(const Matrix_h &A, const VVector &B, VVector &C)
@@ -288,7 +293,7 @@ void PolynomialSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPre
         FatalError("Unsupported block size for PolynomialSolver", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);
     }
 
-    poly_postsmooth(A, B, C, this->poly);
+    poly_smooth<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>>::poly_postsmooth(A, B, C, this->poly);
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -348,7 +353,7 @@ void PolynomialSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPre
         FatalError("Unsupported block size for PolynomialSolver", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);
     }
 
-    poly_presmooth(A, b, x, this->poly);
+    poly_smooth<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>>::poly_presmooth(A, b, x, this->poly);
 }
 
 /****************************************

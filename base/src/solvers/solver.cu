@@ -459,7 +459,7 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
 
     if ( m_scaling.compare("NONE") != 0 )
     {
-        int lvl = m_A->getParameter<int>("level");
+        int lvl = m_A->template getParameter<int>("level");
         // We should not scale if it is preconditioner for some outer solver - in this case finest level matrix will be already scaled.
         // However this could be avoided by providing scaling parameter for outer solver and not inner (or vice versa)
         {

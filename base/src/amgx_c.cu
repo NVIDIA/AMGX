@@ -1752,12 +1752,12 @@ inline AMGX_RC matrix_upload_distributed(AMGX_matrix_handle mtx,
     if (mdist.get32BitColIndices()) 
     {
         A_part.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, row_ptrs, (int *)col_indices_global,
-            (ValueType *)data, num_ranks, mdist.getPartitionVec(), n_global, diag_data);
+            (ValueType *)data, num_ranks, n_global, diag_data, mdist);
     }
     else
     {
         A_part.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, row_ptrs, (int64_t *)col_indices_global,
-            (ValueType *)data, num_ranks, mdist.getPartitionVec(), n_global, diag_data);
+            (ValueType *)data, num_ranks, n_global, diag_data, mdist);
     }
     /* Create B2L_maps for comm */
     A_part.manager->renumberMatrixOneRing();
@@ -1792,14 +1792,14 @@ inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
                                         const int *partition_vector)
 {
     AMGX_distribution_handle dist;
-    AMGX_matrixdist_create(&dist);
+    AMGX_distribution_create(&dist);
     MatrixDistributionW wrapDist(dist);
     MatrixDistribution &mdist = *wrapDist.wrapped();
-    mdist.setExplicitPartitionVec(partition_vector);
+    mdist.setPartitionVec(partition_vector);
     mdist.setNumImportRings(num_import_rings);
     auto rc = matrix_upload_distributed<CASE>(mtx, n_global, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices_global,
         data, diag_data, dist);
-    AMGX_matrixdist_destroy(dist);
+    AMGX_distribution_destroy(dist);
     return rc;
 }
 
@@ -1819,15 +1819,15 @@ inline AMGX_RC matrix_upload_all_global_32(AMGX_matrix_handle mtx,
                                            const int *partition_vector)
 {
     AMGX_distribution_handle dist;
-    AMGX_matrixdist_create(&dist);
+    AMGX_distribution_create(&dist);
     MatrixDistributionW wrapDist(dist);
     MatrixDistribution &mdist = *wrapDist.wrapped();
-    mdist.setExplicitPartitionVec(partition_vector);
+    mdist.setPartitionVec(partition_vector);
     mdist.setNumImportRings(num_import_rings);
     mdist.set32BitColIndices(true);
     auto rc = matrix_upload_distributed<CASE>(mtx, n_global, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices_global,
         data, diag_data, dist);
-    AMGX_matrixdist_destroy(dist);
+    AMGX_distribution_destroy(dist);
     return rc;    
 }
 #endif
@@ -4672,7 +4672,7 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
-    AMGX_RC AMGX_API AMGX_matrixdist_create(AMGX_distribution_handle *dist)
+    AMGX_RC AMGX_API AMGX_distribution_create(AMGX_distribution_handle *dist)
     {
         AMGX_ERROR rc = AMGX_OK;
         try 
@@ -4687,18 +4687,47 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
-    AMGX_RC AMGX_API AMGX_matrixdist_destroy(AMGX_distribution_handle dist)
+    AMGX_RC AMGX_API AMGX_distribution_destroy(AMGX_distribution_handle dist)
     {
         AMGX_ERROR rc = AMGX_OK;
         try
         {
-            bool found = remove_managed_object<AMGX_distribution_handle, MatrixDistribution>(dist);
+            if (!remove_managed_object<AMGX_distribution_handle, MatrixDistribution>(dist)) 
+            {
+                rc = AMGX_ERR_BAD_PARAMETERS;
+            }
         }
         AMGX_CATCHES(rc);
         if (rc != AMGX_OK)
         {
             AMGX_CHECK_API_ERROR(rc, NULL);
         }
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_distribution_set_partition_offsets(AMGX_distribution_handle dist, const void *offsets)
+    {
+        if (dist == NULL || offsets == NULL) 
+        {
+            AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+        }
+        typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
+        MatrixDistributionW wrapDist(dist);
+        MatrixDistribution &mdist = *wrapDist.wrapped();
+        mdist.setPartitionOffsets(offsets);
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_distribution_set_partition_vector(AMGX_distribution_handle dist, const int *partition_vector)
+    {
+        if (dist == NULL || partition_vector == NULL) 
+        {
+            AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+        }
+        typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
+        MatrixDistributionW wrapDist(dist);
+        MatrixDistribution &mdist = *wrapDist.wrapped();
+        mdist.setPartitionVec(partition_vector);
         return AMGX_RC_OK;
     }
 

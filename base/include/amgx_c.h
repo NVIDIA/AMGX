@@ -244,11 +244,26 @@ AMGX_RC AMGX_API AMGX_resources_destroy
 (AMGX_resources_handle rsc);
 
 /* Distribution */
-AMGX_RC AMGX_API AMGX_matrixdist_create
+AMGX_RC AMGX_API AMGX_distribution_create
 (AMGX_distribution_handle *dist);
 
-AMGX_RC AMGX_API AMGX_matrixdist_destroy
+AMGX_RC AMGX_API AMGX_distribution_destroy
 (AMGX_distribution_handle dist);
+
+/** For a contiguous partitioning, set the offsets to allow faster matrix upload.
+ * 
+ * `offsets` can be `int` or `int64_t` array. It must match the column index data type.
+ * Use with \see AMGX_matrix_upload_distributed()
+*/
+AMGX_RC AMGX_API AMGX_distribution_set_partition_offsets
+(AMGX_distribution_handle dist, const void *offsets);
+
+/** Set a partition vector with the same format as for AMGX_matrix_upload_all_global()
+ * 
+ * Use with \see AMGX_matrix_upload_distributed()
+ */
+AMGX_RC AMGX_API AMGX_distribution_set_partition_vector
+(AMGX_distribution_handle dist, const int *partition_vector);
 
 /* Matrix */
 AMGX_RC AMGX_API AMGX_matrix_create

@@ -61,6 +61,7 @@ template <class TConfig> class Energymin_AMG_Level_Base;
 #include <ld_functions.h>
 #include <distributed/distributed_comms.h>
 #include <distributed/distributed_arranger.h>
+#include <matrix_distribution.h>
 
 #include "amgx_types/math.h"
 #include "amgx_types/util.h"
@@ -1810,8 +1811,8 @@ class DistributedManager< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indP
         void unpack_partition(index_type *Bp, index_type *Bc, mat_value_type *Bv);
 
         void generatePoisson7pt(int nx, int ny, int nz, int P, int Q, int R);
-        template <typename t_ColIndex>
-        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_ColIndex *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag_data);
+        template <typename t_colIndex>
+        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag_data, const MatrixDistribution &dist);
         void renumberMatrixOneRing(int update_neighbours = 0);
         void renumber_P_R(Matrix<TConfig_h> &P, Matrix<TConfig_h> &R, Matrix<TConfig_h> &A);
         void createOneRingB2Lmaps();
@@ -1943,8 +1944,8 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         void unpack_partition(index_type *Bp, index_type *Bc, mat_value_type *Bv);
 
         void generatePoisson7pt(int nx, int ny, int nz, int P, int Q, int R);
-        template <typename t_ColIndex>
-        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_ColIndex *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag_data);
+        template <typename t_colIndex>
+        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag_data, const MatrixDistribution &dist);
         void renumberMatrixOneRing(int update_neighbours = 0);
         void renumber_P_R(Matrix<TConfig_d> &P, Matrix<TConfig_d> &R, Matrix<TConfig_d> &A);
         void createOneRingB2Lmaps();
@@ -2054,14 +2055,22 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         friend class CommsSingleDeviceBase<TConfig_d>;
         friend class CommsSingleDeviceBase<TConfig_h>;
     private:
-        template <typename t_ColIndex>
-        void loadDistributed_SetOffsets(int num_ranks, int num_rows_global, const t_ColIndex* partition_offsets);
+        template <typename t_colIndex>
+        void loadDistributed_SetOffsets(int num_ranks, int num_rows_global, const t_colIndex* partition_offsets);
 
-        template <typename t_ColIndex>
-        std::map<t_ColIndex, int> loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols);
+        template <typename t_colIndex>
+        std::map<t_colIndex, int> loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols);
 
         void loadDistributed_InitLocalMatrix(IVector_h local_col_indices, int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy,
             const int *row_offsets, const mat_value_type *values, const void *diag);
+
+        template <typename t_colIndex>
+        void loadDistributedMatrixPartitionVec(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, 
+            const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag, const int *partition);
+
+        template <typename t_colIndex>
+        void loadDistributedMatrixPartitionOffsets( int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, 
+            const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag, const t_colIndex *partition_offsets);
 };
 }
 

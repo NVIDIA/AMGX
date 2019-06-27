@@ -133,6 +133,10 @@ typedef AMGX_vector_handle_struct *AMGX_vector_handle;
 typedef struct {char AMGX_solver_handle_dummy;} AMGX_solver_handle_struct;
 typedef AMGX_solver_handle_struct *AMGX_solver_handle;
 
+typedef struct {char AMGX_distribution_handle_dummy;} AMGX_distribution_handle_struct;
+/** Stores parameters about global matrix distribution and upload */
+typedef AMGX_distribution_handle_struct *AMGX_distribution_handle;
+
 
 /*********************************************************
  * Print C-API error and exit
@@ -238,6 +242,13 @@ AMGX_RC AMGX_API AMGX_resources_create_simple
 
 AMGX_RC AMGX_API AMGX_resources_destroy
 (AMGX_resources_handle rsc);
+
+/* Distribution */
+AMGX_RC AMGX_API AMGX_matrixdist_create
+(AMGX_distribution_handle *dist);
+
+AMGX_RC AMGX_API AMGX_matrixdist_destroy
+(AMGX_distribution_handle dist);
 
 /* Matrix */
 AMGX_RC AMGX_API AMGX_matrix_create
@@ -537,7 +548,7 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global
  int allocated_halo_depth,
  int num_import_rings,
  const int *partition_vector);
-
+ 
 AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
 (AMGX_matrix_handle mtx,
  int n_global,
@@ -553,6 +564,18 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
  int num_import_rings,
  const int *partition_vector);
 
+ AMGX_RC AMGX_API AMGX_matrix_upload_distributed
+(AMGX_matrix_handle mtx,
+ int n_global,
+ int n,
+ int nnz,
+ int block_dimx,
+ int block_dimy,
+ const int *row_ptrs,
+ const void *col_indices_global,
+ const void *data,
+ const void *diag_data,
+ AMGX_distribution_handle distribution);
 
 /*********************************************************
  * C-API deprecated

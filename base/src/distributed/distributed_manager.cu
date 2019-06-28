@@ -1131,6 +1131,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         partition_map[poi] = i;
         partition_offsets[pvi]++;
     }
+    free(partition_offsets);
 
     // compute the inverse partition map
     t_ColIndex *ipartition_map = (t_ColIndex *)calloc(num_rows_global, sizeof(t_ColIndex));
@@ -1139,6 +1140,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         ipartition_map[partition_map[i]] = i;
     }
+    free(partition_map);
 
     int h_cidx_allocated = 0;
     const t_ColIndex *h_col_indices_global = (const t_ColIndex *)this->getHostPointerForData(col_indices, num_nonzeros * sizeof(t_ColIndex), &h_cidx_allocated);
@@ -1156,26 +1158,27 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     // sort global column indices
     thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
     // find unique columns and set local <-> global mappings
-    IVector_h global_col_indices;
-    map<t_ColIndex, int> global_to_local;        // temporary
-    this->local_to_global_map.resize(0);      // permanent
+    // 1) Removed unneeded vector 2) Create map on host first, upload later (less thrust calls)
+    I64Vector_h local_to_global_h;
+    map<int64_t, int> global_to_local;        // temporary
 
     if (off_diag_cols.size() > 0)
     {
-        global_col_indices.push_back(off_diag_cols[0]);
         global_to_local[off_diag_cols[0]] = num_rows;
-        this->local_to_global_map.push_back(off_diag_cols[0]);
+        local_to_global_h.push_back(off_diag_cols[0]);
     }
 
     for (int i = 1; i < off_diag_cols.size(); i++)
     {
         if (off_diag_cols[i] != off_diag_cols[i - 1])
         {
-            global_col_indices.push_back(off_diag_cols[i]);
-            global_to_local[off_diag_cols[i]] = num_rows + global_col_indices.size() - 1;
-            this->local_to_global_map.push_back(off_diag_cols[i]);
+            global_to_local[off_diag_cols[i]] = num_rows + local_to_global_h.size();
+            local_to_global_h.push_back(off_diag_cols[i]);
         }
     }
+    // Upload finished map in one piece
+    this->local_to_global_map.resize(local_to_global_h.size());
+    thrust::copy(local_to_global_h.begin(), local_to_global_h.end(), this->local_to_global_map.begin());
 
     // set 1, then scan to compute local row indices
     IVector_h my_indices(num_rows_global);
@@ -1205,6 +1208,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             local_col_indices[i] = my_indices[ipartition_map[h_col_indices_global[i]]];
         }
     }
+    free(ipartition_map);
 
     // init local matrix
     this->A->set_initialized(0);
@@ -1240,9 +1244,6 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
       free((void*)h_col_indices_global);
     }*/
-    free(partition_offsets);
-    free(partition_map);
-    free(ipartition_map);
 }
 
 

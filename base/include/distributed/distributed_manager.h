@@ -2053,6 +2053,15 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         friend class CommsMPIDirect<TConfig_h>;
         friend class CommsSingleDeviceBase<TConfig_d>;
         friend class CommsSingleDeviceBase<TConfig_h>;
+    private:
+        template <typename t_ColIndex>
+        void loadDistributed_SetOffsets(int num_ranks, int num_rows_global, const t_ColIndex* partition_offsets);
+
+        template <typename t_ColIndex>
+        std::map<t_ColIndex, int> loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols);
+
+        void loadDistributed_InitLocalMatrix(IVector_h local_col_indices, int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy,
+            const int *row_offsets, const mat_value_type *values, const void *diag);
 };
 }
 

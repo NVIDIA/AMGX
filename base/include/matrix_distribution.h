@@ -35,18 +35,23 @@ private:
     int m_allocated_halo_depth;
     int m_num_import_rings;
     bool m_has_full_partition_vec;
+    bool m_has_32bit_col_indices;
     const int *m_partition_vector;
 public:
     MatrixDistribution() :
         m_allocated_halo_depth(1),
         m_num_import_rings(1),
         m_has_full_partition_vec(false),
+        m_has_32bit_col_indices(false),
         m_partition_vector(nullptr) {};
     void setNumImportRings(int num_import_rings) { m_num_import_rings = num_import_rings; }
     int getNumImportRings() const { return m_num_import_rings; }
 
     void setAllocatedHaloDepth(int allocated_halo_depth) { m_allocated_halo_depth = allocated_halo_depth; }
     int getAlllocatedHaloDepth() const { return m_allocated_halo_depth; }
+
+    void set32BitColIndices(bool use32bit) { m_has_32bit_col_indices = use32bit; }
+    int get32BitColIndices() const { return m_has_32bit_col_indices; }
 
     void setExplicitPartitionVec(const int* partition_vector) 
     {

@@ -1097,7 +1097,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         }
     }
 
-    // compute partition offsets (based on number of elements per partition)
+    // compute partition offsets (based on number of elements per partition). Will be modified when calculating partition map.
     t_ColIndex *partition_offsets = (t_ColIndex *)calloc(num_ranks + 1, sizeof(t_ColIndex));
 
     for (int i = 0; i < num_rows_global; i++)
@@ -1107,6 +1107,20 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
+
+    // fill part offsets internal data structures
+    this->part_offsets_h.resize(num_ranks + 1);
+
+    for (int i = 1; 0 <= num_ranks; i++)
+    {
+        this->part_offsets_h[i] = partition_offsets[i];
+    }
+    // copy to device
+    this->part_offsets = this->part_offsets_h;
+    // set num of global rows
+    this->num_rows_global = num_rows_global;
+    cudaCheckError();
+
     // compute partition map (which tells you how the global elements are mapped into the partitions)
     t_ColIndex *partition_map = (t_ColIndex *)calloc(num_rows_global, sizeof(t_ColIndex));
 
@@ -1220,28 +1234,6 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->A->computeDiagonal();
     }
 
-    cudaCheckError();
-    // compute # of rows in each partition
-    IVector_h nrows(num_ranks, 0);
-
-    for (int i = 0; i < num_rows_global; i++)
-    {
-        nrows[partitionVec[i]]++;
-    }
-
-    // fill part offsets
-    this->part_offsets_h.resize(num_ranks + 1);
-    this->part_offsets_h[0] = 0;
-
-    for (int i = 1; i <= num_ranks; i++)
-    {
-        this->part_offsets_h[i] = this->part_offsets_h[i - 1] + nrows[i - 1];
-    }
-
-    // copy to device
-    this->part_offsets = this->part_offsets_h;
-    // set num of global rows
-    this->num_rows_global = num_rows_global;
     cudaCheckError();
     // don't free possibly allocated pinned buffer, since it could be used later. if it would not - it would be deallocated automatically
     /*if (h_cidx_allocated)

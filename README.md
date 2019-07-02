@@ -30,6 +30,7 @@ AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Itera
   * [Building AMGX](#building)
   * [Running examples](#running)
 * [Further reading](#further-reading)
+  * [Plugins and bindings](#bindings)
 
 ## <a name="quickstart"></a> Quickstart
 
@@ -170,7 +171,10 @@ Total Time: 0.0170917
 
 ## <a name="further-reading"></a> Further reading
 
+### <a name="bindings"></a> Plugins and bindings to other software
 User @shwina built python bindings to AMGX, check out following repository: https://github.com/shwina/pyamgx.
+
+User @piyueh provided link to their work on PETSc wrapper plugins for AMGX: https://github.com/barbagroup/AmgXWrapper
 
 See [API reference doc](doc/AMGX_Reference.pdf) for detailed description of the interface. In the next few weeks we will be providing more information and details on the project such as:
   * Plans on the project development and priorities

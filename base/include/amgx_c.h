@@ -244,8 +244,10 @@ AMGX_RC AMGX_API AMGX_resources_destroy
 (AMGX_resources_handle rsc);
 
 /* Distribution */
+/** Create a distribution handle.
+ * `cfg` is used to set parameters from an existing configuration. Can be null. */
 AMGX_RC AMGX_API AMGX_distribution_create
-(AMGX_distribution_handle *dist);
+(AMGX_distribution_handle *dist, AMGX_config_handle cfg);
 
 AMGX_RC AMGX_API AMGX_distribution_destroy
 (AMGX_distribution_handle dist);

@@ -1792,7 +1792,7 @@ inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
                                         const int *partition_vector)
 {
     AMGX_distribution_handle dist;
-    AMGX_distribution_create(&dist);
+    AMGX_distribution_create(&dist, NULL);
     MatrixDistributionW wrapDist(dist);
     MatrixDistribution &mdist = *wrapDist.wrapped();
     mdist.setPartitionVec(partition_vector);
@@ -1819,7 +1819,7 @@ inline AMGX_RC matrix_upload_all_global_32(AMGX_matrix_handle mtx,
                                            const int *partition_vector)
 {
     AMGX_distribution_handle dist;
-    AMGX_distribution_create(&dist);
+    AMGX_distribution_create(&dist, NULL);
     MatrixDistributionW wrapDist(dist);
     MatrixDistribution &mdist = *wrapDist.wrapped();
     mdist.setPartitionVec(partition_vector);
@@ -4672,12 +4672,19 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
-    AMGX_RC AMGX_API AMGX_distribution_create(AMGX_distribution_handle *dist)
+    AMGX_RC AMGX_API AMGX_distribution_create(AMGX_distribution_handle *dist, AMGX_config_handle cfg)
     {
         AMGX_ERROR rc = AMGX_OK;
         try 
         {
             auto *mdist = create_managed_object<MatrixDistribution, AMGX_distribution_handle>(dist);
+            if (cfg != NULL)
+            {
+                int ring;
+                rc = getAMGXerror(AMGX_config_get_default_number_of_rings(cfg, &ring));
+                mdist->wrapped()->setAllocatedHaloDepth(ring);
+                mdist->wrapped()->setNumImportRings(ring);
+            }
         }
         AMGX_CATCHES(rc);
         if (rc != AMGX_OK)

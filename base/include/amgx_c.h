@@ -114,6 +114,15 @@ typedef enum
 } AMGX_GET_PARAMS_DESC_FLAG;
 
 /*********************************************************
+ * Flags to determine behavior of distributed matrix partitioning
+ *********************************************************/
+typedef enum
+{
+    AMGX_DIST_PARTITION_VECTOR = 0,
+    AMGX_DIST_PARTITION_OFFSETS = 1,
+} AMGX_DIST_PARTITION_INFO;
+
+/*********************************************************
  * Forward (opaque) handle declaration
  *********************************************************/
 typedef void (*AMGX_print_callback)(const char *msg, int length);
@@ -252,20 +261,25 @@ AMGX_RC AMGX_API AMGX_distribution_create
 AMGX_RC AMGX_API AMGX_distribution_destroy
 (AMGX_distribution_handle dist);
 
-/** For a contiguous partitioning, set the offsets to allow faster matrix upload.
+/** Set the partitioning scheme used for the matrix.
  * 
- * `offsets` can be `int` or `int64_t` array. It must match the column index data type.
+ * AMGX_DIST_PARTITION_VECTOR:
+ *  Pass in a partition vector of type `int` for `partition_data` with the same format as for AMGX_matrix_upload_all_global().
+ * AMGX_DIST_PARTITION_OFFSETS:
+ *  For a contiguous partitioning, specifying the offsets allows faster matrix upload.
+ *  In this case, `partition_data` must be `int` or `int64_t` array, matching the column index data type.
+ * 
  * Use with \see AMGX_matrix_upload_distributed()
 */
-AMGX_RC AMGX_API AMGX_distribution_set_partition_offsets
-(AMGX_distribution_handle dist, const void *offsets);
+AMGX_RC AMGX_API AMGX_distribution_set_partition_data
+(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data);
 
-/** Set a partition vector with the same format as for AMGX_matrix_upload_all_global()
+/** Set whether to use 32-bit or 64-bit column indices. Default is 64 bit.
  * 
- * Use with \see AMGX_matrix_upload_distributed()
+ * Determines how the `col_indices_global` argument to AMGX_matrix_upload_distributed() is interpreted.
  */
-AMGX_RC AMGX_API AMGX_distribution_set_partition_vector
-(AMGX_distribution_handle dist, const int *partition_vector);
+AMGX_RC AMGX_API AMGX_distribution_set_32bit_colindices
+(AMGX_distribution_handle dist, int use32bit);
 
 /* Matrix */
 AMGX_RC AMGX_API AMGX_matrix_create

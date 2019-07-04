@@ -4712,29 +4712,40 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
-    AMGX_RC AMGX_API AMGX_distribution_set_partition_offsets(AMGX_distribution_handle dist, const void *offsets)
+    AMGX_RC AMGX_API AMGX_distribution_set_partition_data(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data)
     {
-        if (dist == NULL || offsets == NULL) 
+        if (dist == NULL || partition_data == NULL) 
         {
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         }
         typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
         MatrixDistributionW wrapDist(dist);
         MatrixDistribution &mdist = *wrapDist.wrapped();
-        mdist.setPartitionOffsets(offsets);
+        switch (info)
+        {
+            case AMGX_DIST_PARTITION_VECTOR:
+                mdist.setPartitionVec((const int*)partition_data);
+                break;
+            case AMGX_DIST_PARTITION_OFFSETS:
+                mdist.setPartitionOffsets(partition_data);
+                break;
+            default:
+                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+                break;
+        }
         return AMGX_RC_OK;
     }
 
-    AMGX_RC AMGX_API AMGX_distribution_set_partition_vector(AMGX_distribution_handle dist, const int *partition_vector)
+    AMGX_RC AMGX_API AMGX_distribution_set_32bit_colindices(AMGX_distribution_handle dist, int use32bit)
     {
-        if (dist == NULL || partition_vector == NULL) 
+        if (dist == NULL)
         {
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         }
         typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
         MatrixDistributionW wrapDist(dist);
         MatrixDistribution &mdist = *wrapDist.wrapped();
-        mdist.setPartitionVec(partition_vector);
+        mdist.set32BitColIndices(use32bit);
         return AMGX_RC_OK;
     }
 

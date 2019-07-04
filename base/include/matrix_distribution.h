@@ -64,13 +64,9 @@ public:
     PartitionInformation getPartitionInformationStyle() const { return m_partition_information; }
     void setPartitionVec(const int* partition_vector) 
     {
-        if (partition_vector != nullptr) {
-            m_partition_information = PartitionInformation::PartitionVec;
-            m_partition_data = partition_vector;
-        }
-        else {
-            FatalError("partition_vector cannot be NULL", AMGX_ERR_BAD_PARAMETERS);
-        }
+        // Setting a "NULL" partition vector is valid, as the  upload routine will generate one in that case
+        m_partition_information = PartitionInformation::PartitionVec;
+        m_partition_data = partition_vector;
     }
     void setPartitionOffsets(const void* partition_offsets)
     {

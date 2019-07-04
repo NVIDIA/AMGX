@@ -84,6 +84,15 @@ typedef enum
 } AMGX_SOLVE_STATUS;
 
 /*********************************************************
+ * Flags to determine behavior of distributed matrix partitioning
+ *********************************************************/
+typedef enum
+{
+    AMGX_DIST_PARTITION_VECTOR = 0,
+    AMGX_DIST_PARTITION_OFFSETS = 1,
+} AMGX_DIST_PARTITION_INFO;
+
+/*********************************************************
  * Forward (opaque) handle declaration
  *********************************************************/
 typedef void (*AMGX_print_callback)(const char *msg, int length);
@@ -102,6 +111,9 @@ typedef struct AMGX_matrix_handle_struct {char AMGX_matrix_handle_dummy;}
 
 typedef struct AMGX_vector_handle_struct {char AMGX_vector_handle_dummy;}
 *AMGX_vector_handle;
+
+typedef struct AMGX_distribution_handle_struct {char AMGX_distribution_handle_dummy;}
+*AMGX_distribution_handle;
 
 /*********************************************************
  * Print C-API error and exit
@@ -207,6 +219,19 @@ typedef AMGX_RC (*t_AMGX_resources_create_simple)
 
 typedef AMGX_RC (*t_AMGX_resources_destroy)
 (AMGX_resources_handle rsc);
+
+/* Distribution */
+typedef AMGX_RC (*t_AMGX_distribution_create)
+(AMGX_distribution_handle *dist, AMGX_config_handle cfg);
+
+typedef AMGX_RC (*t_AMGX_distribution_destroy)
+(AMGX_distribution_handle dist);
+
+typedef AMGX_RC (*t_AMGX_distribution_set_partition_data)
+(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data);
+
+typedef AMGX_RC (*t_AMGX_distribution_set_32bit_colindices)
+(AMGX_distribution_handle dist, int use32bit);
 
 /* Matrix */
 typedef AMGX_RC (*t_AMGX_matrix_create)
@@ -502,6 +527,19 @@ typedef AMGX_RC (*t_AMGX_matrix_upload_all_global_32)
  int num_import_rings,
  const int *partition_vector);
 
+typedef AMGX_RC (*t_AMGX_matrix_upload_distributed)
+(AMGX_matrix_handle mtx,
+ int n_global,
+ int n,
+ int nnz,
+ int block_dimx,
+ int block_dimy,
+ const int *row_ptrs,
+ const void *col_indices_global,
+ const void *data,
+ const void *diag_data,
+ AMGX_distribution_handle distribution);
+
 /*********************************************************
  * C-API deprecated
  *********************************************************/
@@ -559,6 +597,12 @@ t_AMGX_config_destroy                     AMGX_config_destroy;
 t_AMGX_resources_create                   AMGX_resources_create;
 t_AMGX_resources_create_simple            AMGX_resources_create_simple;
 t_AMGX_resources_destroy                  AMGX_resources_destroy;
+/* Distribution */
+t_AMGX_distribution_create                AMGX_distribution_create;
+t_AMGX_distribution_destroy               AMGX_distribution_destroy;
+t_AMGX_distribution_set_partition_data    AMGX_distribution_set_partition_data;
+t_AMGX_distribution_set_32bit_colindices  AMGX_distribution_set_32bit_colindices;
+
 
 /* Matrix */
 t_AMGX_matrix_create                      AMGX_matrix_create;
@@ -602,6 +646,7 @@ t_AMGX_matrix_attach_coloring             AMGX_matrix_attach_coloring;
 t_AMGX_read_system_global                   AMGX_read_system_global;
 t_AMGX_matrix_upload_all_global             AMGX_matrix_upload_all_global;
 t_AMGX_matrix_upload_all_global_32       AMGX_matrix_upload_all_global_32;
+t_AMGX_matrix_upload_distributed         AMGX_matrix_upload_distributed;
 
 /* dynamically load the library, return: 1 - succeeded, 0 - failed*/
 int amgx_liblink_all(void *lib_handle)
@@ -633,6 +678,11 @@ int amgx_liblink_all(void *lib_handle)
     AMGX_resources_create                    = (t_AMGX_resources_create)amgx_liblink(lib_handle, "AMGX_resources_create");
     AMGX_resources_create_simple             = (t_AMGX_resources_create_simple)amgx_liblink(lib_handle, "AMGX_resources_create_simple");
     AMGX_resources_destroy                   = (t_AMGX_resources_destroy)amgx_liblink(lib_handle, "AMGX_resources_destroy");
+    /* Distribution */
+    AMGX_distribution_create                 = (t_AMGX_distribution_create)amgx_liblink(lib_handle, "AMGX_distribution_create");
+    AMGX_distribution_destroy                = (t_AMGX_distribution_destroy)amgx_liblink(lib_handle, "AMGX_distribution_destroy");
+    AMGX_distribution_set_partition_data     = (t_AMGX_distribution_set_partition_data)amgx_liblink(lib_handle, "AMGX_distribution_set_partition_data");
+    AMGX_distribution_set_32bit_colindices   = (t_AMGX_distribution_set_32bit_colindices)amgx_liblink(lib_handle, "AMGX_distribution_set_32bit_colindices");
     /* Matrix */
     AMGX_matrix_create                       = (t_AMGX_matrix_create)amgx_liblink(lib_handle, "AMGX_matrix_create");
     AMGX_matrix_destroy                      = (t_AMGX_matrix_destroy)amgx_liblink(lib_handle, "AMGX_matrix_destroy");
@@ -674,6 +724,7 @@ int amgx_liblink_all(void *lib_handle)
     AMGX_read_system_global                  = (t_AMGX_read_system_global)amgx_liblink(lib_handle, "AMGX_read_system_global");
     AMGX_matrix_upload_all_global            = (t_AMGX_matrix_upload_all_global)amgx_liblink(lib_handle, "AMGX_matrix_upload_all_global");
     AMGX_matrix_upload_all_global_32        = (t_AMGX_matrix_upload_all_global_32)amgx_liblink(lib_handle, "AMGX_matrix_upload_all_global_32");
+    AMGX_matrix_upload_distributed          = (t_AMGX_matrix_upload_distributed)amgx_liblink(lib_handle, "AMGX_matrix_upload_distributed");
 
     if (/* Build */
         AMGX_get_api_version == NULL ||
@@ -702,6 +753,11 @@ int amgx_liblink_all(void *lib_handle)
         AMGX_resources_create == NULL ||
         AMGX_resources_create_simple == NULL ||
         AMGX_resources_destroy == NULL ||
+        /* Distribution */
+        AMGX_distribution_create == NULL ||
+        AMGX_distribution_destroy == NULL ||
+        AMGX_distribution_set_partition_data == NULL ||
+        AMGX_distribution_set_32bit_colindices == NULL ||
         /* Matrix */
         AMGX_matrix_create == NULL ||
         AMGX_matrix_destroy == NULL ||
@@ -742,7 +798,8 @@ int amgx_liblink_all(void *lib_handle)
         AMGX_matrix_attach_coloring == NULL ||
         AMGX_read_system_global == NULL ||
         AMGX_matrix_upload_all_global == NULL ||
-        AMGX_matrix_upload_all_global_32 == NULL )
+        AMGX_matrix_upload_all_global_32 == NULL ||
+        AMGX_matrix_upload_distributed == NULL)
     {
         return 0;
     }

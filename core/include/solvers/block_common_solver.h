@@ -378,7 +378,7 @@ ValueType tmp;
                 tmp = s_A2_rval(row, j_ind + t2 * 4) * diag;
                 s_A2_lval(tmp, row, j_ind + t2 * 4);
             }
-
+        __syncwarp();
         for (int t1 = 0; t1 < tile_num; t1++)
             for (int t2 = 0; t2 < tile_num; t2++)
                 if ((i_ind + t1 * 4 != row) && !(j_ind + t2 * 4 == row) && ((t1 * 4 + i_ind) < bsize) && ((t2 * 4 + j_ind) < bsize))
@@ -386,6 +386,7 @@ ValueType tmp;
                     tmp = types::util<ValueType>::invert((s_A2_rval(i_ind + t1 * 4, row) * s_A2_rval(row, j_ind + t2 * 4)) + s_A2_rval(i_ind + t1 * 4, j_ind + t2 * 4));
                     s_A2_lval(tmp, i_ind + t1 * 4, j_ind + t2 * 4);
                 }
+        __syncwarp();
 
         for (int t2 = 0; t2 < tile_num; t2++)
             if (i_ind == 0 && (t2 * 4 + j_ind) < bsize)
@@ -393,6 +394,7 @@ ValueType tmp;
                 tmp = ((j_ind + t2 * 4) == row) ? diag : types::util<ValueType>::invert(s_A2_rval(j_ind + t2 * 4, row) * diag);
                 s_A2_lval(tmp, j_ind + t2 * 4, row)
             }
+        __syncwarp();
     }
 
     for (int t1 = 0; t1 < tile_num; t1++)

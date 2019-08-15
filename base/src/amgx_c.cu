@@ -4539,7 +4539,7 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
-    AMGX_RC AMGX_API AMGX_matrix_upload_distributed(AMGX_matrix_handle mtx, const int n_global, const int n, const int nnz, const int block_dimx, const int block_dimy, const int *row_ptrs, const void *col_indices_global, const void *data, const void *diag_data, int allocated_halo_depth, int num_import_rings, AMGX_distribution_handle dist)
+    AMGX_RC AMGX_API AMGX_matrix_upload_distributed(AMGX_matrix_handle mtx, int n_global, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const void *col_indices_global, const void *data, const void *diag_data, AMGX_distribution_handle distribution)
     {
         AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         return AMGX_RC_OK;

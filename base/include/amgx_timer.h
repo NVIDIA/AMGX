@@ -76,7 +76,7 @@ class levelProfile
         inline void tic(const char *event)
         {
 #ifdef PROFILE
-            cudaThreadSynchronize();
+            cudaDeviceSynchronize();
             Tic[event] = high_resolution_clock::now();
 #endif
         }
@@ -84,7 +84,7 @@ class levelProfile
         inline void toc(const char *event)
         {
 #ifdef PROFILE
-            cudaThreadSynchronize();
+            cudaDeviceSynchronize();
             duration<double, std::nano> ns = t2 - t1;
             times[event] += ns.count();
 #endif

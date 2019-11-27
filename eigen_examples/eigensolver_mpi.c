@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mpi.h>
+#include <cuda_runtime_api.h>
 #include "amgx_c.h"
 #include "amgx_eig_c.h"
 

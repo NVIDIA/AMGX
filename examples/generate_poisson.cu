@@ -34,7 +34,7 @@
 int main(int argc, char **argv)
 {
   cusp::coo_matrix<int,double,cusp::host_memory> A;
-  char *fname = NULL;
+  const char *fname = NULL;
   // check command line arguments
   for (int i=1; i < argc; i++)
   {

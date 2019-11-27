@@ -753,7 +753,6 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
     // process MatrixMarket config string
     bool symmetric = false;
     bool skew_symmetric = false;
-    bool complex = false;
     bool hermitian = false;
 
     if (mmConfig.size() > 0)
@@ -769,7 +768,6 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
                     FatalError("Trying to load file with complex matrix to real valued matrix structure", AMGX_ERR_IO);
                 }
 
-                complex = true;
                 continue;
             }
 

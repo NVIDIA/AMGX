@@ -185,14 +185,14 @@ struct Ld<LD_CG>
     static __device__ __forceinline__ cuComplex load( const cuComplex *ptr )
     {
         float ret[2];
-        asm volatile ( "ld.global.cg.v2.f32 {%0, %1}, [%1];"  : "=f"(ret[0]), "=f"(ret[1]) : __PTR( (float *)(ptr) ) );
+        asm volatile ( "ld.global.cg.v2.f32 {%0, %1}, [%2];"  : "=f"(ret[0]), "=f"(ret[1]) : __PTR( (float *)(ptr) ) );
         return make_cuComplex(ret[0], ret[1]);
     }
 
     static __device__ __forceinline__ cuDoubleComplex load( const cuDoubleComplex *ptr )
     {
         double ret[2];
-        asm volatile ( "ld.global.cg.v2.f64 {%0, %1}, [%1];"  : "=d"(ret[0]), "=d"(ret[1]) : __PTR( (double *)(ptr) ) );
+        asm volatile ( "ld.global.cg.v2.f64 {%0, %1}, [%2];"  : "=d"(ret[0]), "=d"(ret[1]) : __PTR( (double *)(ptr) ) );
         return make_cuDoubleComplex(ret[0], ret[1]);
     }
 
@@ -225,14 +225,14 @@ struct Ld<LD_CA>
     static __device__ __forceinline__ cuComplex load( const cuComplex *ptr )
     {
         float ret[2];
-        asm volatile ( "ld.global.ca.v2.f32 {%0, %1}, [%1];"  : "=f"(ret[0]), "=f"(ret[1]) : __PTR( (float *)(ptr) ) );
+        asm volatile ( "ld.global.ca.v2.f32 {%0, %1}, [%2];"  : "=f"(ret[0]), "=f"(ret[1]) : __PTR( (float *)(ptr) ) );
         return make_cuComplex(ret[0], ret[1]);
     }
 
     static __device__ __forceinline__ cuDoubleComplex load( const cuDoubleComplex *ptr )
     {
         double ret[2];
-        asm volatile ( "ld.global.ca.v2.f64 {%0, %1}, [%1];"  : "=d"(ret[0]), "=d"(ret[1]) : __PTR( (double *)(ptr) ) );
+        asm volatile ( "ld.global.ca.v2.f64 {%0, %1}, [%2];"  : "=d"(ret[0]), "=d"(ret[1]) : __PTR( (double *)(ptr) ) );
         return make_cuDoubleComplex(ret[0], ret[1]);
     }
 };

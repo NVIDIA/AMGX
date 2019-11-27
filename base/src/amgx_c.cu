@@ -2310,6 +2310,10 @@ extern "C" {
             }
 
             AMGX_CATCHES(rc)
+            if (AMGX_OK != rc)
+            {
+                fprintf(stderr, "AMGX_abort warning: catched %d\n",rc);
+            }
         }
 
         amgx_error_exit(resources, err);
@@ -2641,7 +2645,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
 
@@ -2709,7 +2713,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_solver_resetup(AMGX_solver_handle slv, AMGX_matrix_handle mtx)
@@ -2741,7 +2745,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_solver_solve(AMGX_solver_handle slv, AMGX_vector_handle rhs, AMGX_vector_handle sol)
@@ -2771,7 +2775,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_solver_solve_with_0_initial_guess(AMGX_solver_handle slv, AMGX_vector_handle rhs, AMGX_vector_handle sol)
@@ -2801,7 +2805,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_matrix_create_impl(AMGX_matrix_handle *mtx, AMGX_resources_handle rsc, AMGX_Mode mode)
@@ -2840,7 +2844,7 @@ extern "C" {
 
         AMGX_CATCHES(rc)
         AMGX_CHECK_API_ERROR(rc_mtx, resources)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_matrix_create(AMGX_matrix_handle *mtx, AMGX_resources_handle rsc, AMGX_Mode mode)
@@ -2875,7 +2879,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_matrix_destroy_impl(AMGX_matrix_handle mtx)
@@ -3189,7 +3193,7 @@ extern "C" {
 
         AMGX_CATCHES(rc)
         AMGX_CHECK_API_ERROR(rc_vec, resources)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_vector_create(AMGX_vector_handle *vec, AMGX_resources_handle rsc, AMGX_Mode mode)
@@ -3657,7 +3661,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_solver_register_print_callback(AMGX_print_callback func)
@@ -4408,7 +4412,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }
 
     AMGX_RC AMGX_API AMGX_matrix_upload_all_global( AMGX_matrix_handle mtx,
@@ -4449,7 +4453,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }
 
     AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32(AMGX_matrix_handle mtx, int n_global, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const void *col_indices_global, const void *data, const void *diag_data, int allocated_halo_depth, int num_import_rings, const int *partition_vector)
@@ -4478,7 +4482,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }   
     
     AMGX_RC AMGX_API AMGX_matrix_upload_distributed(AMGX_matrix_handle mtx,
@@ -4517,7 +4521,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }
 
 #else

@@ -401,6 +401,7 @@ class Vector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : publ
         int explicit_buffer_size;
         int buffer_size;
         cudaEvent_t mpi_event;
+
 #ifdef AMGX_WITH_MPI
         std::vector<MPI_Request> requests;
         std::vector<MPI_Status> statuses;
@@ -695,6 +696,7 @@ class Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : pu
         int explicit_buffer_size;
         int buffer_size;
         cudaEvent_t mpi_event;
+
 #ifdef AMGX_WITH_MPI
         std::vector<MPI_Request> requests;
         std::vector<MPI_Status> statuses;

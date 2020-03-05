@@ -238,6 +238,12 @@ ENDIF(CUDA_VERSION_MAJOR MATCHES 9)
 #if compiling against CUDA Toolkit 10.x
 IF(CUDA_VERSION_MAJOR MATCHES 10)
   SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
+
+  # Use the generic cuSPARSE interfaces available from 10.1
+  IF(CUDA_VERSION_MINOR GREATER 0)
+    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DCUSPARSE_GENERIC_INTERFACES)
+  ENDIF(CUDA_VERSION_MINOR GREATER 0)
+
 ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
 
 #replace ' ' with ; to match the proper cmake format

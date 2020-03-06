@@ -7,6 +7,7 @@
         "presweeps": 1, 
         "obtain_timings": 1, 
         "max_iters": 100, 
+        "interpolator": "D2",
         "monitor_residual": 1, 
         "convergence": "ABSOLUTE", 
         "scope": "main", 

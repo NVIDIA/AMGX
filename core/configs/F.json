@@ -5,6 +5,7 @@
         "solver": "AMG", 
         "print_solve_stats": 1, 
         "presweeps": 1, 
+        "interpolator": "D2",
         "obtain_timings": 1, 
         "max_iters": 100, 
         "monitor_residual": 1, 

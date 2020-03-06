@@ -12,6 +12,7 @@
             }, 
             "print_solve_stats": 0, 
             "presweeps": 1, 
+            "interpolator": "D2",
             "max_iters": 1, 
             "monitor_residual": 0, 
             "store_res_history": 0, 

@@ -557,6 +557,10 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
     typedef typename TConfig::VecPrec ValueTypeB;
     int offset, size;
     A.getOffsetAndSizeForView(view, &offset, &size);
+
+    int nnz;
+    A.getNnzForView(view, &nnz);
+
     cusparseDirection_t direction = CUSPARSE_DIRECTION_COLUMN;
 
     if ( A.getBlockFormat() == ROW_MAJOR )
@@ -568,9 +572,10 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
 
     if (has_offdiag )
     {
+
         cusparseSetStream(Cusparse::get_instance().m_handle, stream);
         bsrmv( Cusparse::get_instance().m_handle,  direction, CUSPARSE_OPERATION_NON_TRANSPOSE,
-               size, A.get_num_cols(), A.get_num_nz(), &alphaConst,
+               size, A.get_num_cols(), nnz, &alphaConst,
                A.cuMatDescr,
                A.values.raw(),
                A.m_seq_offsets.raw() + offset,

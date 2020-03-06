@@ -26,6 +26,7 @@
  */
 
 #include <util.h>
+#include <amgx_timer.h>
 
 #include <amg.h>
 #include <basic_types.h>
@@ -230,6 +231,8 @@ class AMG_Setup
             // Build the remaining / all the levels on the CPU. Note: level_h is NULL if all the setup happened on the GPU.
             while (true)
             {
+            nvtxRange test("setup_level");
+
                 //Check if you reached the coarsest level (min_partition_rows  is the number of rows in this partition/rank)
                 //NOTE: min_rows = min_coarse_rows if async framework is disabled (min_fine_rows =< min_coarse_rows)
                 if (amg->num_levels >= amg->max_levels || min_partition_rows <= min_rows)
@@ -1130,12 +1133,15 @@ class AMG_Solve
 
         static void solve_iteration( AMG_Class *amg, Vector_hd &b, Vector_hd &x)
         {
+            cudaStreamSynchronize(0);
+            nvtxRange amg_si("amg_solve_iteration");
             MemorySpace memorySpaceTag;
             AMG_Level<TConfig_hd> *fine = amg->getFinestLevel( memorySpaceTag );
             assert(fine != NULL);
             CycleFactory<TConfig>::generate( amg, fine, b, x );
             fine->unsetInitCycle();
             MemoryInfo::updateMaxMemoryUsage();
+            cudaStreamSynchronize(0);
         }
 
 };

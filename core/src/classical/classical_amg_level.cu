@@ -454,6 +454,13 @@ void Classical_AMG_Level_Base<T_Config>::computeProlongationOperator()
         Truncate<TConfig>::truncateByMaxElements(P, this->max_elmts);
     }
 
+    if (this->m_min_rows_latency_hiding < 0 || P.get_num_rows() < this->m_min_rows_latency_hiding)
+    {
+        // This will cause bsrmv_with_mask to not do latency hiding
+        P.setInteriorView(OWNED);
+        P.setExteriorView(OWNED);
+    }
+
     profileSubphaseNone();
     this->Profile.toc("computeP");
 }
@@ -471,7 +478,7 @@ void Classical_AMG_Level_Base<T_Config>::computeRestrictionOperator()
 
     if (this->m_min_rows_latency_hiding < 0 || R.get_num_rows() < this->m_min_rows_latency_hiding)
     {
-        // This will cause bsrmv to not do latency hiding
+        // This will cause bsrmv_with_mask_restriction to not do latency hiding
         R.setInteriorView(OWNED);
         R.setExteriorView(OWNED);
     }

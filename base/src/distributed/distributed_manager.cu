@@ -963,9 +963,9 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(Matrix<TConfig> &
     neighbors(_neighbors), B2L_maps(_B2L_maps), L2H_maps(_L2H_maps),  B2L_rings(_B2L_rings),
     halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
 {
-    cudaEventCreate(&b2l_event);
-    cudaStreamCreate(&m_int_stream);
-    cudaStreamCreate(&m_bdy_stream);
+    cudaEventCreate(&comm_event);
+    cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+    cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
     this->createComms(A->getResources());
     int my_id = this->getComms()->get_global_id();
     int num_parts = this->getComms()->get_num_partitions();
@@ -1124,6 +1124,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     // set local matrix
     thrust::copy(row_offsets, row_offsets + num_rows + 1, this->A->row_offsets.begin());
     this->A->col_indices = local_col_indices;
+
     thrust::copy(values, values + num_nonzeros * block_dimx * block_dimy, this->A->values.begin());
     cudaCheckError();
 
@@ -1268,6 +1269,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     free(ipartition_map);
 
     loadDistributed_InitLocalMatrix(local_col_indices, num_rows, num_nonzeros, block_dimx, block_dimy, row_offsets, values, diag);
+
+    cudaCheckError();
+
     // don't free possibly allocated pinned buffer, since it could be used later. if it would not - it would be deallocated automatically
     /*if (h_cidx_allocated)
     {
@@ -1619,8 +1623,8 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(
     const VecInt_t *neighbors_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), _num_interior_nodes(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false), neighbors(_neighbors), halo_rows_ref_count(0), halo_rows(NULL), halo_btl_ref_count(0), halo_btl(NULL), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
     B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
 {
-    cudaStreamCreate(&m_int_stream);
-    cudaStreamCreate(&m_bdy_stream);
+    cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+    cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
 
     if (num_import_rings != 1)
     {
@@ -4644,7 +4648,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->A->diag.resize(root_num_rows);
         this->A->computeDiagonal(); //
         this->A->setView(OWNED);
-        cudaEventCreate(&(this->b2l_event));
+        cudaEventCreate(&(this->comm_event));
         this->A->set_initialized(1);
     }
     else
@@ -6015,7 +6019,6 @@ int DistributedManagerBase<TConfig>::compare(DistributedManagerBase<TConfig> *m2
 
     return 0;
 }
-
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::~DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >()

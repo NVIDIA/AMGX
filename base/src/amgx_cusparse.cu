@@ -102,71 +102,40 @@ void Cusparse::bsrmv(
         A.set_initialized(1);
     }
 
-    if (view != A.getViewExterior())  //This is already a view, thus do not even attempt to do latency hiding
+    // Handle cases where the view is set by the calling routine
+    if(view != A.getViewExterior())
     {
         bsrmv_internal(alphaConst, A, x, betaConst, y, view, null_stream);
+        return;
     }
-    else //Try and do latency hiding
-    {
-        ViewType oldView = A.currentView();
 
+    bool latencyHiding = (A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && x.dirtybit != 0);
+
+    if (latencyHiding)
+    {
+        A.manager->exchange_halo_split_gather(x, x.tag);
+
+        // Multiply interior rows
+        bsrmv_internal(alphaConst, A, x, betaConst, y, A.getViewInterior(), null_stream);
+
+        // Finish halo exchange
+        A.manager->exchange_halo_split_finish(x, x.tag);
+
+        // Multiply rows with halo dependencies
+        ViewType bnd_view = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
+        bsrmv_internal(alphaConst, A, x, betaConst, y, bnd_view, null_stream);
+    }
+    else
+    {
         if (!A.is_matrix_singleGPU())
         {
-            A.manager->exchange_halo_async(x, x.tag);
+            A.manager->exchange_halo_v2(x, x.tag);
         }
 
-        if (A.getViewExterior() == A.getViewInterior())
-        {
-            if (!A.is_matrix_singleGPU())
-            {
-                A.manager->exchange_halo_wait(x, x.tag);
-            }
-        }
-
-        ViewType flags;
-        bool latencyHiding = true;
-
-        //if (A.manager->num_neighbors() == 0 || (x.dirtybit == 0)) {
-        if (A.is_matrix_singleGPU() || (x.dirtybit == 0))
-        {
-            latencyHiding = false;
-            A.setViewExterior();
-            flags = (ViewType)(A.getViewExterior());
-        }
-        else
-        {
-            flags = (ViewType)(A.getViewInterior());
-            A.setViewInterior();
-        }
-
-        if (latencyHiding)
-        {
-            // Launch interior in interior stream
-            bsrmv_internal(alphaConst, A, x, betaConst, y, flags, A.manager->get_int_stream());
-
-            if (!A.is_matrix_singleGPU())
-            {
-                A.manager->exchange_halo_wait(x, x.tag);
-            }
-
-            A.setViewExterior();
-            flags = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
-
-            if (flags != 0)
-            {
-                bsrmv_internal(alphaConst, A, x, betaConst, y, flags, A.manager->get_bdy_stream());
-            }
-        }
-        else
-        {
-            bsrmv_internal(alphaConst, A, x, betaConst, y, flags, null_stream);
-        }
-
-        y.dirtybit = 1;
-        //if (!A.is_matrix_singleGPU() && y.size() == x.size() && y.delayed_send==0)
-        //    A.manager->exchange_halo_async(y, y.tag);
-        A.setView(oldView);
+        bsrmv_internal(alphaConst, A, x, betaConst, y, A.getViewExterior(), null_stream);
     }
+
+    y.dirtybit = 1;
 }
 
 template< class TConfig >
@@ -188,46 +157,28 @@ void Cusparse::bsrmv_with_mask(
         A.set_initialized(1);
     }
 
-    bool do_latency_hiding = true;
+    bool latencyHiding = (A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && x.dirtybit != 0);
 
-    if (A.getViewInterior() == A.getViewExterior())
+    if (latencyHiding)
     {
-        do_latency_hiding = false;
-    }
+        A.manager->exchange_halo_split_gather(x, x.tag);
 
-    if (do_latency_hiding)
-    {
-        // First gather the data into the device buffers
-        if (!A.is_matrix_singleGPU())
-        {
-            A.manager->gather_b2l(x, x.tag);
-        }
+        // Multiply interior
+        bsrmv_internal_with_mask(alphaConst, A, x, betaConst, y, INTERIOR, null_stream);
 
-        // launch the interior
-        ViewType int_view = INTERIOR;
-        bsrmv_internal_with_mask(alphaConst, A, x, betaConst, y, int_view, A.manager->get_int_stream());
+        A.manager->exchange_halo_split_finish(x, x.tag);
 
-        // Copy data to host, call mpi send, mpi recv, copy to device
-        if (!A.is_matrix_singleGPU())
-        {
-            A.manager->send_receive_wait(x, x.tag, A.manager->get_bdy_stream());
-        }
-
-        // Then process boundary
-        ViewType bdy_view = BOUNDARY;
-        bsrmv_internal_with_mask(alphaConst, A, x, betaConst, y, bdy_view, A.manager->get_bdy_stream());
-//    }
+        // Multiply exterior
+        bsrmv_internal_with_mask(alphaConst, A, x, betaConst, y, BOUNDARY, null_stream);
     }
     else
     {
-        //std::cout << "skiping latency hiding bsrmv, size = " << A.get_num_rows()  << std::endl;
         if (!A.is_matrix_singleGPU())
         {
-            A.manager->exchange_halo(x, x.tag);
+            A.manager->exchange_halo_v2(x, x.tag);
         }
 
-        ViewType view = OWNED;
-        bsrmv_internal(alphaConst, A, x, betaConst, y, view, null_stream);
+        bsrmv_internal(alphaConst, A, x, betaConst, y, OWNED, null_stream);
     }
 
     y.dirtybit = 1;
@@ -236,7 +187,7 @@ void Cusparse::bsrmv_with_mask(
 template< class TConfig >
 void Cusparse::bsrmv_with_mask_restriction(
     const typename TConfig::VecPrec alphaConst,
-    Matrix<TConfig> &A,
+    Matrix<TConfig> &R,
     Vector<TConfig> &x,
     const typename TConfig::VecPrec betaConst,
     Vector<TConfig> &y,
@@ -250,52 +201,30 @@ void Cusparse::bsrmv_with_mask_restriction(
     //  A.computeDiagonal();
     //  A.set_initialized(1);
     //}
-    bool do_latency_hiding = true;
 
-    if (A.getViewInterior() == A.getViewExterior())
-    {
-        do_latency_hiding = false;
-    }
+    bool latencyHiding = (R.getViewInterior() != R.getViewExterior() && !P.is_matrix_singleGPU() && x.dirtybit != 0);
 
-    cudaStream_t null_stream = 0;
+    if (latencyHiding)
+	  {
+        cudaStream_t null_stream = 0;
+		    bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, HALO1, null_stream, P);
+        P.manager->add_from_halo_split_gather(y, y.tag);
+		    cudaEventRecord(P.manager->get_comm_event());
+		    bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, OWNED, null_stream, P);
 
-    if (do_latency_hiding)
-    {
-        if (!P.is_matrix_singleGPU() && P.manager->neighbors.size() != 0)
+        if (P.manager->neighbors.size() != 0)
         {
-            // First compute the halo rows in default stream
-            ViewType halo_view = HALO1;
-            bsrmv_internal_with_mask_restriction(alphaConst, A, x, betaConst, y, halo_view, null_stream, P);
-        }
-
-        if (!P.is_matrix_singleGPU() && P.manager->neighbors.size() != 0)
-        {
-            // On GPU, gather data to a linear buffer
-            P.manager->gather_l2h(y, y.tag);
-        }
-
-        // Then launch the owned rows
-        ViewType owned_view = OWNED;
-        bsrmv_internal_with_mask_restriction(alphaConst, A, x,  betaConst, y, owned_view, P.manager->get_int_stream(), P);
-
-        if (!P.is_matrix_singleGPU() && P.manager->neighbors.size() != 0)
-        {
-            // While interior rows are processed, send, receive wait
-            P.manager->add_from_halo_only(y, y.tag, P.manager->get_bdy_stream());
-            // In default stream, add contribution from neighbors to vector
-            //P.manager->scatter_b2l_v2(y, y.tag);
-            P.manager->scatter_b2l(y, y.tag);
+            cudaEventSynchronize(P.manager->get_comm_event());
+            P.manager->add_from_halo_split_finish(y, y.tag, P.manager->get_bdy_stream());
+            cudaStreamSynchronize(P.manager->get_bdy_stream());
         }
     }
     else
     {
-        //std::cout << "skiping latency hiding restriction, size = " << A.get_num_rows()  << std::endl;
-        // Multiply
-        ViewType view = OWNED;
-        bsrmv_internal(alphaConst, A, x, betaConst, y, view, null_stream);
+        bsrmv_internal(alphaConst, R, x, betaConst, y, OWNED, 0);
+
         // Add contribution from neighbors
-        y.dirtybit = 1;
-        P.manager->add_from_halo(y, y.tag);
+        P.manager->add_from_halo_v2(y, y.tag);
     }
 
     y.dirtybit = 1;
@@ -411,7 +340,7 @@ void Cusparse::bsrmv( const typename TConfig::VecPrec alphaConst,
 
         if (latencyHiding)
         {
-            bsrmv_internal(alphaConst, A, E, x, betaConst, y, flags, A.manager->get_int_stream());
+            bsrmv_internal(alphaConst, A, E, x, betaConst, y, flags, null_stream);
 
             if (!A.is_matrix_singleGPU())
             {
@@ -423,7 +352,7 @@ void Cusparse::bsrmv( const typename TConfig::VecPrec alphaConst,
 
             if (flags != 0)
             {
-                bsrmv_internal(alphaConst, A, E, x, betaConst, y, flags, A.manager->get_bdy_stream());
+                bsrmv_internal(alphaConst, A, E, x, betaConst, y, flags, null_stream);
             }
         }
         else
@@ -499,7 +428,7 @@ void Cusparse::bsrmv( ColumnColorSelector columnColorSelector,
 
         if (latencyHiding)
         {
-            bsrmv_internal(columnColorSelector, color, alphaConst, A, x, betaConst, y, flags, A.manager->get_int_stream());
+            bsrmv_internal(columnColorSelector, color, alphaConst, A, x, betaConst, y, flags, null_stream);
 
             if (!A.is_matrix_singleGPU())
             {
@@ -511,7 +440,7 @@ void Cusparse::bsrmv( ColumnColorSelector columnColorSelector,
 
             if (flags != 0)
             {
-                bsrmv_internal(columnColorSelector, color, alphaConst, A, x, betaConst, y, flags, A.manager->get_bdy_stream());
+                bsrmv_internal(columnColorSelector, color, alphaConst, A, x, betaConst, y, flags, null_stream);
             }
         }
         else
@@ -589,7 +518,7 @@ void Cusparse::bsrmv( const int color,
 
         if (latencyHiding)
         {
-            bsrmv_internal(color, alphaConst, A, E, x, betaConst, y, flags, A.manager->get_int_stream());
+            bsrmv_internal(color, alphaConst, A, E, x, betaConst, y, flags, null_stream);
 
             if (!A.is_matrix_singleGPU())
             {
@@ -601,7 +530,7 @@ void Cusparse::bsrmv( const int color,
 
             if (flags != 0)
             {
-                bsrmv_internal(color, alphaConst, A, E, x, betaConst, y, flags, A.manager->get_bdy_stream());
+                bsrmv_internal(color, alphaConst, A, E, x, betaConst, y, flags, null_stream);
             }
         }
         else
@@ -681,8 +610,6 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
     }
 }
 
-
-
 template< class TConfig >
 void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaConst,
         const Matrix<TConfig> &A,
@@ -698,8 +625,6 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
     }
 
     typedef typename TConfig::VecPrec ValueType;
-    //int offset, size;
-    //A.getOffsetAndSizeForView(view, &offset, &size);
     cusparseDirection_t direction = CUSPARSE_DIRECTION_COLUMN;
 
     if ( A.getBlockFormat() == ROW_MAJOR )
@@ -708,10 +633,12 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
     }
 
     bool has_offdiag = A.get_num_nz() != 0;
+
     const int *start_offsets, *end_offsets;
     start_offsets = A.row_offsets.raw();
     end_offsets = A.row_offsets.raw() + 1;
     typedef typename Matrix<TConfig>::index_type index_type;
+
     // num rows to
     index_type NumRows = A.manager->getRowsListForView(view).size();
 
@@ -732,6 +659,7 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
                          A.get_block_dimx(),
                          x.raw(), &betaConst,
                          y.raw() );
+
         // Reset to default stream
         cusparseSetStream(Cusparse::get_instance().m_handle, 0);
     }
@@ -755,7 +683,7 @@ void Cusparse::bsrmv_internal_with_mask_restriction( const typename TConfig::Vec
 {
     if (P.is_matrix_singleGPU())
     {
-        FatalError("Should not be here in bsrmv_internal_with_mask", AMGX_ERR_NOT_IMPLEMENTED);
+        FatalError("Should not be here in bsrmv_internal_with_mask_with_restriction", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
     typedef typename TConfig::VecPrec ValueType;
@@ -842,6 +770,7 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
            A.get_block_dimx(),
            x.raw(), &betaConst,
            y.raw() + offset * A.get_block_dimx() );
+
     // Reset to default stream
     cusparseSetStream(Cusparse::get_instance().m_handle, 0);
 }

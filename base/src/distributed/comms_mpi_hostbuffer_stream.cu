@@ -178,6 +178,9 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
         if (total > b.buffer->size())
         {
             b.buffer->resize(total);
+
+            // It is more efficient to synchronise only when linear buffers change
+            cudaStreamSynchronize(0);
         }
     }
 
@@ -193,24 +196,26 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
 
     cudaCheckError();
     total = 0;
-    bool linear_buffers_changed = false;
+    //bool linear_buffers_changed = false;
 
     for (int i = 0; i < neighbors; i++)
     {
-        if (b.linear_buffers[i] != b.buffer->raw() + total)
-        {
-            linear_buffers_changed = true;
-        }
+        //if (b.linear_buffers[i] != b.buffer->raw() + total)
+        //{
+        //    linear_buffers_changed = true;
+        //}
 
         b.linear_buffers[i] = b.buffer->raw() + total;
         total += m.manager->B2L_rings[i][num_rings] * bsize * num_cols;
     }
 
     // Copy to device
-    if (linear_buffers_changed)
+    // TODO: This optimisation would be preferred, but there seems to be an edge
+    // case that stops this from updating properly.
+    //if (b.linear_buffers_ptrs.size() != neighbors || linear_buffers_changed)
     {
         b.linear_buffers_ptrs.resize(neighbors);
-        cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
+        cudaMemcpy(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
         cudaCheckError();
     }
 
@@ -274,6 +279,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
     else if (size > b.buffer->size())
     {
         b.buffer->resize(size);
+        cudaStreamSynchronize(0);
     }
 
     b.host_buffer.resize(send_size + recv_size);
@@ -324,7 +330,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
         }
     }
 
-    if (linear_buffers_changed)
+    if (b.linear_buffers_ptrs.size() != num_neighbors || linear_buffers_changed)
     {
         b.linear_buffers_ptrs.resize(num_neighbors);
         cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
@@ -533,7 +539,7 @@ void CommsMPIHostBufferStream<T_Config>::recv_vec_wait_all(T &b)
 
 template <class T_Config>
 template <class T>
-void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
 #ifdef AMGX_WITH_MPI
     // Gather L2H
@@ -551,14 +557,14 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfi
             if (size != 0)
             {
                 // we need to use new indices after renumbering - these are stored in L2H_maps
-                int num_blocks = min(4096, (size + 127) / 128);
-                copy_buffer<typename T::value_type> <<< num_blocks, 128>>>(b.linear_buffers[i] + total, b.raw() + m.manager->halo_offsets[j * num_neighbors + i], size);
+                cudaMemcpyAsync(b.linear_buffers[i] + total, b.raw() + m.manager->halo_offsets[j * num_neighbors + i], size*sizeof(typename T::value_type), cudaMemcpyDefault, stream);
                 total += size;
             }
         }
 
         cudaCheckError();
     }
+    cudaStreamSynchronize(stream);
 
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
@@ -567,7 +573,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfi
 
 template <class T_Config>
 template <class T>
-void CommsMPIHostBufferStream<T_Config>::do_gather_L2H_v2(T &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::do_gather_L2H_v2(T &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
 #ifdef AMGX_WITH_MPI
 
@@ -588,9 +594,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H_v2(T &b, const Matrix<TCo
 
     if (total != 0)
     {
-        int num_blocks = min(4096, (total + 127) / 128);
-        copy_buffer<typename T::value_type> <<< num_blocks, 128>>>(b.linear_buffers[0], b.raw() + m.manager->halo_offsets[0], total);
-        cudaCheckError();
+        cudaMemcpyAsync(b.linear_buffers[0], b.raw() + m.manager->halo_offsets[0], total*sizeof(typename T::value_type), cudaMemcpyDefault, stream);
     }
 
 #else
@@ -634,12 +638,10 @@ void CommsMPIHostBufferStream<T_Config>::do_add_from_halo(T &b, const Matrix<TCo
 
 template <class T_Config>
 template <class T>
-void CommsMPIHostBufferStream<T_Config>::do_exchange_halo(T &b, cudaEvent_t event, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::do_exchange_halo(T &b, const Matrix<TConfig> &m, int num_rings)
 {
 #ifdef AMGX_WITH_MPI
     typedef typename T::value_type value_type;
-    cudaEventSynchronize(event);
-    cudaCheckError();
     ExcHalo1Functor<T_Config, T> ex1(b, m, num_rings, 0);
     ExcHalo2Functor<T_Config, T> ex2(b, m, num_rings, 0);
     ExcHalo3Functor<T_Config, T> ex3(b, m, num_rings, 0);
@@ -664,7 +666,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo(T &b, cudaEvent_t even
 
 template <class T_Config>
 template <class T>
-void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_async(T &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag)
+void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_async(T &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream)
 {
 #ifdef AMGX_WITH_MPI
 
@@ -672,9 +674,9 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_async(T &b, const Matr
 
     cudaEventSynchronize(event);
     cudaCheckError();
-    ExcHalo1Functor<T_Config, T> ex1(b, m, 1, 0, tag);
+    ExcHalo1Functor<T_Config, T> ex1(b, m, 1, 0, tag, stream);
     ExcHalo2AsyncFunctor<T_Config, T> ex2(b, m, 1, 0, tag);
-    ExcHalo3AsyncFunctor<T_Config, T> ex3(b, m, 1, 0, tag);
+    ExcHalo3AsyncFunctor<T_Config, T> ex3(b, m, 1, 0, tag, stream);
     FSMVisitor<T_Config> fsmV;
     fsmV.get_functors().push_back(&ex1);
     fsmV.get_functors().push_back(&ex2);
@@ -699,7 +701,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_async(T &b, const Matr
 
 template <class T_Config>
 template <class T>
-void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_wait(T &b, const Matrix<TConfig> &m)
+void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_wait(T &b, const Matrix<TConfig> &m, cudaStream_t stream)
 {
 #ifdef AMGX_WITH_MPI
     int bsize = b.get_block_size();
@@ -709,7 +711,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_wait(T &b, const Matri
         MPI_Waitall(2 * neighbors, &b.requests[0], MPI_STATUSES_IGNORE);
         b.dirtybit = 0;
         b.in_transfer = IDLE;
-        HalloWaitCopyFunctor<T_Config, T> hcpyf(b, m);
+        HalloWaitCopyFunctor<T_Config, T> hcpyf(b, m, stream);
         LightVisitor<T_Config> lvcpy(hcpyf);//Visitor branching off: no-op for GPU Direct
         Accept(lvcpy);
     }
@@ -781,7 +783,7 @@ bool CommsMPIHostBufferStream<T_Config>::do_exchange_halo_query(T &b, const Matr
 
     b.dirtybit = 0;
     b.in_transfer = SENDING;
-    HalloWaitCopyFunctor<T_Config, T> hcpyf(b, m);
+    HalloWaitCopyFunctor<T_Config, T> hcpyf(b, m, NULL);
     LightVisitor<T_Config> lvcpy(hcpyf);//Visitor branching off: no-op for GPU Direct
     Accept(lvcpy);
     return true;
@@ -1037,66 +1039,66 @@ void CommsMPIHostBufferStream<T_Config>::recv_raw_data(void *ptr, int size, int 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           do_exchange_halo(b, event, m, num_rings);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     do_exchange_halo_async(b, m, event, tag);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      do_exchange_halo_wait(b, m);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           do_exchange_halo(b, event, m, num_rings);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     do_exchange_halo_async(b, m, event, tag);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      do_exchange_halo_wait(b, m);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
 
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           do_exchange_halo(b, event, m, num_rings);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     do_exchange_halo_async(b, m, event, tag);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      do_exchange_halo_wait(b, m);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           do_exchange_halo(b, event, m, num_rings);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     do_exchange_halo_async(b, m, event, tag);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      do_exchange_halo_wait(b, m);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           do_exchange_halo(b, event, m, num_rings);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     do_exchange_halo_async(b, m, event, tag);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      do_exchange_halo_wait(b, m);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED); /*do_exchange_halo(b, event, m);*/}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED); /*do_exchange_halo(b, m);*/}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED);/*do_exchange_halo_async(b,m, event, tag);*/}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED);/*do_exchange_halo_async(b,m, event, tag, stream);*/}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED);/*do_exchange_halo_wait(b, m);*/}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED);/*do_exchange_halo_wait(b, m, stream);*/}
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings) {           do_exchange_halo(b, event, m, num_rings);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {     do_exchange_halo_async(b, m, event, tag);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag) {      do_exchange_halo_wait(b, m);}
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup_L2H(DVector &b, Matrix<TConfig> &m, int num_rings) { do_setup_L2H(b, m, num_rings);}
@@ -1161,65 +1163,65 @@ template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::add_from_halo(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings, cudaStream_t &stream) {           do_add_from_halo(b, m, num_rings, stream);}
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H(DVector &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::gather_L2H(DVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
-    do_gather_L2H(b, m, num_rings);;
+    do_gather_L2H(b, m, num_rings, stream);
 }
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H(FVector &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::gather_L2H(FVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
-    do_gather_L2H(b, m, num_rings);;
+    do_gather_L2H(b, m, num_rings, stream);
 }
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H(CVector &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::gather_L2H(CVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
-    do_gather_L2H(b, m, num_rings);;
+    do_gather_L2H(b, m, num_rings, stream);
 }
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H(ZVector &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::gather_L2H(ZVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
-    do_gather_L2H(b, m, num_rings);;
-}
-
-
-template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H(IVector &b, const Matrix<TConfig> &m, int num_rings)
-{
-    do_gather_L2H(b, m, num_rings);;
-}
-
-template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(DVector &b, const Matrix<TConfig> &m, int num_rings)
-{
-    do_gather_L2H_v2(b, m, num_rings);;
-}
-
-template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(FVector &b, const Matrix<TConfig> &m, int num_rings)
-{
-    do_gather_L2H_v2(b, m, num_rings);;
-}
-
-template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(CVector &b, const Matrix<TConfig> &m, int num_rings)
-{
-    do_gather_L2H_v2(b, m, num_rings);;
-}
-
-template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(ZVector &b, const Matrix<TConfig> &m, int num_rings)
-{
-    do_gather_L2H_v2(b, m, num_rings);;
+    do_gather_L2H(b, m, num_rings, stream);
 }
 
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(IVector &b, const Matrix<TConfig> &m, int num_rings)
+void CommsMPIHostBufferStream<T_Config>::gather_L2H(IVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
 {
-    do_gather_L2H_v2(b, m, num_rings);;
+    do_gather_L2H(b, m, num_rings, stream);
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(DVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
+{
+    do_gather_L2H_v2(b, m, num_rings, stream);;
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(FVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
+{
+    do_gather_L2H_v2(b, m, num_rings, stream);;
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(CVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
+{
+    do_gather_L2H_v2(b, m, num_rings, stream);;
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(ZVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
+{
+    do_gather_L2H_v2(b, m, num_rings, stream);;
+}
+
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::gather_L2H_v2(IVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream)
+{
+    do_gather_L2H_v2(b, m, num_rings, stream);;
 }
 
 

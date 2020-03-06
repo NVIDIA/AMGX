@@ -866,33 +866,10 @@ BlockJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool 
 
     if (xIsZero) { x.dirtybit = 0; }
 
-    if (!A_as_matrix->is_matrix_singleGPU())
-    {
-        A_as_matrix->manager->exchange_halo_async(x, x.tag);
-
-        //A_as_matrix->manager->exchange_halo_async(b, b.tag);
-        if (A_as_matrix->getViewExterior() == A_as_matrix->getViewInterior())
-        {
-            A_as_matrix->manager->exchange_halo_wait(x, x.tag);
-            //A_as_matrix->manager->exchange_halo_wait(b, b.tag);
-        }
-    }
-
     ViewType oldView = A_as_matrix->currentView();
-    ViewType flags;
-    bool latencyHiding = true;
 
-    if (A_as_matrix->is_matrix_singleGPU() || (x.dirtybit == 0))
-    {
-        latencyHiding = false;
-        A_as_matrix->setViewExterior();
-        flags = (ViewType)(A_as_matrix->getViewInterior() | A_as_matrix->getViewExterior());
-    }
-    else
-    {
-        flags = A_as_matrix->getViewInterior();
-        A_as_matrix->setViewInterior();
-    }
+    A_as_matrix->setViewExterior();
+    ViewType flags = (ViewType)(A_as_matrix->getViewInterior() | A_as_matrix->getViewExterior());
 
     if (A_as_matrix->get_block_dimx() == 1 && A_as_matrix->get_block_dimy() == 1)
     {
@@ -931,65 +908,9 @@ BlockJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool 
         FatalError("Unsupported block size for BlockJacobi_Solver", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);
     }
 
-    if (latencyHiding)
+    if (A_as_matrix->get_block_dimx() == 4 && A_as_matrix->get_block_dimy() == 4)
     {
-        A_as_matrix->manager->exchange_halo_wait(x, x.tag);
-        //A_as_matrix->manager->exchange_halo_wait(b, b.tag);
-        A_as_matrix->setViewExterior();
-        flags = (ViewType)(~(A_as_matrix->getViewInterior()) & A_as_matrix->getViewExterior());
-
-        if (flags != 0)
-        {
-            if (A_as_matrix->get_block_dimx() == 1 && A_as_matrix->get_block_dimy() == 1)
-            {
-                if (xIsZero)
-                {
-                    smooth_with_0_initial_guess_1x1(*A_as_matrix, b, x, flags);
-                }
-                else
-                {
-                    smooth_1x1(*A_as_matrix, b, x, flags);
-                }
-            }
-            else if (A_as_matrix->get_block_dimx() == 4 && A_as_matrix->get_block_dimy() == 4)
-            {
-                if (xIsZero)
-                {
-                    smooth_with_0_initial_guess_4x4(*A_as_matrix, b, x, flags);
-                }
-                else
-                {
-                    smooth_4x4(*A_as_matrix, b, x, flags);
-                }
-            }
-            else if (A_as_matrix->get_block_dimx() == A_as_matrix->get_block_dimy())
-            {
-                smooth_BxB(*A_as_matrix, b, x, false, flags);
-            }
-            else
-            {
-                FatalError("Unsupported block size for BlockJacobi_Solver", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);
-            }
-        }
-    }
-
-    if (A_as_matrix->get_block_dimx() == 1 && A_as_matrix->get_block_dimy() == 1)
-    {
-        if (!xIsZero && latencyHiding)
-        {
-            x.swap(this->t_res);
-        }
-    }
-    else if (A_as_matrix->get_block_dimx() == 4 && A_as_matrix->get_block_dimy() == 4)
-    {
-        if (!xIsZero) // even when non latency hiding we write to t_res vector to avoid race condition in the kernel
-        {
-            x.swap(this->t_res);
-        }
-    }
-    else
-    {
-        if (latencyHiding)
+        if (!xIsZero) // we write to t_res vector to avoid race condition in the kernel
         {
             x.swap(this->t_res);
         }
@@ -1409,12 +1330,11 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     int num_rows = A.get_num_rows();
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    bool latencyHiding = separation_flags != A.getViewIntExt();// we change view only when do latency hiding, maybe it's better to use some explicit flag attached to matrix?
     this->y.dirtybit = 0;
     multiply( A, x, this->y, separation_flags );
     thrust::transform( thrust::make_zip_iterator(thrust::make_tuple( x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
                        thrust::make_zip_iterator(thrust::make_tuple( x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(),   this->y.begin() + A.get_num_rows())),
-                       latencyHiding ? this->t_res.begin() + offset : x.begin() + offset,
+                       x.begin() + offset,
                        jacobi_postsmooth_functor<ValueTypeA, ValueTypeB>( this->weight ));
     cudaCheckError();
 }
@@ -1453,7 +1373,6 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     IndexType num_rows;
     IndexType offset;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    bool latencyHiding = (separation_flags != A.getViewIntExt());
 
     // aux vector initialization
     if (this->y.size() != b.size())
@@ -1469,30 +1388,8 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     Cusparse::bsrmv(types::util<ValueTypeB>::get_minus_one(), A, x, types::util<ValueTypeB>::get_one(), this->y, separation_flags);         // y= -1.0f*(A.x) + y
     cudaCheckError();
 
-    if (latencyHiding)
-    {
-        if (this->t_res.size() != x.size())
-        {
-            this->t_res.resize(x.size());
-        }
-
-        if (firstStep)
-        {
-            A.getOffsetAndSizeForView(OWNED, &offset, &num_rows);
-            thrust::copy( x.begin() + offset * x.get_block_dimy(), x.begin() + (offset + num_rows) * x.get_block_dimy(), this->t_res.begin() + offset * x.get_block_dimy() ); // t_res = x @ OWNED
-            //thrust::copy( x.begin(), x.end(), this->t_res.begin()); // t_res = x @ FULL, we actually need only owned, since it would be dirty anyways
-            cudaCheckError();
-        }
-
-        this->t_res.dirtybit = 0;
-        Cusparse::bsrmv(types::util<ValueTypeB>::get_one()*this->weight, A, this->Dinv, this->y, types::util<ValueTypeB>::get_one(), this->t_res, separation_flags);  // t_res = t_res + w*(Dinv.y) @ view
-        cudaCheckError();
-    }
-    else
-    {
-        Cusparse::bsrmv(types::util<ValueTypeB>::get_one()*this->weight, A, this->Dinv, this->y, types::util<ValueTypeB>::get_one(), x, separation_flags);  // t_res = t_res + w*(Dinv.y) @ view
-        cudaCheckError();
-    }
+    Cusparse::bsrmv(types::util<ValueTypeB>::get_one() * this->weight, A, this->Dinv, this->y, types::util<ValueTypeB>::get_one(), x, separation_flags); // t_res = t_res + w*(Dinv.y) @ view
+    cudaCheckError();
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -1514,7 +1411,6 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     IndexType num_rows = A.get_num_rows();
     IndexType offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    bool latencyHiding = separation_flags != A.getViewExterior();
     const int threads_per_block = 512;
     const int eightwarps_per_block = threads_per_block / 4;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);

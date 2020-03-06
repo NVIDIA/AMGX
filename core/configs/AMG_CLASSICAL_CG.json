@@ -4,6 +4,7 @@
         "print_grid_stats": 1, 
         "solver": "AMG", 
         "print_solve_stats": 1, 
+        "interpolator": "D2",
         "presweeps": 1, 
         "obtain_timings": 1, 
         "max_iters": 100, 

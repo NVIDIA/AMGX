@@ -6,6 +6,7 @@
             "print_vis_data": 0, 
             "solver": "AMG", 
             "print_solve_stats": 0, 
+            "interpolator": "D2",
             "presweeps": 1, 
             "max_iters": 1, 
             "monitor_residual": 0, 

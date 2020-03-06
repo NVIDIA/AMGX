@@ -35,6 +35,10 @@
 // #include <time.h>
 #endif
 
+#ifdef NVTX_RANGES
+#include "nvToolsExt.h"
+#endif
+
 #include <vector>
 #include <map>
 #include <iostream>
@@ -49,6 +53,18 @@
 
 namespace amgx
 {
+class nvtxRange
+{
+    static int color_counter;
+
+#ifdef NVTX_RANGES
+    nvtxRangeId_t id;
+#endif
+
+public:
+    nvtxRange(const char*, int color = -1);
+    ~nvtxRange();
+};
 
 /**********************************************
  *  class for holding profiling data if desired

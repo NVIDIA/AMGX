@@ -41,6 +41,38 @@
 namespace amgx
 {
 
+int nvtxRange::color_counter = 0;
+
+nvtxRange::nvtxRange(const char* name, int color)
+{
+#ifdef NVTX_RANGES
+    static const uint32_t colors[] = { 0xff00ff00, 0xff0000ff, 0xffffff00, 0xffff00ff, 0xff00ffff, 0xffff0000, 0xffffffff };
+    static const int num_colors = sizeof(colors)/sizeof(uint32_t);
+
+    int color_id = color;
+    if (color_id < 0 || color_id >= num_colors)
+    {
+        color_id = color_counter++ % num_colors;
+    }
+    color_id = color_id%num_colors;
+    nvtxEventAttributes_t eventAttrib = {0};
+    eventAttrib.version = NVTX_VERSION;
+    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+    eventAttrib.colorType = NVTX_COLOR_ARGB;
+    eventAttrib.color = colors[color_id];
+    eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
+    eventAttrib.message.ascii = name;
+    nvtxRangePushEx(&eventAttrib);
+#endif
+};
+
+nvtxRange::~nvtxRange()
+{
+#ifdef NVTX_RANGES
+    nvtxRangePop();
+#endif
+}
+
 #ifdef AMGX_USE_CPU_PROFILER
 
 std::ostream &Profiler_entry::print(std::ostream &out, int depth, int max_depth, double total_time, double parent_time) const

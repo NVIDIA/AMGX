@@ -38,6 +38,7 @@
 #include <logger.h>
 #include <hash_workspace.h>
 #include <matrix_io.h>
+#include <device_properties.h>
 
 #include <amgx_types/util.h>
 
@@ -50,13 +51,12 @@ namespace aggregation
 
 #include <sm_utils.inl>
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 
-#include <hash_containers_sm35.inl> // Included inside the namespace to solve name collisions.
+#include <hash_containers_sm70.inl> // Included inside the namespace to solve name collisions.
 
 static __device__ __forceinline__ int get_work( int *queue, int warp_id, int count = 1 )
 {
-#if __CUDA_ARCH__ >= 300
     int offset = -1;
 
     if ( utils::lane_id() == 0 )
@@ -65,23 +65,22 @@ static __device__ __forceinline__ int get_work( int *queue, int warp_id, int cou
     }
 
     return utils::shfl( offset, 0 );
-#else
-    return 0;
-#endif
 }
 
 #else
 
-#include <hash_containers_sm20.inl> // Included inside the namespace to solve name collisions.
+#include <hash_containers_sm35.inl> // Included inside the namespace to solve name collisions.
 
-static __device__ __forceinline__ int get_work( volatile int *offsets, int *queue, int warp_id, int count = 1 )
+static __device__ __forceinline__ int get_work( int *queue, int warp_id, int count = 1 )
 {
+    int offset = -1;
+
     if ( utils::lane_id() == 0 )
     {
-        offsets[warp_id] = atomicAdd( queue, count );
+        offset = atomicAdd( queue, count );
     }
 
-    return offsets[warp_id];
+    return utils::shfl( offset, 0 );
 }
 
 #endif
@@ -109,12 +108,6 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
     __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ < 300
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to vote.
-    __shared__ volatile int s_bcast_cols[CTA_SIZE];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -124,18 +117,9 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
     // First threads load the row IDs of A needed by the CTA...
     int r_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
     Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#else
-    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#endif
     // Loop over rows of R.
-#if __CUDA_ARCH__ >= 300
-
     for ( ; r_row_id < R_num_rows ; r_row_id = get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; r_row_id < R_num_rows ; r_row_id = get_work( s_offsets, wk_work_queue, warp_id ) )
-#endif
     {
         // Make sure we have to proceed.
         if ( COUNT_ONLY )
@@ -167,9 +151,6 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
                 a_row_id = R_cols[r_col_it];
             }
 
-#if __CUDA_ARCH__ < 300
-            s_bcast_cols[threadIdx.x] = a_row_id;
-#endif
             const int num_rows = __popc( utils::ballot(is_active) );
 
             // Uniform loop: threads collaborate to load other elements.
@@ -179,17 +160,7 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
                 // Is it an active thread.
                 bool is_active_k = local_k < num_rows;
                 // Threads in the warp proceeds columns of B in the range [bColIt, bColEnd).
-#if __CUDA_ARCH__ >= 300
                 const int uniform_a_row_id = utils::shfl( a_row_id, local_k );
-#else
-                int uniform_a_row_id = -1;
-
-                if ( is_active_k )
-                {
-                    uniform_a_row_id = s_bcast_cols[warp_id * WARP_SIZE + local_k];
-                }
-
-#endif
                 // Load the range of the row of B.
                 int a_col_it = 0, a_col_end = 0;
 
@@ -242,10 +213,10 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
 
 template< typename Value_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool HAS_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 8 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 6 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void fill_A_kernel_1x1( const int  R_num_rows,
                         const int *R_rows,
@@ -269,19 +240,8 @@ void fill_A_kernel_1x1( const int  R_num_rows,
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
     // The hash values stored in shared memory.
     __shared__ volatile Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
-#else
-    // Shared memory to vote.
-    __shared__ volatile int s_bcast_row[CTA_SIZE];
-    // The hash keys stored in shared memory.
-    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to reduce the diagonal.
-    __shared__ volatile Value_type s_diag[CTA_SIZE];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -291,24 +251,12 @@ void fill_A_kernel_1x1( const int  R_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int r_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
     Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE  ],
             &g_keys[r_row_id * gmem_size ],
             &s_vote[warp_id * SMEM_SIZE / 4],
             &g_vals[r_row_id * gmem_size ], gmem_size );
-#else
-    Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE ],
-            &g_keys[r_row_id * gmem_size],
-            &s_vals[warp_id * SMEM_SIZE ],
-            &g_vals[r_row_id * gmem_size], gmem_size );
-#endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
     for ( ; r_row_id < R_num_rows ; r_row_id = get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; r_row_id < R_num_rows ; r_row_id = get_work( s_offsets, wk_work_queue, warp_id ) )
-#endif
     {
         // The indices of the output row.
         int ac_col_it  = Ac_rows[r_row_id + 0];
@@ -335,10 +283,6 @@ void fill_A_kernel_1x1( const int  R_num_rows,
                 a_row_id = R_cols[r_col_it];
             }
 
-#if __CUDA_ARCH__ < 300
-            s_bcast_row[threadIdx.x] = a_row_id;
-#endif
-
             // Update the diagonal (if needed).
             if ( HAS_DIAG && is_active )
             {
@@ -352,17 +296,7 @@ void fill_A_kernel_1x1( const int  R_num_rows,
             {
                 int local_k = k + lane_id_div_num_threads;
                 // Threads in the warp proceeds columns of B in the range [bColIt, bColEnd).
-#if __CUDA_ARCH__ >= 300
                 const int uniform_a_row_id = utils::shfl( a_row_id, local_k );
-#else
-                int uniform_a_row_id = -1;
-
-                if ( local_k < num_rows )
-                {
-                    uniform_a_row_id = s_bcast_row[warp_id * WARP_SIZE + local_k];
-                }
-
-#endif
                 // The range of the row of B.
                 int a_col_it = 0, a_col_end = 0;
 
@@ -408,16 +342,7 @@ void fill_A_kernel_1x1( const int  R_num_rows,
         // Update the diagonal.
         if ( HAS_DIAG )
         {
-#if __CUDA_ARCH__ >= 300
             r_diag = utils::warp_reduce<1, utils::Add>( r_diag );
-#else
-            types::util<Value_type>::volcast(r_diag, s_diag + threadIdx.x);
-#ifdef _MSC_VER
-            r_diag = utils::warp_reduce_sum<1, Value_type>(s_diag, r_diag);
-#else
-            r_diag = utils::warp_reduce<1, utils::Add>(s_diag, r_diag);
-#endif
-#endif
 
             if ( lane_id == 0 )
             {
@@ -440,10 +365,10 @@ void fill_A_kernel_1x1( const int  R_num_rows,
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template< typename Value_type, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool HAS_DIAG >
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __global__ __launch_bounds__( CTA_SIZE, 8 )
-#else
-__global__ __launch_bounds__( CTA_SIZE )
+#else 
+__global__ __launch_bounds__( CTA_SIZE, 8 )
 #endif
 void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
                         const int *R_rows,
@@ -466,46 +391,21 @@ void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ < 300
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to vote.
-    __shared__ volatile int s_bcast_cols[CTA_SIZE];
-    // The table to share aggregates.
-    __shared__ volatile int s_bcast_ac_col[CTA_SIZE];
-    // Shared memory to broadcast indices.
-    __shared__ volatile int s_bcast_ac_idx[CTA_SIZE];
-    // Shared memory to broadcast values.
-    __shared__ volatile Value_type s_bcast_ac_val[CTA_SIZE / 2];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
     // Constants.
     const int lane_id_div_16 = lane_id / 16;
     const int lane_id_mod_16 = lane_id % 16;
-#if __CUDA_ARCH__ >= 300
     const int warp_offset = 16 * lane_id_div_16;
-#else
-    const int cta_offset = 16 * (threadIdx.x / 16);
-#endif
     // First threads load the row IDs of A needed by the CTA...
     int r_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // My index.
     Hash_index<int, SMEM_SIZE, WARP_SIZE> index( &g_idx[r_row_id * gmem_size] );
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
     Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#else
-    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#endif
     // Loop over rows of R.
-#if __CUDA_ARCH__ >= 300
-
     for ( ; r_row_id < R_num_rows ; r_row_id = get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; r_row_id < R_num_rows ; r_row_id = get_work( s_offsets, wk_work_queue, warp_id ) )
-#endif
     {
         // The indices of the row.
         int ac_col_it  = Ac_rows[r_row_id + 0];
@@ -570,21 +470,12 @@ void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
                 }
 
                 int ac_idx = ac_col_it + set.find_index( key, index, false );
-#if __CUDA_ARCH__ < 300
-                s_bcast_ac_col[threadIdx.x] = ac_col_id;
-                s_bcast_ac_idx[threadIdx.x] = ac_idx;
-#endif
 
                 // Iterate over the 16 items.
                 for ( int k = 0 ; k < 16 ; ++k )
                 {
-#if __CUDA_ARCH__ >= 300
                     int uniform_ac_col = utils::shfl( ac_col_id, warp_offset + k );
                     int uniform_ac_idx = utils::shfl( ac_idx,    warp_offset + k );
-#else
-                    int uniform_ac_col = s_bcast_ac_col[cta_offset + k];
-                    int uniform_ac_idx = s_bcast_ac_idx[cta_offset + k];
-#endif
 
                     // Early loop exit.
                     if ( utils::all( uniform_ac_col == -1 ) )
@@ -601,8 +492,6 @@ void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
                     {
                         a_value = A_vals[16 * uniform_a_col_it + lane_id_mod_16];
                     }
-
-#if __CUDA_ARCH__ >= 300
 
                     // Proceed diagonal if needed.
                     if ( HAS_DIAG && uniform_ac_col == r_row_id )
@@ -630,45 +519,13 @@ void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
                     {
                         Ac_vals[16 * uniform_ac_idx + lane_id_mod_16] = Ac_vals[16 * uniform_ac_idx + lane_id_mod_16] + a_value;
                     }
-
-#else
-
-                    // Update the diagonal if it is a diagonal term.
-                    if ( HAS_DIAG && uniform_ac_col == r_row_id )
-                    {
-                        ac_diag = ac_diag + a_value;
-                        uniform_ac_col = -1;
-                    }
-
-                    // Update the value.
-                    if ( uniform_ac_col != -1 )
-                    {
-                        utils::atomic_add( &Ac_vals[16 * uniform_ac_idx + lane_id_mod_16], a_value );
-                    }
-
-#endif
                 }
             }
         }
 
         if ( HAS_DIAG )
         {
-#if __CUDA_ARCH__ >= 300
             ac_diag = ac_diag + utils::shfl_xor( ac_diag, 16 );
-#else
-
-            if ( lane_id_div_16 == 1 )
-            {
-                types::util<Value_type>::volcast(ac_diag, s_bcast_ac_val + 16 * warp_id + lane_id_mod_16);
-            }
-
-//        + s_bcast_ac_val[16*warp_id + lane_id_mod_16] = ac_diag)
-            if ( lane_id_div_16 == 0 )
-            {
-                ac_diag = ac_diag + types::util<Value_type>::volcast(s_bcast_ac_val[16 * warp_id + lane_id_mod_16]);
-            }
-
-#endif
 
             if ( lane_id_div_16 == 0 )
             {
@@ -681,10 +538,10 @@ void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template< typename Value_type, int N, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool HAS_DIAG, bool FORCE_DETERMINISM >
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __global__ __launch_bounds__( CTA_SIZE, 8 )
 #else
-__global__ __launch_bounds__( CTA_SIZE )
+__global__ __launch_bounds__( CTA_SIZE, 8 )
 #endif
 void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
                         const int *R_rows,
@@ -712,46 +569,22 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
     const int NUM_ITEMS_PER_WARP = T_WARP == 0 ? 1 : T_WARP;
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ < 300
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to vote.
-    __shared__ volatile int s_bcast_cols[CTA_SIZE];
-    // The table to share aggregates.
-    __shared__ volatile int s_bcast_ac_col[CTA_SIZE];
-    // Shared memory to broadcast indices.
-    __shared__ volatile int s_bcast_ac_idx[CTA_SIZE];
-    // Shared memory to broadcast values.
-    __shared__ volatile Value_type s_bcast_ac_val[CTA_SIZE];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
     // Constants.
     const int lane_id_div_NxN = lane_id / NxN;
     const int lane_id_mod_NxN = lane_id % NxN;
-#if __CUDA_ARCH__ >= 300
     const int warp_offset = NxN * lane_id_div_NxN;
-#else
-    const int cta_offset = warp_id * WARP_SIZE + NxN * lane_id_div_NxN;
-#endif
     // First threads load the row IDs of A needed by the CTA...
     int r_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // My index.
     Hash_index<int, SMEM_SIZE, WARP_SIZE> index( &g_idx[r_row_id * gmem_size] );
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
     Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#else
-    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#endif
     // Loop over rows of R.
-#if __CUDA_ARCH__ >= 300
 
     for ( ; r_row_id < R_num_rows ; r_row_id = get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; r_row_id < R_num_rows ; r_row_id = get_work( s_offsets, wk_work_queue, warp_id ) )
-#endif
     {
         // The indices of the row.
         int ac_col_it  = Ac_rows[r_row_id + 0];
@@ -818,15 +651,10 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
                 }
 
                 int ac_idx = ac_col_it + set.find_index( key, index, false );
-#if __CUDA_ARCH__ < 300
-                s_bcast_ac_col[threadIdx.x] = ac_col_id;
-                s_bcast_ac_idx[threadIdx.x] = ac_idx;
-#endif
 
                 // Iterate over the NxN items.
                 for ( int k = 0 ; k < NxN ; ++k )
                 {
-#if __CUDA_ARCH__ >= 300
                     int uniform_ac_col = utils::shfl( ac_col_id, warp_offset + k );
                     int uniform_ac_idx = utils::shfl( ac_idx,    warp_offset + k );
 
@@ -835,17 +663,6 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
                         uniform_ac_col = -1;
                         uniform_ac_idx = -1;
                     }
-
-#else
-                    int uniform_ac_col = -1, uniform_ac_idx = -1;
-
-                    if ( lane_id_div_NxN < NUM_ITEMS_PER_WARP )
-                    {
-                        uniform_ac_col = s_bcast_ac_col[cta_offset + k];
-                        uniform_ac_idx = s_bcast_ac_idx[cta_offset + k];
-                    }
-
-#endif
 
                     // Early loop exit.
                     if ( utils::all( uniform_ac_col == -1 ) )
@@ -883,16 +700,7 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
         {
             if ( !FORCE_DETERMINISM )
             {
-#if __CUDA_ARCH__ >= 300
                 ac_diag = utils::warp_reduce<NxN, utils::Add>( ac_diag );
-#else
-                types::util<Value_type>::volcast(ac_diag, s_bcast_ac_val + threadIdx.x);
-#ifdef _MSC_VER
-                ac_diag = utils::warp_reduce_sum<NxN, Value_type>(s_bcast_ac_val, ac_diag);
-#else
-                ac_diag = utils::warp_reduce<NxN, utils::Add, Value_type>( s_bcast_ac_val, ac_diag );
-#endif
-#endif
             }
 
             if ( lane_id_div_NxN == 0 )
@@ -905,10 +713,10 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
 
 // when blocksize is larger than warp size
 template< typename Value_type, int N, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool HAS_DIAG, bool FORCE_DETERMINISM, int NUM_BLOCK_ITERS_PER_WARP>
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __global__ __launch_bounds__( CTA_SIZE, 8 )
 #else
-__global__ __launch_bounds__( CTA_SIZE )
+__global__ __launch_bounds__( CTA_SIZE, 8 )
 #endif
 void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
                               const int *R_rows,
@@ -935,18 +743,6 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
     const int NUM_ITEMS_PER_WARP = 1;
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ < 300
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to vote.
-    __shared__ volatile int s_bcast_cols[CTA_SIZE];
-    // The table to share aggregates.
-    __shared__ volatile int s_bcast_ac_col[CTA_SIZE];
-    // Shared memory to broadcast indices.
-    __shared__ volatile int s_bcast_ac_idx[CTA_SIZE];
-    // Shared memory to broadcast values.
-    __shared__ volatile Value_type s_bcast_ac_val[CTA_SIZE];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -955,18 +751,9 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
     // My index.
     Hash_index<int, SMEM_SIZE, WARP_SIZE> index( &g_idx[r_row_id * gmem_size] );
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
     Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#else
-    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[r_row_id * gmem_size], gmem_size );
-#endif
     // Loop over rows of R.
-#if __CUDA_ARCH__ >= 300
-
     for ( ; r_row_id < R_num_rows ; r_row_id = get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; r_row_id < R_num_rows ; r_row_id = get_work( s_offsets, wk_work_queue, warp_id ) )
-#endif
     {
         // The indices of the row.
         int ac_col_it  = Ac_rows[r_row_id + 0];
@@ -1021,21 +808,12 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
                 }
 
                 int ac_idx = ac_col_it + set.find_index( key, index, false );
-#if __CUDA_ARCH__ < 300
-                s_bcast_ac_col[threadIdx.x] = ac_col_id;
-                s_bcast_ac_idx[threadIdx.x] = ac_idx;
-#endif
 
                 // Iterate over the NxN items.
                 for ( int k = 0 ; k < NxN ; ++k )
                 {
-#if __CUDA_ARCH__ >= 300
                     int uniform_ac_col = utils::shfl( ac_col_id, k );
                     int uniform_ac_idx = utils::shfl( ac_idx,    k );
-#else
-                    int uniform_ac_col = s_bcast_ac_col[k];
-                    int uniform_ac_idx = s_bcast_ac_idx[k];
-#endif
 
                     // Early loop exit.
                     if ( utils::all( uniform_ac_col == -1 ) )
@@ -1079,16 +857,7 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
         {
             if ( !FORCE_DETERMINISM )
             {
-#if __CUDA_ARCH__ >= 300
                 ac_diag = utils::warp_reduce<NxN, utils::Add>( ac_diag );
-#else
-                types::util<Value_type>::volcast(ac_diag, s_bcast_ac_val + threadIdx.x);
-#ifdef _MSC_VER
-                ac_diag = utils::warp_reduce_sum<NxN, Value_type>(s_bcast_ac_val, ac_diag);
-#else
-                ac_diag = utils::warp_reduce<NxN, utils::Add, Value_type>( s_bcast_ac_val, ac_diag );
-#endif
-#endif
             }
 
             Ac_vals[NxN * Ac_diag[r_row_id] + lane_id] = ac_diag;

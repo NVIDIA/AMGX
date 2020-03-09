@@ -42,7 +42,6 @@ template<int CTA_SIZE, int WARP_SIZE, class T> __device__ __forceinline__ T warp
     const int warpId = utils::warp_id();
     const int laneId = utils::lane_id();
     T value = input;
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
     for (int i = 1; i < WARP_SIZE; i *= 2)
@@ -55,22 +54,6 @@ template<int CTA_SIZE, int WARP_SIZE, class T> __device__ __forceinline__ T warp
         }
     }
 
-#else
-    volatile __shared__ T s_shfl[CTA_SIZE + WARP_SIZE / 2];
-#pragma unroll
-
-    for (int i = 1; i < WARP_SIZE; i *= 2)
-    {
-        s_shfl[threadIdx.x] = value;
-        T n = s_shfl[threadIdx.x - i];
-
-        if (laneId >= i)
-        {
-            value += n;
-        }
-    }
-
-#endif
     return value;
 }
 
@@ -164,11 +147,7 @@ __global__ void bfs_expand(
 
         for (int i = 0; i < n_neighbors; ++i)
         {
-#if __CUDA_ARCH__ >= 350
             int col = __ldg(col_indices + row_begin + i);
-#else
-            int col = col_indices[row_begin + i];
-#endif
             task_queue_out[block_tail_ + n_neighbors_exclusive_scan + i] = col;
         }
 
@@ -186,15 +165,7 @@ struct filter_visited_closure
 
     __device__ inline int operator()(const int &index)
     {
-#if __CUDA_ARCH__ >= 350
-
         if (__ldg(distances_ptr + index) >= 0) { return 1; }
-
-#else
-
-        if (distances_ptr[index] >= 0) { return 1; }
-
-#endif
         return 0;
     }
 };

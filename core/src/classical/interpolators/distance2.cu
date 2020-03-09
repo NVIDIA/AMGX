@@ -598,26 +598,6 @@ void Distance2_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace distance2_sm20
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm20.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( volatile int *offsets, int *queue, int warp_id )
-{
-    if ( utils::lane_id() == 0 )
-    {
-        offsets[warp_id] = atomicAdd( queue, 1 );
-    }
-
-    return offsets[warp_id];
-}
-
-} // namespace distance2_sm20
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 namespace distance2_sm35
 {
 
@@ -626,7 +606,6 @@ namespace distance2_sm35
 
 __device__ __forceinline__ int get_work( int *queue, int warp_id )
 {
-#if __CUDA_ARCH__ >= 300
     int offset = -1;
 
     if ( utils::lane_id() == 0 )
@@ -635,12 +614,29 @@ __device__ __forceinline__ int get_work( int *queue, int warp_id )
     }
 
     return utils::shfl( offset, 0 );
-#else
-    return 0;
-#endif
 }
 
 } // namespace distance2_sm35
+
+namespace distance2_sm70
+{
+
+#include <sm_utils.inl>
+#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
+
+__device__ __forceinline__ int get_work( int *queue, int warp_id )
+{
+    int offset = -1;
+
+    if ( utils::lane_id() == 0 )
+    {
+        offset = atomicAdd( queue, 1 );
+    }
+
+    return utils::shfl( offset, 0 );
+}
+
+} // namespace distance2_sm70
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -913,30 +909,22 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    distance2_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    distance2_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip coarse rows.
@@ -951,7 +939,6 @@ compute_c_hat_kernel( int A_num_rows,
         set.clear();
         // Load the range of the row.
         __syncthreads();
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -961,16 +948,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
         __syncthreads();
 
         // _iterate over the columns of A to build C_hat.
@@ -1092,13 +1069,7 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
+
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -1108,17 +1079,16 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    distance2_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    distance2_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip coarse rows.
@@ -1131,8 +1101,8 @@ compute_c_hat_kernel( int A_num_rows,
 
         // Clear the set.
         set.clear();
+
         // Load the range of the row.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -1142,16 +1112,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
 
         // _iterate over the columns of A to build C_hat.
         for ( int a_col_it = a_col_begin + lane_id ; utils::any(a_col_it < a_col_end) ; a_col_it += WARP_SIZE )
@@ -1290,32 +1250,22 @@ compute_inner_sum_kernel( const int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads propose a value.
     __shared__ volatile Value_type s_a_values[CTA_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-    // The sign of the diagonal.
-    __shared__ volatile bool s_sign_diag[NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    distance2_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    distance2_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip coarse rows.
@@ -1336,7 +1286,6 @@ compute_inner_sum_kernel( const int A_num_rows,
         int inner_sum_offset = inner_sum_offsets[a_row_id];
         // And share the value of the diagonal.
         bool sign_diag = false;
-#if __CUDA_ARCH__ >= 300
 
         if ( lane_id == 0 )
         {
@@ -1344,17 +1293,8 @@ compute_inner_sum_kernel( const int A_num_rows,
         }
 
         sign_diag = utils::shfl( sign_diag, 0 );
-#else
 
-        if ( lane_id == 0 )
-        {
-            s_sign_diag[warp_id] = sign( diag[a_row_id] );
-        }
-
-        sign_diag = s_sign_diag[warp_id];
-#endif
         // Load A row IDs.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -1364,16 +1304,6 @@ compute_inner_sum_kernel( const int A_num_rows,
 
         int a_col_it  = utils::shfl( a_col_tmp, 0 );
         int a_col_end = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_it  = s_rows[2 * warp_id + 0];
-        int a_col_end = s_rows[2 * warp_id + 1];
-#endif
 
         // Iterate over the columns of A.
         for ( a_col_it += lane_id ; utils::any( a_col_it < a_col_end ) ; a_col_it += WARP_SIZE )
@@ -1452,9 +1382,7 @@ compute_inner_sum_kernel( const int A_num_rows,
                 }
 
                 // Reduce the row to a single value.
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
-
                 for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
                 {
                     int hi = __double2hiint(bottom_sum);
@@ -1465,18 +1393,6 @@ compute_inner_sum_kernel( const int A_num_rows,
                 }
 
                 bottom_sum = utils::shfl( bottom_sum, 0 );
-#else
-                s_a_values[threadIdx.x] = bottom_sum;
-#pragma unroll
-
-                for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
-                    if ( lane_id < offset )
-                    {
-                        s_a_values[threadIdx.x] = bottom_sum += s_a_values[threadIdx.x + offset];
-                    }
-
-                bottom_sum = s_a_values[warp_id * WARP_SIZE];
-#endif
 
                 if ( lane_id == k && bottom_sum != Value_type(0) )
                 {
@@ -1525,15 +1441,6 @@ compute_inner_sum_kernel( const int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads propose a value.
     __shared__ volatile Value_type s_a_values[CTA_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-    // The sign of the diagonal.
-    __shared__ volatile bool s_sign_diag[NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -1543,17 +1450,16 @@ compute_inner_sum_kernel( const int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    distance2_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    distance2_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    distance2_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip coarse rows.
@@ -1574,7 +1480,6 @@ compute_inner_sum_kernel( const int A_num_rows,
         int inner_sum_offset = inner_sum_offsets[a_row_id];
         // And share the value of the diagonal.
         bool sign_diag = false;
-#if __CUDA_ARCH__ >= 300
 
         if ( lane_id == 0 )
         {
@@ -1591,23 +1496,6 @@ compute_inner_sum_kernel( const int A_num_rows,
 
         int a_col_it  = utils::shfl( a_col_tmp, 0 );
         int a_col_end = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id == 0 )
-        {
-            s_sign_diag[warp_id] = sign( diag[a_row_id] );
-        }
-
-        sign_diag = s_sign_diag[warp_id];
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_it  = s_rows[2 * warp_id + 0];
-        int a_col_end = s_rows[2 * warp_id + 1];
-#endif
 
         // Iterate over the columns of A.
         for ( a_col_it += lane_id ; utils::any( a_col_it < a_col_end ) ; a_col_it += WARP_SIZE )
@@ -1700,9 +1588,7 @@ compute_inner_sum_kernel( const int A_num_rows,
                 }
 
                 // Reduce the row to a single value.
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
-
                 for ( int offset = NUM_THREADS_PER_ROW / 2 ; offset > 0 ; offset >>= 1 )
                 {
                     int hi = __double2hiint(bottom_sum);
@@ -1713,18 +1599,6 @@ compute_inner_sum_kernel( const int A_num_rows,
                 }
 
                 bottom_sum = utils::shfl( bottom_sum, lane_id_mod_num_threads * NUM_THREADS_PER_ROW );
-#else
-                s_a_values[threadIdx.x] = bottom_sum;
-#pragma unroll
-
-                for ( int offset = NUM_THREADS_PER_ROW / 2 ; offset > 0 ; offset >>= 1 )
-                    if ( (lane_id & (NUM_THREADS_PER_ROW - 1)) < offset )
-                    {
-                        s_a_values[threadIdx.x] = bottom_sum += s_a_values[threadIdx.x + offset];
-                    }
-
-                bottom_sum = s_a_values[warp_id * WARP_SIZE + lane_id_mod_num_threads * NUM_THREADS_PER_ROW];
-#endif
 
                 if ( lane_id >= k && lane_id < k + NUM_THREADS_PER_ROW && bottom_sum != Value_type(0) )
                 {
@@ -1776,18 +1650,11 @@ compute_interp_weight_kernel( const int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads propose a value.
     __shared__ volatile Value_type s_aki[NUM_WARPS];
-#if __CUDA_ARCH__ >= 300
     // The hash values stored in shared memory.
-    __shared__ volatile distance2_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+#if __CUDA_ARCH__ >= 700
+    __shared__ volatile distance2_sm70::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
 #else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-    // Shared memory to store the values in the hash table.
-    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
-    // Shared memory for broadcast.
-    __shared__ volatile Value_type s_a_values[CTA_SIZE];
+    __shared__ volatile distance2_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
 #endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
@@ -1795,25 +1662,24 @@ compute_interp_weight_kernel( const int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    distance2_sm35::Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
+#if __CUDA_ARCH__ >= 700
+    distance2_sm70::Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
             &s_vote[warp_id * SMEM_SIZE / 4],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #else
-    distance2_sm20::Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
+    distance2_sm35::Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vals[warp_id * SMEM_SIZE],
+            &s_vote[warp_id * SMEM_SIZE / 4],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = distance2_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         int coarse_fine_id = cf_map[a_row_id];
@@ -1843,7 +1709,6 @@ compute_interp_weight_kernel( const int A_num_rows,
         int c_hat_end = C_hat_end  [a_row_id];
         map.load( c_hat_end - c_hat_it, &C_hat[c_hat_it], &C_hat_pos[c_hat_it] );
         // Load A row IDs.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -1853,16 +1718,7 @@ compute_interp_weight_kernel( const int A_num_rows,
 
         int a_col_it  = utils::shfl( a_col_tmp, 0 );
         int a_col_end = utils::shfl( a_col_tmp, 1 );
-#else
 
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_it  = s_rows[2 * warp_id + 0];
-        int a_col_end = s_rows[2 * warp_id + 1];
-#endif
         // The offset in the inner sum table.
         int inner_sum_offset = inner_sum_offsets[a_row_id];
         // Weak value.
@@ -1911,7 +1767,6 @@ compute_interp_weight_kernel( const int A_num_rows,
 
             int num_rows = __popc( vote );
             // We pre-load inner sums.
-#if __CUDA_ARCH__ >= 300
             sum = Value_type(0);
 
             if ( lane_id < num_rows )
@@ -1919,14 +1774,6 @@ compute_interp_weight_kernel( const int A_num_rows,
                 sum = inner_sum[inner_sum_offset + lane_id];
             }
 
-#else
-
-            if ( lane_id < num_rows )
-            {
-                s_a_values[threadIdx.x] = inner_sum[inner_sum_offset + lane_id];
-            }
-
-#endif
             inner_sum_offset += num_rows;
 
             // For each warp, we have up to 32 rows of B to proceed.
@@ -1947,11 +1794,7 @@ compute_interp_weight_kernel( const int A_num_rows,
                 }
 
                 // Load the kth inner sum.
-#if __CUDA_ARCH__ >= 300
                 Value_type uniform_val = utils::shfl( sum, k );
-#else
-                Value_type uniform_val = s_a_values[warp_id * WARP_SIZE + k];
-#endif
 
                 // _iterate over the range of columns of B.
                 for ( int b_col_it = b_col_begin + lane_id ; utils::any( b_col_it < b_col_end ) ; b_col_it += WARP_SIZE )
@@ -1991,7 +1834,6 @@ compute_interp_weight_kernel( const int A_num_rows,
         }
 
         // We're done with that row of A. We compute D.
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for ( int mask = WARP_SIZE / 2 ; mask > 0 ; mask >>= 1 )
@@ -2006,27 +1848,7 @@ compute_interp_weight_kernel( const int A_num_rows,
         }
 
         sum = utils::shfl( sum, 0 );
-#else
-        s_a_values[threadIdx.x] = weak;
-#pragma unroll
 
-        for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
-            if ( lane_id < offset )
-            {
-                s_a_values[threadIdx.x] = weak += s_a_values[threadIdx.x + offset];
-            }
-
-        weak = s_a_values[warp_id * WARP_SIZE];
-
-        if ( lane_id == 0 )
-        {
-            weak += diag[a_row_id];
-            s_a_values[threadIdx.x] = Value_type(-1) / weak;
-        }
-
-        sum = s_a_values[warp_id * WARP_SIZE];
-#endif
-#if __CUDA_ARCH__ >= 300
         int p_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -2036,16 +1858,7 @@ compute_interp_weight_kernel( const int A_num_rows,
 
         int p_col_it  = utils::shfl( p_col_tmp, 0 );
         int p_col_end = utils::shfl( p_col_tmp, 1 );
-#else
 
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = P_rows[a_row_id + lane_id];
-        }
-
-        int p_col_it  = s_rows[2 * warp_id + 0];
-        int p_col_end = s_rows[2 * warp_id + 1];
-#endif
         map.store_map_keys_scale_values( p_col_end - p_col_it, cf_map, &P_cols[p_col_it], sum, &P_vals[p_col_it] );
     }
 }

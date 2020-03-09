@@ -31,15 +31,15 @@ namespace amgx
 {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// SM35 implementation of the CSR_Multiply routines.
+// SM70 implementation of the CSR_Multiply routines.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template< typename T_Config >
-class CSR_Multiply_Sm35
+class CSR_Multiply_Sm70
 {};
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-class CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> > : public CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >
+class CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> > : public CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >
 {
         typedef CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > Base;
     public:
@@ -52,7 +52,7 @@ class CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> > : public CSR_Mult
 
     public:
         // Create a workspace to run the product.
-        CSR_Multiply_Sm35( bool allocate_values = true, int grid_size = 128, int max_warp_count = 8, int gmem_size = 2048 );
+        CSR_Multiply_Sm70( bool allocate_values = true, int grid_size = 128, int max_warp_count = 8, int gmem_size = 2048 );
 
     protected:
         // Count the number of non-zero elements. The callee is responsible for setting the work queue value.

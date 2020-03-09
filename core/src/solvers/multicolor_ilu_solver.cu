@@ -69,10 +69,10 @@ namespace multicolor_ilu_solver
 
 template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int CtaSize, int bsize, bool ROW_MAJOR, bool hasDiag>
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CtaSize, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CtaSize, 8 )
+__launch_bounds__( CtaSize, 16 )
 #endif
 void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
                                  const IndexType *LU_smaller_color_offsets,
@@ -97,14 +97,7 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
     const int halfLaneId = threadIdx.x % 16;
     const int halfLaneId_div_4 = halfLaneId / 4;
     const int halfLaneId_mod_4 = halfLaneId % 4;
-#if __CUDA_ARCH__ < 300
-    // Shared memory to broadcast column IDs.
-    __shared__ volatile int s_aColIds[CtaSize];
-    // Each thread keeps its own pointer.
-    volatile int *my_s_aColIds = &s_aColIds[16 * halfWarpId];
-#else
     const int upperHalf = 16 * (laneId / 16);
-#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile ValueTypeB s_mem[CtaSize];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -163,9 +156,6 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
                     aColId = aRowId;
                 }
 
-#if __CUDA_ARCH__ < 300
-                my_s_aColIds[halfLaneId] = aColId;
-#endif
                 // Count the number of active columns.
                 int vote =  utils::ballot(aColId != -1, active_mask);
                 // The number of iterations.
@@ -176,11 +166,7 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
                 {
                     int my_k = k + halfLaneId_div_4;
                     // Load 8 blocks of X.
-#if __CUDA_ARCH__ < 300
-                    int waColId = my_s_aColIds[my_k];
-#else
                     int waColId = utils::shfl( aColId, upperHalf + my_k, warpSize, active_mask );
-#endif
                     ValueTypeB my_x(0);
 
                     if ( waColId != -1 )
@@ -243,10 +229,6 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
                     aColId = LU_column_indices[aColIt];
                 }
 
-#if __CUDA_ARCH__ < 300
-                my_s_aColIds[halfLaneId] = aColId;
-#endif
-
                 // Count the number of active columns.
                 int vote =  utils::ballot(aColId != -1, active_mask);
                 // The number of iterations.
@@ -256,11 +238,7 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
                 {
                     int my_k = k + halfLaneId_div_4;
                     // Load 8 blocks of X.
-#if __CUDA_ARCH__ < 300
-                    int waColId = my_s_aColIds[my_k];
-#else
                     int waColId = utils::shfl( aColId, upperHalf + my_k, warpSize, active_mask );
-#endif
                     ValueTypeB my_delta(0);
 
                     if ( waColId != -1 )
@@ -302,8 +280,6 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
         } // If current_color != 0
 
         // Reduce bmAx terms.
-#if __CUDA_ARCH__ >= 300
-
         if ( ROW_MAJOR )
         {
             my_bmAx += utils::shfl_xor( my_bmAx, 1, warpSize, active_mask );
@@ -314,24 +290,6 @@ void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
             my_bmAx += utils::shfl_xor( my_bmAx, 4, warpSize, active_mask );
             my_bmAx += utils::shfl_xor( my_bmAx, 8, warpSize, active_mask );
         }
-
-#else
-        s_mem[threadIdx.x] = my_bmAx;
-
-        if ( ROW_MAJOR )
-        {
-            if ( laneId < 31 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 1]; }
-
-            if ( laneId < 30 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 2]; }
-        }
-        else
-        {
-            if ( laneId < 28 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 4]; }
-
-            if ( laneId < 24 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 8]; }
-        }
-
-#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -469,10 +427,10 @@ void LU_forward_4x4_kernel(const IndexType *LU_row_offsets, const IndexType *LU_
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, int CtaSize, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CtaSize, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CtaSize, 8 )
+__launch_bounds__( CtaSize, 16 )
 #endif
 void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
                                   const IndexType *larger_color_offsets,
@@ -496,14 +454,7 @@ void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
     const int halfLaneId = threadIdx.x % 16;
     const int halfLaneId_div_4 = halfLaneId / 4;
     const int halfLaneId_mod_4 = halfLaneId % 4;
-#if __CUDA_ARCH__ < 300
-    // Shared memory to broadcast column IDs.
-    __shared__ volatile int s_aColIds[CtaSize];
-    // Each thread keeps its own pointer.
-    volatile int *my_s_aColIds = &s_aColIds[16 * halfWarpId];
-#else
     const int upperHalf = 16 * (laneId / 16);
-#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile ValueTypeB s_mem[CtaSize];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -550,20 +501,12 @@ void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
                     aColId = column_indices[aColIt];
                 }
 
-#if __CUDA_ARCH__ < 300
-                my_s_aColIds[halfLaneId] = aColId;
-#endif
-
                 // Loop over columns. We compute 8 columns per iteration.
                 for ( int k = 0 ; k < 16 ; k += 4 )
                 {
                     int my_k = k + halfLaneId_div_4;
                     // Exchange column indices.
-#if __CUDA_ARCH__ < 300
-                    int waColId = my_s_aColIds[my_k];
-#else
                     int waColId = utils::shfl( aColId, upperHalf + my_k, warpSize, active_mask );
-#endif
                     // Load 8 blocks of X if needed.
                     ValueTypeB *my_ptr = Delta;
 
@@ -612,8 +555,6 @@ void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
             } // Loop over aColIt
 
             // Reduce bmAx terms.
-#if __CUDA_ARCH__ >= 300
-
             if ( ROW_MAJOR )
             {
                 my_bmAx += utils::shfl_xor( my_bmAx, 1, warpSize, active_mask );
@@ -624,24 +565,6 @@ void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
                 my_bmAx += utils::shfl_xor( my_bmAx, 4, warpSize, active_mask );
                 my_bmAx += utils::shfl_xor( my_bmAx, 8, warpSize, active_mask );
             }
-
-#else
-            s_mem[threadIdx.x] = my_bmAx;
-
-            if ( ROW_MAJOR )
-            {
-                if ( laneId < 31 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 1]; }
-
-                if ( laneId < 30 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 2]; }
-            }
-            else
-            {
-                if ( laneId < 28 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 4]; }
-
-                if ( laneId < 24 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 8]; }
-            }
-
-#endif
         } // if current_color != num_colors-1
 
         // Update the shared terms.
@@ -680,8 +603,6 @@ void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
         }
 
         // Regroup results.
-#if __CUDA_ARCH__ >= 300
-
         if ( ROW_MAJOR )
         {
             my_bmAx += utils::shfl_xor( my_bmAx, 1 );
@@ -692,24 +613,6 @@ void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
             my_bmAx += utils::shfl_xor( my_bmAx, 4 );
             my_bmAx += utils::shfl_xor( my_bmAx, 8 );
         }
-
-#else
-        s_mem[threadIdx.x] = my_bmAx;
-
-        if ( ROW_MAJOR )
-        {
-            if ( laneId < 31 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 1]; }
-
-            if ( laneId < 30 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 2]; }
-        }
-        else
-        {
-            if ( laneId < 28 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 4]; }
-
-            if ( laneId < 24 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 8]; }
-        }
-
-#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -1086,10 +989,10 @@ computeAtoLUmappingExtDiag_kernel( int A_nRows,
 
 template< typename ValueTypeA, int CtaSize, int SMemSize, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CtaSize, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CtaSize, 8 )
+__launch_bounds__( CtaSize, 12 )
 #endif
 void
 compute_LU_factors_4x4_kernel_warp( int A_nRows,
@@ -1118,12 +1021,7 @@ compute_LU_factors_4x4_kernel_warp( int A_nRows,
     __shared__ volatile ValueTypeA s_C_mtx[nWarps][32];
     __shared__ volatile ValueTypeA s_F_mtx[nWarps][16];
     // Shared memory to store the proposed column to load
-#if __CUDA_ARCH__ < 300
-    __shared__ volatile int s_aColItToLoad [nWarps][32];
-    __shared__ volatile int s_waColItToLoad[nWarps][32];
-#else
     __shared__ volatile int s_aColSrc[nWarps][32];
-#endif
     // Shared memory to store the column indices of the current row
     __shared__ volatile int s_keys[nWarps][SMemSize];
 
@@ -1245,12 +1143,7 @@ compute_LU_factors_4x4_kernel_warp( int A_nRows,
 
                     if (pred)
                     {
-#if __CUDA_ARCH__ < 300
-                        s_aColItToLoad [warpId][idst] = found_aColIt;
-                        s_waColItToLoad[warpId][idst] = waColIt;
-#else
                         s_aColSrc[warpId][idst] = laneId;
-#endif
                     }
                     utils::syncwarp(active_mask);
 
@@ -1263,13 +1156,6 @@ compute_LU_factors_4x4_kernel_warp( int A_nRows,
                         // Where to get columns from.
                         int a_col_it = -1, w_col_it = -1;
                         // Load column to load
-#if __CUDA_ARCH__ < 300
-                        if ( my_k < n_cols )
-                        {
-                            a_col_it = s_aColItToLoad [warpId][my_k];
-                            w_col_it = s_waColItToLoad[warpId][my_k];
-                        }
-#else
                         a_col_it = utils::shfl(found_aColIt, s_aColSrc[warpId][my_k], warpSize, active_mask);
                         w_col_it = utils::shfl(waColIt,      s_aColSrc[warpId][my_k], warpSize, active_mask);
 
@@ -1279,7 +1165,6 @@ compute_LU_factors_4x4_kernel_warp( int A_nRows,
                             w_col_it = -1;
                         }
 
-#endif
                         ValueTypeA my_C(0);
 
                         if ( w_col_it != -1 )

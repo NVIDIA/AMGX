@@ -38,11 +38,7 @@ namespace amgx
 
 template <typename T_ELEM> __inline__ __device__ T_ELEM __cachingLoad(const T_ELEM *addr)
 {
-#if __CUDA_ARCH__ < 350
-    return *addr;
-#else
     return __ldg(addr);
-#endif
 }
 
 }

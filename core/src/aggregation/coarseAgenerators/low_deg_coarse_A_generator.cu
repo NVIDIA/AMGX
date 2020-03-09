@@ -868,7 +868,7 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, SMEM_SIZE = 128 };
 
 template< int CTA_SIZE, bool HAS_DIAG, bool COUNT_ONLY, typename Workspace >
 static
@@ -883,6 +883,9 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
                                 int *Ac_cols,
                                 int *Ac_pos )
 {
+    cudaDeviceProp props = getDeviceProperties();
+    int GRID_SIZE = (props.major >= 7) ? 256 : 128;
+
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int *h_status;
     thrust::global_thread_handle::cudaMallocHost((void **) &h_status, sizeof(int));
@@ -964,6 +967,9 @@ void fill_A_dispatch( Workspace &hash_wk,
                       Value_type *Ac_vals,
                       bool force_determinism )
 {
+    cudaDeviceProp props = getDeviceProperties();
+    int GRID_SIZE = (props.major >= 7) ? 256 : 128;
+
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int work_offset = GRID_SIZE * NUM_WARPS;
     cudaMemcpyAsync( hash_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice, thrust::global_thread_handle::get_stream() );

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,18 +30,18 @@
 #include <thrust/scan.h>
 #include <util.h>
 #include <csr_multiply.h>
-#include <csr_multiply_sm35.h>
+#include <csr_multiply_sm70.h>
 #include <device_properties.h>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace csr_multiply_sm35
+namespace csr_multiply_sm70
 {
 
 #include <amgx_types/util.h>
 
 #include <sm_utils.inl>
-#include <hash_containers_sm35.inl> // Included inside the namespace to solve name colisions.
+#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1373,7 +1373,7 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-} // namespace csr_multiply_sm35
+} // namespace csr_multiply_sm70
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1382,20 +1382,21 @@ namespace amgx
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, SMEM_SIZE = 128 };
 
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Sm35( bool allocate_values, int grid_size, int max_warp_count, int gmem_size ) :
+CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Sm70( bool allocate_values, int grid_size, int max_warp_count, int gmem_size ) :
     Base(allocate_values, grid_size, max_warp_count, gmem_size)
 {}
 
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
 {
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.
@@ -1406,7 +1407,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
     switch ( this->m_num_threads_per_row_count )
     {
         case 2:
-            csr_multiply_sm35::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1425,7 +1426,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         case 4:
-            csr_multiply_sm35::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1444,7 +1445,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         case 8:
-            csr_multiply_sm35::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1463,7 +1464,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         case 16:
-            csr_multiply_sm35::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1482,7 +1483,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         default:
-            csr_multiply_sm35::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1506,9 +1507,10 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
 
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids)
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids)
 
 {
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.
@@ -1561,7 +1563,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
         {
             int num_blocks = min(4096, (size + 127) / 128);
             //write the position in RAP_ext_row_ids
-            csr_multiply_sm35::flag_halo_rows <<< num_blocks, 128>>>(
+            csr_multiply_sm70::flag_halo_rows <<< num_blocks, 128>>>(
                 RAP_ext_row_ids[i].raw(),
                 size,
                 flagArray[i].raw(),
@@ -1570,7 +1572,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
         }
     }
 
-    csr_multiply_sm35::count_non_zeroes_RAP_ext_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+    csr_multiply_sm70::count_non_zeroes_RAP_ext_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
         RAP_size,
         RAP_int.row_offsets.raw(),
         RAP_int.col_indices.raw(),
@@ -1595,10 +1597,12 @@ template< int CTA_SIZE, bool COUNT_ONLY, typename Diag_traits, typename Matrix >
 static void
 count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_row_count, int gmem_size, int *keys, int *work_queue, int *status )
 {
+    const int GRID_SIZE = 128;
+
     switch ( num_threads_per_row_count )
     {
         case 2:
-            csr_multiply_sm35::count_non_zeroes_ilu1_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_ilu1_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1612,7 +1616,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         case 4:
-            csr_multiply_sm35::count_non_zeroes_ilu1_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_ilu1_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1626,7 +1630,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         case 8:
-            csr_multiply_sm35::count_non_zeroes_ilu1_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_ilu1_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1640,7 +1644,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         case 16:
-            csr_multiply_sm35::count_non_zeroes_ilu1_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_ilu1_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1654,7 +1658,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         default:
-            csr_multiply_sm35::count_non_zeroes_ilu1_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_ilu1_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1673,8 +1677,10 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_ilu1( const Matrix_d &A, Matrix_d &B )
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_ilu1( const Matrix_d &A, Matrix_d &B )
 {
+    const int GRID_SIZE = 128;
+
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.
@@ -1683,7 +1689,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 
     // Count the number of non zeroes.
     if ( A.hasProps(DIAG) )
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_sm35::With_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_sm70::With_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1692,7 +1698,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
             this->m_work_queue,
             this->m_status );
     else
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_sm35::Without_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_sm70::Without_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1708,7 +1714,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( Matrix_d &C )
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( Matrix_d &C )
 {
     thrust::device_ptr<int> offsets_begin(C.row_offsets.raw());
     thrust::device_ptr<int> offsets_end  (C.row_offsets.raw() + C.get_num_rows() + 1);
@@ -1719,11 +1725,12 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( 
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity( const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity( const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
 {
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-    // std::cerr << "CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity" << std::endl;
+    // std::cerr << "CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity" << std::endl;
     // Reset the work queue.
     int work_offset = GRID_SIZE * NUM_WARPS;
     CUDA_SAFE_CALL( cudaMemcpy( this->m_work_queue, &work_offset, sizeof(int), cudaMemcpyHostToDevice ) );
@@ -1732,7 +1739,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
     switch ( this->m_num_threads_per_row_count )
     {
         case 2:
-            csr_multiply_sm35::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1751,7 +1758,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         case 4:
-            csr_multiply_sm35::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1770,7 +1777,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         case 8:
-            csr_multiply_sm35::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1789,7 +1796,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         case 16:
-            csr_multiply_sm35::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1808,7 +1815,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         default:
-            csr_multiply_sm35::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1833,8 +1840,10 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B )
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B )
 {
+    const int GRID_SIZE = 128;
+
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.
@@ -1843,7 +1852,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
 
     // Count the number of non zeroes.
     if ( A.hasProps(DIAG) )
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_sm35::With_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_sm70::With_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1852,7 +1861,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
             this->m_work_queue,
             NULL );
     else
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_sm35::Without_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_sm70::Without_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1868,8 +1877,9 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2  )
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2  )
 {
+    const int GRID_SIZE = 256;
     const int CTA_SIZE  = 128;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset the work queue.
@@ -1886,7 +1896,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
     switch ( num_threads )
     {
         case 2:
-            csr_multiply_sm35::compute_values_kernel< 2, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::compute_values_kernel< 2, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1909,7 +1919,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         case 4:
-            csr_multiply_sm35::compute_values_kernel< 4, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::compute_values_kernel< 4, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1932,7 +1942,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         case 8:
-            csr_multiply_sm35::compute_values_kernel< 8, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::compute_values_kernel< 8, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1955,7 +1965,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         case 16:
-            csr_multiply_sm35::compute_values_kernel<16, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::compute_values_kernel<16, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1978,7 +1988,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         default:
-            csr_multiply_sm35::compute_values_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_sm70::compute_values_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -2006,8 +2016,9 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
 
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads)
+void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads)
 {
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 128;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset the work queue.
@@ -2067,7 +2078,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
         {
             int num_blocks = min(4096, (size + 127) / 128);
             //write the position in RAP_ext_row_ids
-            csr_multiply_sm35::flag_halo_rows <<< num_blocks, 128>>>(
+            csr_multiply_sm70::flag_halo_rows <<< num_blocks, 128>>>(
                 RAP_ext_row_ids[i].raw(),
                 size,
                 flagArray[i].raw(),
@@ -2078,7 +2089,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
     cudaCheckError();
     //CUDA_SAFE_CALL( cudaGetLastError() );
-    csr_multiply_sm35::compute_values_RAP_ext_kernel< Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+    csr_multiply_sm70::compute_values_RAP_ext_kernel< Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
         RAP_size,
         RAP_int.row_offsets.raw(),
         RAP_int.col_indices.raw(),
@@ -2102,7 +2113,7 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class CSR_Multiply_Sm35<TemplateMode<CASE>::Type>;
+#define AMGX_CASE_LINE(CASE) template class CSR_Multiply_Sm70<TemplateMode<CASE>::Type>;
 AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE

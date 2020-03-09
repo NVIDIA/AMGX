@@ -119,25 +119,6 @@ void resolve_boundary(const IndexType *offsets, const IndexType *column_indices,
     }
 }
 
-
-namespace selector_sm20
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm20.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( volatile int *offsets, int *queue, int warp_id )
-{
-    if ( utils::lane_id() == 0 )
-    {
-        offsets[warp_id] = atomicAdd( queue, 1 );
-    }
-
-    return offsets[warp_id];
-}
-
-} // namespace distance2_sm20
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace selector_sm35
@@ -148,7 +129,6 @@ namespace selector_sm35
 
 __device__ __forceinline__ int get_work( int *queue, int warp_id )
 {
-#if __CUDA_ARCH__ >= 300
     int offset = -1;
 
     if ( utils::lane_id() == 0 )
@@ -157,13 +137,29 @@ __device__ __forceinline__ int get_work( int *queue, int warp_id )
     }
 
     return utils::shfl( offset, 0 );
-#else
-    return 0;
-#endif
 }
 
 }
 
+namespace selector_sm70
+{
+
+#include <sm_utils.inl>
+#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
+
+__device__ __forceinline__ int get_work( int *queue, int warp_id )
+{
+    int offset = -1;
+
+    if ( utils::lane_id() == 0 )
+    {
+        offset = atomicAdd( queue, 1 );
+    }
+
+    return utils::shfl( offset, 0 );
+}
+
+}
 
 namespace selector
 {
@@ -435,30 +431,22 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    amgx::classical::selector_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip fine rows.
@@ -473,7 +461,6 @@ compute_c_hat_kernel( int A_num_rows,
         set.clear();
         // Load the range of the row.
         __syncthreads();
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -483,16 +470,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
         __syncthreads();
 
         // _iterate over the columns of A to build C_hat.
@@ -615,13 +592,6 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -631,17 +601,16 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    amgx::classical::selector_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip fine rows.
@@ -655,7 +624,6 @@ compute_c_hat_kernel( int A_num_rows,
         // Clear the set.
         set.clear();
         // Load the range of the row.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -665,16 +633,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
 
         // _iterate over the columns of A to build C_hat.
         for ( int a_col_it = a_col_begin + lane_id ; utils::any(a_col_it < a_col_end) ; a_col_it += WARP_SIZE )

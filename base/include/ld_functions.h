@@ -102,18 +102,10 @@ __device__  __inline__ int ld_cs(const int *address)
     return reg;
 }
 
-#if defined(__CUDA_ARCH__) & (__CUDA_ARCH__ < 350)
-template <class T>
-__device__ __inline T ldg(const T *address)
-{
-    return ld_cg(address);
-}
-#else
 template <class T>
 __device__ __inline T ldg(const T *address)
 {
     return __ldg(address);
 }
-#endif
 
 } //end namespace amgx

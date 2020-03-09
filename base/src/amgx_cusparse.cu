@@ -1021,7 +1021,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                           const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
 
     size_t bufferSize = 0;
-    cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_MV_ALG_DEFAULT, &bufferSize));
+    cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
 
     void* dBuffer = NULL;
     if(bufferSize > 0)
@@ -1029,7 +1029,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         amgx::memory::cudaMalloc(&dBuffer, bufferSize);
     }
 
-    cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_MV_ALG_DEFAULT, dBuffer) );
+    cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
 
     cusparseCheckError(cusparseDestroySpMat(matA_descr));
     cusparseCheckError(cusparseDestroyDnVec(vecX_descr));

@@ -52,7 +52,7 @@ class CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> > : public CSR_Mult
 
     public:
         // Create a workspace to run the product.
-        CSR_Multiply_Sm70( bool allocate_values = true, int grid_size = 128, int max_warp_count = 8, int gmem_size = 2048 );
+        CSR_Multiply_Sm70( bool allocate_values = true, int grid_size = 1024, int max_warp_count = 8, int gmem_size = 512 );
 
     protected:
         // Count the number of non-zero elements. The callee is responsible for setting the work queue value.

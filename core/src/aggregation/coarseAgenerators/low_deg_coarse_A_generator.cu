@@ -884,7 +884,7 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
                                 int *Ac_pos )
 {
     cudaDeviceProp props = getDeviceProperties();
-    int GRID_SIZE = (props.major >= 7) ? 256 : 128;
+    int GRID_SIZE = (props.major >= 7) ? 1024 : 128;
 
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int *h_status;
@@ -968,7 +968,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                       bool force_determinism )
 {
     cudaDeviceProp props = getDeviceProperties();
-    int GRID_SIZE = (props.major >= 7) ? 256 : 128;
+    int GRID_SIZE = (props.major >= 7) ? 1024 : 128;
 
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int work_offset = GRID_SIZE * NUM_WARPS;
@@ -1175,7 +1175,12 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
     const int diag_prop = A.hasProps(DIAG);
     // Allocate a workspace for hashing.
     typedef TemplateConfig<AMGX_device, V, M, I> TConfig_d;
-    Hash_Workspace<TConfig_d, int> hash_wk;
+
+    cudaDeviceProp props = getDeviceProperties();
+    int grid_size = (props.major >= 7) ? 1024 : 128;
+
+    Hash_Workspace<TConfig_d, int> hash_wk(true, grid_size);
+
     // Compute row offsets of Ac.
     Ac.addProps(CSR);
     Ac.set_num_rows( num_aggregates );

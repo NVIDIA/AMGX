@@ -35,6 +35,10 @@
 // #include <time.h>
 #endif
 
+#ifdef NVTX_RANGES
+#include "nvToolsExt.h"
+#endif
+
 #include <vector>
 #include <map>
 #include <iostream>
@@ -49,6 +53,18 @@
 
 namespace amgx
 {
+class nvtxRange
+{
+    static int color_counter;
+
+#ifdef NVTX_RANGES
+    nvtxRangeId_t id;
+#endif
+
+public:
+    nvtxRange(const char*, int color = -1);
+    ~nvtxRange();
+};
 
 /**********************************************
  *  class for holding profiling data if desired
@@ -76,7 +92,7 @@ class levelProfile
         inline void tic(const char *event)
         {
 #ifdef PROFILE
-            cudaThreadSynchronize();
+            cudaDeviceSynchronize();
             Tic[event] = high_resolution_clock::now();
 #endif
         }
@@ -84,7 +100,7 @@ class levelProfile
         inline void toc(const char *event)
         {
 #ifdef PROFILE
-            cudaThreadSynchronize();
+            cudaDeviceSynchronize();
             duration<double, std::nano> ns = t2 - t1;
             times[event] += ns.count();
 #endif

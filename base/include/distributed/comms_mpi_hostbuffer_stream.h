@@ -256,16 +256,16 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void do_vec_exchange(std::vector<Vector<TemplateConfig<TConfig::memSpace, t_vecPrec, t_matPrec, t_indPrec> > > &b, const Matrix<TConfig> &m);
 
         template <class T>
-        void do_exchange_halo(T &b, cudaEvent_t event, const Matrix<TConfig> &m, int num_rings);
+        void do_exchange_halo(T &b, const Matrix<TConfig> &m, int num_rings);
 
         template <class T>
-        void do_exchange_halo_async(T &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void do_exchange_halo_async(T &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream);
 
         template <class T>
         void do_send_receive_wait(T &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
 
         template <class T>
-        void do_exchange_halo_wait(T &b, const Matrix<TConfig> &m);
+        void do_exchange_halo_wait(T &b, const Matrix<TConfig> &m, cudaStream_t stream);
 
         template <class T>
         bool do_exchange_halo_query( T &b, const Matrix<TConfig> &m);
@@ -274,10 +274,10 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void do_add_from_halo(T &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t &stream);
 
         template <class T>
-        void do_gather_L2H(T &b, const Matrix<TConfig> &m, int num_rings);
+        void do_gather_L2H(T &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream);
 
         template <class T>
-        void do_gather_L2H_v2(T &b, const Matrix<TConfig> &m, int num_rings);
+        void do_gather_L2H_v2(T &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream);
 
         template <class T>
         void send_vec(T &b, int destination, int tag, int offset, int size);
@@ -333,46 +333,46 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void exchange_matrix_halo(IVector_Array &row_offsets, I64Vector_Array &col_indices, MVector_Array &values, I64Vector_Array &halo_row_ids, IVector_h &neighbors_list, int global_id);
         void setup(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(DVector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void setup(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(FVector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void setup(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(CVector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void setup(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(ZVector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void setup(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(IVector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void setup(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(BVector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void setup(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
         void setup_L2H(I64Vector &b, Matrix<TConfig> &m, int num_rings = 1);
-        void exchange_halo(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, int num_rings = 1);
-        void exchange_halo_async(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1);
+        void exchange_halo_async(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
         void send_receive_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream);
-        void exchange_halo_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag);
+        void exchange_halo_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL);
 
         void add_from_halo(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings, cudaStream_t &stream);
         void add_from_halo(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings, cudaStream_t &stream);
@@ -380,17 +380,17 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void add_from_halo(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings, cudaStream_t &stream);
         void add_from_halo(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings, cudaStream_t &stream);
 
-        void gather_L2H(IVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H(DVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H(FVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H(CVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H(ZVector &b, const Matrix<TConfig> &m, int num_rings);
+        void gather_L2H(IVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H(DVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H(FVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H(CVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H(ZVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
 
-        void gather_L2H_v2(IVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H_v2(DVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H_v2(FVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H_v2(CVector &b, const Matrix<TConfig> &m, int num_rings);
-        void gather_L2H_v2(ZVector &b, const Matrix<TConfig> &m, int num_rings);
+        void gather_L2H_v2(IVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H_v2(DVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H_v2(FVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H_v2(CVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
+        void gather_L2H_v2(ZVector &b, const Matrix<TConfig> &m, int num_rings, cudaStream_t stream = NULL);
 
         void global_reduce(HDVector_Array &a, HDVector &b, const Operator<TConfig> &m, int tag);
         void global_reduce(HFVector_Array &a, HFVector &b, const Operator<TConfig> &m, int tag);

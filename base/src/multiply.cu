@@ -72,6 +72,30 @@ template <class Matrix, class Vector>
 class Multiply_bxb;
 
 template <typename TConfig>
+void multiply_block_size(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewType view)
+{
+    typedef Matrix<TConfig> TMatrix;
+    typedef Vector<TConfig> TVector;
+
+    if (A.get_block_size() == 1)
+    {
+        Multiply_1x1<TMatrix, TVector>::multiply_1x1(A, B, C, view);
+    }
+    else if (A.get_block_dimy() == 3 && A.get_block_dimx() == 3)
+    {
+        Multiply_3x3<TMatrix, TVector>::multiply_3x3(A, B, C, view);
+    }
+    else if (A.get_block_dimy() == 4 && A.get_block_dimx() == 4)
+    {
+        Multiply_4x4<TMatrix, TVector>::multiply_4x4(A, B, C, view);
+    }
+    else
+    {
+        Multiply_bxb<TMatrix, TVector>::multiply_bxb(A, B, C, view);
+    }
+}
+
+template <typename TConfig>
 void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewType view)
 {
     typedef Matrix<TConfig> TMatrix;
@@ -89,112 +113,9 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
         FatalError(ss.str().c_str(), AMGX_ERR_BAD_PARAMETERS);
     }
 
-    if (view != A.getViewExterior())  //This is already a view, thus do not even attempt to do latency hiding
-    {
-        if (A.get_block_size() == 1)
-        {
-            Multiply_1x1<TMatrix, TVector>::multiply_1x1(A, B, C, view);
-        }
-        else if (A.get_block_dimy() == 3 && A.get_block_dimx() == 3)
-        {
-            Multiply_3x3<TMatrix, TVector>::multiply_3x3(A, B, C, view);
-        }
-        else if (A.get_block_dimy() == 4 && A.get_block_dimx() == 4)
-        {
-            Multiply_4x4<TMatrix, TVector>::multiply_4x4(A, B, C, view);
-        }
-        else
-        {
-            Multiply_bxb<TMatrix, TVector>::multiply_bxb(A, B, C, view);
-        }
+    multiply_block_size(A, B, C, view);
 
-        C.set_block_dimy(A.get_block_dimx());
-    }
-    else     //Try and do latency hiding
-    {
-        ViewType oldView = A.currentView();
-
-        if (!A.is_matrix_singleGPU())
-        {
-            A.manager->exchange_halo_async(B, B.tag);
-        }
-
-        if (A.getViewExterior() == A.getViewInterior())
-        {
-            if (!A.is_matrix_singleGPU())
-            {
-                A.manager->exchange_halo_wait(B, B.tag);
-            }
-        }
-
-        ViewType flags;
-        bool latencyHiding = true;
-
-        if (A.is_matrix_singleGPU() || (B.dirtybit == 0))
-        {
-            latencyHiding = false;
-            A.setViewExterior();
-            flags = (ViewType)(A.getViewExterior());
-        }
-        else
-        {
-            flags = (ViewType)(A.getViewInterior());
-            A.setViewInterior();
-        }
-
-        if (A.get_block_size() == 1)
-        {
-            Multiply_1x1<TMatrix, TVector>::multiply_1x1(A, B, C, flags);
-        }
-        else if (A.get_block_dimy() == 3 && A.get_block_dimx() == 3)
-        {
-            Multiply_3x3<TMatrix, TVector>::multiply_3x3(A, B, C, flags);
-        }
-        else if (A.get_block_dimy() == 4 && A.get_block_dimx() == 4)
-        {
-            Multiply_4x4<TMatrix, TVector>::multiply_4x4(A, B, C, flags);
-        }
-        else
-        {
-            Multiply_bxb<TMatrix, TVector>::multiply_bxb(A, B, C, flags);
-        }
-
-        if (latencyHiding)
-        {
-            if (!A.is_matrix_singleGPU())
-            {
-                A.manager->exchange_halo_wait(B, B.tag);
-            }
-
-            A.setViewExterior();
-            flags = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
-
-            if (flags != 0)
-            {
-                if (A.get_block_size() == 1)
-                {
-                    Multiply_1x1<TMatrix, TVector>::multiply_1x1(A, B, C, flags);
-                }
-                else if (A.get_block_dimy() == 3 && A.get_block_dimx() == 3)
-                {
-                    Multiply_3x3<TMatrix, TVector>::multiply_3x3(A, B, C, flags);
-                }
-                else if (A.get_block_dimy() == 4 && A.get_block_dimx() == 4)
-                {
-                    Multiply_4x4<TMatrix, TVector>::multiply_4x4(A, B, C, flags);
-                }
-                else
-                {
-                    Multiply_bxb<TMatrix, TVector>::multiply_bxb(A, B, C, flags);
-                }
-            }
-        }
-
-        C.dirtybit = 1;
-        //if (!A.is_matrix_singleGPU() && C.size() == B.size() && C.delayed_send==0)
-        //  A.manager->exchange_halo_async(C, C.tag);
-        A.setView(oldView);
-    }
+    C.set_block_dimy(A.get_block_dimx());
 }
 
 template <class TConfig>
@@ -209,6 +130,11 @@ void multiply_masked(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C,
         FatalError("Trying to multiply uninitialized matrix", AMGX_ERR_BAD_PARAMETERS);
     }
 
+    if(A.get_block_size() != 1)
+    {
+        FatalError("Unsupported blocksize for multiply_masked()", AMGX_ERR_BAD_PARAMETERS);
+    }
+
     if (A.get_block_dimx() != B.get_block_dimy())
     {
         std::stringstream ss;
@@ -216,86 +142,8 @@ void multiply_masked(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C,
         FatalError(ss.str().c_str(), AMGX_ERR_BAD_PARAMETERS);
     }
 
-    if (view != A.getViewExterior())  //This is already a view, thus do not even attempt to do latency hiding
-    {
-        if (A.get_block_size() == 1)
-        {
-            Multiply_1x1_masked<TMatrix, TVector, TIVector>::multiply_1x1_masked(A, B, C, mask, view);
-        }
-        else
-        {
-            FatalError("Unsupported blocksize for multiply_masked()", AMGX_ERR_BAD_PARAMETERS);
-        }
-
-        C.set_block_dimy(A.get_block_dimx());
-    }
-    else     //Try and do latency hiding
-    {
-        ViewType oldView = A.currentView();
-
-        if (!A.is_matrix_singleGPU())
-        {
-            A.manager->exchange_halo_async(B, B.tag);
-        }
-
-        if (A.getViewExterior() == A.getViewInterior())
-        {
-            if (!A.is_matrix_singleGPU())
-            {
-                A.manager->exchange_halo_wait(B, B.tag);
-            }
-        }
-
-        ViewType flags;
-        bool latencyHiding = true;
-
-        if (A.is_matrix_singleGPU() || (B.dirtybit == 0))
-        {
-            latencyHiding = false;
-            A.setViewExterior();
-            flags = (ViewType)(A.getViewExterior());
-        }
-        else
-        {
-            flags = (ViewType)(A.getViewInterior());
-            A.setViewInterior();
-        }
-
-        if (A.get_block_size() == 1)
-        {
-            Multiply_1x1_masked<TMatrix, TVector, TIVector>::multiply_1x1_masked(A, B, C, mask, flags);
-        }
-        else
-        {
-            FatalError("Unsupported blocksize for multiply_masked()", AMGX_ERR_BAD_PARAMETERS);
-        }
-
-        if (latencyHiding)
-        {
-            if (!A.is_matrix_singleGPU())
-            {
-                A.manager->exchange_halo_wait(B, B.tag);
-            }
-
-            A.setViewExterior();
-            flags = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
-
-            if (flags != 0)
-            {
-                if (A.get_block_size() == 1)
-                {
-                    Multiply_1x1_masked<TMatrix, TVector, TIVector>::multiply_1x1_masked(A, B, C, mask, flags);
-                }
-                else
-                {
-                    FatalError("Unsupported blocksize for multiply_masked()", AMGX_ERR_BAD_PARAMETERS);
-                }
-            }
-        }
-
-        C.dirtybit = 1;
-        A.setView(oldView);
-    }
+    Multiply_1x1_masked<TMatrix, TVector, TIVector>::multiply_1x1_masked(A, B, C, mask, view);
+    C.set_block_dimy(A.get_block_dimx());
 }
 
 template<class Matrix, class Vector>

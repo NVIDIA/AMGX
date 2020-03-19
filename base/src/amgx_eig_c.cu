@@ -247,7 +247,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
 
@@ -278,7 +278,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
 
@@ -308,7 +308,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_eigensolver_destroy(AMGX_eigensolver_handle slv)

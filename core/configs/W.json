@@ -8,6 +8,7 @@
         "obtain_timings": 1, 
         "max_iters": 100, 
         "monitor_residual": 1, 
+        "interpolator": "D2",
         "convergence": "ABSOLUTE", 
         "scope": "main", 
         "max_levels": 100, 

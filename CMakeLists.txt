@@ -65,6 +65,15 @@ IF(WIN32)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /O2 /Ob2 /DNDEBUG" CACHE STRING "Force flags. /Zl is used to remove deps" FORCE)
 ENDIF(WIN32)
 
+# disabling specific warnings
+if(CMAKE_COMPILER_IS_GNUCXX)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
+    # we throw in ~Matrix(), we assume any error fatal so std::terminate call is ok
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-terminate")
+  endif()
+endif()
+
+
 # min compiler requirements
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
@@ -160,15 +169,15 @@ message ("This is a MPI build:" ${MPI_FOUND})
 
 #Configuration specific nvcc flags
 if(CMAKE_COMPILER_IS_GNUCXX)
-    set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-DPROFILE;-DAMGX_USE_CPU_PROFILER;-std=c++11;--Werror cross-execution-space-call" CACHE STRING "Debug compiler flags")
-    set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++11;--Werror cross-execution-space-call" CACHE STRING "Release compiler flags")
-    set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++11" CACHE STRING "Profile compiler flags")
-    set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++11" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++11;--Werror cross-execution-space-call;-DNVTX_RANGES;" CACHE STRING "Debug compiler flags")
+  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++11;--Werror cross-execution-space-call;-DNVTX_RANGES;" CACHE STRING "Release compiler flags")
+  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++11;-DNVTX_RANGES;" CACHE STRING "Profile compiler flags")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++11;-DNVTX_RANGES;" CACHE STRING "RelWithTraces compiler flags")
 else()
-    set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-DPROFILE;-DAMGX_USE_CPU_PROFILER;--Werror cross-execution-space-call" CACHE STRING "Debug compiler flags")
-    set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call" CACHE STRING "Release compiler flags")
-    set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
-    set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;--Werror cross-execution-space-call;-DNVTX_RANGES;" CACHE STRING "Debug compiler flags")
+  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call;-DNVTX_RANGES;" CACHE STRING "Release compiler flags")
+  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-DNVTX_RANGES;" CACHE STRING "Profile compiler flags")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-DNVTX_RANGES;" CACHE STRING "RelWithTraces compiler flags")
 	if(WIN32)
 		set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
 	endif()
@@ -216,32 +225,26 @@ if(MPI_FOUND)
   endif (DEFINED ENV{VAMPIR_TRACE_PATH})
 endif(MPI_FOUND)
 
-#if compiling against CUDA Toolkit 7.x
-IF(CUDA_VERSION_MAJOR MATCHES 7)
-  IF(CUDA_VERSION_MINOR MATCHES 0)
-    SET(CUDA_ARCH "35 37" CACHE STRING "Target Architectures (SM35 SM37), multiple are allowed")
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DCUDA70_COMPILER")
-  ELSE(CUDA_VERSION_MINOR MATCHES 0)  
-    SET(CUDA_ARCH "35 37 52" CACHE STRING "Target Architectures (SM35 SM37 SM52), multiple are allowed")
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DCUDA75_COMPILER")
-  ENDIF(CUDA_VERSION_MINOR MATCHES 0)  
-ENDIF(CUDA_VERSION_MAJOR MATCHES 7)
-
 #if compiling against CUDA Toolkit 8.x
 IF(CUDA_VERSION_MAJOR MATCHES 8)
-  IF(CUDA_VERSION_MINOR MATCHES 0)
-    SET(CUDA_ARCH "35 37 52 60" CACHE STRING "Target Architectures (SM35 SM37 SM52), multiple are allowed")
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DCUDA80_COMPILER")
-  ELSE(CUDA_VERSION_MINOR MATCHES 0)  
-    SET(CUDA_ARCH "35 37 52 60" CACHE STRING "Target Architectures (SM35 SM37 SM52 SM60), multiple are allowed")
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DCUDA85_COMPILER")
-  ENDIF(CUDA_VERSION_MINOR MATCHES 0)  
+  SET(CUDA_ARCH "35 37 52 60" CACHE STRING "Target Architectures (SM35 SM37 SM52 SM60), multiple are allowed")
 ENDIF(CUDA_VERSION_MAJOR MATCHES 8)
 
 #if compiling against CUDA Toolkit 9.x
 IF(CUDA_VERSION_MAJOR MATCHES 9)
   SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
 ENDIF(CUDA_VERSION_MAJOR MATCHES 9)
+
+#if compiling against CUDA Toolkit 10.x
+IF(CUDA_VERSION_MAJOR MATCHES 10)
+  SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
+
+  # Use the generic cuSPARSE interfaces available from 10.1
+  IF(CUDA_VERSION_MINOR GREATER 0)
+    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DCUSPARSE_GENERIC_INTERFACES)
+  ENDIF(CUDA_VERSION_MINOR GREATER 0)
+
+ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
 
 #replace ' ' with ; to match the proper cmake format
 STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})
@@ -367,13 +370,14 @@ endif (target_all)
 find_library_local_first(cublas_library cublas "The cuBLAS CUDA library")
 find_library_local_first(cusparse_library cusparse "The cusparse CUDA library")
 find_library_local_first(cusolver_library cusolver "The cusolver CUDA library")
+find_library_local_first(nvtx nvToolsExt "nvtx CUDA library")
 
 IF (WIN32)
-  target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library})
-  target_link_libraries( amgxsh ${cublas_library} ${cusparse_library} ${cusolver_library})
+  target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library} ${nvtx})
+  target_link_libraries( amgxsh ${cublas_library} ${cusparse_library} ${cusolver_library} ${nvtx})
 ELSE (WIN32)
-  target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library} m pthread)
-  target_link_libraries( amgxsh ${cublas_library} ${cusparse_library} ${cusolver_library} m pthread)
+  target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library} ${nvtx} m pthread)
+  target_link_libraries( amgxsh ${cublas_library} ${cusparse_library} ${cusolver_library} ${nvtx} m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)

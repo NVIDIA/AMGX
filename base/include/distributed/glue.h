@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include <types.h>
 #include <norm.h>
 #include <logger.h>
+#include <matrix_distribution.h>
 
 #include <iostream>
 #include <iomanip>
@@ -504,7 +505,9 @@ int upload_matrix_after_glue(int n, int nnz, int *r_ptr, int *i_ptr, void *v_ptr
     nv_mtx.set_initialized(0);
     nv_mtx.delProps(DIAG);
     // Load distributed matrix
-    nv_mtx.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, r_ptr, i_ptr, (t_MatPrec *) v_ptr, num_ranks, part_vec_ptr, n_global, NULL);
+    MatrixDistribution mdist;
+    mdist.setPartitionVec(part_vec_ptr);
+    nv_mtx.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, r_ptr, i_ptr, (t_MatPrec *) v_ptr, num_ranks, n_global, NULL, mdist);
     // Create B2L_maps for comm
     nv_mtx.manager->renumberMatrixOneRing();
     // WARNING WE SHOULD GET THE NUMBER OF RINGS AND DO THE FOLLOWING ONLY IF THERE ARE 2 RINGS

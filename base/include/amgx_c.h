@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -114,6 +114,15 @@ typedef enum
 } AMGX_GET_PARAMS_DESC_FLAG;
 
 /*********************************************************
+ * Flags to determine behavior of distributed matrix partitioning
+ *********************************************************/
+typedef enum
+{
+    AMGX_DIST_PARTITION_VECTOR = 0,
+    AMGX_DIST_PARTITION_OFFSETS = 1,
+} AMGX_DIST_PARTITION_INFO;
+
+/*********************************************************
  * Forward (opaque) handle declaration
  *********************************************************/
 typedef void (*AMGX_print_callback)(const char *msg, int length);
@@ -132,6 +141,10 @@ typedef AMGX_vector_handle_struct *AMGX_vector_handle;
 
 typedef struct {char AMGX_solver_handle_dummy;} AMGX_solver_handle_struct;
 typedef AMGX_solver_handle_struct *AMGX_solver_handle;
+
+typedef struct {char AMGX_distribution_handle_dummy;} AMGX_distribution_handle_struct;
+/** Stores parameters about global matrix distribution and upload */
+typedef AMGX_distribution_handle_struct *AMGX_distribution_handle;
 
 
 /*********************************************************
@@ -238,6 +251,35 @@ AMGX_RC AMGX_API AMGX_resources_create_simple
 
 AMGX_RC AMGX_API AMGX_resources_destroy
 (AMGX_resources_handle rsc);
+
+/* Distribution */
+/** Create a distribution handle.
+ * `cfg` is used to set parameters from an existing configuration. Can be null. */
+AMGX_RC AMGX_API AMGX_distribution_create
+(AMGX_distribution_handle *dist, AMGX_config_handle cfg);
+
+AMGX_RC AMGX_API AMGX_distribution_destroy
+(AMGX_distribution_handle dist);
+
+/** Set the partitioning scheme used for the matrix.
+ * 
+ * AMGX_DIST_PARTITION_VECTOR:
+ *  Pass in a partition vector of type `int` for `partition_data` with the same format as for AMGX_matrix_upload_all_global().
+ * AMGX_DIST_PARTITION_OFFSETS:
+ *  For a contiguous partitioning, specifying the offsets allows faster matrix upload.
+ *  In this case, `partition_data` must be `int` or `int64_t` array, matching the column index data type.
+ * 
+ * Use with \see AMGX_matrix_upload_distributed()
+*/
+AMGX_RC AMGX_API AMGX_distribution_set_partition_data
+(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data);
+
+/** Set whether to use 32-bit or 64-bit column indices. Default is 64 bit.
+ * 
+ * Determines how the `col_indices_global` argument to AMGX_matrix_upload_distributed() is interpreted.
+ */
+AMGX_RC AMGX_API AMGX_distribution_set_32bit_colindices
+(AMGX_distribution_handle dist, int use32bit);
 
 /* Matrix */
 AMGX_RC AMGX_API AMGX_matrix_create
@@ -537,7 +579,7 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global
  int allocated_halo_depth,
  int num_import_rings,
  const int *partition_vector);
-
+ 
 AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
 (AMGX_matrix_handle mtx,
  int n_global,
@@ -553,6 +595,18 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
  int num_import_rings,
  const int *partition_vector);
 
+ AMGX_RC AMGX_API AMGX_matrix_upload_distributed
+(AMGX_matrix_handle mtx,
+ int n_global,
+ int n,
+ int nnz,
+ int block_dimx,
+ int block_dimy,
+ const int *row_ptrs,
+ const void *col_indices_global,
+ const void *data,
+ const void *diag_data,
+ AMGX_distribution_handle distribution);
 
 /*********************************************************
  * C-API deprecated

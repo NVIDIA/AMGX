@@ -59,10 +59,12 @@ template<typename TConfig, typename Tb>
 void ExcHalo1Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> &comm)
 {
     Tb &b = get_b();
+    cudaStream_t stream = get_stream();
 
     if (b.buffer_size != 0)
     {
-        cudaMemcpy(&(b.explicit_host_buffer[0]), b.buffer->raw(), b.buffer_size * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+        cudaMemcpyAsync(&(b.explicit_host_buffer[0]), b.buffer->raw(), b.buffer_size * sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
+        cudaStreamSynchronize(stream);
     }
 
 #ifdef AMGX_WITH_MPI
@@ -258,6 +260,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> 
 {
 #ifdef AMGX_WITH_MPI
     Tb &b = get_b();
+    cudaStream_t stream = get_stream();
     const Matrix<TConfig> &m = get_m();
     int num_rings = get_num_rings();
     int neighbors = comm.get_neighbors();
@@ -442,6 +445,7 @@ template<typename TConfig, typename Tb>
 void ExcHalo3AsyncFunctor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> &comm)
 {
     Tb &b = get_b();
+    cudaStream_t stream = get_stream();
     const Matrix<TConfig> &m = get_m();
     int num_rings = get_num_rings();
     int neighbors = comm.get_neighbors();
@@ -455,7 +459,8 @@ void ExcHalo3AsyncFunctor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TCon
 
     if (size != 0)
     {
-        cudaMemcpy(b.raw() + m.manager->halo_offset(0)*bsize, &(b.explicit_host_buffer[b.buffer_size]), size * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+        cudaMemcpyAsync(b.raw() + m.manager->halo_offset(0)*bsize, &(b.explicit_host_buffer[b.buffer_size]), size * sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
+        cudaStreamSynchronize(stream);
     }
 
 #endif

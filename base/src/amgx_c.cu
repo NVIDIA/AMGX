@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,7 @@
 #include "distributed/distributed_arranger.h"
 #include "distributed/distributed_io.h"
 #include "resources.h"
+#include "matrix_distribution.h"
 #include <amgx_timer.h>
 #include "util.h"
 #include "reorder_partition.h"
@@ -636,6 +637,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 
 typedef CWrapHandle<AMGX_config_handle, AMG_Configuration> ConfigW;
 typedef CWrapHandle<AMGX_resources_handle, Resources> ResourceW;
+typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
 
 
 namespace
@@ -1710,7 +1712,7 @@ inline AMGX_RC generate_distributed_poisson_7pt(AMGX_matrix_handle mtx,
 }
 
 template<AMGX_Mode CASE>
-inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
+inline AMGX_RC matrix_upload_distributed(AMGX_matrix_handle mtx,
                                         int n_global,
                                         int n,
                                         int nnz,
@@ -1720,15 +1722,14 @@ inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
                                         const void *col_indices_global,
                                         const void *data,
                                         const void *diag_data,
-                                        int allocated_halo_depth,
-                                        int num_import_rings,
-                                        const int *partition_vector)
+                                        AMGX_distribution_handle dist)
 {
     typedef typename TemplateMode<CASE>::Type TConfig;
     typedef Matrix<TConfig> MatrixLetterT;
     typedef CWrapHandle<AMGX_matrix_handle, MatrixLetterT> MatrixW;
     typedef typename MatPrecisionMap<AMGX_GET_MODE_VAL(AMGX_MatPrecision, CASE)>::Type ValueType;
-    //typedef typename MatPrecisionMap<AMGX_GET_MODE_VAL(AMGX_MatPrecision, CASE)>::Type ValueType;
+    MatrixDistributionW wrapDist(dist);
+    MatrixDistribution &mdist = *wrapDist.wrapped();
     MatrixW wrapA(mtx);
     MatrixLetterT &A_part = *wrapA.wrapped();
     cudaSetDevice(A_part.getResources()->getDevice(0));
@@ -1745,13 +1746,24 @@ inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
 
     A_part.manager = new DistributedManager<TConfig>(A_part);
     A_part.setManagerExternal();
-    /* Load distributed matrix */
-    A_part.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, row_ptrs, (int64_t *)col_indices_global, (ValueType *)data, num_ranks, partition_vector, n_global, diag_data);
+    /* Load distributed matrix 
+        Choose correct overload based on column index type
+     */
+    if (mdist.get32BitColIndices()) 
+    {
+        A_part.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, row_ptrs, (int *)col_indices_global,
+            (ValueType *)data, num_ranks, n_global, diag_data, mdist);
+    }
+    else
+    {
+        A_part.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, row_ptrs, (int64_t *)col_indices_global,
+            (ValueType *)data, num_ranks, n_global, diag_data, mdist);
+    }
     /* Create B2L_maps for comm */
     A_part.manager->renumberMatrixOneRing();
 
     /* Exchange 1 ring halo rows (for d2 interp) */
-    if (num_import_rings == 2)
+    if (mdist.getNumImportRings() == 2)
     {
         A_part.manager->createOneRingHaloRows();
     }
@@ -1765,46 +1777,58 @@ inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
 }
 
 template<AMGX_Mode CASE>
-inline AMGX_RC matrix_upload_all_global_32(AMGX_matrix_handle mtx, int n_global, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const void *col_indices_global, const void *data, const void *diag_data, int allocated_halo_depth, int num_import_rings, const int *partition_vector)
+inline AMGX_RC matrix_upload_all_global(AMGX_matrix_handle mtx,
+                                        int n_global,
+                                        int n,
+                                        int nnz,
+                                        int block_dimx,
+                                        int block_dimy,
+                                        const int *row_ptrs,
+                                        const void *col_indices_global,
+                                        const void *data,
+                                        const void *diag_data,
+                                        int allocated_halo_depth, // TODO: unused parameter
+                                        int num_import_rings,
+                                        const int *partition_vector)
 {
-    typedef typename TemplateMode<CASE>::Type TConfig;
-    typedef Matrix<TConfig> MatrixLetterT;
-    typedef CWrapHandle<AMGX_matrix_handle, MatrixLetterT> MatrixW;
-    typedef typename MatPrecisionMap<AMGX_GET_MODE_VAL(AMGX_MatPrecision, CASE)>::Type ValueType;
-    //typedef typename MatPrecisionMap<AMGX_GET_MODE_VAL(AMGX_MatPrecision, CASE)>::Type ValueType;
-    MatrixW wrapA(mtx);
-    MatrixLetterT &A_part = *wrapA.wrapped();
-    cudaSetDevice(A_part.getResources()->getDevice(0));
-    MPI_Comm *mpi_comm = A_part.getResources()->getMpiComm();
-    int num_ranks;
-    MPI_Comm_size(*mpi_comm, &num_ranks);
+    AMGX_distribution_handle dist;
+    AMGX_distribution_create(&dist, NULL);
+    MatrixDistributionW wrapDist(dist);
+    MatrixDistribution &mdist = *wrapDist.wrapped();
+    mdist.setPartitionVec(partition_vector);
+    mdist.setNumImportRings(num_import_rings);
+    auto rc = matrix_upload_distributed<CASE>(mtx, n_global, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices_global,
+        data, diag_data, dist);
+    AMGX_distribution_destroy(dist);
+    return rc;
+}
 
-    /* Create distributed manager */
-    if (A_part.manager != NULL)
-    {
-        delete A_part.manager;
-        A_part.manager = NULL;
-    }
-
-    A_part.manager = new DistributedManager<TConfig>(A_part);
-    A_part.setManagerExternal();
-    /* Load distributed matrix */
-    A_part.manager->loadDistributedMatrix(n, nnz, block_dimx, block_dimy, row_ptrs, (int *)col_indices_global, (ValueType *)data, num_ranks, partition_vector, n_global, diag_data);
-    /* Create B2L_maps for comm */
-    A_part.manager->renumberMatrixOneRing();
-
-    /* Exchange 1 ring halo rows (for d2 interp) */
-    if (num_import_rings == 2)
-    {
-        A_part.manager->createOneRingHaloRows();
-    }
-
-    A_part.manager->getComms()->set_neighbors(A_part.manager->num_neighbors());
-    A_part.setView(OWNED);
-    /* if (A_part.manager != NULL) A_part.manager->printToFile("M_clf_gua",""); */
-    /* A_part.printToFile("A_clf_gua","",-1,-1); */
-    A_part.set_initialized(1);
-    return AMGX_RC_OK;
+template<AMGX_Mode CASE>
+inline AMGX_RC matrix_upload_all_global_32(AMGX_matrix_handle mtx, 
+                                           int n_global,
+                                           int n,
+                                           int nnz,
+                                           int block_dimx,
+                                           int block_dimy,
+                                           const int *row_ptrs,
+                                           const void *col_indices_global,
+                                           const void *data,
+                                           const void *diag_data,
+                                           int allocated_halo_depth, // TODO: unused parameter
+                                           int num_import_rings,
+                                           const int *partition_vector)
+{
+    AMGX_distribution_handle dist;
+    AMGX_distribution_create(&dist, NULL);
+    MatrixDistributionW wrapDist(dist);
+    MatrixDistribution &mdist = *wrapDist.wrapped();
+    mdist.setPartitionVec(partition_vector);
+    mdist.setNumImportRings(num_import_rings);
+    mdist.set32BitColIndices(true);
+    auto rc = matrix_upload_distributed<CASE>(mtx, n_global, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices_global,
+        data, diag_data, dist);
+    AMGX_distribution_destroy(dist);
+    return rc;    
 }
 #endif
 
@@ -2286,6 +2310,10 @@ extern "C" {
             }
 
             AMGX_CATCHES(rc)
+            if (AMGX_OK != rc)
+            {
+                fprintf(stderr, "AMGX_abort warning: catched %d\n",rc);
+            }
         }
 
         amgx_error_exit(resources, err);
@@ -2293,6 +2321,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_initialize()
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_initialize " );
         AMGX_CHECK_API_ERROR(amgx::initialize(), NULL);
         return AMGX_RC_OK;
@@ -2301,12 +2331,16 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_initialize_plugins()
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_initialize_plugins " );
         return getCAPIerror_x(amgx::initializePlugins());
     }
 
     AMGX_RC AMGX_API AMGX_finalize()
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_finalize " );
         AMGX_ERROR rc = AMGX_OK;
 
@@ -2339,6 +2373,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_config_create(AMGX_config_handle *cfg_h, const char *options)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_config_create " );
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
@@ -2362,6 +2398,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_config_create_from_file(AMGX_config_handle *cfg_h, const char *param_file)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_config_create_from_file " );
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
@@ -2392,6 +2430,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_config_create_from_file_and_string(AMGX_config_handle *cfg_h, const char *param_file, const char *options)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_config_create_from_file_and_string " );
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
@@ -2423,6 +2463,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_config_add_parameters(AMGX_config_handle *cfg_h, const char *options)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_config_add_parameters" );
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
@@ -2454,6 +2496,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_config_get_default_number_of_rings(AMGX_config_handle cfg_h, int *num_import_rings)
     {
+        nvtxRange nvrf(__func__);
+
         std::string s_scope, s_value, p_scope, p_value;
         AlgorithmType s_algorithm, p_algorithm;
         AMGX_ERROR rc = AMGX_OK;
@@ -2533,6 +2577,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_config_destroy(AMGX_config_handle cfg_h)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_config_destroy " );
         AMGX_ERROR rc = AMGX_OK;
 
@@ -2550,6 +2596,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_solver_create(AMGX_solver_handle *slv, AMGX_resources_handle rsc, AMGX_Mode mode, const AMGX_config_handle cfg_h)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_create" );
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc_solver;
@@ -2592,6 +2640,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_solver_calculate_residual_norm(AMGX_solver_handle solver, AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle x, void *norm_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_solve " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
@@ -2617,12 +2667,14 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
 
     AMGX_RC AMGX_API AMGX_solver_destroy(AMGX_solver_handle slv)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_destroy " );
         //cudaSetDevice(...) is called below because
         //device deallocator must be invoked
@@ -2658,6 +2710,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_solver_setup(AMGX_solver_handle slv, AMGX_matrix_handle mtx)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_setup " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
@@ -2685,11 +2739,13 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_solver_resetup(AMGX_solver_handle slv, AMGX_matrix_handle mtx)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_resetup " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
@@ -2717,11 +2773,13 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_solver_solve(AMGX_solver_handle slv, AMGX_vector_handle rhs, AMGX_vector_handle sol)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_solve " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
@@ -2747,11 +2805,13 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_solver_solve_with_0_initial_guess(AMGX_solver_handle slv, AMGX_vector_handle rhs, AMGX_vector_handle sol)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_solve_with_0_initial_guess " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
@@ -2777,11 +2837,13 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_matrix_create_impl(AMGX_matrix_handle *mtx, AMGX_resources_handle rsc, AMGX_Mode mode)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_create " );
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR rc_mtx = AMGX_OK;
@@ -2816,16 +2878,20 @@ extern "C" {
 
         AMGX_CATCHES(rc)
         AMGX_CHECK_API_ERROR(rc_mtx, resources)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_matrix_create(AMGX_matrix_handle *mtx, AMGX_resources_handle rsc, AMGX_Mode mode)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_create_impl(mtx, rsc, mode);
     }
 
     AMGX_RC AMGX_API AMGX_matrix_vector_multiply(AMGX_matrix_handle mtx, AMGX_vector_handle x, AMGX_vector_handle y)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_solver_solve " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
@@ -2851,11 +2917,13 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_matrix_destroy_impl(AMGX_matrix_handle mtx)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_destroy " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
@@ -2890,11 +2958,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_destroy(AMGX_matrix_handle mtx)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_destroy_impl(mtx);
     }
 
     AMGX_RC AMGX_API AMGX_matrix_upload_all_impl(AMGX_matrix_handle mtx, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_upload_all " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
@@ -2930,11 +3002,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_upload_all(AMGX_matrix_handle mtx, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_upload_all_impl(mtx, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, data, diag_data);
     }
 
     AMGX_RC AMGX_API AMGX_matrix_replace_coefficients(AMGX_matrix_handle mtx, int n, int nnz, const void *data, const void *diag_data)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_replace_coefficients " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
@@ -2970,6 +3046,8 @@ extern "C" {
 
     AMGX_RC AMGX_matrix_get_size_impl(const AMGX_matrix_handle mtx, int *n, int *block_dimx, int *block_dimy)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_get_size " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
@@ -3021,11 +3099,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_get_size(const AMGX_matrix_handle mtx, int *n, int *block_dimx, int *block_dimy)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_get_size_impl(mtx, n, block_dimx, block_dimy);
     }
 
     AMGX_RC AMGX_API AMGX_matrix_attach_geometry( AMGX_matrix_handle mtx, double *geox, double *geoy, double *geoz, int n)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_attach_geometry " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
@@ -3061,6 +3143,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_attach_coloring( AMGX_matrix_handle mtx, int *row_coloring, int num_rows, int num_colors)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_attach_coloring " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
@@ -3095,6 +3179,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_sort(AMGX_matrix_handle mtx)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_matrix_sort " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
@@ -3131,6 +3217,8 @@ extern "C" {
 // previously: AMGX_vector_create(AMGX_vector_handle *ret, AMGX_Mode mode)
     AMGX_RC AMGX_vector_create_impl(AMGX_vector_handle *vec, AMGX_resources_handle rsc, AMGX_Mode mode)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_create " );
         Resources *resources = NULL;
         AMGX_ERROR rc = AMGX_OK;
@@ -3165,16 +3253,20 @@ extern "C" {
 
         AMGX_CATCHES(rc)
         AMGX_CHECK_API_ERROR(rc_vec, resources)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_API AMGX_vector_create(AMGX_vector_handle *vec, AMGX_resources_handle rsc, AMGX_Mode mode)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_create_impl(vec, rsc, mode);
     }
 
     AMGX_RC AMGX_vector_destroy_impl(AMGX_vector_handle vec)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_destroy " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
@@ -3208,11 +3300,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_vector_destroy(AMGX_vector_handle vec)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_destroy_impl(vec);
     }
 
     AMGX_RC AMGX_vector_upload_impl(AMGX_vector_handle vec, int n, int block_dim, const void *data)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_upload " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
@@ -3247,11 +3343,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_vector_upload(AMGX_vector_handle vec, int n, int block_dim, const void *data)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_upload_impl(vec, n, block_dim, data);
     }
 
     AMGX_RC AMGX_vector_set_zero_impl(AMGX_vector_handle vec, int n, int block_dim)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_set_zero " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
@@ -3287,11 +3387,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_vector_set_zero(AMGX_vector_handle vec, int n, int block_dim)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_set_zero_impl(vec, n, block_dim);
     }
 
     AMGX_RC AMGX_API AMGX_vector_set_random(AMGX_vector_handle vec, int n)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
@@ -3325,6 +3429,8 @@ extern "C" {
 
     AMGX_RC AMGX_vector_download_impl(const AMGX_vector_handle vec, void *data)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_download " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
@@ -3360,11 +3466,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_vector_download(const AMGX_vector_handle vec, void *data)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_download_impl(vec, data);
     }
 
     AMGX_RC AMGX_vector_get_size_impl(const AMGX_vector_handle vec, int *n, int *block_dim)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_get_size " );
         Resources *resources;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
@@ -3400,12 +3510,16 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_vector_get_size(const AMGX_vector_handle vec, int *n, int *block_dim)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_get_size_impl(vec, n, block_dim);
     }
 
 #ifdef AMGX_WITH_MPI
     AMGX_RC AMGX_API AMGX_write_system_distributed(const AMGX_matrix_handle mtx, const AMGX_vector_handle rhs, const AMGX_vector_handle sol, const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_write_full_system " );
         AMGX_Mode mode;
         Resources *resources = NULL;
@@ -3440,6 +3554,8 @@ extern "C" {
 #else
     AMGX_RC AMGX_API AMGX_write_system_distributed(const AMGX_matrix_handle mtx, const AMGX_vector_handle rhs, const AMGX_vector_handle sol, const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         return AMGX_RC_OK;
     }
@@ -3447,6 +3563,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_write_system(const AMGX_matrix_handle mtx, const AMGX_vector_handle rhs, const AMGX_vector_handle sol, const char *filename)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_write_full_system " );
         AMGX_Mode mode;
         Resources *resources = NULL;
@@ -3482,6 +3600,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_solver_get_iterations_number(AMGX_solver_handle slv, int *n)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_get_iterations_number " );
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL)
@@ -3516,6 +3636,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_solver_get_iteration_residual(AMGX_solver_handle slv, int it, int idx, double *res)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_get_iteration_residual " );
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL)
@@ -3551,6 +3673,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_get_build_info_strings(char **version, char **date, char **time)
     {
+        nvtxRange nvrf(__func__);
+
         *version = const_cast<char *>(__AMGX_BUILD_ID__);
         *date = const_cast<char *>(__AMGX_BUILD_DATE__);
         *time = const_cast<char *>(__AMGX_BUILD_TIME__);
@@ -3579,6 +3703,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_pin_memory(void *ptr, unsigned int bytes)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_pin_memory_impl(ptr, bytes);
     }
 
@@ -3604,11 +3730,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_unpin_memory(void *ptr)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_unpin_memory_impl(ptr);
     }
 
     AMGX_RC AMGX_API AMGX_solver_get_status(AMGX_solver_handle slv, AMGX_SOLVE_STATUS *st)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
@@ -3633,40 +3763,52 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return AMGX_RC_OK;
+        return getCAPIerror_x(rc);
     }
 
     AMGX_RC AMGX_solver_register_print_callback(AMGX_print_callback func)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_register_print_callback(func);
     }
 
     AMGX_RC AMGX_register_print_callback(AMGX_print_callback func)
     {
+        nvtxRange nvrf(__func__);
+
         amgx_output = func;
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_get_error_string(AMGX_RC err, char *buf, int buf_len)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_GetErrorString(getAMGXerror(err), buf, buf_len);
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_install_signal_handler()
     {
+        nvtxRange nvrf(__func__);
+
         SignalHandler::hook();
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_reset_signal_handler()
     {
+        nvtxRange nvrf(__func__);
+
         SignalHandler::unhook();
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_get_api_version(int *major, int *minor)
     {
+        nvtxRange nvrf(__func__);
+
         *major = __AMGX_API_VERSION_MAJOR;
         *minor = __AMGX_API_VERSION_MINOR;
         return AMGX_RC_OK;
@@ -3674,6 +3816,8 @@ extern "C" {
 
     AMGX_RC AMGX_matrix_get_nnz_impl(const AMGX_matrix_handle mtx, int *nnz)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         //if (!c_mtx || !c_mtx->is_valid()) return AMGX_RC_BAD_PARAMETERS;
@@ -3705,11 +3849,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_get_nnz(const AMGX_matrix_handle mtx, int *nnz)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_get_nnz_impl(mtx, nnz);
     }
 
     AMGX_RC AMGX_matrix_download_all_impl(const AMGX_matrix_handle mtx, int *row_ptrs, int *col_indices, void *data, void **diag_data)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         //if (!c_mtx || !c_mtx->is_valid()) return AMGX_RC_BAD_PARAMETERS;
@@ -3742,11 +3890,15 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_download_all(const AMGX_matrix_handle mtx, int *row_ptrs, int *col_indices, void *data, void **diag_data)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_download_all_impl(mtx, row_ptrs, col_indices, data, diag_data);
     }
 
     AMGX_RC AMGX_API AMGX_vector_bind_impl(AMGX_vector_handle vec, const AMGX_matrix_handle matrix)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(matrix, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
@@ -3778,6 +3930,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_vector_bind(AMGX_vector_handle vec, const AMGX_matrix_handle mtx)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_vector_bind_impl(vec, mtx);
     }
 
@@ -3792,6 +3946,8 @@ extern "C" {
             int partition_vector_size,
             const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_read_system_distributed " );
         std::stringstream msg;
         AMGX_Mode mode = AMGX_unset;
@@ -3869,6 +4025,8 @@ extern "C" {
 #else
     AMGX_RC AMGX_read_system_distributed_impl(AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle sol,  const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         return AMGX_RC_OK;
     }
@@ -3876,6 +4034,8 @@ extern "C" {
 
     AMGX_RC AMGX_matrix_set_boundary_separation_impl(AMGX_matrix_handle mtx,  int boundary_separation)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         //if (!c_mtx) return AMGX_RC_BAD_PARAMETERS;
@@ -3909,6 +4069,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_set_boundary_separation(AMGX_matrix_handle mtx,  int boundary_separation)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_set_boundary_separation_impl(mtx, boundary_separation);
     }
 
@@ -3938,6 +4100,8 @@ extern "C" {
             const int *partition_vector,
             int64_t **local_to_global_map)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_ERROR rc_rs = AMGX_OK;
 
@@ -4082,12 +4246,16 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_read_system_maps_one_ring(int *n, int *nnz, int *block_dimx, int *block_dimy, int **row_ptrs, int **col_indices, void **data, void **diag_data, void **rhs, void **sol, int *num_neighbors, int **neighbors, int **btl_sizes, int ***btl_maps, int **lth_sizes, int ***lth_maps, AMGX_resources_handle rsc, AMGX_Mode mode, const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         int64_t **local_to_global_map = NULL;
         return AMGX_read_system_maps_one_ring_impl(n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, data, diag_data, rhs, sol, num_neighbors, neighbors, btl_sizes, btl_maps, lth_sizes, lth_maps, rsc, mode, filename, allocated_halo_depth, num_partitions, partition_sizes, partition_vector_size, partition_vector, local_to_global_map);
     }
 
     AMGX_RC AMGX_API AMGX_read_system_global(int *n, int *nnz, int *block_dimx, int *block_dimy, int **row_ptrs, void **col_indices_global, void **data, void **diag_data, void **rhs, void **sol, AMGX_resources_handle rsc, AMGX_Mode mode, const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         // TODO: we can avoid one-ring construction since we don't need it in this function
         // although the overhead is probably small and this won't be benchmarked anyways
         // so it's more convenient to just reuse AMGX_read_system_maps_one_ring
@@ -4223,6 +4391,8 @@ extern "C" {
 
     AMGX_RC AMGX_free_system_maps_one_ring_impl(int *row_ptrs, int *col_indices, void *data, void *diag_data, void *rhs, void *sol, int num_neighbors, int *neighbors, int *btl_sizes, int **btl_maps, int *lth_sizes, int **lth_maps)
     {
+        nvtxRange nvrf(__func__);
+
         if (row_ptrs != NULL) { get_c_arr_mem_manager().free(row_ptrs); }
 
         if (col_indices != NULL) { get_c_arr_mem_manager().free(col_indices); }
@@ -4262,6 +4432,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_free_system_maps_one_ring(int *row_ptrs, int *col_indices, void *data, void *diag_data, void *rhs, void *sol, int num_neighbors, int *neighbors, int *btl_sizes, int **btl_maps, int *lth_sizes, int **lth_maps)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_free_system_maps_one_ring_impl(row_ptrs, col_indices, data, diag_data, rhs, sol, num_neighbors, neighbors, btl_sizes, btl_maps, lth_sizes, lth_maps);
     }
 
@@ -4274,6 +4446,8 @@ extern "C" {
             const int *recv_sizes,
             int const  **recv_maps)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
@@ -4323,17 +4497,23 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_comm_from_maps_one_ring(AMGX_matrix_handle mtx, int allocated_halo_depth, int max_num_neighbors, const int *neighbors, const int *send_sizes, int const **send_maps, const int *recv_sizes, int const  **recv_maps)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_matrix_comm_from_maps_one_ring_impl(mtx, allocated_halo_depth, max_num_neighbors, neighbors, send_sizes, send_maps, recv_sizes, recv_maps);
     }
 
 #ifdef AMGX_WITH_MPI
     AMGX_RC AMGX_API AMGX_read_system_distributed(AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle sol,  const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         return AMGX_read_system_distributed_impl(mtx, rhs, sol, filename, allocated_halo_depth, num_partitions, partition_sizes, partition_vector_size, partition_vector);
     }
 #else
     AMGX_RC AMGX_API AMGX_read_system_distributed(AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle sol,  const char *filename, int allocated_halo_depth, int num_partitions, const int *partition_sizes, int partition_vector_size, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         return AMGX_RC_OK;
     }
@@ -4352,6 +4532,8 @@ extern "C" {
             int py,
             int pz)
     {
+        nvtxRange nvrf(__func__);
+
         /* This routine will create 3D (7 point) discretization of the Poisson operator.
            The discretization is performed on a the 3D domain consisting of nx, ny and nz
            points in x-, y- and z-dimension, respectively. This 3D domain will be replicated
@@ -4384,7 +4566,7 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }
 
     AMGX_RC AMGX_API AMGX_matrix_upload_all_global( AMGX_matrix_handle mtx,
@@ -4401,6 +4583,8 @@ extern "C" {
             int num_import_rings,
             const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
@@ -4425,11 +4609,13 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }
 
     AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32(AMGX_matrix_handle mtx, int n_global, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const void *col_indices_global, const void *data, const void *diag_data, int allocated_halo_depth, int num_import_rings, const int *partition_vector)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
@@ -4454,12 +4640,55 @@ extern "C" {
         }
 
         AMGX_CATCHES(rc)
-        return getCAPIerror_x(rc);
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
+    }   
+    
+    AMGX_RC AMGX_API AMGX_matrix_upload_distributed(AMGX_matrix_handle mtx,
+            int n_global,
+            int n,
+            int nnz,
+            int block_dimx,
+            int block_dimy,
+            const int *row_ptrs,
+            const void *col_indices_global,
+            const void *data,
+            const void *diag_data,
+            AMGX_distribution_handle dist)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_ERROR rc = AMGX_OK;
+        AMGX_RC rc0 = AMGX_RC_OK;
+
+        try
+        {
+            AMGX_Mode mode = get_mode_from(mtx);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: \
+    { \
+      rc0 = matrix_upload_distributed<CASE>(mtx, n_global, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices_global, data, diag_data, dist); \
+    } \
+    break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    return AMGX_RC_BAD_MODE;
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        return AMGX_OK != rc ? getCAPIerror_x(rc) : rc0;
     }
 
 #else
     AMGX_RC AMGX_API AMGX_generate_distributed_poisson_7pt(AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle sol, int allocated_halo_depth, int num_import_rings, int nx, int ny, int nz, int px, int py, int pz)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         return AMGX_RC_OK;
     }
@@ -4475,10 +4704,20 @@ extern "C" {
         AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         return AMGX_RC_OK;
     }
+
+    AMGX_RC AMGX_API AMGX_matrix_upload_distributed(AMGX_matrix_handle mtx, int n_global, int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const void *col_indices_global, const void *data, const void *diag_data, AMGX_distribution_handle distribution)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+        return AMGX_RC_OK;
+    }
 #endif
 
     AMGX_RC AMGX_API AMGX_matrix_comm_from_maps(AMGX_matrix_handle mtx, int allocated_halo_depth, int num_import_rings, int max_num_neighbors, const int *neighbors, const int *send_ptrs, int const *send_maps, const int *recv_ptrs, int const  *recv_maps)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
@@ -4512,6 +4751,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_matrix_get_size_neighbors(const AMGX_matrix_handle mtx, int *num_neighbors)
     {
+        nvtxRange nvrf(__func__);
+
         Resources *resources = NULL;
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
@@ -4544,6 +4785,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_resources_create(AMGX_resources_handle *rsc, AMGX_config_handle cfg_h, void *comm, int device_num, const int *devices)
     {
+        nvtxRange nvrf(__func__);
+
         if (rsc == NULL || devices == NULL)
         {
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
@@ -4569,6 +4812,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_resources_create_simple(AMGX_resources_handle *rsc, AMGX_config_handle cfg_h)
     {
+        nvtxRange nvrf(__func__);
+
         const size_t num_devices = 1;
         const int devices[1] = { 0 };
         AMGX_ERROR rc = AMGX_OK;
@@ -4591,6 +4836,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_resources_destroy(AMGX_resources_handle rsc)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_ERROR rc = AMGX_OK;
 
         try
@@ -4603,8 +4850,95 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
+    AMGX_RC AMGX_API AMGX_distribution_create(AMGX_distribution_handle *dist, AMGX_config_handle cfg)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_ERROR rc = AMGX_OK;
+        try 
+        {
+            auto *mdist = create_managed_object<MatrixDistribution, AMGX_distribution_handle>(dist);
+            if (cfg != NULL)
+            {
+                int ring;
+                rc = getAMGXerror(AMGX_config_get_default_number_of_rings(cfg, &ring));
+                mdist->wrapped()->setAllocatedHaloDepth(ring);
+                mdist->wrapped()->setNumImportRings(ring);
+            }
+        }
+        AMGX_CATCHES(rc);
+        if (rc != AMGX_OK)
+        {
+            AMGX_CHECK_API_ERROR(rc, NULL);
+        }
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_distribution_destroy(AMGX_distribution_handle dist)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_ERROR rc = AMGX_OK;
+        try
+        {
+            if (!remove_managed_object<AMGX_distribution_handle, MatrixDistribution>(dist)) 
+            {
+                rc = AMGX_ERR_BAD_PARAMETERS;
+            }
+        }
+        AMGX_CATCHES(rc);
+        if (rc != AMGX_OK)
+        {
+            AMGX_CHECK_API_ERROR(rc, NULL);
+        }
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_distribution_set_partition_data(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data)
+    {
+        nvtxRange nvrf(__func__);
+
+        if (dist == NULL || partition_data == NULL) 
+        {
+            AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+        }
+        typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
+        MatrixDistributionW wrapDist(dist);
+        MatrixDistribution &mdist = *wrapDist.wrapped();
+        switch (info)
+        {
+            case AMGX_DIST_PARTITION_VECTOR:
+                mdist.setPartitionVec((const int*)partition_data);
+                break;
+            case AMGX_DIST_PARTITION_OFFSETS:
+                mdist.setPartitionOffsets(partition_data);
+                break;
+            default:
+                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+                break;
+        }
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_distribution_set_32bit_colindices(AMGX_distribution_handle dist, int use32bit)
+    {
+        nvtxRange nvrf(__func__);
+
+        if (dist == NULL)
+        {
+            AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
+        }
+        typedef CWrapHandle<AMGX_distribution_handle, MatrixDistribution> MatrixDistributionW;
+        MatrixDistributionW wrapDist(dist);
+        MatrixDistribution &mdist = *wrapDist.wrapped();
+        mdist.set32BitColIndices(use32bit);
+        return AMGX_RC_OK;
+    }
+
     AMGX_RC AMGX_API AMGX_read_system(AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle sol, const char *filename)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_read_system " );
         Resources *resources = NULL;
         AMGX_Mode mode = AMGX_unset;
@@ -4667,6 +5001,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_write_parameters_description(char *filename, AMGX_GET_PARAMS_DESC_FLAG mode)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_write_parameters_description " );
 
         switch (mode)
@@ -4686,6 +5022,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_timer_create(const char *label, unsigned int flags) // create new timer
     {
+        nvtxRange nvrf(__func__);
+
         if (getTimers().createTimer(label, flags))
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL)
             //return AMGX_RC_BAD_PARAMETERS;
@@ -4694,6 +5032,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_timer_start(const char *label) // start a timer if it's not started yet
     {
+        nvtxRange nvrf(__func__);
+
         if (getTimers().startTimer(label))
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL)
             //return AMGX_RC_BAD_PARAMETERS;
@@ -4702,24 +5042,32 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_timer_elapsed(const char *label, double *sec) // timer continues to run, just get elapsed time since last start() call
     {
+        nvtxRange nvrf(__func__);
+
         *sec = getTimers().elapsedTimer(label);
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_API AMGX_timer_get_total(const char *label, double *sec) // retrieves timer's accumulated value
     {
+        nvtxRange nvrf(__func__);
+
         *sec = getTimers().getTotalTime(label);
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_API AMGX_timer_stop(const char *label, double *sec) // timer stops, get time since last start() call
     {
+        nvtxRange nvrf(__func__);
+
         *sec = getTimers().stopTimer(label);
         return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_API AMGX_read_geometry( const char *fname, double **geo_x, double **geo_y, double **geo_z, int *dim, int *numrows)
     {
+        nvtxRange nvrf(__func__);
+
         printf("Reading geometry from file: '%s'\n", fname);
         FILE *fin = fopen(fname, "r");
 
@@ -4767,6 +5115,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_read_coloring( const char *fname, int **row_coloring, int *colored_rows, int *num_colors)
     {
+        nvtxRange nvrf(__func__);
+
         printf("Reading coloring from file: '%s'\n", fname);
         FILE *fin = fopen(fname, "r");
 
@@ -4795,6 +5145,8 @@ extern "C" {
 
     AMGX_RC AMGX_API AMGX_read_system_with_cfg(AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle sol, const char *filename, const AMGX_config_handle cfg_h)
     {
+        nvtxRange nvrf(__func__);
+
         AMGX_CPU_PROFILER( "AMGX_vector_read_system " );
         Resources *resources = NULL;
         AMGX_Mode mode = AMGX_unset;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,6 +61,7 @@ template <class TConfig> class Energymin_AMG_Level_Base;
 #include <ld_functions.h>
 #include <distributed/distributed_comms.h>
 #include <distributed/distributed_arranger.h>
+#include <matrix_distribution.h>
 
 #include "amgx_types/math.h"
 #include "amgx_types/util.h"
@@ -285,9 +286,9 @@ template <typename TConfig> class DistributedManagerBase
             halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),  halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
 
         {
-            cudaEventCreate(&b2l_event);
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaEventCreate(&comm_event);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
         };
 
         DistributedManagerBase(Matrix<TConfig> &a);
@@ -303,8 +304,8 @@ template <typename TConfig> class DistributedManagerBase
             halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL),
             _comms(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             _neighbors = neighbors_;
             _B2L_maps.resize(B2L_maps_.size());
 
@@ -313,7 +314,7 @@ template <typename TConfig> class DistributedManagerBase
                 _B2L_maps[i] = B2L_maps_[i];
             }
 
-            cudaEventCreate(&b2l_event);
+            cudaEventCreate(&comm_event);
         };
 
 
@@ -328,8 +329,8 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<Matrix<TConfig> > **halo_rows_,
                                 std::vector<DistributedManager<TConfig> > **halo_btl_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), B2L_maps(B2L_maps_), L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(halo_ranges_), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             DistributedManagerBaseInit(my_id, base_index, index_range, a, comms_, halo_rows_, halo_btl_);
         }
 
@@ -345,8 +346,8 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<Matrix<TConfig> > **halo_rows_,
                                 std::vector<DistributedManager<TConfig> > **halo_btl_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), B2L_maps(B2L_maps_), L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(halo_ranges_), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             DistributedManagerBaseInit(my_id, base_index, index_range, a, comms_, halo_rows_, halo_btl_);
         }
 
@@ -361,8 +362,8 @@ template <typename TConfig> class DistributedManagerBase
             halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
             B2L_maps(B2L_maps_),  L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             DistributedArranger<TConfig> *prep = new DistributedArranger<TConfig>;
             int rings = num_halo_rings(B2L_rings);
             prep->create_B2L_from_maps(a, my_id, rings, base_index, index_range, neighbors,
@@ -380,8 +381,8 @@ template <typename TConfig> class DistributedManagerBase
             halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
             B2L_maps(B2L_maps_),  L2H_maps(L2H_maps_), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             DistributedArranger<TConfig> *prep = new DistributedArranger<TConfig>;
             prep->create_B2L_from_maps(a, my_id, rings, neighbors,
                                        B2L_maps, L2H_maps, B2L_rings, comms_, &halo_rows, &halo_btl);
@@ -427,8 +428,8 @@ template <typename TConfig> class DistributedManagerBase
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), _comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(_halo_ranges), halo_ranges_h(halo_ranges_h_), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
             B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             DistributedArranger<TConfig> *prep = new DistributedArranger<TConfig>;
             prep->create_B2L_from_neighbors(a, my_id, rings, base_index, index_range, neighbors,
                                             halo_ranges_h, halo_ranges, B2L_maps, L2H_maps, B2L_rings, comms_, &halo_rows, &halo_btl);
@@ -445,8 +446,8 @@ template <typename TConfig> class DistributedManagerBase
                                 int num_neighbors) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(_neighbors), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
             B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
         {
-            cudaStreamCreate(&m_int_stream);
-            cudaStreamCreate(&m_bdy_stream);
+            cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+            cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
             this->createComms(A->getResources());
             DistributedArranger<TConfig> *prep = new DistributedArranger<TConfig>;
             neighbors.resize(num_neighbors);
@@ -975,7 +976,7 @@ template <typename TConfig> class DistributedManagerBase
 
             if (this->num_neighbors() == 0) { return; }
 
-            if (_comms->exchange_halo_query(data, *A, b2l_event) || data.dirtybit == 0) { return; } //if single node/already arrived/not dirty return
+            if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0) { return; } //if single node/already arrived/not dirty return
             else if (data.in_transfer & RECEIVING)
             {
                 this->exchange_halo_wait(data, tag);  //blocking wait if we are already receiving
@@ -984,31 +985,119 @@ template <typename TConfig> class DistributedManagerBase
 
             _comms->setup(data, *A, tag);  //set pointers to buffer
             gather_B2L(data);             //write values to buffer
-            cudaEventRecord(b2l_event);
-            _comms->exchange_halo(data, *A, b2l_event, tag); //exchange buffers
+            _comms->exchange_halo(data, *A, tag, 1); //exchange buffers
+            scatter_L2H(data);            //NULL op
+        }
+
+        template <class Vector>
+        void exchange_halo_v2(Vector &data, int tag)
+        {
+            if (_comms == NULL) {data.dirtybit = 0; return;}
+
+            if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
+
+            _comms->setup(data, *A, tag);  //set pointers to buffer
+            gather_B2L_v2(data);             //write values to buffer
+            _comms->exchange_halo(data, *A, tag); //begin async send
+        }
+
+        template <class Vector>
+        void exchange_halo_async(Vector &data, int tag)
+        {
+            if (_comms == NULL) {data.dirtybit = 0; return;}
+
+            if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
+
+            _comms->setup(data, *A, tag);  //set pointers to buffer
+            gather_B2L(data);             //write values to buffer
+            cudaEventRecord(comm_event);
+            _comms->exchange_halo_async(data, *A, comm_event, tag); //begin async send
+        }
+
+        template <class Vector>
+        void exchange_halo_split_gather(Vector &data, int tag)
+        {
+            if (_comms == NULL) {data.dirtybit = 0; return;}
+
+            if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
+
+            _comms->setup(data, *A, tag);  //set pointers to buffer
+            gather_B2L_v2(data);             //write values to buffer
+            cudaEventRecord(comm_event);
+        }
+
+        template <class Vector>
+        void exchange_halo_split_finish(Vector &data, int tag)
+        {
+            if (_comms == NULL) {data.dirtybit = 0; return;}
+
+            if ((data.in_transfer == IDLE) && (data.dirtybit == 0)) { return; } //if single node/not dirty and no data transfer - return
+
+            if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
+            _comms->exchange_halo_async(data, *A, comm_event, tag, m_bdy_stream); //begin async send
+            _comms->exchange_halo_wait(data, *A, comm_event, tag, m_bdy_stream); //blocking wait
+            scatter_L2H(data);            //NULL op
+        }
+
+        template <class Vector>
+        void exchange_halo_wait(Vector &data, int tag)
+        {
+            if (_comms == NULL) {data.dirtybit = 0; return;}
+
+            if ((data.in_transfer == IDLE) && (data.dirtybit == 0)) { return; } //if single node/not dirty and no data transfer - return
+
+            _comms->exchange_halo_wait(data, *A, comm_event, tag); //blocking wait
             scatter_L2H(data);            //NULL op
         }
 
         template <class Vector>
         void exchange_halo_2ring(Vector &data, int tag)
         {
-            cudaDeviceSynchronize();
-            cudaCheckError();
-            cudaDeviceSynchronize();
             _comms->setup(data, *A, tag, 2);  //set pointers to buffer
-            cudaDeviceSynchronize();
-            cudaCheckError();
-            cudaDeviceSynchronize();
             gather_B2L(data, 2);             //write values to buffer
-            cudaDeviceSynchronize();
-            cudaCheckError();
-            cudaDeviceSynchronize();
-            cudaEventRecord(b2l_event);
-            _comms->exchange_halo(data, *A, b2l_event, tag, 2); //exchange buffers
-            cudaDeviceSynchronize();
-            cudaCheckError();
-            cudaDeviceSynchronize();
+            _comms->exchange_halo(data, *A, tag, 2); //exchange buffers
             scatter_L2H(data);            //NULL op
+        }
+
+        template <class Vector>
+        void add_from_halo(Vector &data, int tag, cudaStream_t stream = 0)
+        {
+            // set num neighbors = size of b2l_rings
+            // need to do this because comms might have more neighbors than our matrix knows about
+            _comms->set_neighbors(B2L_rings.size());
+            _comms->setup_L2H(data, *A);                           //set pointers to buffer
+            _comms->gather_L2H(data, *A, 1, stream);            //write values to buffer
+            _comms->add_from_halo(data, *A, tag, 1, stream);      //exchange buffers
+            scatter_B2L(data);                                     // update values
+        }
+
+        template <class Vector>
+        void add_from_halo_v2(Vector &data, int tag, cudaStream_t stream = 0)
+        {
+            // set num neighbors = size of b2l_rings
+            // need to do this because comms might have more neighbors than our matrix knows about
+            _comms->set_neighbors(B2L_rings.size());
+            _comms->setup_L2H(data, *A);                           //set pointers to buffer
+            _comms->gather_L2H_v2(data, *A, 1, stream);            //write values to buffer
+            _comms->add_from_halo(data, *A, tag, 1, stream);      //exchange buffers
+            scatter_B2L(data);                                     // update values
+        }
+
+        template <class Vector>
+        void add_from_halo_split_gather(Vector &data, int tag, cudaStream_t stream = 0)
+        {
+            // set num neighbors = size of b2l_rings
+            // need to do this because comms might have more neighbors than our matrix knows about
+            _comms->set_neighbors(B2L_rings.size());
+            _comms->setup_L2H(data, *A);                           //set pointers to buffer
+            _comms->gather_L2H_v2(data, *A, 1, stream);            //write values to buffer
+        }
+
+        template <class Vector>
+        void add_from_halo_split_finish(Vector &data, int tag, cudaStream_t stream = 0)
+        {
+            _comms->add_from_halo(data, *A, tag, 1, stream);      //exchange buffers
+            scatter_B2L_v2(data);                                  // update values
         }
 
         template <class Vector>
@@ -1020,95 +1109,14 @@ template <typename TConfig> class DistributedManagerBase
             _comms->setup_L2H(data, *A);                                //set pointers to buffer
             _comms->gather_L2H(data, *A, 1);                            //write values to buffer
             cudaStream_t null_stream = 0;
-            _comms->add_from_halo(data, *A, tag, 1, null_stream );      //exchange buffers
+            _comms->add_from_halo(data, *A, tag, 1, null_stream);      //exchange buffers
             scatter_B2L_min(data);                                      // update values
         }
 
         template <class Vector>
-        void add_from_halo(Vector &data, int tag)
+        void send_receive_wait(Vector &data, int tag)
         {
-            // set num neighbors = size of b2l_rings
-            // need to do this because comms might have more neighbors than our matrix knows about
-            _comms->set_neighbors(B2L_rings.size());
-            _comms->setup_L2H(data, *A);                                //set pointers to buffer
-            _comms->gather_L2H(data, *A, 1);                            //write values to buffer
-            cudaStream_t null_stream = 0;
-            _comms->add_from_halo(data, *A, tag, 1, null_stream );      //exchange buffers
-            scatter_B2L(data);                                          // update values
-        }
-
-        template <class Vector>
-        void gather_l2h(Vector &data, int tag)
-        {
-            // set num neighbors = size of b2l_rings
-            // need to do this because comms might have more neighbors than our matrix knows about
-            _comms->set_neighbors(B2L_rings.size());
-            _comms->setup_L2H(data, *A);                 //set pointers to buffer
-            _comms->gather_L2H(data, *A, 1);             //write values to buffer
-        }
-
-        template <class Vector>
-        void add_from_halo_only(Vector &data, int tag, cudaStream_t &stream)
-        {
-            // set num neighbors = size of b2l_rings
-            // need to do this because comms might have more neighbors than our matrix knows about
-            _comms->add_from_halo(data, *A, tag, 1, stream); //exchange buffers
-        }
-
-
-
-        template <class Vector>
-        void scatter_b2l(Vector &data, int tag)
-        {
-            // wait for exchange to be done
-            scatter_B2L(data);           // update values
-        }
-
-        template <class Vector>
-        void scatter_b2l_v2(Vector &data, int tag)
-        {
-            // wait for exchange to be done
-            scatter_B2L_v2(data);            // update values
-        }
-
-
-
-        template <class Vector>
-        void exchange_halo_async(Vector &data, int tag)
-        {
-            if (_comms == NULL) {data.dirtybit = 0; return;}
-
-            if (_comms->exchange_halo_query(data, *A, b2l_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
-
-            _comms->setup(data, *A, tag);  //set pointers to buffer
-            gather_B2L(data);             //write values to buffer
-            cudaEventRecord(b2l_event);
-            _comms->exchange_halo_async(data, *A, b2l_event, tag); //begin async send
-        }
-
-        template <class Vector>
-        void gather_b2l(Vector &data, int tag)
-        {
-            _comms->setup(data, *A, tag);  //set pointers to buffer
-            gather_B2L(data);             //write values to buffer
-            cudaEventRecord(b2l_event);
-        }
-
-        template <class Vector>
-        void send_receive_wait(Vector &data, int tag, cudaStream_t &stream)
-        {
-            _comms->send_receive_wait(data, *A, b2l_event, tag, stream); //begin async send
-        }
-
-        template <class Vector>
-        void exchange_halo_wait(Vector &data, int tag)
-        {
-            if (_comms == NULL) {data.dirtybit = 0; return;}
-
-            if ((data.in_transfer == IDLE) && (data.dirtybit == 0)) { return; } //if single node/not dirty and no data transfer - return
-
-            _comms->exchange_halo_wait(data, *A, b2l_event, tag); //blocking wait
-            scatter_L2H(data);            //NULL op
+            _comms->send_receive_wait(data, *A, comm_event, tag, m_int_stream); //begin async send
         }
 
         void export_neighbors(VecInt_t *neighbors_e)
@@ -1396,7 +1404,7 @@ template <typename TConfig> class DistributedManagerBase
         int m_child_max_n;
         // End of level 0 API related
 
-        cudaEvent_t b2l_event;
+        cudaEvent_t comm_event;
 
         //
         // Internal variables
@@ -1427,7 +1435,7 @@ template <typename TConfig> class DistributedManagerBase
             _num_boundary_nodes = 0;
             has_B2L = false;
             _comms = *comms_;
-            cudaEventCreate(&b2l_event);
+            cudaEventCreate(&comm_event);
             set_base_index(base_index);
             set_index_range(index_range);
             set_global_id(my_id);
@@ -1484,7 +1492,7 @@ template <typename TConfig> class DistributedManagerBase
                         }
                         else
                         {
-                            gatherToBufferMultivector <<< num_blocks, 128>>>(b.raw(), this->B2L_maps[i].raw(), b.linear_buffers[i], b.get_num_cols(), b.get_lda(), size);
+                            gatherToBufferMultivector<<<num_blocks, 128>>>(b.raw(), this->B2L_maps[i].raw(), b.linear_buffers[i], b.get_num_cols(), b.get_lda(), size);
                         }
 
                         cudaCheckError();
@@ -1534,7 +1542,6 @@ template <typename TConfig> class DistributedManagerBase
                         b.get_block_size(),
                         size,
                         num_neighbors);
-                    cudaCheckError();
                 }
             }
         }
@@ -1667,7 +1674,6 @@ template <typename TConfig> class DistributedManagerBase
         INDEX_TYPE _num_halo_rows;             //LEVEL 0 -  total number of rows in the halo section of the matrix
         INDEX_TYPE _num_halo_rings;            //LEVEL 0 -  number of halo rings
 
-
         bool m_is_root_partition;
         bool m_is_glued;
         bool m_is_fine_level_glued;
@@ -1738,13 +1744,15 @@ template <typename TConfig> class DistributedManagerBase
 
         cudaStream_t m_int_stream;
         cudaStream_t m_bdy_stream;
+        cudaStream_t null_stream = NULL;
 
         IVector boundary_rows_list;
         IVector interior_rows_list;
         IVector halo1_rows_list;
 
-        inline cudaStream_t &get_int_stream() { return m_int_stream; }
-        inline cudaStream_t &get_bdy_stream() { return m_bdy_stream; }
+        inline cudaStream_t& get_int_stream() { return m_int_stream; }
+        inline cudaStream_t& get_bdy_stream() { return m_bdy_stream; }
+        inline cudaEvent_t& get_comm_event() { return comm_event; }
 
         int64_t num_rows_global;
 
@@ -1810,8 +1818,8 @@ class DistributedManager< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indP
         void unpack_partition(index_type *Bp, index_type *Bc, mat_value_type *Bv);
 
         void generatePoisson7pt(int nx, int ny, int nz, int P, int Q, int R);
-        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag);
-        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int64_t *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag_data);
+        template <typename t_colIndex>
+        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag_data, const MatrixDistribution &dist);
         void renumberMatrixOneRing(int update_neighbours = 0);
         void renumber_P_R(Matrix<TConfig_h> &P, Matrix<TConfig_h> &R, Matrix<TConfig_h> &A);
         void createOneRingB2Lmaps();
@@ -1943,8 +1951,8 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         void unpack_partition(index_type *Bp, index_type *Bc, mat_value_type *Bv);
 
         void generatePoisson7pt(int nx, int ny, int nz, int P, int Q, int R);
-        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag);
-        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int64_t *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag_data);
+        template <typename t_colIndex>
+        void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag_data, const MatrixDistribution &dist);
         void renumberMatrixOneRing(int update_neighbours = 0);
         void renumber_P_R(Matrix<TConfig_d> &P, Matrix<TConfig_d> &R, Matrix<TConfig_d> &A);
         void createOneRingB2Lmaps();
@@ -2053,6 +2061,23 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         friend class CommsMPIDirect<TConfig_h>;
         friend class CommsSingleDeviceBase<TConfig_d>;
         friend class CommsSingleDeviceBase<TConfig_h>;
+    private:
+        template <typename t_colIndex>
+        void loadDistributed_SetOffsets(int num_ranks, int num_rows_global, const t_colIndex* partition_offsets);
+
+        template <typename t_colIndex>
+        std::map<t_colIndex, int> loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols);
+
+        void loadDistributed_InitLocalMatrix(IVector_h local_col_indices, int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy,
+            const int *row_offsets, const mat_value_type *values, const void *diag);
+
+        template <typename t_colIndex>
+        void loadDistributedMatrixPartitionVec(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, 
+            const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag, const int *partition);
+
+        template <typename t_colIndex>
+        void loadDistributedMatrixPartitionOffsets( int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, 
+            const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag, const t_colIndex *partition_offsets);
 };
 }
 

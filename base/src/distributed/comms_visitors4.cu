@@ -67,8 +67,7 @@ void AddFromHalo1Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConf
     if (get_send_size() != 0)
     {
         cudaMemcpyAsync(&(b.explicit_host_buffer[0]), b.buffer->raw(), get_send_size()*sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     MPI_Comm mpi_comm = comm.get_mpi_comm();
@@ -120,8 +119,7 @@ void AddFromHalo1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
 
     if (get_send_size() != 0)
     {
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     MPI_Comm mpi_comm = comm.get_mpi_comm();
@@ -243,8 +241,6 @@ void AddFromHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConf
     if (recv_size != 0)
     {
         cudaMemcpyAsync(b.buffer->raw() + send_size, &(b.explicit_host_buffer[send_size]), recv_size * sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
     }
 
     int offset = 0;
@@ -266,8 +262,13 @@ void AddFromHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConf
     if (linear_buffers_changed)
     {
         b.linear_buffers_ptrs.resize(neighbors);
-        cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
-        cudaCheckError();
+        cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault, stream);
+    }
+
+    // If we are on a stream synchronise the copies
+    if(stream != 0)
+    {
+        cudaStreamSynchronize(stream);
     }
 
 #endif
@@ -290,8 +291,7 @@ void AddFromHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
 
     if (recv_size != 0)
     {
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     int offset = 0;
@@ -313,12 +313,11 @@ void AddFromHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
     if (linear_buffers_changed)
     {
         b.linear_buffers_ptrs.resize(neighbors);
-        //TODO: improve using kernel device-to-device copy
         cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
                         & (b.linear_buffers[0]),
                         neighbors * sizeof(vtyp *),
-                        cudaMemcpyDefault);
-        cudaCheckError();
+                        cudaMemcpyDefault, stream);
+        cudaStreamSynchronize(stream);
     }
 
 #endif
@@ -344,8 +343,7 @@ void SendRecvWait1Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TCon
     if (get_send_size() != 0)
     {
         cudaMemcpyAsync(&(b.explicit_host_buffer[0]), b.buffer->raw(), get_send_size()*sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     MPI_Comm mpi_comm = comm.get_mpi_comm();
@@ -389,8 +387,7 @@ void SendRecvWait1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm
 
     if (get_send_size() != 0)
     {
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     MPI_Comm mpi_comm = comm.get_mpi_comm();
@@ -516,8 +513,7 @@ void SendRecvWait3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TCon
     if (size != 0)
     {
         cudaMemcpyAsync(b.raw() + m.manager->halo_offset(0)*bsize, &(b.explicit_host_buffer[b.buffer_size]), size * sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     b.dirtybit = 0;
@@ -538,8 +534,7 @@ void SendRecvWait3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm
 
     if (size != 0)
     {
-        cudaEventRecord(b.mpi_event, stream);
-        cudaEventSynchronize(b.mpi_event);
+        cudaStreamSynchronize(stream);
     }
 
     b.dirtybit = 0;

@@ -63,42 +63,37 @@ __device__ __forceinline__ int laneId( )
 
 } // namespace util
 
-
 template <typename ValueTypeA, typename ValueTypeB>
-struct jacobi_l1_postsmooth_functor
+__global__ void jacobi_l1_postsmooth(
+    int n, ValueTypeB omega, ValueTypeB* x, ValueTypeA* d_in, ValueTypeB* b_in, ValueTypeB* y_in)
 {
-    ValueTypeB omega;
-    jacobi_l1_postsmooth_functor( ValueTypeB omega ) : omega( omega ) {}
-    template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
+    int gid = blockDim.x * blockIdx.x + threadIdx.x;
+
+    for (int i = gid; i < n; i += blockDim.x * gridDim.x)
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeA d = thrust::get<1>(t);
-        ValueTypeB b = thrust::get<2>(t);
-        ValueTypeB y = thrust::get<3>(t);
-        // return x + omega * (b - y) / d.
-        d  = ValueTypeA( 1 ) /  ( isNotCloseToZero( d) ? d : epsilon(d) );
+        ValueTypeA d = d_in[i];
+        ValueTypeB b = b_in[i];
+        ValueTypeB y = y_in[i];
+        d = ValueTypeA( 1 ) / (isNotCloseToZero(d) ? d : epsilon(d));
         b -= y;
         b *= omega;
-        return b * d + x;
+        x[i] = b * d + x[i];
     }
-};
+}
 
 template <typename ValueTypeA, typename ValueTypeB>
-struct jacobi_l1_postsmooth_zero_functor
+__global__ void jacobi_l1_postsmooth_zero(
+    int n, ValueTypeB omega, ValueTypeB* x, ValueTypeA* d_in, ValueTypeB* b_in)
 {
-    ValueTypeB omega;
-    jacobi_l1_postsmooth_zero_functor( ValueTypeB omega ) : omega( omega ) {}
-    template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
+    int gid = blockDim.x * blockIdx.x + threadIdx.x;
+
+    for (int i = gid; i < n; i += blockDim.x * gridDim.x)
     {
-        ValueTypeA d = thrust::get<0>(t);
-        ValueTypeB b = thrust::get<1>(t);
-        return omega * b / ( isNotCloseToZero( d) ? d : epsilon(d) );
-        // return x + omega * (b - y) / d.
-        //d  = ValueTypeA( 1. ) / d;
-        //b *= omega;
-        //return b * d + x;
+        ValueTypeA d = d_in[i];
+        ValueTypeB b = b_in[i];
+        x[i] = omega * b / (isNotCloseToZero(d) ? d : epsilon(d));
     }
-};
+}
 
 template<typename IndexType, typename ValueTypeA, typename ValueTypeB>
 __global__ void compute_d_kernel(const IndexType num_rows,
@@ -470,41 +465,18 @@ JacobiL1Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIs
 {
     if (xIsZero) { x.dirtybit = 0; }
 
-    if (!this->m_explicit_A->is_matrix_singleGPU())
-    {
-        this->m_explicit_A->manager->exchange_halo_async(x, x.tag);
-
-        if (this->m_explicit_A->getViewExterior() == this->m_explicit_A->getViewInterior())
-        {
-            this->m_explicit_A->manager->exchange_halo_wait(x, x.tag);
-        }
-    }
-
     ViewType oldView = this->m_explicit_A->currentView();
-    ViewType flags;
-    bool latencyHiding = true;
-
-    if (this->m_explicit_A->is_matrix_singleGPU() || (x.dirtybit == 0))
-    {
-        latencyHiding = false;
-        this->m_explicit_A->setViewExterior();
-        flags = this->m_explicit_A->getViewExterior();
-    }
-    else
-    {
-        flags = this->m_explicit_A->getViewInterior();
-        this->m_explicit_A->setViewInterior();
-    }
+    this->m_explicit_A->setViewExterior();
 
     if (this->m_explicit_A->get_block_dimx() == 1 && this->m_explicit_A->get_block_dimy() == 1)
     {
         if (xIsZero)
         {
-            smooth_with_0_initial_guess_1x1(*this->m_explicit_A, b, x, flags);
+            smooth_with_0_initial_guess_1x1(*this->m_explicit_A, b, x, this->m_explicit_A->getViewExterior());
         }
         else
         {
-            smooth_1x1(*this->m_explicit_A, b, x, flags, latencyHiding);
+            smooth_1x1(*this->m_explicit_A, b, x, this->m_explicit_A->getViewExterior(), false);
         }
     }
     else
@@ -571,31 +543,17 @@ void JacobiL1Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
 {
     this->y_tmp.set_block_dimx(b.get_block_dimx());
     this->y_tmp.set_block_dimy(b.get_block_dimy());
-    // Multiply the interior
-    multiply(A, x, this->y_tmp, separation_flags);
+
+    multiply(A, x, this->y_tmp, A.getViewExterior());
+
     int offset, num_rows;
-    A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
+    A.getOffsetAndSizeForView(A.getViewExterior(), &offset, &num_rows);
 
-    if (latency_hiding)
-    {
-        A.manager->exchange_halo_wait(x, x.tag);
-        A.setViewExterior();
-        ViewType flags = (ViewType)(~(this->m_explicit_A->getViewInterior()) & this->m_explicit_A->getViewExterior());
+    int nthreads_per_block = 128;
+    int n = num_rows - offset;
+    int nblocks = n / nthreads_per_block + 1;
+    jacobi_l1_postsmooth<<<nblocks, nthreads_per_block>>>(n, this->weight, x.raw() + offset, this->m_d.raw() + offset, b.raw() + offset, this->y_tmp.raw() + offset);
 
-        if (flags != 0)
-        {
-            multiply(A, x, this->y_tmp, flags);
-        }
-
-        // Reset the view to the exterior view
-        separation_flags = A.getViewExterior();
-        A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    }
-
-    thrust::transform( thrust::make_zip_iterator(thrust::make_tuple( x.begin() + offset, this->m_d.begin() + offset, b.begin() + offset, this->y_tmp.begin() + offset)),
-                       thrust::make_zip_iterator(thrust::make_tuple( x.begin() + num_rows,   this->m_d.begin() + num_rows,   b.begin() + num_rows,   this->y_tmp.begin() + num_rows)),
-                       x.begin() + offset,
-                       jacobi_l1_postsmooth_functor<ValueTypeA, ValueTypeB>(this->weight) );
     cudaCheckError();
 }
 
@@ -653,15 +611,15 @@ void JacobiL1Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     ViewType oldView = A.currentView();
     // Process all rows
     A.setViewExterior();
-    ViewType flags = A.getViewExterior();
+
     int offset, num_rows;
-    A.getOffsetAndSizeForView(flags, &offset, &num_rows);
-#if 1
-    thrust::transform( thrust::make_zip_iterator(thrust::make_tuple( this->m_d.begin() + offset, b.begin() + offset )),
-                       thrust::make_zip_iterator(thrust::make_tuple( this->m_d.begin() + num_rows,   b.begin() + num_rows )),
-                       x.begin() + offset,
-                       jacobi_l1_postsmooth_zero_functor<ValueTypeA, ValueTypeB>(this->weight) );
-#endif
+    A.getOffsetAndSizeForView(A.getViewExterior(), &offset, &num_rows);
+
+    int nthreads_per_block = 128;
+    int n = num_rows - offset;
+    int nblocks = n / nthreads_per_block + 1;
+    jacobi_l1_postsmooth_zero<<<nblocks, nthreads_per_block>>>(n, this->weight, x.raw() + offset, this->m_d.raw() + offset, b.raw() + offset);
+
     A.setView(oldView);
     cudaCheckError();
 }

@@ -531,9 +531,10 @@ struct CopyHostFunctor: BaseFunctor<TConfig>
 template<typename TConfig, typename Tb>
 struct HalloWaitCopyFunctor: BaseFunctor<TConfig>
 {
-        HalloWaitCopyFunctor(Tb &b, const Matrix<TConfig> &m):
+        HalloWaitCopyFunctor(Tb &b, const Matrix<TConfig> &m, cudaStream_t stream):
             m_b(b),
-            m_m(m)
+            m_m(m),
+            m_stream(stream)
         {
         }
 
@@ -543,10 +544,13 @@ struct HalloWaitCopyFunctor: BaseFunctor<TConfig>
             int size = (m_m.manager->halo_offsets[comm.get_neighbors()] - m_m.manager->halo_offsets[0]) * bsize;
 
             if (size != 0)
-                cudaMemcpy(m_b.raw() + m_m.manager->halo_offsets[0]*bsize,
+            {
+                cudaMemcpyAsync(m_b.raw() + m_m.manager->halo_offsets[0]*bsize,
                            &(m_b.explicit_host_buffer[m_b.buffer_size]),
                            size * sizeof(typename Tb::value_type),
-                           cudaMemcpyHostToDevice);
+                           cudaMemcpyHostToDevice, m_stream);
+                cudaStreamSynchronize(m_stream);
+            }
         }
 
         void operator()(CommsMPIDirect<TConfig> &comm)
@@ -556,6 +560,7 @@ struct HalloWaitCopyFunctor: BaseFunctor<TConfig>
     private:
         Tb &m_b;
         const Matrix<TConfig> &m_m;
+        cudaStream_t m_stream;
 };
 
 //multi-purpose trampoline visitor
@@ -656,19 +661,8 @@ struct ExcHalo1Functor: BaseFunctor<TConfig>
             m_ptr_m(nullptr),
             m_num_rings(0),
             m_offset(0),
-            m_tag(-1)
-        {
-        }
-
-        ExcHalo1Functor(Tb &b,
-                        const Matrix<TConfig> &m,
-                        int num_rings,
-                        int offset):
-            m_ptr_b(&b),
-            m_ptr_m(&m),
-            m_num_rings(num_rings),
-            m_offset(offset),
-            m_tag(m.manager->global_id())
+            m_tag(-1),
+            m_stream(NULL)
         {
         }
 
@@ -676,12 +670,28 @@ struct ExcHalo1Functor: BaseFunctor<TConfig>
                         const Matrix<TConfig> &m,
                         int num_rings,
                         int offset,
-                        int tag):
+                        cudaStream_t stream = NULL):
             m_ptr_b(&b),
             m_ptr_m(&m),
             m_num_rings(num_rings),
             m_offset(offset),
-            m_tag(tag)
+            m_tag(m.manager->global_id()),
+            m_stream(stream)
+        {
+        }
+
+        ExcHalo1Functor(Tb &b,
+                        const Matrix<TConfig> &m,
+                        int num_rings,
+                        int offset,
+                        int tag,
+                        cudaStream_t stream = NULL):
+            m_ptr_b(&b),
+            m_ptr_m(&m),
+            m_num_rings(num_rings),
+            m_offset(offset),
+            m_tag(tag),
+            m_stream(stream)
         {
         }
 
@@ -700,6 +710,11 @@ struct ExcHalo1Functor: BaseFunctor<TConfig>
                    << __LINE__;
                 throw std::runtime_error(ss.str());
             }
+        }
+
+        cudaStream_t &get_stream(void)
+        {
+            return m_stream;
         }
 
         const Matrix<TConfig> &get_m(void) const
@@ -740,6 +755,7 @@ struct ExcHalo1Functor: BaseFunctor<TConfig>
 
     private:
         Tb *m_ptr_b;
+        cudaStream_t m_stream;
         const Matrix<TConfig> *m_ptr_m;
         int m_num_rings;
         int m_offset;
@@ -801,6 +817,7 @@ struct ExcHalo3Functor: ExcHalo1Functor<TConfig, Tb>
     using ExcHalo1Functor<TConfig, Tb>::get_m;
     using ExcHalo1Functor<TConfig, Tb>::get_num_rings;
     using ExcHalo1Functor<TConfig, Tb>::get_offset;
+    using ExcHalo1Functor<TConfig, Tb>::get_stream;
 
     ExcHalo3Functor(void)
     {
@@ -809,8 +826,9 @@ struct ExcHalo3Functor: ExcHalo1Functor<TConfig, Tb>
     ExcHalo3Functor(Tb &b,
                     const Matrix<TConfig> &m,
                     int num_rings,
-                    int offset):
-        ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset)
+                    int offset,
+                    cudaStream_t stream = NULL):
+        ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset, stream)
     {
     }
 
@@ -869,6 +887,7 @@ struct ExcHalo3AsyncFunctor: ExcHalo1Functor<TConfig, Tb>
     using ExcHalo1Functor<TConfig, Tb>::get_num_rings;
     using ExcHalo1Functor<TConfig, Tb>::get_offset;
     using ExcHalo1Functor<TConfig, Tb>::get_tag;
+    using ExcHalo1Functor<TConfig, Tb>::get_stream;
 
     ExcHalo3AsyncFunctor(void)
     {
@@ -877,8 +896,9 @@ struct ExcHalo3AsyncFunctor: ExcHalo1Functor<TConfig, Tb>
     ExcHalo3AsyncFunctor(Tb &b,
                          const Matrix<TConfig> &m,
                          int num_rings,
-                         int offset):
-        ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset)
+                         int offset, 
+                         cudaStream_t stream):
+        ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset, stream)
     {
     }
 
@@ -886,8 +906,9 @@ struct ExcHalo3AsyncFunctor: ExcHalo1Functor<TConfig, Tb>
                          const Matrix<TConfig> &m,
                          int num_rings,
                          int offset,
-                         int tag):
-        ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset, tag)
+                         int tag,
+                         cudaStream_t stream):
+        ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset, tag, stream)
     {
     }
 

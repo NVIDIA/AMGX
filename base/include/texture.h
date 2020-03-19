@@ -29,7 +29,8 @@
 
 #include <error.h>
 #include <cutil.h>
-#include <device_functions.h>
+
+#include "cuda_runtime.h"
 
 namespace amgx
 {

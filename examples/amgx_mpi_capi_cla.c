@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -494,9 +494,33 @@ int main(int argc, char **argv)
 
     /* compute global number of rows */
     int nglobal;
-    MPI_Allreduce(&n, &nglobal, 1, MPI_INT, MPI_SUM, amgx_mpi_comm);
     /* upload the matrix with global indices and compute necessary connectivity information */
-    AMGX_matrix_upload_all_global(A, nglobal, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag, nrings, nrings, partition_vector);
+    if (partition_vector == NULL) 
+    {
+        // If no partition vector is given, we assume a partitioning with contiguous blocks (see example above). It is sufficient (and faster/more scalable)
+        // to calculate the partition offsets and pass those into the API call instead of creating a full partition vector.
+        int64_t* partition_offsets = (int64_t*)malloc((nranks+1) * sizeof(int64_t));
+        // gather the number of rows on each rank, and perform an exclusive scan to get the offsets.
+        int64_t n64 = n;
+        partition_offsets[0] = 0; // rows of rank 0 always start at index 0
+        MPI_Allgather(&n64, 1, MPI_INT64_T, &partition_offsets[1], 1, MPI_INT64_T, amgx_mpi_comm);
+        for (int i = 2; i < nranks + 1; ++i) {
+            partition_offsets[i] += partition_offsets[i-1];
+        }
+        nglobal = partition_offsets[nranks]; // last element always has global number of rows
+
+        AMGX_distribution_handle dist;
+        AMGX_distribution_create(&dist, cfg);
+        AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partition_offsets);
+        AMGX_matrix_upload_distributed(A, nglobal, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag, dist);
+        AMGX_distribution_destroy(dist);
+        free(partition_offsets);
+    }
+    else 
+    {
+        MPI_Allreduce(&n, &nglobal, 1, MPI_INT, MPI_SUM, amgx_mpi_comm);
+        AMGX_matrix_upload_all_global(A, nglobal, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag, nrings, nrings, partition_vector);
+    }
 
     /* free temporary storage */
     if (partition_vector != NULL) { free(partition_vector); }

@@ -30,15 +30,17 @@ AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Itera
   * [Building AMGX](#building)
   * [Running examples](#running)
 * [Further reading](#further-reading)
+  * [Plugins and bindings](#bindings)
 
 ## <a name="quickstart"></a> Quickstart
 
 Here are the instructions on how to build library and run an example solver on the matrix in the [Matrix Market](http://math.nist.gov/MatrixMarket/) format file. By default provided examples use vector of ones as RHS of the linear system and vector of zeros as initial solution. In order to provide you own values for RHS and initial solution edit the examples.
 
-### Dependencies
+### Dependencies and requirements
 
 In order to build project you would need [CMake](https://cmake.org/) and [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit
 ). If you want to try distributed version of AMGX library you will also need MPI implementation, such as [OpenMPI](https://www.open-mpi.org/) for Linux or [MPICH](https://www.mpich.org/downloads/) for Windows. You will need compiler with c++11 support (for example GCC 4.8 or MSVC 14.0).
+You also need NVIDIA GPU with Compute Capability >=3.0, check to see if your GPU supports this [here](https://developer.nvidia.com/cuda-gpus).
 
 ### <a name="building"></a> Building
 Typical build commands from the project root:
@@ -168,6 +170,11 @@ Total Time: 0.0170917
 ```
 
 ## <a name="further-reading"></a> Further reading
+
+### <a name="bindings"></a> Plugins and bindings to other software
+User @shwina built python bindings to AMGX, check out following repository: https://github.com/shwina/pyamgx.
+
+User @piyueh provided link to their work on PETSc wrapper plugins for AMGX: https://github.com/barbagroup/AmgXWrapper
 
 See [API reference doc](doc/AMGX_Reference.pdf) for detailed description of the interface. In the next few weeks we will be providing more information and details on the project such as:
   * Plans on the project development and priorities

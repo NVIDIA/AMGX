@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -963,9 +963,9 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(Matrix<TConfig> &
     neighbors(_neighbors), B2L_maps(_B2L_maps), L2H_maps(_L2H_maps),  B2L_rings(_B2L_rings),
     halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
 {
-    cudaEventCreate(&b2l_event);
-    cudaStreamCreate(&m_int_stream);
-    cudaStreamCreate(&m_bdy_stream);
+    cudaEventCreate(&comm_event);
+    cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+    cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
     this->createComms(A->getResources());
     int my_id = this->getComms()->get_global_id();
     int num_parts = this->getComms()->get_num_partitions();
@@ -1049,201 +1049,111 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
-void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int64_t *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag)
+template <typename t_colIndex>
+void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_SetOffsets(
+    int num_ranks, int num_rows_global, const t_colIndex* partition_offsets)
 {
-    // fetch my rank
-    int my_id = this->getComms()->get_global_id();
-    // setup partition vector
-    IVector_h partitionVec(num_rows_global);
-
-    if (partition == NULL)
-    {
-        // initialize equal partitioning
-        IVector_h scanPartSize(num_ranks + 1);
-
-        for (int p = 0; p < num_ranks; p++)
-        {
-            scanPartSize[p] = p * num_rows_global / num_ranks;
-        }
-
-        scanPartSize[num_ranks] = num_rows_global;
-        int p = 0;
-
-        for (int i = 0; i < num_rows_global; i++)
-        {
-            if (i >= scanPartSize[p + 1]) { p++; }
-
-            partitionVec[i] = p;
-        }
-    }
-    else
-    {
-        // use existing partition info
-        for (int i = 0; i < num_rows_global; i++)
-        {
-            partitionVec[i] = partition[i];
-        }
-    }
-
-    // compute partition offsets (based on number of elements per partition)
-    int64_t *partition_offsets = (int64_t *)calloc(num_ranks + 1, sizeof(int64_t));
-
-    for (int i = 0; i < num_rows_global; i++)
-    {
-        int pvi = partitionVec[i];
-        partition_offsets[pvi + 1]++;
-    }
-
-    thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
-    // compute partition map (which tells you how the global elements are mapped into the partitions)
-    int64_t *partition_map = (int64_t *)calloc(num_rows_global, sizeof(int64_t));
-
-    for (int i = 0; i < num_rows_global; i++)
-    {
-        int     pvi = partitionVec[i];
-        int64_t poi = partition_offsets[pvi];
-        partition_map[poi] = i;
-        partition_offsets[pvi]++;
-    }
-
-    // compute the inverse partition map
-    int64_t *ipartition_map = (int64_t *)calloc(num_rows_global, sizeof(int64_t));
-
-    for (int i = 0; i < num_rows_global; i++)
-    {
-        ipartition_map[partition_map[i]] = i;
-    }
-
-    int h_cidx_allocated = 0;
-    const int64_t *h_col_indices_global = (const int64_t *)this->getHostPointerForData(col_indices, num_nonzeros * sizeof(int64_t), &h_cidx_allocated);
-    // gather all off-diag columns
-    I64Vector_h off_diag_cols;
-
-    for (int i = 0; i < num_nonzeros; i++)
-    {
-        if (partitionVec[h_col_indices_global[i]] != my_id)
-        {
-            off_diag_cols.push_back(ipartition_map[h_col_indices_global[i]]);
-        }
-    }
-
-    // sort global column indices
-    thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
-    // find unique columns and set local <-> global mappings
-    IVector_h global_col_indices;
-    map<int64_t, int> global_to_local;        // temporary
-    this->local_to_global_map.resize(0);      // permanent
-
-    if (off_diag_cols.size() > 0)
-    {
-        global_col_indices.push_back(off_diag_cols[0]);
-        global_to_local[off_diag_cols[0]] = num_rows;
-        this->local_to_global_map.push_back(off_diag_cols[0]);
-    }
-
-    for (int i = 1; i < off_diag_cols.size(); i++)
-    {
-        if (off_diag_cols[i] != off_diag_cols[i - 1])
-        {
-            global_col_indices.push_back(off_diag_cols[i]);
-            global_to_local[off_diag_cols[i]] = num_rows + global_col_indices.size() - 1;
-            this->local_to_global_map.push_back(off_diag_cols[i]);
-        }
-    }
-
-    // set 1, then scan to compute local row indices
-    IVector_h my_indices(num_rows_global);
-
-    for (int i = 0; i < num_nonzeros; i++)
-    {
-        if (partitionVec[h_col_indices_global[i]] == my_id)     // find my local columns and set to 1
-        {
-            my_indices[ipartition_map[h_col_indices_global[i]]] = 1;
-        }
-    }
-
-    thrust::exclusive_scan(my_indices.begin(), my_indices.end(), my_indices.begin());
-    // remap colums to local
-    IVector_h local_col_indices(num_nonzeros);
-
-    for (int i = 0; i < num_nonzeros; i++)
-    {
-        if (partitionVec[h_col_indices_global[i]] != my_id)
-        {
-            // off-diag
-            local_col_indices[i] = global_to_local[ipartition_map[h_col_indices_global[i]]];
-        }
-        else
-        {
-            // diag
-            local_col_indices[i] = my_indices[ipartition_map[h_col_indices_global[i]]];
-        }
-    }
-
-    // init local matrix
-    this->A->set_initialized(0);
-    this->A->resize(0, 0, 0, 1, 1, 1);
-    this->A->addProps(CSR);
-
-    if (diag)
-    {
-        this->A->addProps(DIAG);
-    }
-
-    this->A->resize(num_rows, num_rows + this->local_to_global_map.size(), num_nonzeros, block_dimx, block_dimy, 1);
-    cudaCheckError();
-    // set local matrix
-    thrust::copy(row_offsets, row_offsets + num_rows + 1, this->A->row_offsets.begin());
-    this->A->col_indices = local_col_indices;
-    thrust::copy(values, values + num_nonzeros * block_dimx * block_dimy, this->A->values.begin());
-    cudaCheckError();
-
-    // setup diagonal
-    if (diag)
-    {
-        cudaMemcpy(this->A->values.raw() + this->A->diagOffset()*this->A->get_block_size(), diag, sizeof(mat_value_type) * num_rows * block_dimx * block_dimy, cudaMemcpyDefault);
-    }
-    else
-    {
-        this->A->computeDiagonal();
-    }
-
-    cudaCheckError();
-    // compute # of rows in each partition
-    IVector_h nrows(num_ranks, 0);
-
-    for (int i = 0; i < num_rows_global; i++)
-    {
-        nrows[partitionVec[i]]++;
-    }
-
-    // fill part offsets
+    // fill part offsets internal data structures
     this->part_offsets_h.resize(num_ranks + 1);
-    this->part_offsets_h[0] = 0;
 
-    for (int i = 1; i <= num_ranks; i++)
+    for (int i = 0; i <= num_ranks; i++)
     {
-        this->part_offsets_h[i] = this->part_offsets_h[i - 1] + nrows[i - 1];
+        this->part_offsets_h[i] = partition_offsets[i];
     }
-
     // copy to device
     this->part_offsets = this->part_offsets_h;
     // set num of global rows
     this->num_rows_global = num_rows_global;
     cudaCheckError();
-    // don't free possibly allocated pinned buffer, since it could be used later. if it would not - it would be deallocated automatically
-    /*if (h_cidx_allocated)
-    {
-      free((void*)h_col_indices_global);
-    }*/
-    free(partition_offsets);
-    free(partition_map);
-    free(ipartition_map);
 }
-
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
-void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag)
+template <typename t_colIndex>
+map<t_colIndex, int> DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols)
+{
+    // sort global column indices
+    thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
+    // find unique columns and set local <-> global mappings
+    // 1) Removed unneeded vector 2) Create map on host first, upload later (less thrust calls)
+    I64Vector_h local_to_global_h;
+    map<t_colIndex, int> global_to_local;        // temporary
+
+    if (off_diag_cols.size() > 0)
+    {
+        global_to_local[off_diag_cols[0]] = num_rows;
+        local_to_global_h.push_back(off_diag_cols[0]);
+    }
+
+    for (int i = 1; i < off_diag_cols.size(); i++)
+    {
+        if (off_diag_cols[i] != off_diag_cols[i - 1])
+        {
+            global_to_local[off_diag_cols[i]] = num_rows + local_to_global_h.size();
+            local_to_global_h.push_back(off_diag_cols[i]);
+        }
+    }
+    // Upload finished map in one piece
+    this->local_to_global_map.resize(local_to_global_h.size());
+    thrust::copy(local_to_global_h.begin(), local_to_global_h.end(), this->local_to_global_map.begin());
+    return global_to_local;
+}
+
+template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
+void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_InitLocalMatrix(
+    IVector_h local_col_indices,
+    int num_rows,
+    int num_nonzeros,
+    const int block_dimx,
+    const int block_dimy,
+    const int *row_offsets,
+    const mat_value_type *values,
+    const void *diag)
+{
+    // init local matrix
+    this->A->set_initialized(0);
+    this->A->resize(0, 0, 0, 1, 1, 1);
+    this->A->addProps(CSR);
+
+    if (diag)
+    {
+        this->A->addProps(DIAG);
+    }
+
+    this->A->resize(num_rows, num_rows + this->local_to_global_map.size(), num_nonzeros, block_dimx, block_dimy, 1);
+    cudaCheckError();
+    // set local matrix
+    thrust::copy(row_offsets, row_offsets + num_rows + 1, this->A->row_offsets.begin());
+    this->A->col_indices = local_col_indices;
+
+    thrust::copy(values, values + num_nonzeros * block_dimx * block_dimy, this->A->values.begin());
+    cudaCheckError();
+
+    // setup diagonal
+    if (diag)
+    {
+        cudaMemcpy(this->A->values.raw() + this->A->diagOffset()*this->A->get_block_size(), diag, sizeof(mat_value_type) * num_rows * block_dimx * block_dimy, cudaMemcpyDefault);
+    }
+    else
+    {
+        this->A->computeDiagonal();
+    }
+    cudaCheckError();
+}
+
+template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
+template <typename t_colIndex>
+void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrixPartitionVec(
+    int num_rows,
+    int num_nonzeros,
+    const int block_dimx,
+    const int block_dimy,
+    const int *row_offsets,
+    const t_colIndex *col_indices,
+    const mat_value_type *values,
+    int num_ranks,
+    int num_rows_global,
+    const void *diag,
+    const int *partition)
 {
     // fetch my rank
     int my_id = this->getComms()->get_global_id();
@@ -1279,8 +1189,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         }
     }
 
-    // compute partition offsets (based on number of elements per partition)
-    int *partition_offsets = (int *)calloc(num_ranks + 1, sizeof(int));
+    // compute partition offsets (based on number of elements per partition). Will be modified when calculating partition map.
+    t_colIndex *partition_offsets = (t_colIndex *)calloc(num_ranks + 1, sizeof(t_colIndex));
 
     for (int i = 0; i < num_rows_global; i++)
     {
@@ -1289,27 +1199,32 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
+
+    loadDistributed_SetOffsets(num_ranks, num_rows_global, partition_offsets);
+
     // compute partition map (which tells you how the global elements are mapped into the partitions)
-    int *partition_map = (int *)calloc(num_rows_global, sizeof(int));
+    t_colIndex *partition_map = (t_colIndex *)calloc(num_rows_global, sizeof(t_colIndex));
 
     for (int i = 0; i < num_rows_global; i++)
     {
         int     pvi = partitionVec[i];
-        int poi = partition_offsets[pvi];
+        t_colIndex poi = partition_offsets[pvi];
         partition_map[poi] = i;
         partition_offsets[pvi]++;
     }
+    free(partition_offsets);
 
     // compute the inverse partition map
-    int *ipartition_map = (int *)calloc(num_rows_global, sizeof(int));
+    t_colIndex *ipartition_map = (t_colIndex *)calloc(num_rows_global, sizeof(t_colIndex));
 
     for (int i = 0; i < num_rows_global; i++)
     {
         ipartition_map[partition_map[i]] = i;
     }
+    free(partition_map);
 
     int h_cidx_allocated = 0;
-    const int *h_col_indices_global = (const int *)this->getHostPointerForData(col_indices, num_nonzeros * sizeof(int), &h_cidx_allocated);
+    const t_colIndex *h_col_indices_global = (const t_colIndex *)this->getHostPointerForData(col_indices, num_nonzeros * sizeof(t_colIndex), &h_cidx_allocated);
     // gather all off-diag columns
     I64Vector_h off_diag_cols;
 
@@ -1321,29 +1236,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         }
     }
 
-    // sort global column indices
-    thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
-    // find unique columns and set local <-> global mappings
-    IVector_h global_col_indices;
-    map<int, int> global_to_local;    // temporary
-    this->local_to_global_map.resize(0);    // permanent
-
-    if (off_diag_cols.size() > 0)
-    {
-        global_col_indices.push_back(off_diag_cols[0]);
-        global_to_local[off_diag_cols[0]] = num_rows;
-        this->local_to_global_map.push_back(off_diag_cols[0]);
-    }
-
-    for (int i = 1; i < off_diag_cols.size(); i++)
-    {
-        if (off_diag_cols[i] != off_diag_cols[i - 1])
-        {
-            global_col_indices.push_back(off_diag_cols[i]);
-            global_to_local[off_diag_cols[i]] = num_rows + global_col_indices.size() - 1;
-            this->local_to_global_map.push_back(off_diag_cols[i]);
-        }
-    }
+    auto global_to_local = loadDistributed_LocalToGlobal<t_colIndex>(num_rows, off_diag_cols);
 
     // set 1, then scan to compute local row indices
     IVector_h my_indices(num_rows_global);
@@ -1373,69 +1266,127 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             local_col_indices[i] = my_indices[ipartition_map[h_col_indices_global[i]]];
         }
     }
+    free(ipartition_map);
 
-    // init local matrix
-    this->A->set_initialized(0);
-    this->A->resize(0, 0, 0, 1, 1, 1);
-    this->A->addProps(CSR);
-
-    if (diag)
-    {
-        this->A->addProps(DIAG);
-    }
-
-    this->A->resize(num_rows, num_rows + this->local_to_global_map.size(), num_nonzeros, block_dimx, block_dimy, 1);
-    cudaCheckError();
-    // set local matrix
-    thrust::copy(row_offsets, row_offsets + num_rows + 1, this->A->row_offsets.begin());
-    this->A->col_indices = local_col_indices;
-    thrust::copy(values, values + num_nonzeros * block_dimx * block_dimy, this->A->values.begin());
-    cudaCheckError();
-
-    // setup diagonal
-    if (diag)
-    {
-        cudaMemcpy(this->A->values.raw() + this->A->diagOffset()*this->A->get_block_size(), diag, sizeof(mat_value_type) * num_rows * block_dimx * block_dimy, cudaMemcpyDefault);
-    }
-    else
-    {
-        this->A->computeDiagonal();
-    }
+    loadDistributed_InitLocalMatrix(local_col_indices, num_rows, num_nonzeros, block_dimx, block_dimy, row_offsets, values, diag);
 
     cudaCheckError();
-    // compute # of rows in each partition
-    IVector_h nrows(num_ranks, 0);
 
-    for (int i = 0; i < num_rows_global; i++)
-    {
-        nrows[partitionVec[i]]++;
-    }
-
-    // fill part offsets
-    this->part_offsets_h.resize(num_ranks + 1);
-    this->part_offsets_h[0] = 0;
-
-    for (int i = 1; i <= num_ranks; i++)
-    {
-        this->part_offsets_h[i] = this->part_offsets_h[i - 1] + nrows[i - 1];
-    }
-
-    // copy to device
-    this->part_offsets = this->part_offsets_h;
-    // set num of global rows
-    this->num_rows_global = num_rows_global;
-    cudaCheckError();
     // don't free possibly allocated pinned buffer, since it could be used later. if it would not - it would be deallocated automatically
     /*if (h_cidx_allocated)
     {
       free((void*)h_col_indices_global);
     }*/
-    free(partition_offsets);
-    free(partition_map);
-    free(ipartition_map);
 }
 
+template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
+template <typename t_colIndex>
+void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrixPartitionOffsets(
+    int num_rows,
+    int num_nonzeros,
+    const int block_dimx,
+    const int block_dimy,
+    const int *row_offsets,
+    const t_colIndex *col_indices,
+    const mat_value_type *values,
+    int num_ranks,
+    int num_rows_global,
+    const void *diag,
+    const t_colIndex *partition_offsets)
+{
+    // fetch my rank
+    int my_id = this->getComms()->get_global_id();
+    // sanity check, cheap to perform, and helps prevent harder-to-debug errors later on
+    if (!std::is_sorted(partition_offsets, partition_offsets + num_ranks + 1)) {
+        FatalError("Partition offsets are not sorted.", AMGX_ERR_BAD_PARAMETERS);
+    }
+    loadDistributed_SetOffsets(num_ranks, num_rows_global, partition_offsets);
 
+    // Create predicate to determine if a column is in the local diagonal block
+    t_colIndex my_first_col = this->part_offsets_h[my_id];
+    t_colIndex one_past_my_last_col = this->part_offsets_h[my_id + 1];
+    auto in_local_diagonal_block = [my_first_col, one_past_my_last_col](const t_colIndex col_index) {
+        return col_index >= my_first_col && col_index < one_past_my_last_col;
+    };
+
+    int h_cidx_allocated = 0;
+    const t_colIndex *h_col_indices_global = (const t_colIndex *)this->getHostPointerForData(col_indices, num_nonzeros * sizeof(t_colIndex), &h_cidx_allocated);
+    // gather all off-diag columns
+    I64Vector_h off_diag_cols;
+    for (int i = 0; i < num_nonzeros; i++)
+    {
+        if (!in_local_diagonal_block(h_col_indices_global[i]))
+        {
+            off_diag_cols.push_back(h_col_indices_global[i]);
+        }
+    }
+    auto global_to_local = loadDistributed_LocalToGlobal<t_colIndex>(num_rows, off_diag_cols);
+    // set 1, then scan to compute local row indices
+    // "coordinate-shift" columns so they lie in much smaller range of my diagonal indices
+    int diagonal_size = this->part_offsets_h[my_id  + 1] - this->part_offsets_h[my_id];
+    IVector_h my_indices(diagonal_size);
+    for (int i = 0; i < num_nonzeros; i++)
+    {
+        t_colIndex col_index = h_col_indices_global[i];
+        if (in_local_diagonal_block(h_col_indices_global[i]))     // find my local columns and set to 1
+        {
+            // olumns that are on *my* diag partition cannot have an index from 0..num_rows_global
+            // instead, part_offsets_h[my_id] <= col_index < part_offsets[my_id+1]
+            col_index -= this->part_offsets_h[my_id];
+            my_indices[col_index] = 1;
+        }
+    }
+    thrust::exclusive_scan(my_indices.begin(), my_indices.end(), my_indices.begin());
+
+    // remap colums to local
+    IVector_h local_col_indices(num_nonzeros);
+    for (int i = 0; i < num_nonzeros; i++)
+    {
+        t_colIndex col_index = h_col_indices_global[i];
+        if (!in_local_diagonal_block(col_index))
+        {
+            // off-diag
+            local_col_indices[i] = global_to_local[col_index];
+        }
+        else
+        {
+            // diag
+            col_index -= this->part_offsets_h[my_id];
+            local_col_indices[i] = my_indices[col_index];
+        }
+    }
+    loadDistributed_InitLocalMatrix(local_col_indices, num_rows, num_nonzeros, block_dimx, block_dimy, row_offsets, values, diag);
+}
+
+template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
+template <typename t_colIndex>
+void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(
+    int num_rows,
+    int num_nonzeros,
+    const int block_dimx,
+    const int block_dimy,
+    const int *row_offsets,
+    const t_colIndex *col_indices,
+    const mat_value_type *values,
+    int num_ranks,
+    int num_rows_global,
+    const void *diag,
+    const MatrixDistribution &dist)
+{
+    using PI = MatrixDistribution::PartitionInformation;
+    switch (dist.getPartitionInformationStyle()) {
+        case PI::PartitionVec:
+            loadDistributedMatrixPartitionVec(num_rows, num_nonzeros, block_dimx, block_dimy, 
+                row_offsets, col_indices, values, num_ranks, num_rows_global, diag, (const int*) dist.getPartitionData());
+            break;
+        case PI::PartitionOffsets:
+            loadDistributedMatrixPartitionOffsets(num_rows, num_nonzeros, block_dimx, block_dimy, 
+                row_offsets, col_indices, values, num_ranks, num_rows_global, diag, (const t_colIndex*) dist.getPartitionData());
+            break;
+        default:
+            FatalError("Unsupported partitioning data format used with loadDistributedMatrix", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+}
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::renumberMatrixOneRing(int update_neighbours)
@@ -1672,8 +1623,8 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(
     const VecInt_t *neighbors_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), _num_interior_nodes(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false), neighbors(_neighbors), halo_rows_ref_count(0), halo_rows(NULL), halo_btl_ref_count(0), halo_btl(NULL), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
     B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
 {
-    cudaStreamCreate(&m_int_stream);
-    cudaStreamCreate(&m_bdy_stream);
+    cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+    cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
 
     if (num_import_rings != 1)
     {
@@ -4697,7 +4648,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->A->diag.resize(root_num_rows);
         this->A->computeDiagonal(); //
         this->A->setView(OWNED);
-        cudaEventCreate(&(this->b2l_event));
+        cudaEventCreate(&(this->comm_event));
         this->A->set_initialized(1);
     }
     else
@@ -5650,17 +5601,13 @@ void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPre
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
-void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag)
+template <typename t_colIndex>
+void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(
+    int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, 
+    const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag, const MatrixDistribution &dist)
 {
     FatalError("loadDistributedMatrix only implemented on devices", AMGX_ERR_NOT_IMPLEMENTED);
 }
-
-template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
-void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const int64_t *col_indices, const mat_value_type *values, int num_ranks, const int *partition, int num_rows_global, const void *diag)
-{
-    FatalError("loadDistributedMatrix only implemented on devices", AMGX_ERR_NOT_IMPLEMENTED);
-}
-
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::createOneRingB2Lmaps()
@@ -6073,7 +6020,6 @@ int DistributedManagerBase<TConfig>::compare(DistributedManagerBase<TConfig> *m2
     return 0;
 }
 
-
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::~DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >()
 {
@@ -6112,6 +6058,14 @@ void DistributedManagerBase<TConfig>::consolidateB2LmapsOnRoot(int &num_consolid
  * Explict instantiations
  ***************************************/
 #define AMGX_CASE_LINE(CASE) template class DistributedManager<TemplateMode<CASE>::Type >;
+AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+#define AMGX_CASE_LINE(CASE) template void DistributedManager<TemplateMode<CASE>::Type>::loadDistributedMatrix( \
+    int, int, const int, const int, const int*, const int *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist); \
+    template void DistributedManager<TemplateMode<CASE>::Type>::loadDistributedMatrix( \
+    int, int, const int, const int, const int*, const int64_t *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist);
 AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE

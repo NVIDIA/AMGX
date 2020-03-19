@@ -48,7 +48,7 @@ index_type internal_index(index_type gi, index_type gj, index_type gk, index_typ
 
 int main(int argc, char **argv)
 {
-  char *fname = NULL;
+  const char *fname = NULL;
   cusp::coo_matrix<int,double,cusp::host_memory> A;
   // check command line arguments
   for (int i=1; i < argc; i++)

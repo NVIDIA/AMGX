@@ -126,7 +126,9 @@ void spmv_example(amgx::Resources& res)
     matrix_values_h.resize(nnz);
     for (auto &v : matrix_values_h) v = ((double)random())/RAND_MAX;
     // Let distributed manager load data into bound matrix structure
-    d_mgr.loadDistributedMatrix(nrows, nnz, 1, 1, &row_offsets_h[0], &column_indices_h[0], &matrix_values_h[0], nranks, &partition_vector[0], n_global, NULL);
+    MatrixDistribution mdist;
+    mdist.setPartitionVec(&partition_vector[0]);
+    d_mgr.loadDistributedMatrix(nrows, nnz, 1, 1, &row_offsets_h[0], &column_indices_h[0], &matrix_values_h[0], nranks, n_global, NULL, mdist);
     // Matrix should be reordered with 1 halo ring for SpMV 
     d_mgr.renumberMatrixOneRing();
     // Initializing communicator parameters

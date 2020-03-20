@@ -71,7 +71,7 @@ enum MatrixProps
 namespace amgx
 {
 
-#ifndef CUSPARSE_GENERIC_INTERFACES
+#ifndef DISABLE_MIXED_PRECISION
 template <class T_Config> struct CusparseMatPrec;
 #endif
 
@@ -219,7 +219,7 @@ class MatrixBase : public AuxData, public Operator<T_Config>
             resize(0, 0, 0, 1);
             cusparseCheckError(cusparseCreateMatDescr(&cuMatDescr));
 
-            #ifndef CUSPARSE_GENERIC_INTERFACES
+            #ifndef DISABLE_MIXED_PRECISION
                 cusparseCheckError(CusparseMatPrec<T_Config>::set(cuMatDescr));
             #endif
         }
@@ -231,7 +231,7 @@ class MatrixBase : public AuxData, public Operator<T_Config>
             resize(num_rows, num_cols, num_nz, 1);
             cusparseCheckError(cusparseCreateMatDescr(&cuMatDescr));
 
-            #ifndef CUSPARSE_GENERIC_INTERFACES
+            #ifndef DISABLE_MIXED_PRECISION
                 cusparseCheckError(CusparseMatPrec<T_Config>::set(cuMatDescr));
             #endif
         }
@@ -242,7 +242,7 @@ class MatrixBase : public AuxData, public Operator<T_Config>
             resize(num_rows, num_cols, num_nz, block_dimy, block_dimx, 1);
             cusparseCheckError(cusparseCreateMatDescr(&cuMatDescr));
 
-            #ifndef CUSPARSE_GENERIC_INTERFACES
+            #ifndef DISABLE_MIXED_PRECISION
                 cusparseCheckError(CusparseMatPrec<T_Config>::set(cuMatDescr));
             #endif
         }

@@ -483,6 +483,17 @@ void Classical_AMG_Level_Base<T_Config>::computeRestrictionOperator()
         R.setExteriorView(OWNED);
     }
 
+    if(P.is_matrix_distributed())
+    {
+        // Setup the number of non-zeros in R using stub DistributedManager
+        R.manager = new DistributedManager<T_Config>();
+        int nrows_owned = P.manager->halo_offsets[0];
+        int nrows_full = P.manager->halo_offsets[P.manager->neighbors.size()];
+        int nz_full = R.row_offsets[nrows_full];
+        int nz_owned = R.row_offsets[nrows_owned];
+        R.manager->setViewSizes(nrows_owned, nz_owned, nrows_owned, nz_owned, nrows_full, nz_full, R.get_num_rows(), R.get_num_nz());
+    }
+
     R.set_initialized(1);
     this->Profile.toc("computeR");
 }

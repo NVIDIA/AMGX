@@ -72,12 +72,14 @@ struct is_non_neg
 
 template<typename IndexType, int cta_size >
 __global__
-void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int *boundary_flags,  int num_owned_coarse_pts, int A_num_rows)
+void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int *boundary_flags,  int num_owned_coarse_pts, int A_num_rows, int* nnz_interior)
 {
     const int nWarps = cta_size / 32;
     // The coordinates of the thread inside the CTA/warp.
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
+
+    int nnz_int = 0;
 
     // Loop over rows of A.
     for ( int aRowId = blockIdx.x * nWarps + warpId ; aRowId < A_num_rows ; aRowId += gridDim.x * nWarps )
@@ -85,6 +87,7 @@ void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int
         // Load A row IDs.
         int aColIt  = A_rows[aRowId  ];
         int aColEnd = A_rows[aRowId + 1];
+        int nnz = aColEnd - aColIt;
         bool halo_found = 0;
 
         // Iterate over the columns of A.
@@ -102,10 +105,22 @@ void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int
             }
         }
 
-        if (halo_found && laneId == 0)
+        if (laneId == 0)
         {
-            boundary_flags[aRowId] = 1;
+            if(halo_found)
+            {
+                boundary_flags[aRowId] = 1;
+            }
+            else
+            {
+                nnz_int += nnz;
+            }
         }
+    }
+
+    if(laneId == 0)
+    {
+        atomicAdd(nnz_interior, nnz_int);
     }
 }
 
@@ -1606,6 +1621,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     IVector boundary_flags(A_num_rows + 1, 0);
     IVector interior_flags(A_num_rows + 1, 0);
 
+    int num_nz_interior;
     if (!is_matrix_P)
     {
         for (int i = 0; i < A.manager->neighbors.size(); i++)
@@ -1627,7 +1643,9 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
         if (A_num_rows > 0)
         {
-            flag_boundary_nodes_P<index_type, cta_size> <<< grid_size, cta_size>>>(A.row_offsets.raw(), A.col_indices.raw(), boundary_flags.raw(), A.manager->halo_offsets[0], A_num_rows);
+            IVector nnz_interior(1, 0);
+            flag_boundary_nodes_P<index_type, cta_size> <<< grid_size, cta_size>>>(A.row_offsets.raw(), A.col_indices.raw(), boundary_flags.raw(), A.manager->halo_offsets[0], A_num_rows, nnz_interior.raw());
+            cudaMemcpy(&num_nz_interior, nnz_interior.raw(), sizeof(int), cudaMemcpyDefault);
         }
     }
 
@@ -1659,6 +1677,14 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     {
         fill_rows_lists <<< num_blocks, 128>>>(A.manager->interior_rows_list.raw(), A.manager->boundary_rows_list.raw(), interior_flags.raw(), boundary_flags.raw(), size);
         cudaCheckError();
+    }
+
+    // Manually set the view sizes for P
+    if(is_matrix_P)
+    {
+        int num_rows_owned = num_interior_rows + num_boundary_rows;
+        int num_nz_owned = A.row_offsets[num_rows_owned];
+        A.manager->setViewSizes(num_interior_rows, num_nz_interior, num_rows_owned, num_nz_owned, num_rows_owned, num_nz_owned, A.get_num_rows(), A.get_num_nz());
     }
 }
 

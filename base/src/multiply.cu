@@ -113,9 +113,38 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
         FatalError(ss.str().c_str(), AMGX_ERR_BAD_PARAMETERS);
     }
 
-    multiply_block_size(A, B, C, view);
+
+    typedef Matrix<TConfig> TMatrix;
+    typedef Vector<TConfig> TVector;
 
     C.set_block_dimy(A.get_block_dimx());
+
+    bool latencyHiding = (A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && B.dirtybit != 0);
+
+    if (latencyHiding)
+    {
+        A.manager->exchange_halo_split_gather(B, B.tag);
+
+        // Multiply interior rows
+        multiply_block_size(A, B, C, A.getViewInterior());
+
+        // Finish halo exchange
+        A.manager->exchange_halo_split_finish(B, B.tag);
+
+        // Multiply rows with halo dependencies
+        multiply_block_size(A, B, C, A.getViewExterior());
+    }
+    else
+    {
+        if (!A.is_matrix_singleGPU())
+        {
+            A.manager->exchange_halo_v2(B, B.tag);
+        }
+
+        multiply_block_size(A, B, C, A.getViewExterior());
+    }
+
+    C.dirtybit = 1;
 }
 
 template <class TConfig>

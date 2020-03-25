@@ -41,9 +41,6 @@
 namespace amgx
 {
 
-// global CUSPARSE handle for AMGX
-// Cusparse cusparse;
-
 Cusparse::Cusparse() : m_handle(0)
 {
     cusparseCheckError( cusparseCreate(&m_handle) );
@@ -127,7 +124,7 @@ void Cusparse::bsrmv(
     }
     else
     {
-        if (!A.is_matrix_singleGPU())
+        if (!A.is_matrix_singleGPU() && x.dirtybit != 0)
         {
             A.manager->exchange_halo_v2(x, x.tag);
         }
@@ -173,7 +170,7 @@ void Cusparse::bsrmv_with_mask(
     }
     else
     {
-        if (!A.is_matrix_singleGPU())
+        if (!A.is_matrix_singleGPU() && x.dirtybit != 0)
         {
             A.manager->exchange_halo_v2(x, x.tag);
         }
@@ -555,10 +552,8 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
                                const cudaStream_t &stream)
 {
     typedef typename TConfig::VecPrec ValueTypeB;
-    int offset, size;
+    int offset, size, nnz;
     A.getOffsetAndSizeForView(view, &offset, &size);
-
-    int nnz;
     A.getNnzForView(view, &nnz);
 
     cusparseDirection_t direction = CUSPARSE_DIRECTION_COLUMN;
@@ -568,11 +563,10 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
         direction = CUSPARSE_DIRECTION_ROW;
     }
 
-    bool has_offdiag = A.get_num_nz() != 0;
+    bool has_offdiag = nnz != 0;
 
     if (has_offdiag )
     {
-
         cusparseSetStream(Cusparse::get_instance().m_handle, stream);
         bsrmv( Cusparse::get_instance().m_handle,  direction, CUSPARSE_OPERATION_NON_TRANSPOSE,
                size, A.get_num_cols(), nnz, &alphaConst,
@@ -629,6 +623,11 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
         FatalError("Should not be here in bsrmv_internal_with_mask", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
+    if(view != INTERIOR && view != BOUNDARY)
+    {
+        FatalError("Only INTERIOR and BOUNDARY views supported for bsrmv_internal_with_mask", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+
     typedef typename TConfig::VecPrec ValueType;
     cusparseDirection_t direction = CUSPARSE_DIRECTION_COLUMN;
 
@@ -637,26 +636,26 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
         direction = CUSPARSE_DIRECTION_ROW;
     }
 
-    bool has_offdiag = A.get_num_nz() != 0;
-
     const int *start_offsets, *end_offsets;
     start_offsets = A.row_offsets.raw();
     end_offsets = A.row_offsets.raw() + 1;
     typedef typename Matrix<TConfig>::index_type index_type;
 
-    // num rows to
-    index_type NumRows = A.manager->getRowsListForView(view).size();
+    int offset, nrows, nnz;
+    A.getFixedSizesForView(view, &offset, &nrows, &nnz);
 
-    if (NumRows <= 0)
+    if (nrows <= 0)
     {
         return;    // nothing to do, early exit
     }
 
-    if (has_offdiag )
+    bool has_offdiag = nnz != 0;
+
+    if (has_offdiag)
     {
         cusparseSetStream(Cusparse::get_instance().m_handle, stream);
-        bsrxmv_internal( Cusparse::get_instance().m_handle, direction, CUSPARSE_OPERATION_NON_TRANSPOSE, NumRows,
-                         A.get_num_rows(), A.get_num_cols(), A.get_num_nz(), &alphaConst,
+        bsrxmv_internal( Cusparse::get_instance().m_handle, direction, CUSPARSE_OPERATION_NON_TRANSPOSE, nrows,
+                         A.get_num_rows(), A.get_num_cols(), nnz, &alphaConst,
                          A.cuMatDescr,
                          A.values.raw(),
                          A.manager->getRowsListForView(view).raw(),
@@ -678,7 +677,7 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
 
 template< class TConfig >
 void Cusparse::bsrmv_internal_with_mask_restriction( const typename TConfig::VecPrec alphaConst,
-        const Matrix<TConfig> &A,
+        const Matrix<TConfig> &R,
         const Vector<TConfig> &x,
         const typename TConfig::VecPrec betaConst,
         Vector<TConfig> &y,
@@ -691,58 +690,47 @@ void Cusparse::bsrmv_internal_with_mask_restriction( const typename TConfig::Vec
         FatalError("Should not be here in bsrmv_internal_with_mask_with_restriction", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
-    typedef typename TConfig::VecPrec ValueType;
-    //int offset, size;
-    //A.getOffsetAndSizeForView(view, &offset, &size);
-    cusparseDirection_t direction = CUSPARSE_DIRECTION_COLUMN;
-
-    if ( A.getBlockFormat() == ROW_MAJOR )
-    {
-        direction = CUSPARSE_DIRECTION_ROW;
-    }
-
-    bool has_offdiag = A.get_num_nz() != 0;
-    typedef typename Matrix<TConfig>::index_type index_type;
-    // num rows to
-    int offset, NumRows;
-
-    if (view == OWNED)
-    {
-        NumRows = P.manager->halo_offsets[0];
-        offset = 0;
-    }
-    else if (view == HALO1)
-    {
-        offset = P.manager->halo_offsets[0];
-        NumRows = P.manager->halo_offsets[P.manager->neighbors.size()] - offset;
-    }
-    else
+    if(view != OWNED && view != HALO1)
     {
         FatalError("View not supported in restriction operation", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
-    if (NumRows <= 0)
+    typedef typename TConfig::VecPrec ValueType;
+    cusparseDirection_t direction = CUSPARSE_DIRECTION_COLUMN;
+
+    if ( R.getBlockFormat() == ROW_MAJOR )
+    {
+        direction = CUSPARSE_DIRECTION_ROW;
+    }
+
+    int offset, nrows, nnz;
+    R.getFixedSizesForView(view, &offset, &nrows, &nnz);
+
+    bool has_offdiag = nnz != 0;
+    typedef typename Matrix<TConfig>::index_type index_type;
+
+    if (nrows <= 0)
     {
         return;    // nothing to do, early exit
     }
 
-    if (has_offdiag )
+    if (has_offdiag)
     {
         cusparseSetStream(Cusparse::get_instance().m_handle, stream);
         bsrmv( Cusparse::get_instance().m_handle,  direction, CUSPARSE_OPERATION_NON_TRANSPOSE,
-               NumRows, A.get_num_cols(), A.get_num_nz(), &alphaConst,
-               A.cuMatDescr,
-               A.values.raw(),
-               A.m_seq_offsets.raw() + offset,
-               A.row_offsets.raw() + offset, A.col_indices.raw(),
-               A.get_block_dimx(),
+               nrows, R.get_num_cols(), nnz, &alphaConst,
+               R.cuMatDescr,
+               R.values.raw(),
+               R.m_seq_offsets.raw() + offset,
+               R.row_offsets.raw() + offset, R.col_indices.raw(),
+               R.get_block_dimx(),
                x.raw(), &betaConst,
-               y.raw() + offset * A.get_block_dimx() );
+               y.raw() + offset * R.get_block_dimx() );
         // Reset to default stream
         cusparseSetStream(Cusparse::get_instance().m_handle, 0);
     }
 
-    if (A.hasProps(DIAG))
+    if (R.hasProps(DIAG))
     {
         FatalError("Diag not supported in multiply with mask\n", AMGX_ERR_NOT_IMPLEMENTED);
     }

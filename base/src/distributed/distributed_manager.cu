@@ -837,6 +837,12 @@ void DistributedManagerBase<TConfig>::set_unassigned(IVector_d &partition_flags,
 template <class TConfig >
 inline void DistributedManagerBase<TConfig>::set_initialized(IVector &row_offsets)
 {
+    // For P and R sizes the sizes are fixed at creation
+    if(m_fixed_view_size)
+    {
+        return;
+    }
+
     if (neighbors.size() > 0)
     {
         //distributed: cache num_rows/num_nz for different views
@@ -962,7 +968,7 @@ template <class TConfig>
 inline DistributedManagerBase<TConfig>::DistributedManagerBase(Matrix<TConfig> &a) :
     m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), _num_interior_nodes(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false),
     neighbors(_neighbors), B2L_maps(_B2L_maps), L2H_maps(_L2H_maps),  B2L_rings(_B2L_rings),
-    halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+    halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 {
     cudaEventCreate(&comm_event);
     cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
@@ -1622,7 +1628,7 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(
     INDEX_TYPE num_import_rings,
     int num_neighbors,
     const VecInt_t *neighbors_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), _num_interior_nodes(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false), neighbors(_neighbors), halo_rows_ref_count(0), halo_rows(NULL), halo_btl_ref_count(0), halo_btl(NULL), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-    B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+    B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 {
     cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
     cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);

@@ -117,8 +117,6 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
     typedef Matrix<TConfig> TMatrix;
     typedef Vector<TConfig> TVector;
 
-    C.set_block_dimy(A.get_block_dimx());
-
     bool latencyHiding = (A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && B.dirtybit != 0);
 
     if (latencyHiding)
@@ -132,11 +130,12 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
         A.manager->exchange_halo_split_finish(B, B.tag);
 
         // Multiply rows with halo dependencies
-        multiply_block_size(A, B, C, A.getViewExterior());
+        ViewType bnd_view = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
+        multiply_block_size(A, B, C, bnd_view);
     }
     else
     {
-        if (!A.is_matrix_singleGPU())
+        if (!A.is_matrix_singleGPU() && B.dirtybit != 0)
         {
             A.manager->exchange_halo_v2(B, B.tag);
         }
@@ -145,6 +144,7 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
     }
 
     C.dirtybit = 1;
+    C.set_block_dimy(A.get_block_dimx());
 }
 
 template <class TConfig>

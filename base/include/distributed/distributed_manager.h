@@ -283,7 +283,7 @@ template <typename TConfig> class DistributedManagerBase
 
         DistributedManagerBase() : m_fine_level_comms(NULL), _num_interior_nodes(0), m_pinned_buffer(NULL), m_pinned_buffer_size(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false),
             neighbors(_neighbors), B2L_maps(_B2L_maps), L2H_maps(_L2H_maps),  B2L_rings(_B2L_rings),
-            halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),  halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+            halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),  halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 
         {
             cudaEventCreate(&comm_event);
@@ -302,7 +302,7 @@ template <typename TConfig> class DistributedManagerBase
             neighbors(_neighbors), halo_offsets(halo_offsets_),
             B2L_maps(_B2L_maps),   L2H_maps(_L2H_maps), B2L_rings(_B2L_rings),
             halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL),
-            _comms(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+            _comms(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -327,7 +327,7 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<std::vector<VecInt_t> > &B2L_rings_,
                                 DistributedComms<TConfig> **comms_,
                                 std::vector<Matrix<TConfig> > **halo_rows_,
-                                std::vector<DistributedManager<TConfig> > **halo_btl_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), B2L_maps(B2L_maps_), L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(halo_ranges_), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h)
+                                std::vector<DistributedManager<TConfig> > **halo_btl_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), B2L_maps(B2L_maps_), L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(halo_ranges_), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -344,7 +344,7 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<std::vector<VecInt_t> > &B2L_rings_,
                                 DistributedComms<TConfig> **comms_,
                                 std::vector<Matrix<TConfig> > **halo_rows_,
-                                std::vector<DistributedManager<TConfig> > **halo_btl_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), B2L_maps(B2L_maps_), L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(halo_ranges_), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h)
+                                std::vector<DistributedManager<TConfig> > **halo_btl_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), B2L_maps(B2L_maps_), L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(halo_ranges_), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -360,7 +360,7 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<std::vector<VecInt_t> > &B2L_rings_,
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(halo_ranges_),
             halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(B2L_maps_),  L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+            B2L_maps(B2L_maps_),  L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -379,7 +379,7 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<IVector > &L2H_maps_,
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(_halo_ranges),
             halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(B2L_maps_),  L2H_maps(L2H_maps_), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+            B2L_maps(B2L_maps_),  L2H_maps(L2H_maps_), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -426,7 +426,7 @@ template <typename TConfig> class DistributedManagerBase
                                 Vector<ivec_value_type_h> &neighbors_,
                                 I64Vector_h &halo_ranges_h_,
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), _comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(_halo_ranges), halo_ranges_h(halo_ranges_h_), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -444,7 +444,7 @@ template <typename TConfig> class DistributedManagerBase
                                 const VecInt_t *neighbor_bases,
                                 const VecInt_t *neighbor_sizes,
                                 int num_neighbors) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(_neighbors), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -1705,6 +1705,7 @@ template <typename TConfig> class DistributedManagerBase
         INDEX_TYPE _num_nz_full;
         INDEX_TYPE _num_rows_all;
         INDEX_TYPE _num_nz_all;
+        bool m_fixed_view_size;
 
         //Containers for Level 0 API:
         std::vector<IVector >_B2L_maps;
@@ -1772,6 +1773,23 @@ template <typename TConfig> class DistributedManagerBase
             }
         }
 
+        // Manually set the view sizes
+        inline void setViewSizes(int num_interior_nodes, int num_nz_interior, int num_rows_owned, int num_nz_owned, int num_rows_full, int num_nz_full, int num_rows_all, int num_nz_all)
+        {
+            this->_num_rows_interior = num_interior_nodes;
+            this->_num_nz_interior = num_nz_interior;
+            this->_num_rows_owned = num_rows_owned;
+            this->_num_nz_owned = num_nz_owned;
+            this->_num_rows_full = num_rows_full;
+            this->_num_nz_full = num_nz_full;
+            this->_num_rows_all = num_rows_all;
+            this->_num_nz_all = num_nz_all;
+
+            // Avoids the view sizes being overwritten by set_initialized
+            this->m_fixed_view_size = true;
+        }
+
+        inline bool isViewSizeFixed() { return this->m_fixed_view_size; }
 
 };
 

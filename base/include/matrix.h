@@ -971,14 +971,23 @@ class MatrixBase : public AuxData, public Operator<T_Config>
                 {
                     *nnz = 0;
                 }
-
                 return;
             }
 
             manager->getNnzForView(type, nnz);
         }
 
+        // Get the offset, nrows, and nnz for this view
+        inline void getFixedSizesForView(ViewType type, int *offset, int *nrows, int* nnz) const
+        {
+            if(!is_matrix_distributed() || !manager->isViewSizeFixed())
+            {
+                FatalError("getFixedSizesForView should not be called by a non-distributed matrix", AMGX_ERR_INTERNAL);
+            }
 
+            manager->getOffsetAndSizeForView(type, offset, nrows);
+            manager->getNnzForView(type, nnz);
+        }
 
         inline void setManager(DistributedManager<T_Config> &manager_)
         {

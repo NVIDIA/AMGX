@@ -37,6 +37,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <error.h>
 #include <vector_thrust_allocator.h>
+#include <thrust_wrapper.h>
 
 #include <algorithm>
 
@@ -50,7 +51,7 @@ void coloring_histogram(int *out_hist_host, int num_rows, int max_color, int *ro
     if (false) //TODO: enable, since almost always faster
     {
         device_vector_alloc<int> histogram(num_rows);
-        thrust::sort(data, data + num_rows);
+        thrust_wrapper::sort(data, data + num_rows);
         cudaCheckError();
         thrust::counting_iterator<int> search_begin(0);
         thrust::upper_bound(data, data + num_rows,

@@ -816,7 +816,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
         }
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
     cudaCheckError();
 }
 

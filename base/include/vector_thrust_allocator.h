@@ -32,6 +32,7 @@
 #include <thrust/device_reference.h>
 #include <thrust/device_malloc.h>
 #include <thrust/device_free.h>
+#include <thrust/device_vector.h>
 #include <limits>
 #include <stdexcept>
 

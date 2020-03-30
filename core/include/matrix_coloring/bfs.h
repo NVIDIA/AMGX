@@ -30,6 +30,7 @@
 #include <thrust/remove.h>
 #include <thrust/unique.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust_wrapper.h>
 #include <strided_reduction.h>
 #include <vector_thrust_allocator.h>
 
@@ -217,7 +218,7 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
         task_queue_n = task_queue_out_tail[0];
         cudaCheckError();
         //contract duplicates using thrust
-        thrust::sort(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
+        thrust_wrapper::sort(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
         cudaCheckError();
         task_queue_n = thrust::unique(task_queue_out.begin(), task_queue_out.begin() + task_queue_n) - task_queue_out.begin();
         cudaCheckError();

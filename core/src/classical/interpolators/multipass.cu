@@ -47,6 +47,7 @@
 #include <thrust/scan.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -1108,9 +1109,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     int pass = 2;
     int max_num_passes = 10;
     // Count the number of unassigned nodes by checking which nodes have assigned[i] = -1
-    IndexType num_unassigned = thrust::count_if(assigned.begin(), assigned.end(), is_less_than_zero());
+    IndexType num_unassigned = thrust_wrapper::count_if(assigned.begin(), assigned.end(), is_less_than_zero());
     cudaCheckError();
-    IndexType num_strong_fine = thrust::count_if(cf_map.begin(), cf_map.end(), is_strong_fine());
+    IndexType num_strong_fine = thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_strong_fine());
     cudaCheckError();
     IndexType num_unassigned_max = num_unassigned - num_strong_fine;
 
@@ -1129,7 +1130,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     while (num_unassigned_max && pass < max_num_passes)
     {
         fillAssignedArray<IndexType, cta_size> <<< grid_size, cta_size>>>(assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), Anum_rows, pass);
-        num_unassigned = thrust::count_if(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
+        num_unassigned = thrust_wrapper::count_if(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
         cudaCheckError();
         num_unassigned_max = num_unassigned - num_strong_fine;
 
@@ -1162,9 +1163,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
         cudaCheckError();
-        int num_halo_coarse_pts = thrust::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         coarsePoints = num_owned_coarse_pts + num_halo_coarse_pts;
         // Partially initialize the distributed manager of matrix P, using num_owned_coarse_pts
@@ -1181,7 +1182,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
     else
     {
-        coarsePoints = (int) thrust::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        coarsePoints = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
         const int cta_size = 128;
         const int grid_size = std::min( 4096, (A.get_num_rows() + cta_size - 1) / cta_size);
@@ -1227,8 +1228,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         cudaCheckError();
     }
+
     // Do an exclusive scan on C_hat_start to compute compute upper bound on row offsets
-    thrust::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
+    thrust_wrapper::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
     cudaCheckError();
     // Now C_hat_start contains the offsets
     // Create a temporary manager that can be used to exchange halo information on values and/or column indices, where there's more than 1 value associated with each node
@@ -1351,10 +1353,10 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
 
     // get total number of non-zeros with reduction
-    int nonZeros = thrust::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[nonZeroOffsets.size() - 1] = nonZeros;
     // resize P

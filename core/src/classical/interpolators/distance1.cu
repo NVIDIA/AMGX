@@ -27,6 +27,7 @@
 
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
+#include <thrust_wrapper.h>
 #include <classical/interpolators/distance1.h>
 #include <classical/interpolators/common.h>
 #include <basic_types.h>
@@ -868,9 +869,9 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // now I have the non-zeros per row for matrix P, count the non-zeros on each row
     // to get total NNZ
     // sum non-zeros per row
-    int NNZidx = thrust::reduce(nonZerosVec.begin(), nonZerosVec.end());
+    int NNZidx = thrust_wrapper::reduce(nonZerosVec.begin(), nonZerosVec.end());
     cudaCheckError();
-    thrust::exclusive_scan(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
+    thrust_wrapper::exclusive_scan(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
     cudaCheckError();
     nonZerosVec[A.get_num_rows()] = NNZidx;
     // generate sets on the device

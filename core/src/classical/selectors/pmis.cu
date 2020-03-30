@@ -30,6 +30,7 @@
 #include <cutil.h>
 #include <util.h>
 #include <types.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/count.h>
 #include <thrust/execution_policy.h>
@@ -616,7 +617,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         }  // num rows > 0
 
         // count # of points still unassigned
-        numUnassigned = (int) thrust::count(cf_map.begin(), cf_map.begin() + numRows, (int)UNASSIGNED);
+        numUnassigned = (int) thrust_wrapper::count(cf_map.begin(), cf_map.begin() + numRows, (int)UNASSIGNED);
         cudaCheckError();
         numUnassignedMax = numUnassigned;
         cudaCheckError();

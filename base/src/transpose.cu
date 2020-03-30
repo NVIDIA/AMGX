@@ -40,6 +40,7 @@
 #endif
 
 #include <thrust/transform.h>
+#include <thrust_wrapper.h>
 
 #include "amgx_types/util.h"
 
@@ -87,7 +88,7 @@ void transpose(const Matrix &A, Matrix &B)
 
         if (types::util<ValueTypeA>::is_complex)
         {
-            thrust::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
+            thrust_wrapper::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
         }
 
         B.set_initialized(1);

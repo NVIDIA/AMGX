@@ -39,6 +39,7 @@
 #include <thrust/logical.h>
 #include <thrust/remove.h>
 #include <thrust/adjacent_difference.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/extrema.h> // for minmax_element
 
@@ -342,7 +343,7 @@ void Classical_AMG_Level_Base<T_Config>::createCoarseMatrices()
         RAP.set_initialized(1);
         // update # of columns in P - this is necessary for correct CSR multiply
         P.set_initialized(0);
-        int new_num_cols = thrust::reduce(P.col_indices.begin(), P.col_indices.end(), int(0), thrust::maximum<int>()) + 1;
+        int new_num_cols = thrust_wrapper::reduce(P.col_indices.begin(), P.col_indices.end(), int(0), thrust::maximum<int>()) + 1;
         cudaCheckError();
         P.set_num_cols(new_num_cols);
         P.set_initialized(1);
@@ -558,7 +559,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             cudaCheckError();
             int min_size = *result.first;
             int max_size = *result.second;
-            int sum = thrust::reduce( num_nz.begin() + 1, num_nz.end() );
+            int sum = thrust_wrapper::reduce( num_nz.begin() + 1, num_nz.end() );
             cudaCheckError();
             double avg_size = double(sum) / this->getA().get_num_rows();
             buffer << "SPMM: A: " << std::endl;
@@ -574,7 +575,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         cudaCheckError();
         int min_size = *result.first;
         int max_size = *result.second;
-        int sum = thrust::reduce( num_nz.begin() + 1, num_nz.end() );
+        int sum = thrust_wrapper::reduce( num_nz.begin() + 1, num_nz.end() );
         cudaCheckError();
         double avg_size = double(sum) / this->P.get_num_rows();
         buffer << "SPMM: P: " << std::endl;
@@ -588,7 +589,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         cudaCheckError();
         min_size = *result.first;
         max_size = *result.second;
-        sum = thrust::reduce( num_nz.begin() + 1, num_nz.end() );
+        sum = thrust_wrapper::reduce( num_nz.begin() + 1, num_nz.end() );
         cudaCheckError();
         avg_size = double(sum) / this->R.get_num_rows();
         buffer << "SPMM: R: " << std::endl;
@@ -813,7 +814,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         cudaCheckError();
         */
         //create a pointer map for their location using prefix sum
-        thrust::exclusive_scan(l2g_p.begin(), l2g_p.end(), l2g_p.begin());
+        thrust_wrapper::exclusive_scan(l2g_p.begin(), l2g_p.end(), l2g_p.begin());
         int new_nl2g = l2g_p[nl2g];
 
         //compress the columns using the pointer map

@@ -460,7 +460,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMatri
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
     cudaCheckError();
 #if 0
     device_vector_alloc<int> error_found( 1, 0 );
@@ -806,7 +806,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::color_step
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
 }
 
 

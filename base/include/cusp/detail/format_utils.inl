@@ -27,6 +27,7 @@
 #include <thrust/sequence.h>
 #include <thrust/scan.h>
 #include <thrust/sort.h>
+#include <thrust_wrapper.h>
 
 namespace cusp
 {
@@ -66,7 +67,8 @@ void offsets_to_indices(const OffsetArray& offsets, IndexArray& indices)
                                 thrust::make_zip_iterator( thrust::make_tuple( offsets.begin(), offsets.begin()+1 ) ),
                                 empty_row_functor<OffsetType>()),
                     	indices.begin());
-    thrust::inclusive_scan(indices.begin(), indices.end(), indices.begin(), thrust::maximum<OffsetType>());
+
+    thrust_wrapper::inclusive_scan(indices.begin(), indices.end(), indices.begin(), thrust::maximum<OffsetType>());
 }
 
 template <typename IndexArray, typename OffsetArray>
@@ -247,14 +249,14 @@ void sort_by_row(Array1& rows, Array2& columns, Array3& values)
     thrust::sequence(permutation.begin(), permutation.end());
   
     // compute permutation that sorts the rows
-    thrust::sort_by_key(rows.begin(), rows.end(), permutation.begin());
+    thrust_wrapper::sort_by_key(rows.begin(), rows.end(), permutation.begin());
 
     // copy columns and values to temporary buffers
     cusp::array1d<IndexType,MemorySpace> temp1(columns);
     cusp::array1d<ValueType,MemorySpace> temp2(values);
         
     // use permutation to reorder the values
-    thrust::gather(permutation.begin(), permutation.end(),
+    thrust_wrapper::gather(permutation.begin(), permutation.end(),
                    thrust::make_zip_iterator(thrust::make_tuple(temp1.begin(),   temp2.begin())),
                    thrust::make_zip_iterator(thrust::make_tuple(columns.begin(), values.begin())));
 }
@@ -276,20 +278,20 @@ void sort_by_row_and_column(Array1& rows, Array2& columns, Array3& values)
     // compute permutation and sort by (I,J)
     {
         cusp::array1d<IndexType,MemorySpace> temp(columns);
-        thrust::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
+        thrust_wrapper::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
 
         cusp::copy(rows, temp);
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), rows.begin());
-        thrust::stable_sort_by_key(rows.begin(), rows.end(), permutation.begin());
+        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), rows.begin());
+        thrust_wrapper::stable_sort_by_key(rows.begin(), rows.end(), permutation.begin());
 
         cusp::copy(columns, temp);
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), columns.begin());
+        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), columns.begin());
     }
 
     // use permutation to reorder the values
     {
         cusp::array1d<ValueType,MemorySpace> temp(values);
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), values.begin());
+        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), values.begin());
     }
 }
 

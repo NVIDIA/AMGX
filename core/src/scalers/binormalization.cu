@@ -29,6 +29,7 @@
 #include <sm_utils.inl>
 #include <thrust/inner_product.h>
 #include <solvers/block_common_solver.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -347,7 +348,7 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     VVector x(nrows, 1), xn(nrows), davg(nrows), beta(nrows, 0);
     computeBetaIniDevice <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), beta.raw());
     cudaCheckError();
-    ValueTypeB avg = thrust::reduce(beta.begin(), beta.end()) / nrows;
+    ValueTypeB avg = thrust_wrapper::reduce(beta.begin(), beta.end()) / nrows;
     // calculate initial std1 and std2
     thrust::device_ptr<ValueTypeB> x_ptr(x.raw()), beta_ptr(beta.raw());
     ValueTypeB stdx = sqrt(thrust::inner_product(x_ptr, x_ptr + nrows, beta_ptr, ValueTypeB(0.), thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(avg)) / nrows) / avg;
@@ -358,7 +359,7 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 
         computeBetaDevice <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(),
                                            diag.raw(), x.raw(), xn.raw(), beta.raw(), avg, davg.raw());
-        avg += thrust::reduce(davg.begin(), davg.end());
+        avg += thrust_wrapper::reduce(davg.begin(), davg.end());
         // ValueTypeB stdx_old = stdx;
         stdx = sqrt(thrust::inner_product(x_ptr, x_ptr + nrows, beta_ptr, ValueTypeB(0.), thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(avg)) / nrows) / avg;
         // print it #, current error, convergence rate

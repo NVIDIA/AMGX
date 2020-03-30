@@ -30,6 +30,7 @@
 #include <thrust/scan.h>
 #include <thrust/remove.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <thrust_wrapper.h>
 #include <error.h>
 #include <cutil.h>
 #include <util.h>
@@ -1216,7 +1217,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
 
     cudaCheckError();
     // Compute the number of non-zeroes.
-    thrust::exclusive_scan( Ac.row_offsets.begin(), Ac.row_offsets.end(), Ac.row_offsets.begin() );
+    thrust_wrapper::exclusive_scan( Ac.row_offsets.begin(), Ac.row_offsets.end(), Ac.row_offsets.begin() );
     cudaCheckError();
     int nonzero_blocks = Ac.row_offsets[num_aggregates];
 

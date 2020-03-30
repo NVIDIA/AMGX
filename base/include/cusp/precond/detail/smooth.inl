@@ -26,6 +26,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust_wrapper.h>
 
 namespace cusp
 {
@@ -65,7 +66,7 @@ void smooth_prolongator(const cusp::coo_matrix<IndexType,ValueType,cusp::device_
   // temp <- -lambda * S(i,j) * T(j,k)
   cusp::coo_matrix<IndexType,ValueType,cusp::device_memory> temp(S.num_rows, T.num_cols, S.num_entries + T.num_entries);
   thrust::copy(S.row_indices.begin(), S.row_indices.end(), temp.row_indices.begin());
-  thrust::gather(S.column_indices.begin(), S.column_indices.end(), T.column_indices.begin(), temp.column_indices.begin());
+  thrust_wrapper::gather(S.column_indices.begin(), S.column_indices.end(), T.column_indices.begin(), temp.column_indices.begin());
   thrust::transform(S.values.begin(), S.values.end(),
                     thrust::make_permutation_iterator(T.values.begin(), S.column_indices.begin()),
                     temp.values.begin(),

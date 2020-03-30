@@ -371,13 +371,13 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         cudaCheckError();
         temp = I;
         //I = temp;
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), I.begin());
+        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), I.begin());
         cudaCheckError();
         thrust::stable_sort_by_key(I.begin(), I.end(), permutation.begin());
         cudaCheckError();
         temp = J;
         //J = temp;
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), J.begin());
+        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), J.begin());
         cudaCheckError();
     }
     // Remove duplicate tuples

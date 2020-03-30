@@ -19,6 +19,8 @@
 #include <thrust/device_allocator.h>
 #include <thrust/iterator/iterator_traits.h>
 
+#include <vector_thrust_allocator.h>
+
 #if THRUST_VERSION >= 100600
 #include <thrust/device_malloc_allocator.h>
 #endif
@@ -53,7 +55,7 @@ namespace detail
           thrust::detail::eval_if<
             thrust::detail::is_convertible<MemorySpace, device_memory>::value,
   
-            thrust::detail::identity_< thrust::device_malloc_allocator<T> >,
+            thrust::detail::identity_< amgx::thrust_amgx_allocator<T> >,
   
             thrust::detail::identity_< MemorySpace >
           >

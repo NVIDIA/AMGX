@@ -34,6 +34,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <thrust/gather.h>
+#include <vector_thrust_allocator.h>
 #include <cusp/detail/format_utils.h>
 #include <permute.h>
 #include <multiply.h>

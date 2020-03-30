@@ -42,6 +42,7 @@
 #include <thrust/binary_search.h>
 #include <memory_intrinsics.h>
 #include <thrust/replace.h>
+#include <thrust_wrapper.h>
 
 #include <algorithm>
 
@@ -1016,7 +1017,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
             sorted_rows_by_color.resize(num_rows);
             //this->m_sorted_rows_by_color.resize(num_rows);
             thrust::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
-            thrust::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
+            thrust_wrapper::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
             cudaCheckError();
             IVector offsets_rows_per_color_d(this->m_num_colors + 1);
             thrust::lower_bound(row_colors.begin(),
@@ -1171,7 +1172,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     printf("MAXCOLOR ref=%d %d\n",max_colorg,max_color);
     if(max_colorg!=max_color)exit(1);*/
 #else
-    int max_color = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() );
+    int max_color = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() );
 #endif
     //printf("MAXCOLOR %d %d\n",max_color_gold,max_color);
     cudaCheckError();

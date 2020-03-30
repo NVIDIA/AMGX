@@ -220,7 +220,7 @@ void color_histogram(const Vector1 &row_colors, Vector2 &histogram)
     // copy input data (could be skipped if input is allowed to be modified)
     device_vector_alloc<ValueType> data(row_colors);
     // sort data to bring equal elements together
-    thrust::sort(data.begin(), data.end());
+    thrust_wrapper::sort(data.begin(), data.end());
     // number of histogram bins is equal to the maximum value plus one
     IndexType num_bins = data.back() + 1;
     // resize histogram storage

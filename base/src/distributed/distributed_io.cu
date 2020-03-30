@@ -27,6 +27,7 @@
 
 #include <distributed/distributed_io.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust_wrapper.h>
 #include <amgx_types/util.h>
 
 namespace amgx

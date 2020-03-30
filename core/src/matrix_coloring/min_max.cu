@@ -431,7 +431,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
     cudaCheckError();
 }
 
@@ -513,7 +513,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
     cudaCheckError();
 #if 0
     std::cout << "Num colors=" << this->m_num_colors << std::endl;

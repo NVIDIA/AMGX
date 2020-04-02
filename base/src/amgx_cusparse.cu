@@ -205,12 +205,12 @@ void Cusparse::bsrmv_with_mask_restriction(
     bool latencyHiding = (R.getViewInterior() != R.getViewExterior() && !P.is_matrix_singleGPU() && x.dirtybit != 0);
 
     if (latencyHiding)
-	  {
+    {
         cudaStream_t null_stream = 0;
-		    bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, HALO1, null_stream, P);
+        bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, HALO1, null_stream, P);
         P.manager->add_from_halo_split_gather(y, y.tag);
-		    cudaEventRecord(P.manager->get_comm_event());
-		    bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, OWNED, null_stream, P);
+        cudaEventRecord(P.manager->get_comm_event());
+        bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, OWNED, null_stream, P);
 
         if (P.manager->neighbors.size() != 0)
         {

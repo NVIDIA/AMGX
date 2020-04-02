@@ -115,7 +115,10 @@ void ExcHalo1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
     int num_cols = b.get_num_cols();
     int num_rings = get_num_rings();
     MPI_Comm mpi_comm = comm.get_mpi_comm();
-    int offset = 0;
+
+    cudaStream_t stream = get_stream();
+    cudaStreamSynchronize(stream);
+
     //#####################################################################
     //#     RULE: for send use what Hostbuffer copies from, in step 1;    #
     //#               start position: where it starts copying from;       #
@@ -128,14 +131,13 @@ void ExcHalo1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
     for (int i = 0; i < neighbors; i++)
     {
         int size = m.manager->getB2Lrings()[i][num_rings] * bsize * num_cols;
-        MPI_Isend(b.buffer->raw() + offset,
+        MPI_Isend(b.linear_buffers[i],
                   size * sizeof(typename Tb::value_type),
                   MPI_BYTE,
                   m.manager->neighbors[i],
                   m_tag,
                   mpi_comm,
                   &b.requests[i]);
-        offset += size;
     }
 
 #endif
@@ -227,12 +229,7 @@ void ExcHalo2Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
             size += (m.manager->halo_offset(j * neighbors + i + 1) - m.manager->halo_offset(j * neighbors + i)) * bsize * num_cols;
         }
 
-        //Why b.raw()?
-        //It's because receive was happening in the same buffer that sending
-        //was done from: b.buffer->raw().
-        //So, for GPU Direct, receive should be done directly into b.raw().
-        //Hence: Isend from b.buffer->raw(), while Irecv into b.raw()!
-        MPI_Irecv(b.raw() + m.manager->halo_offset(0)*bsize + offset,
+        MPI_Irecv(b.buffer->raw() + b.buffer_size + offset,
                   size * sizeof(typename Tb::value_type),
                   MPI_BYTE,
                   m.manager->neighbors[i],
@@ -336,8 +333,73 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
 {
 #ifdef AMGX_WITH_MPI
     Tb &b = get_b();
-    // NOOP
     b.in_transfer = IDLE;
+
+    const Matrix<TConfig> &m = get_m();
+    int num_rings = get_num_rings();
+    int neighbors = comm.get_neighbors();
+    int bsize = b.get_block_size();
+    int num_cols = b.get_num_cols();
+    int offset = get_offset();
+    typedef typename Tb::value_type value_type;
+
+    // copy on host ring by ring
+    if (num_rings == 1)
+    {
+        if (num_cols == 1)
+        {
+            if (offset != 0)
+            {
+                cudaMemcpy(b.raw() + m.manager->halo_offset(0)*bsize, b.buffer->raw() + b.buffer_size, offset * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+            }
+        }
+        else
+        {
+            // XXX Double check this is not just a contiguous copy
+            int lda = b.get_lda();
+            value_type *rank_start = b.buffer->raw() + b.buffer_size;
+
+            for (int i = 0; i < neighbors; ++i)
+            {
+                int halo_size = m.manager->halo_offset(i + 1) - m.manager->halo_offset(i);
+
+                for (int s = 0; s < num_cols; ++s)
+                {
+                    value_type *halo_start = b.raw() + lda * s + m.manager->halo_offset(i);
+                    value_type *received_halo = rank_start + s * halo_size;
+                    cudaMemcpy(halo_start, received_halo, halo_size * sizeof(value_type), cudaMemcpyDefault);
+                }
+
+                rank_start += num_cols * halo_size;
+            }
+        }
+    }
+    else
+    {
+        if (num_cols != 1)
+        {
+            FatalError("num_rings != 1 && num_cols != 1 not supported\n", AMGX_ERR_NOT_IMPLEMENTED);
+        }
+
+        offset = 0;
+
+        // Copy into b, one neighbor at a time, one ring at a time
+        for (int i = 0 ; i < neighbors ; i++)
+        {
+            for (int j = 0; j < num_rings; j++)
+            {
+                int size = m.manager->halo_offset(j * neighbors + i + 1) * bsize - m.manager->halo_offset(j * neighbors + i) * bsize;
+
+                if (size != 0)
+                {
+                    cudaMemcpy(b.raw() + m.manager->halo_offset(j * neighbors + i)*bsize, b.buffer->raw() + b.buffer_size + offset, size * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+                }
+
+                offset += size;
+            }
+        }
+    }
+
 #endif
 }
 

@@ -139,7 +139,7 @@ void AddFromHalo1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
                   size * sizeof(typename Tb::value_type),
                   MPI_BYTE,
                   m.manager->neighbors[i],
-                  tag, 
+                  tag,
                   mpi_comm,
                   &b.requests[i]);
         offset += size;
@@ -378,7 +378,7 @@ void SendRecvWait1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm
 #ifdef AMGX_WITH_MPI
     Tb &b = get_b();
     const Matrix<TConfig> &m = get_m();
-    int neighbors = m.manager->num_neighbors(); 
+    int neighbors = m.manager->num_neighbors();
     int bsize = b.get_block_size();
     cudaStream_t &stream = get_stream();
     int tag = get_tag();

@@ -28,16 +28,16 @@
 namespace amgx
 {
 static cudaDeviceProp deviceProps;
-static bool initialized=false;
+//static bool initialized=false;
 
 cudaDeviceProp getDeviceProperties()
 {
-    if(!initialized) {
-        int dev;
-        cudaGetDevice(&dev);
-        cudaGetDeviceProperties(&deviceProps, dev);
-        initialized=true;
-    }
+    //if(!initialized) {
+    int dev;
+    cudaGetDevice(&dev);
+    cudaGetDeviceProperties(&deviceProps, dev);
+    //initialized=true;
+    //}
     return deviceProps;
 }
 

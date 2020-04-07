@@ -99,7 +99,12 @@ template<int I> struct is_pow2   { static const int value = (I & (I - 1)) == 0; 
 // detect arch
 
 #define strided_reduction_arch_KEPLER 2
+#define strided_reduction_arch_FERMI  1
+#if __CUDA_ARCH__ >= 350
 #define strided_reduction_ARCH strided_reduction_arch_KEPLER
+#else
+#define strided_reduction_ARCH strided_reduction_arch_FERMI
+#endif
 
 //ops
 struct op_sum
@@ -391,6 +396,34 @@ struct warputil<8, strided_reduction_arch_KEPLER>
     }
 };
 
+template<int SIZE_IN_BYTES>
+struct warputil<SIZE_IN_BYTES, strided_reduction_arch_FERMI>
+{
+    template<int STRIDE, int NVALS, int CTA_SIZE, int WARP_SIZE, class T, class OP> SR_SDF void warp_reduce_stride(T &value, const OP &op)
+    {
+        __shared__ volatile T s_buf[CTA_SIZE + WARP_SIZE];
+        const int laneId = utils::lane_id();
+        {
+            s_buf[threadIdx.x] = value;
+#pragma unroll
+            for (int i = STRIDE; i < NVALS; i *= 2)
+            {
+                T tmp = s_buf[threadIdx.x + i];
+
+                if (laneId + i < WARP_SIZE)
+                {
+                    value = op.compute(value,  tmp);
+                }
+
+                s_buf[threadIdx.x] = value;
+            }
+
+            if (STRIDE & (STRIDE - 1) == 0) { value = s_buf[threadIdx.x - laneId + (threadIdx.x & (STRIDE - 1))]; }
+        }
+    }
+};
+
+
 /////////////////////////////////
 // STRUDED REDUCTION KERNEL
 /////////////////////////////////
@@ -399,10 +432,10 @@ struct warputil<8, strided_reduction_arch_KEPLER>
 
 template<int STRIDE, int CTA_SIZE, int WARP_SIZE, int BLOCKS_PER_THREAD, class OP, class T, class V, class TRANSFORM>
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 2 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 2 )
+__launch_bounds__( CTA_SIZE, 1 )
 #endif
 void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TRANSFORM(), const OP op = OP())
 {

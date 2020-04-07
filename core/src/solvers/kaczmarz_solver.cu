@@ -264,6 +264,9 @@ __global__ void kaczmarz_smooth_kernel_warp_atomics(const IndexType num_rows,
 {
     const int num_warps = kCtaSize / 32;
     const int num_rows_per_iter = num_warps * gridDim.x;
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+    __shared__ volatile ValueTypeB smem[kCtaSize];
+#endif
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
 
@@ -279,7 +282,13 @@ __global__ void kaczmarz_smooth_kernel_warp_atomics(const IndexType num_rows,
         {
             ValueTypeB aValue = j < row_end ? Ax[j] : ValueTypeB(0);
             ValueTypeB xValue = j < row_end ? xout[Aj[j]] : ValueTypeB(0);
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
             r = utils::warp_reduce<1, utils::Add>(aValue * xValue);
+#endif
+            //#else
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+            r = utils::warp_reduce<1, utils::Add>(smem, aValue * xValue);
+#endif
             Axi += r;
         }
 
@@ -312,6 +321,9 @@ __global__ void randomized_kaczmarz_smooth_kernel_warp_atomics(const IndexType n
 {
     const int num_warps = kCtaSize / 32;
     const int num_rows_per_iter = num_warps * gridDim.x;
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+    __shared__ volatile ValueTypeB smem[kCtaSize];
+#endif
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
 
@@ -330,8 +342,15 @@ __global__ void randomized_kaczmarz_smooth_kernel_warp_atomics(const IndexType n
         {
             ValueTypeB aValue = j < row_end ? Ax[j] : ValueTypeB(0);
             ValueTypeB xValue = j < row_end ? xout[Aj[j]] : ValueTypeB(0);
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
             r = utils::warp_reduce<1, utils::Add>(aValue * xValue);
             aa = utils::warp_reduce<1, utils::Add>(aValue * aValue);
+#endif
+            //#else
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+            r = utils::warp_reduce<1, utils::Add>(smem, aValue * xValue);
+            aa = utils::warp_reduce<1, utils::Add>(smem, aValue * aValue);
+#endif
             Axi += r;
             AA += aa;
         }
@@ -367,6 +386,9 @@ __global__ void kaczmarz_smooth_kernel(const IndexType num_rows,
     IndexType i, t;
     const int num_warps = kCtaSize / 32;
     const int num_rows_per_iter = num_warps * gridDim.x;
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+    __shared__ volatile ValueTypeB smem[kCtaSize];
+#endif
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
 
@@ -383,7 +405,13 @@ __global__ void kaczmarz_smooth_kernel(const IndexType num_rows,
         {
             ValueTypeB aValue = j < row_end ? Ax[j] : ValueTypeB(0);
             ValueTypeB xValue = j < row_end ? xout[Aj[j]] : ValueTypeB(0);
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
             r = utils::warp_reduce<1, utils::Add>(aValue * xValue);
+#endif
+            //#else
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+            r = utils::warp_reduce<1, utils::Add>(smem, aValue * xValue);
+#endif
             Axi += r;
             //Axi += utils::Warp_reduce_linear<1,32>::execute<utils::Add,ValueTypeB>(aValue * xValue);
             //Axi += Ax[j] * xout[Aj[j]];
@@ -456,6 +484,9 @@ __global__ void multicolor_kaczmarz_smooth_kernel(const IndexType num_rows,
 {
     const int num_warps = kCtaSize / 32;
     const int num_rows_per_iter = num_warps * gridDim.x;
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+    __shared__ volatile ValueTypeB smem[kCtaSize];
+#endif
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
     int i;
@@ -473,7 +504,13 @@ __global__ void multicolor_kaczmarz_smooth_kernel(const IndexType num_rows,
         {
             ValueTypeB aValue = j < row_end ? Ax[j] : ValueTypeB(0);
             ValueTypeB xValue = j < row_end ? xout[Aj[j]] : ValueTypeB(0);
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
             r = utils::warp_reduce<1, utils::Add>(aValue * xValue);
+            //#else
+#endif
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+            r = utils::warp_reduce<1, utils::Add>(smem, aValue * xValue);
+#endif
             Axi += r;
         }
 

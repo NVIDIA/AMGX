@@ -136,6 +136,7 @@ void csr_to_dense_kernel(
 }
 
 
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
 template< int N, bool ROW_MAJOR, int WARP_SIZE, typename Value_type >
 static __device__ __forceinline__
 Value_type reduce_distributed_vectors( Value_type x, int is_leader, unsigned int active_mask )
@@ -166,16 +167,53 @@ Value_type reduce_distributed_vectors( Value_type x, int is_leader, unsigned int
 
     return x;
 }
+#else
+template< int N, bool ROW_MAJOR, int WARP_SIZE, typename Value_type >
+static __device__ __forceinline__
+Value_type reduce_distributed_vectors( volatile Value_type *s_mem, Value_type x, int is_leader )
+{
+    if ( N & (N - 1) )
+    {
+#pragma unroll
+
+        for ( int i = 1 ; i < N ; ++i )
+        {
+            const int offset = ROW_MAJOR ? i : N * i;
+
+            if ( is_leader && utils::lane_id() < WARP_SIZE - offset )
+            {
+                s_mem[threadIdx.x] = x += s_mem[threadIdx.x + offset];
+            }
+        }
+    }
+    else
+    {
+#pragma unroll
+
+        for ( int i = 1 ; i < N ; i <<= 1 )
+        {
+            const int offset = ROW_MAJOR ? i : N * i;
+
+            if ( utils::lane_id() < WARP_SIZE - offset )
+            {
+                s_mem[threadIdx.x] = x += s_mem[threadIdx.x + offset];
+            }
+        }
+    }
+
+    return x;
+}
+#endif
 
 
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE,
           int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void b_minus_A_halo_x( const int *__restrict A_rows,
                        const int *__restrict A_cols,
@@ -204,8 +242,17 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
     // Useful index to compute matrix products.
     const int lane_id_mod_NxN_div_N = lane_id_mod_NxN / N;
     const int lane_id_mod_NxN_mod_N = lane_id_mod_NxN % N;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    __shared__ volatile int s_a_col_is_valid[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_a_col_ids = &s_a_col_ids[threadIdx.x - lane_id_mod_NxN];
+    volatile int *my_s_a_col_is_valid = &s_a_col_is_valid[threadIdx.x - lane_id_mod_NxN];
+#else
     // We to get my data from when I use SHFL.
     const int shfl_offset = lane_id - lane_id_mod_NxN;
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -273,6 +320,10 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
 
             // Determine if the column is halo column
             int a_col_is_valid = (a_col_id != -1) && (a_col_id >= num_owned_rows);
+#if __CUDA_ARCH__ < 300
+            my_s_a_col_ids[lane_id_mod_NxN] = a_col_id;
+            my_s_a_col_is_valid[lane_id_mod_NxN] = a_col_is_valid;
+#endif
             // Count the number of active columns.
             // int vote =  __ballot(aColId != -1);
             // The number of iterations.
@@ -283,8 +334,13 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
             {
                 int my_k = k + lane_id_mod_NxN_div_N;
                 // Load N blocks of X.
+#if __CUDA_ARCH__ < 300
+                int uniform_a_col_id = my_s_a_col_ids[my_k];
+                int uniform_a_col_is_valid = my_s_a_col_is_valid[my_k];
+#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k, WARP_SIZE, active_mask);
                 int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k, WARP_SIZE, active_mask );
+#endif
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 && uniform_a_col_is_valid)
@@ -334,7 +390,12 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
             is_leader = lane_id_mod_NxN_mod_N == 0;
         }
 
+#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader, active_mask );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+        my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
+#endif
 
         // Update the shared terms.
         if ( ROW_MAJOR )
@@ -363,7 +424,12 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader, active_mask );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+        my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
+#endif
 
         // Store the results.
         if ( ROW_MAJOR )

@@ -189,6 +189,7 @@ void compute_ring_leader( const int A_num_rows,
                           int *__restrict out_leader_id,
                           int *__restrict out_leader_hash )
 {
+#if __CUDA_ARCH__ >= 300
     const int NUM_WARPS_PER_CTA = CTA_SIZE  / WARP_SIZE;
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
@@ -289,6 +290,8 @@ void compute_ring_leader( const int A_num_rows,
             out_leader_hash[a_row_id] = my_max_hash;
         }
     }
+
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -308,6 +311,7 @@ void build_aggregates( const int num_rings,
                        int *__restrict aggregates,
                        int *__restrict num_unaggregated)
 {
+#if __CUDA_ARCH__ >= 300
     const int NUM_WARPS_PER_CTA = CTA_SIZE  / WARP_SIZE;
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
@@ -447,6 +451,8 @@ void build_aggregates( const int num_rings,
             curr_row = max_id;
         }
     }
+
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

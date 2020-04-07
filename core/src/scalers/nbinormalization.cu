@@ -169,10 +169,16 @@ void computeBetaGammaDevice(IndexType rows, IndexType *offsets, IndexType *indic
     const int vectors_per_block = VectorsPerCTA;
     const int vector_id = threadIdx.x / VectorSize;
     const int lane_id = threadIdx.x % VectorSize;
+#if __CUDA_ARCH__ >= 300
+#else
+    __shared__ IndexType row_offsets[2 * VectorsPerCTA];
+    __shared__ volatile VectorValue bi_sum[CTASize + VectorSize / 2];
+#endif
 
     for (int i = vectors_per_block * blockIdx.x + vector_id; i < rows; i += vectors_per_block * gridDim.x)
     {
         // load start + end pointers
+#if __CUDA_ARCH__ >= 300
         int row_tmp;
 
         if (lane_id < 2)
@@ -183,6 +189,16 @@ void computeBetaGammaDevice(IndexType rows, IndexType *offsets, IndexType *indic
         // distribute to all other threads in warp
         int row_begin = utils::shfl(row_tmp, vector_id * VectorSize, warpSize, utils::activemask());
         int row_end = utils::shfl(row_tmp, vector_id * VectorSize + 1, warpSize, utils::activemask());
+#else
+
+        if (lane_id < 2)
+        {
+            row_offsets[2 * vector_id + lane_id] = offsets[i + lane_id];
+        }
+
+        int row_begin = row_offsets[2 * vector_id];
+        int row_end = row_offsets[2 * vector_id + 1];
+#endif
         VectorValue bi(0.);
 
         for (int jj = row_begin + lane_id; utils::any(jj < row_end, utils::activemask()); jj += VectorSize)
@@ -200,7 +216,12 @@ void computeBetaGammaDevice(IndexType rows, IndexType *offsets, IndexType *indic
         }
 
         // reduce over bi
+#if __CUDA_ARCH__ >= 300
         VectorValue bi_s = warpReduceSum<VectorSize>(bi);
+#else
+        bi_sum[threadIdx.x] = bi;
+        VectorValue bi_s = warpReduceSumShared<VectorSize, VectorValue>(&bi_sum[vector_id * VectorSize], lane_id);
+#endif
 
         if (lane_id == 0)
         {
@@ -218,10 +239,15 @@ void computeGammaDevice(int rows, IndexType *offsets, IndexType *indices, Matrix
     const int vectors_per_block = CTASize / VectorSize;
     const int vector_id = threadIdx.x / VectorSize;
     const int lane_id = threadIdx.x % VectorSize;
+#if __CUDA_ARCH__ >= 300
+#else
+    __shared__ int row_offsets[2 * (CTASize / VectorSize)];
+#endif
 
     for (int i = vectors_per_block * blockIdx.x + vector_id; i < rows; i += vectors_per_block * gridDim.x)
     {
         // load start + end pointers
+#if __CUDA_ARCH__ >= 300
         int row_tmp;
 
         if (lane_id < 2)
@@ -232,6 +258,16 @@ void computeGammaDevice(int rows, IndexType *offsets, IndexType *indices, Matrix
         // distribute to all other threads in warp
         int row_begin = utils::shfl(row_tmp, vector_id * VectorSize, warpSize, utils::activemask());
         int row_end = utils::shfl(row_tmp, vector_id * VectorSize + 1, warpSize, utils::activemask());
+#else
+
+        if (lane_id < 2)
+        {
+            row_offsets[2 * vector_id + lane_id] = offsets[i + lane_id];
+        }
+
+        int row_begin = row_offsets[2 * vector_id];
+        int row_end = row_offsets[2 * vector_id + 1];
+#endif
 
         for (int jj = row_begin + lane_id; utils::any(jj < row_end, utils::activemask()); jj += VectorSize)
         {
@@ -257,10 +293,16 @@ void computeBetaDevice(int rows, IndexType *offsets, IndexType *indices, MatrixV
     const int vectors_per_block = CTASize / VectorSize;
     const int vector_id = threadIdx.x / VectorSize;
     const int lane_id = threadIdx.x % VectorSize;
+#if __CUDA_ARCH__ >= 300
+#else
+    __shared__ int row_offsets[2 * (CTASize / VectorSize)];
+    __shared__ volatile VectorValue bi_sum[CTASize + VectorSize / 2];
+#endif
 
     for (int i = vectors_per_block * blockIdx.x + vector_id; i < rows; i += vectors_per_block * gridDim.x)
     {
         // load start + end pointers
+#if __CUDA_ARCH__ >= 300
         int row_tmp;
 
         if (lane_id < 2)
@@ -271,6 +313,16 @@ void computeBetaDevice(int rows, IndexType *offsets, IndexType *indices, MatrixV
         // distribute to all other threads in warp
         int row_begin = utils::shfl(row_tmp, vector_id * VectorSize, warpSize, utils::activemask());
         int row_end = utils::shfl(row_tmp, vector_id * VectorSize + 1, warpSize, utils::activemask());
+#else
+
+        if (lane_id < 2)
+        {
+            row_offsets[2 * vector_id + lane_id] = offsets[i + lane_id];
+        }
+
+        int row_begin = row_offsets[2 * vector_id];
+        int row_end = row_offsets[2 * vector_id + 1];
+#endif
         VectorValue bi = 0.;
 
         for (int jj = row_begin + lane_id; utils::any(jj < row_end, utils::activemask()); jj += VectorSize)
@@ -287,7 +339,12 @@ void computeBetaDevice(int rows, IndexType *offsets, IndexType *indices, MatrixV
         }
 
         // reduce over bi
+#if __CUDA_ARCH__ >= 300
         VectorValue bi_s = warpReduceSum<VectorSize>(bi);
+#else
+        bi_sum[threadIdx.x] = bi;
+        VectorValue bi_s = warpReduceSumShared<VectorSize, VectorValue>(&bi_sum[vector_id * VectorSize], lane_id);
+#endif
 
         if (lane_id == 0)
         {

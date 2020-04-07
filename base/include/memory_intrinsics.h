@@ -36,7 +36,11 @@ static __device__ __inline__ int __load_all(const int *ptr) { int ret; asm volat
 static __device__ __inline__ int __load_global(const int *ptr) { int ret; asm volatile ("ld.global.cg.s32 %0, [%1];"  : "=r"(ret) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ int __load_streaming(const int *ptr) { int ret; asm volatile ("ld.global.cs.s32 %0, [%1];"  : "=r"(ret) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ int __load_lastuse(const int *ptr) { int ret; asm volatile ("ld.global.lu.s32 %0, [%1];"  : "=r"(ret) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ int __load_nc(const int *ptr) { int ret; asm volatile ("ld.global.nc.s32 %0, [%1];"  : "=r"(ret) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ int __load_nc(const int *ptr) { int ret; asm volatile ("ld.global.ca.s32 %0, [%1];"  : "=r"(ret) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ int __load_uniform(const int *ptr) { int ret; asm volatile ("ld.global.s32.uniform %0, [%1];"  : "=r"(ret) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -44,7 +48,11 @@ static __device__ __inline__ int2 __load_all(const int2 *ptr) { int2 ret; asm vo
 static __device__ __inline__ int2 __load_global(const int2 *ptr) { int2 ret; asm volatile ("ld.global.cg.v2.s32 {%0,%1}, [%2];"  : "=r"(ret.x), "=r"(ret.y) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ int2 __load_streaming(const int2 *ptr) { int2 ret; asm volatile ("ld.global.cs.v2.s32 {%0,%1}, [%2];"  : "=r"(ret.x), "=r"(ret.y) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ int2 __load_lastuse(const int2 *ptr) { int2 ret; asm volatile ("ld.global.lu.v2.s32 {%0,%1}, [%2];"  : "=r"(ret.x), "=r"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ int2 __load_nc(const int2 *ptr) { int2 ret; asm volatile ("ld.global.nc.v2.s32 {%0,%1}, [%2];"  : "=r"(ret.x), "=r"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ int2 __load_nc(const int2 *ptr) { int2 ret; asm volatile ("ld.global.ca.v2.s32 {%0,%1}, [%2];"  : "=r"(ret.x), "=r"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ int2 __load_uniform(const int2 *ptr) { int2 ret; asm volatile ("ld.global.s32.v2.uniform {%0,%1}, [%2];"  : "=r"(ret.x), "=r"(ret.y) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -52,7 +60,11 @@ static __device__ __inline__ int4 __load_all(const int4 *ptr) { int4 ret; asm vo
 static __device__ __inline__ int4 __load_global(const int4 *ptr) { int4 ret; asm volatile ("ld.global.cg.v4.s32 {%0,%1,%2,%3}, [%4];"  : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ int4 __load_streaming(const int4 *ptr) { int4 ret; asm volatile ("ld.global.cs.v4.s32 {%0,%1,%2,%3}, [%4];"  : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ int4 __load_lastuse(const int4 *ptr) { int4 ret; asm volatile ("ld.global.lu.v4.s32 {%0,%1,%2,%3}, [%4];"  : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ int4 __load_nc(const int4 *ptr) { int4 ret; asm volatile ("ld.global.nc.v4.s32 {%0,%1,%2,%3}, [%4];"  : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ int4 __load_nc(const int4 *ptr) { int4 ret; asm volatile ("ld.global.ca.v4.s32 {%0,%1,%2,%3}, [%4];"  : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ int4 __load_uniform(const int4 *ptr) { int4 ret; asm volatile ("ld.global.v4.s32.uniform {%0,%1,%2,%3}, [%4];"  : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -60,7 +72,11 @@ static __device__ __inline__ float __load_all(const float *ptr) { float ret; asm
 static __device__ __inline__ float __load_global(const float *ptr) { float ret; asm volatile ("ld.global.cg.f32 %0, [%1];"  : "=f"(ret) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ float __load_streaming(const float *ptr) { float ret; asm volatile ("ld.global.cs.f32 %0, [%1];"  : "=f"(ret) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ float __load_lastuse(const float *ptr) { float ret; asm volatile ("ld.global.lu.f32 %0, [%1];"  : "=f"(ret) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ float __load_nc(const float *ptr) { float ret; asm volatile ("ld.global.nc.f32 %0, [%1];"  : "=f"(ret) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ float __load_nc(const float *ptr) { float ret; asm volatile ("ld.global.nc.f32 %0, [%1];"  : "=f"(ret) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ float __load_uniform(const float *ptr) { float ret; asm volatile ("ld.global.f32.uniform %0, [%1];"  : "=f"(ret) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -68,7 +84,11 @@ static __device__ __inline__ float2 __load_all(const float2 *ptr) { float2 ret; 
 static __device__ __inline__ float2 __load_global(const float2 *ptr) { float2 ret; asm volatile ("ld.global.cg.v2.f32 {%0,%1}, [%2];"  : "=f"(ret.x), "=f"(ret.y) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ float2 __load_streaming(const float2 *ptr) { float2 ret; asm volatile ("ld.global.cs.v2.f32 {%0,%1}, [%2];"  : "=f"(ret.x), "=f"(ret.y) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ float2 __load_lastuse(const float2 *ptr) { float2 ret; asm volatile ("ld.global.lu.v2.f32 {%0,%1}, [%2];"  : "=f"(ret.x), "=f"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ float2 __load_nc(const float2 *ptr) { float2 ret; asm volatile ("ld.global.nc.v2.f32 {%0,%1}, [%2];"  : "=f"(ret.x), "=f"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ float2 __load_nc(const float2 *ptr) { float2 ret; asm volatile ("ld.global.ca.v2.f32 {%0,%1}, [%2];"  : "=f"(ret.x), "=f"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ float2 __load_uniform(const float2 *ptr) { float2 ret; asm volatile ("ld.global.v2.f32.uniform {%0,%1}, [%2];"  : "=f"(ret.x), "=f"(ret.y) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -76,7 +96,11 @@ static __device__ __inline__ float4 __load_all(const float4 *ptr) { float4 ret; 
 static __device__ __inline__ float4 __load_global(const float4 *ptr) { float4 ret; asm volatile ("ld.global.cg.v4.f32 {%0,%1,%2,%3}, [%4];"  : "=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ float4 __load_streaming(const float4 *ptr) { float4 ret; asm volatile ("ld.global.cs.v4.f32 {%0,%1,%2,%3}, [%4];"  : "=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ float4 __load_lastuse(const float4 *ptr) { float4 ret; asm volatile ("ld.global.lu.v4.f32 {%0,%1,%2,%3}, [%4];"  : "=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ float4 __load_nc(const float4 *ptr) { float4 ret; asm volatile ("ld.global.nc.v4.f32 {%0,%1,%2,%3}, [%4];"  : "=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ float4 __load_nc(const float4 *ptr) { float4 ret; asm volatile ("ld.global.ca.v4.f32 {%0,%1,%2,%3}, [%4];"  : "=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ float4 __load_uniform(const float4 *ptr) { float4 ret; asm volatile ("ld.global.v4.f32.uniform {%0,%1,%2,%3}, [%4];"  : "=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -84,7 +108,11 @@ static __device__ __inline__ double __load_all(const double *ptr) { double ret; 
 static __device__ __inline__ double __load_global(const double *ptr) { double ret; asm volatile ("ld.global.cg.f64 %0, [%1];"  : "=d"(ret) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ double __load_streaming(const double *ptr) { double ret; asm volatile ("ld.global.cs.f64 %0, [%1];"  : "=d"(ret) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ double __load_lastuse(const double *ptr) { double ret; asm volatile ("ld.global.lu.f64 %0, [%1];"  : "=d"(ret) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ double __load_nc(const double *ptr) { double ret; asm volatile ("ld.global.nc.f64 %0, [%1];"  : "=d"(ret) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ double __load_nc(const double *ptr) { double ret; asm volatile ("ld.global.ca.f64 %0, [%1];"  : "=d"(ret) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ double __load_uniform(const double *ptr) { double ret; asm volatile ("ld.global.f64.uniform %0, [%1];"  : "=d"(ret) : __LDG_PTR (ptr)); return ret; }
 
 
@@ -92,5 +120,9 @@ static __device__ __inline__ double2 __load_all(const double2 *ptr) { double2 re
 static __device__ __inline__ double2 __load_global(const double2 *ptr) { double2 ret; asm volatile ("ld.global.cg.v2.f64 {%0,%1}, [%2];"  : "=d"(ret.x), "=d"(ret.y) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ double2 __load_streaming(const double2 *ptr) { double2 ret; asm volatile ("ld.global.cs.v2.f64 {%0,%1}, [%2];"  : "=d"(ret.x), "=d"(ret.y) : __LDG_PTR (ptr)); return ret; }
 static __device__ __inline__ double2 __load_lastuse(const double2 *ptr) { double2 ret; asm volatile ("ld.global.lu.v2.f64 {%0,%1}, [%2];"  : "=d"(ret.x), "=d"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#if __CUDA_ARCH__ >= 350
 static __device__ __inline__ double2 __load_nc(const double2 *ptr) { double2 ret; asm volatile ("ld.global.nc.v2.f64 {%0,%1}, [%2];"  : "=d"(ret.x), "=d"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#else
+static __device__ __inline__ double2 __load_nc(const double2 *ptr) { double2 ret; asm volatile ("ld.global.ca.v2.f64 {%0,%1}, [%2];"  : "=d"(ret.x), "=d"(ret.y) : __LDG_PTR (ptr)); return ret; }
+#endif
 static __device__ __inline__ double2 __load_uniform(const double2 *ptr) { double2 ret; asm volatile ("ld.global.v2.f64.uniform {%0,%1}, [%2];"  : "=d"(ret.x), "=d"(ret.y) : __LDG_PTR (ptr)); return ret; }

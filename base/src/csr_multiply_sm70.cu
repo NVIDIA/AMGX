@@ -1396,7 +1396,7 @@ CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Sm70( boo
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.
@@ -1510,7 +1510,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids)
 
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.
@@ -1597,7 +1597,7 @@ template< int CTA_SIZE, bool COUNT_ONLY, typename Diag_traits, typename Matrix >
 static void
 count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_row_count, int gmem_size, int *keys, int *work_queue, int *status )
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
 
     switch ( num_threads_per_row_count )
     {
@@ -1679,7 +1679,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_ilu1( const Matrix_d &A, Matrix_d &B )
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
 
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -1727,7 +1727,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity( const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // std::cerr << "CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity" << std::endl;
@@ -1842,7 +1842,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B )
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
 
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -1879,7 +1879,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2  )
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 256;
     const int CTA_SIZE  = 128;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset the work queue.
@@ -2018,7 +2018,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads)
 {
-    const int GRID_SIZE = 1024;
+    const int GRID_SIZE = 128;
     const int CTA_SIZE  = 128;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset the work queue.

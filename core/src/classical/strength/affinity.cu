@@ -137,9 +137,14 @@ void initRandom(Vector &vec, int size)
 template <class T>
 static __device__ __inline__ T cahedRead (const T *ar)
 {
+#if __CUDA_ARCH__ >= 350
     return utils::Ld<utils::LD_NC>::load(ar);
+#else
+    return utils::Ld<utils::LD_CA>::load(ar);
+#endif
 }
 
+#if __CUDA_ARCH__ >= 300
 // ! shfl is defined for int/float only in arch 600
 template< typename ValueType >
 __forceinline__ __device__ void reduce_inwarp_mul(
@@ -160,6 +165,33 @@ __forceinline__ __device__ void reduce_inwarp_mul(
 
     *s_xy = sum;
 }
+#else
+template< typename ValueType >
+__forceinline__ __device__ void reduce_inwarp_mul(
+    const ValueType vValueA,
+    const ValueType vValueB,
+    const int vecId,
+    const int n_per_warp,
+    volatile ValueType *smem,
+    double *s_xy)
+{
+    ValueType sum = vValueA * vValueB;
+    smem[threadIdx.x] = sum;
+#pragma unroll
+
+    for ( int offset = 16 / n_per_warp ; offset > 0 ; offset /= 2 )
+        if ( vecId < offset )
+        {
+            smem[threadIdx.x] = sum = sum + smem[threadIdx.x + offset];
+        }
+
+    if ( vecId == 0 )
+    {
+        // If laneId=0, then sum is in smem[threadIdx.x].
+        *s_xy = sum;
+    }
+}
+#endif
 
 template< typename ValueType >
 __forceinline__ __device__ void reduce_inblock_mul(
@@ -240,7 +272,11 @@ void computeAffinity_1x1_Kernel(const int *A_rows,
     const int num_vecs_per_warp = 32 / nTV;
     const int num_rows_per_iter = gridDim.x * blockDim.x / nTV;
     //const int num_vecs_per_block = blockDim.x / nTV;
+#if __CUDA_ARCH__ >= 300
     ValueTypeB *smem = NULL;
+#else
+    __shared__ volatile ValueTypeB smem[kCtaSize];
+#endif
     double s_xx, s_xy, s_yy;
 
     for ( int aRowId = tid / nTV ; aRowId < A_num_rows ;

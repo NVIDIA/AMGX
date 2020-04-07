@@ -31,7 +31,6 @@
 #include <util.h>
 #include <csr_multiply.h>
 #include <csr_multiply_sm35.h>
-#include <device_properties.h>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -57,6 +56,7 @@ void flag_halo_rows(int *row_ids, int size, int *flagArray, int neighbor, int gl
 
 __device__ __forceinline__ int get_work( int *queue, int warp_id )
 {
+#if __CUDA_ARCH__ >= 300
     int offset = -1;
 
     if ( utils::lane_id() == 0 )
@@ -65,6 +65,9 @@ __device__ __forceinline__ int get_work( int *queue, int warp_id )
     }
 
     return utils::shfl( offset, 0 );
+#else
+    return 1 << 28;
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,6 +91,7 @@ count_non_zeroes_kernel( const int A_num_rows,
                          int *wk_work_queue,
                          int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
@@ -229,6 +233,8 @@ count_non_zeroes_kernel( const int A_num_rows,
             set.store( count, &C_cols[c_col_it] );
         }
     }
+
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,6 +258,7 @@ count_non_zeroes_kernel( const int A_num_rows,
                          int *wk_work_queue,
                          int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
@@ -399,6 +406,8 @@ count_non_zeroes_kernel( const int A_num_rows,
             set.store( count, &C_cols[c_col_it] );
         }
     }
+
+#endif
 }
 
 template <int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE, bool COUNT_ONLY >
@@ -483,6 +492,7 @@ count_non_zeroes_RAP_ext_kernel( const int RAP_int_num_rows,
                                  int num_neighbors,
                                  int global_id )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
@@ -571,6 +581,8 @@ count_non_zeroes_RAP_ext_kernel( const int RAP_int_num_rows,
             set.store( count, &RAP_cols[rap_col_it] );
         }
     }
+
+#endif
 }
 
 
@@ -608,6 +620,7 @@ count_non_zeroes_ilu1_kernel( const int A_num_rows,
                               int *wk_work_queue,
                               int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Tables to broadcast values.
     __shared__ volatile int s_b_rows[CTA_SIZE], s_b_colors[CTA_SIZE];
@@ -768,6 +781,8 @@ count_non_zeroes_ilu1_kernel( const int A_num_rows,
             set.store( count, &C_cols[c_col_it] );
         }
     }
+
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -786,6 +801,7 @@ count_non_zeroes_ilu1_kernel( const int A_num_rows,
                               int *wk_work_queue,
                               int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // Tables to broadcast values.
@@ -959,6 +975,8 @@ count_non_zeroes_ilu1_kernel( const int A_num_rows,
             set.store( count, &C_cols[c_col_it] );
         }
     }
+
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -986,6 +1004,7 @@ compute_values_kernel( const int A_num_rows,
                        int *wk_work_queue,
                        int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / 32;
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
@@ -1114,6 +1133,8 @@ compute_values_kernel( const int A_num_rows,
 
         map.store( count, &C_cols[c_col_it], &C_vals[c_col_it] );
     }
+
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1141,6 +1162,7 @@ compute_values_kernel( const int A_num_rows,
                        int *wk_work_queue,
                        int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
@@ -1277,6 +1299,8 @@ compute_values_kernel( const int A_num_rows,
 
         map.store( count, &C_cols[c_col_it], &C_vals[c_col_it] );
     }
+
+#endif
 }
 
 
@@ -1301,6 +1325,7 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
                                int num_neighbors,
                                int *wk_status )
 {
+#if __CUDA_ARCH__ >= 350
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
@@ -1366,6 +1391,8 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
 
         map.store( count, &RAP_cols[rap_col_it], &RAP_vals[rap_col_it] );
     }
+
+#endif
 }
 
 

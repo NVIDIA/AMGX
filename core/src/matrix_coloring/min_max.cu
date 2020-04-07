@@ -199,6 +199,10 @@ find_min_max_neighbors_kernel( const int *__restrict A_offsets,
     const int NUM_ROWS_PER_CTA = CTA_SIZE / NUM_THREADS_PER_ROW;
     const int warp_id = threadIdx.x / NUM_THREADS_PER_ROW;
     const int lane_id = threadIdx.x % NUM_THREADS_PER_ROW;
+#if __CUDA_ARCH__ < 300
+    __shared__ volatile int s_min_hash[CTA_SIZE];
+    __shared__ volatile int s_max_hash[CTA_SIZE];
+#endif
 
     for ( int row_id = blockIdx.x * NUM_ROWS_PER_CTA + warp_id ; utils::any(row_id < num_rows) ; row_id += gridDim.x * NUM_ROWS_PER_CTA )
     {
@@ -255,12 +259,28 @@ find_min_max_neighbors_kernel( const int *__restrict A_offsets,
             }
         }
 
+#if __CUDA_ARCH__ < 300
+        s_min_hash[threadIdx.x] = min_hash;
+        s_max_hash[threadIdx.x] = max_hash;
 #pragma unroll
+
+        for ( int offset = NUM_THREADS_PER_ROW / 2 ; offset > 0 ; offset >>= 1 )
+            if ( lane_id < offset )
+            {
+                s_min_hash[threadIdx.x] = min_hash = min( min_hash, s_min_hash[threadIdx.x + offset] );
+                s_max_hash[threadIdx.x] = max_hash = max( max_hash, s_max_hash[threadIdx.x + offset] );
+            }
+
+#else
+#pragma unroll
+
         for ( int mask = NUM_THREADS_PER_ROW / 2 ; mask > 0 ; mask >>= 1 )
         {
             min_hash = min( min_hash, utils::shfl_xor( min_hash, mask ) );
             max_hash = max( max_hash, utils::shfl_xor( max_hash, mask ) );
         }
+
+#endif
 
         if ( row_id < num_rows && lane_id == 0 )
         {

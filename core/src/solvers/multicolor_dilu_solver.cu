@@ -61,10 +61,10 @@ enum { CTA_SIZE = 128, WARP_SIZE = 32 };
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE, int NUM_WARP_ITERS_PER_BLOCK >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_setup_NxN_kernel_large( const int *__restrict A_rows,
                                   const int *__restrict A_cols,
@@ -390,10 +390,10 @@ void DILU_setup_NxN_kernel_large( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_setup_NxN_kernel( const int *__restrict A_rows,
                             const int *__restrict A_cols,
@@ -671,10 +671,10 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_setup_1x1_kernel( const int *__restrict A_rows,
                             const int *__restrict A_cols,
@@ -703,6 +703,10 @@ void DILU_setup_1x1_kernel( const int *__restrict A_rows,
     __shared__ volatile int s_A_ji[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
     volatile int *my_s_A_ji = &s_A_ji[warp_id * WARP_SIZE];
+    // Shared memory to compute a reduction (not needed for >= SM30).
+#if __CUDA_ARCH__ < 300
+    __shared__ volatile Matrix_type s_mem[CTA_SIZE];
+#endif
     // Determine which NxN block the threads work with.
     int a_row_it = blockIdx.x * NUM_WARPS_PER_CTA + warp_id;
 
@@ -819,11 +823,25 @@ void DILU_setup_1x1_kernel( const int *__restrict A_rows,
         } // current_color != 0
 
         // Reduce the e_outs in one value.
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
+
         for ( int mask = WARP_SIZE / 2 ; mask > 0 ; mask >>= 1 )
         {
             e_out += utils::shfl_xor( e_out, mask );
         }
+
+#else
+        s_mem[threadIdx.x] = e_out;
+#pragma unroll
+
+        for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
+            if ( lane_id < offset )
+            {
+                s_mem[threadIdx.x] = e_out += s_mem[threadIdx.x + offset];
+            }
+
+#endif
 
         // Store the result.
         if ( lane_id == 0 )
@@ -842,6 +860,7 @@ void DILU_setup_1x1_kernel( const int *__restrict A_rows,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
 template< int N, bool ROW_MAJOR, int WARP_SIZE, typename Value_type >
 static __device__ __forceinline__
 Value_type reduce_distributed_vectors( Value_type x, int is_leader )
@@ -872,15 +891,54 @@ Value_type reduce_distributed_vectors( Value_type x, int is_leader )
 
     return x;
 }
+//#endif
+//#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 300
+#else
+template< int N, bool ROW_MAJOR, int WARP_SIZE, typename Value_type >
+static __device__ __forceinline__
+Value_type reduce_distributed_vectors( volatile Value_type *s_mem, Value_type x, int is_leader )
+{
+    if ( N & (N - 1) )
+    {
+#pragma unroll
+
+        for ( int i = 1 ; i < N ; ++i )
+        {
+            const int offset = ROW_MAJOR ? i : N * i;
+
+            if ( is_leader && utils::lane_id() < WARP_SIZE - offset )
+            {
+                s_mem[threadIdx.x] = x += s_mem[threadIdx.x + offset];
+            }
+        }
+    }
+    else
+    {
+#pragma unroll
+
+        for ( int i = 1 ; i < N ; i <<= 1 )
+        {
+            const int offset = ROW_MAJOR ? i : N * i;
+
+            if ( utils::lane_id() < WARP_SIZE - offset )
+            {
+                s_mem[threadIdx.x] = x += s_mem[threadIdx.x + offset];
+            }
+        }
+    }
+
+    return x;
+}
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_forward_NxN_kernel( const int *__restrict A_rows,
                               const int *__restrict A_cols,
@@ -915,8 +973,17 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
     // Useful index to compute matrix products.
     const int lane_id_mod_NxN_div_N = lane_id_mod_NxN / N;
     const int lane_id_mod_NxN_mod_N = lane_id_mod_NxN % N;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    __shared__ volatile int s_a_col_is_valid[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_a_col_ids = &s_a_col_ids[threadIdx.x - lane_id_mod_NxN];
+    volatile int *my_s_a_col_is_valid = &s_a_col_is_valid[threadIdx.x - lane_id_mod_NxN];
+#else
     // We to get my data from when I use SHFL.
     const int shfl_offset = lane_id - lane_id_mod_NxN;
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -993,6 +1060,7 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
             // Determine if the color is valid.
             int a_col_is_valid = false;
 #ifdef AMGX_ILU_COLORING
+
             if ( a_col_id != -1 && current_color != 0 )
             {
                 if ( boundary_coloring == FIRST )
@@ -1013,6 +1081,10 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
             }
 
 #endif
+#if __CUDA_ARCH__ < 300
+            my_s_a_col_ids[lane_id_mod_NxN] = a_col_id;
+            my_s_a_col_is_valid[lane_id_mod_NxN] = a_col_is_valid;
+#endif
             // Count the number of active columns.
             // int vote =  utils::ballot(aColId != -1);
             // The number of iterations.
@@ -1023,8 +1095,13 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
             {
                 int my_k = k + lane_id_mod_NxN_div_N;
                 // Load N blocks of X.
+#if __CUDA_ARCH__ < 300
+                int uniform_a_col_id = my_s_a_col_ids[my_k];
+                int uniform_a_col_is_valid = my_s_a_col_is_valid[my_k];
+#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
                 int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k );
+#endif
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -1084,7 +1161,12 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
             is_leader = lane_id_mod_NxN_mod_N == 0;
         }
 
+#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+        my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
+#endif
 
         // Update the shared terms.
         if ( ROW_MAJOR )
@@ -1113,7 +1195,12 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+        my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
+#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -1135,10 +1222,10 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE, bool HAS_EXTERNAL_DIAG, int NUM_WARP_ITERS_PER_BLOCK >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_forward_NxN_kernel_large( const int *__restrict A_rows,
                                     const int *__restrict A_cols,
@@ -1382,10 +1469,10 @@ void DILU_forward_NxN_kernel_large( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_forward_4x4_kernel( const int *__restrict A_rows,
                               const int *__restrict A_cols,
@@ -1417,8 +1504,17 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
     // Useful index to compute matrix products.
     const int lane_id_mod_16_div_4 = lane_id_mod_16 / 4;
     const int lane_id_mod_16_mod_4 = lane_id_mod_16 % 4;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    __shared__ volatile int s_a_col_is_valid[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_a_col_ids = &s_a_col_ids[threadIdx.x - lane_id_mod_16];
+    volatile int *my_s_a_col_is_valid = &s_a_col_is_valid[threadIdx.x - lane_id_mod_16];
+#else
     // We to get my data from when I use SHFL.
     const int shfl_offset = lane_id - lane_id_mod_16;
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -1501,6 +1597,10 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
             }
 
 #endif
+#if __CUDA_ARCH__ < 300
+            my_s_a_col_ids[lane_id_mod_16] = a_col_id;
+            my_s_a_col_is_valid[lane_id_mod_16] = a_col_is_valid;
+#endif
             // Count the number of active columns.
             // int vote =  utils::ballot(aColId != -1);
             // The number of iterations.
@@ -1511,8 +1611,13 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
             {
                 int my_k = k + lane_id_mod_16_div_4;
                 // Load N blocks of X.
+#if __CUDA_ARCH__ < 300
+                int uniform_a_col_id = my_s_a_col_ids[my_k];
+                int uniform_a_col_is_valid = my_s_a_col_is_valid[my_k];
+#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
                 int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k );
+#endif
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -1572,7 +1677,12 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
             is_leader = lane_id_mod_16_mod_4 == 0;
         }
 
+#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<4, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+        my_bmAx = reduce_distributed_vectors<4, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
+#endif
 
         // Update the shared terms.
         if ( ROW_MAJOR )
@@ -1601,7 +1711,12 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<4, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+        my_bmAx = reduce_distributed_vectors<4, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
+#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -1625,10 +1740,10 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int CTA_SIZE, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         const int *__restrict A_cols,
@@ -1656,7 +1771,16 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
     // Useful constants.
     const int thread_id_mod_16_div_4 = thread_id_mod_16 / 4;
     const int thread_id_mod_16_mod_4 = thread_id_mod_16 % 4;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    __shared__ volatile int s_a_col_is_valid[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_a_col_ids = &s_a_col_ids[16 * thread_id_div_16];
+    volatile int *my_s_a_col_is_valid = &s_a_col_is_valid[16 * thread_id_div_16];
+#else
     const int shfl_offset = 16 * (lane_id / 16);
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -1728,14 +1852,23 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
             }
 
 #endif
+#if __CUDA_ARCH__ < 300
+            my_s_a_col_ids[thread_id_mod_16] = a_col_id;
+            my_s_a_col_is_valid[thread_id_mod_16] = a_col_is_valid;
+#endif
 
             // Loop over columns. We compute 8 columns per iteration.
             for ( int k = 0 ; k < 16 ; k += 4 )
             {
                 int my_k = k + thread_id_mod_16_div_4;
                 // Load 8 blocks of X.
+#if __CUDA_ARCH__ < 300
+                int uniform_a_col_id = my_s_a_col_ids[my_k];
+                int uniform_a_col_is_valid = my_s_a_col_is_valid[my_k];
+#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
                 int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k );
+#endif
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -1778,8 +1911,17 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Load Einvs.
         Matrix_type my_Einv = Einv[16 * a_row_id + thread_id_mod_16];
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
         my_bmAx += utils::shfl_xor( my_bmAx, 4 );
         my_bmAx += utils::shfl_xor( my_bmAx, 8 );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+
+        if ( lane_id < 28 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 4]; }
+
+        if ( lane_id < 24 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 8]; }
+
+#endif
 
         // Update the shared terms.
         if ( thread_id_mod_16_div_4 == 0 )
@@ -1790,8 +1932,17 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Update the diagonal term.
         my_bmAx = my_Einv * my_s_mem[thread_id_mod_16_mod_4];
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
         my_bmAx += utils::shfl_xor( my_bmAx, 1 );
         my_bmAx += utils::shfl_xor( my_bmAx, 2 );
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+
+        if ( lane_id < 31 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 1]; }
+
+        if ( lane_id < 30 ) { s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + 2]; }
+
+#endif
 
         // Store the results.
         if ( thread_id_mod_16_mod_4 == 0 )
@@ -1805,10 +1956,10 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_forward_1x1_kernel( const int *__restrict A_rows,
                               const int *__restrict A_cols,
@@ -1834,6 +1985,10 @@ void DILU_forward_1x1_kernel( const int *__restrict A_rows,
     const int lane_id = utils::lane_id();
     // Constants.
     const int lane_id_mod_NTPR = lane_id % NUM_THREADS_PER_ROW;
+#if __CUDA_ARCH__ < 300
+    // Shared memory needed to exchange X and delta.
+    __shared__ volatile Vector_type s_mem[CTA_SIZE];
+#endif
     // Determine which NxN block the threads work with.
     int a_row_it = blockIdx.x * NUM_ROWS_PER_CTA + (threadIdx.x / NUM_THREADS_PER_ROW);
 
@@ -1932,12 +2087,25 @@ void DILU_forward_1x1_kernel( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for ( int mask = NUM_THREADS_PER_ROW / 2 ; mask > 0 ; mask >>= 1 )
         {
             my_bmAx += utils::shfl_xor( my_bmAx, mask );
         }
+
+#else
+        s_mem[threadIdx.x] = my_bmAx;
+#pragma unroll
+
+        for ( int offset = NUM_THREADS_PER_ROW / 2 ; offset > 0 ; offset >>= 1 )
+            if ( lane_id_mod_NTPR < offset )
+            {
+                s_mem[threadIdx.x] = my_bmAx += s_mem[threadIdx.x + offset];
+            }
+
+#endif
 
         // Store the results.
         if ( lane_id_mod_NTPR == 0 )
@@ -1951,10 +2119,10 @@ void DILU_forward_1x1_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int N, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_backward_NxN_kernel( const int *__restrict A_rows,
                                const int *__restrict A_cols,
@@ -1989,8 +2157,15 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
     // Useful index to compute matrix products.
     const int lane_id_mod_NxN_div_N = lane_id_mod_NxN / N;
     const int lane_id_mod_NxN_mod_N = lane_id_mod_NxN % N;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_a_col_ids = &s_a_col_ids[threadIdx.x - lane_id_mod_NxN];
+#else
     // We to get my data from when I use SHFL.
     const int shfl_offset = lane_id - lane_id_mod_NxN;
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -2068,6 +2243,10 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
                 a_col_id = a_col_tmp;
             }
 
+#if __CUDA_ARCH__ < 300
+            my_s_a_col_ids[lane_id_mod_NxN] = a_col_id;
+#endif
+
             // Count the number of active columns.
             // int vote =  utils::ballot(aColId != -1);
             // The number of iterations.
@@ -2078,7 +2257,11 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
             {
                 int my_k = k + lane_id_mod_NxN_div_N;
                 // Load N blocks of X.
+#if __CUDA_ARCH__ < 300
+                int uniform_a_col_id = my_s_a_col_ids[my_k];
+#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
+#endif
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -2130,7 +2313,12 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
             is_leader = lane_id_mod_NxN_mod_N == 0;
         }
 
+#if __CUDA_ARCH__ >= 300
         my_delta = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_delta, is_leader );
+#else
+        s_mem[threadIdx.x] = my_delta;
+        my_delta = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_delta, is_leader );
+#endif
 
         // Update the shared terms.
         if ( ROW_MAJOR )
@@ -2159,7 +2347,12 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
         my_delta = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_delta, is_leader );
+#else
+        s_mem[threadIdx.x] = my_delta;
+        my_delta = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_delta, is_leader );
+#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -2209,10 +2402,10 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int N, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR, int NUM_WARP_ITERS_PER_BLOCK >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_backward_NxN_kernel_large( const int *__restrict A_rows,
                                      const int *__restrict A_cols,
@@ -2451,10 +2644,10 @@ void DILU_backward_NxN_kernel_large( const int *__restrict A_rows,
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, typename WeightType, int CTA_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_backward_4x4_kernel( const IndexType *row_offsets,
                                const IndexType *column_indices,
@@ -2477,7 +2670,14 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
     const int halfLaneId = threadIdx.x % 16;
     const int halfLaneId_div_4 = halfLaneId / 4;
     const int halfLaneId_mod_4 = halfLaneId % 4;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_aColIds[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_aColIds = &s_aColIds[16 * halfWarpId];
+#else
     const int upperHalf = 16 * (laneId / 16);
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile ValueTypeB s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -2521,11 +2721,18 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
             }
 
 #endif
+#if __CUDA_ARCH__ < 300
+            my_s_aColIds[halfLaneId] = aColId;
+#endif
             for ( int k = 0 ; k < 16 ; k += 4 )
             {
                 int my_k = k + halfLaneId_div_4;
                 // Exchange column indices.
+#if __CUDA_ARCH__ < 300
+                int waColId = my_s_aColIds[my_k];
+#else
                 int waColId = utils::shfl( aColId, upperHalf + my_k );
+#endif
                 // Load 8 blocks of X if needed.
                 ValueTypeB my_x(0);
 
@@ -2542,7 +2749,12 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
                 {
                     const int k_i = k + i;
                     int w_aColTmp = aColBegin + k_i, w_aColIt = -1;
+#if __CUDA_ARCH__ < 300
+
+                    if ( my_s_aColIds[k_i] != -1 && w_aColTmp < aColEnd )
+#else
                     if ( utils::shfl( aColId, upperHalf + k_i ) != -1 && w_aColTmp < aColEnd )
+#endif
                         w_aColIt = w_aColTmp;
 
                     ValueTypeA my_val(0);
@@ -2567,6 +2779,8 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
         // Load EINV values.
         ValueTypeA my_Einv = Einv[16 * aRowId + halfLaneId];
         // Reduce delta terms.
+#if __CUDA_ARCH__ >= 300
+
         if ( ROW_MAJOR )
         {
             my_delta += utils::shfl_xor( my_delta, 1 );
@@ -2577,6 +2791,24 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
             my_delta += utils::shfl_xor( my_delta, 4 );
             my_delta += utils::shfl_xor( my_delta, 8 );
         }
+
+#else
+        s_mem[threadIdx.x] = my_delta;
+
+        if ( ROW_MAJOR )
+        {
+            if ( laneId < 31 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 1]; }
+
+            if ( laneId < 30 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 2]; }
+        }
+        else
+        {
+            if ( laneId < 28 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 4]; }
+
+            if ( laneId < 24 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 8]; }
+        }
+
+#endif
 
         // Update the shared terms.
         if ( ROW_MAJOR )
@@ -2605,6 +2837,8 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
         }
 
         // Regroup results.
+#if __CUDA_ARCH__ >= 300
+
         if ( ROW_MAJOR )
         {
             my_delta += utils::shfl_xor( my_delta, 1 );
@@ -2615,6 +2849,24 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
             my_delta += utils::shfl_xor( my_delta, 4 );
             my_delta += utils::shfl_xor( my_delta, 8 );
         }
+
+#else
+        s_mem[threadIdx.x] = my_delta;
+
+        if ( ROW_MAJOR )
+        {
+            if ( laneId < 31 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 1]; }
+
+            if ( laneId < 30 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 2]; }
+        }
+        else
+        {
+            if ( laneId < 28 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 4]; }
+
+            if ( laneId < 24 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 8]; }
+        }
+
+#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -2662,10 +2914,10 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int CTA_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         const int *__restrict A_cols,
@@ -2693,7 +2945,14 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
     // Useful constants.
     const int thread_id_mod_16_div_4 = thread_id_mod_16 / 4;
     const int thread_id_mod_16_mod_4 = thread_id_mod_16 % 4;
+#if __CUDA_ARCH__ < 300
+    // Shared memory to broadcast column IDs.
+    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    // Each thread keeps its own pointer.
+    volatile int *my_s_a_col_ids = &s_a_col_ids[16 * thread_id_div_16];
+#else
     const int shfl_offset = 16 * (lane_id / 16);
+#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -2754,6 +3013,9 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
                 a_col_id = -1;
             }
 
+#if __CUDA_ARCH__ < 300
+            my_s_a_col_ids[thread_id_mod_16] = a_col_id;
+#endif
             // Loop over columns. We compute 8 columns per iteration.
 #pragma unroll 2
 
@@ -2761,7 +3023,11 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
             {
                 int my_k = k + thread_id_mod_16_div_4;
                 // Load 8 blocks of X.
+#if __CUDA_ARCH__ < 300
+                int uniform_a_col_id = my_s_a_col_ids[my_k];
+#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
+#endif
                 Vector_type my_Delta(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -2794,8 +3060,17 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Load EINV values.
         Matrix_type my_Einv = Einv[16 * a_row_id + thread_id_mod_16];
         // Reduce delta terms.
+#if __CUDA_ARCH__ >= 300
         my_delta += utils::shfl_xor( my_delta, 4 );
         my_delta += utils::shfl_xor( my_delta, 8 );
+#else
+        s_mem[threadIdx.x] = my_delta;
+
+        if ( lane_id < 28 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 4]; }
+
+        if ( lane_id < 24 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 8]; }
+
+#endif
 
         // Update the shared terms.
         if ( thread_id_mod_16_div_4 == 0 )
@@ -2806,8 +3081,17 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Update the diagonal term.
         my_delta = my_Einv * my_s_mem[thread_id_mod_16_mod_4];
         // Regroup results.
+#if __CUDA_ARCH__ >= 300
         my_delta += utils::shfl_xor( my_delta, 1 );
         my_delta += utils::shfl_xor( my_delta, 2 );
+#else
+        s_mem[threadIdx.x] = my_delta;
+
+        if ( lane_id < 31 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 1]; }
+
+        if ( lane_id < 30 ) { s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + 2]; }
+
+#endif
         // Store the results.
         int offset = 4 * a_row_id + thread_id_mod_16_div_4;
         Vector_type my_b(0), my_x(0);
@@ -2832,10 +3116,10 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_backward_1x1_kernel( const int *__restrict A_rows,
                                const int *__restrict A_cols,
@@ -2861,6 +3145,10 @@ void DILU_backward_1x1_kernel( const int *__restrict A_rows,
     const int lane_id = utils::lane_id();
     // Constants.
     const int lane_id_mod_NTPR = lane_id % NUM_THREADS_PER_ROW;
+#if __CUDA_ARCH__ < 300
+    // Shared memory needed to exchange X and delta.
+    __shared__ volatile Vector_type s_mem[CTA_SIZE];
+#endif
     // Determine which NxN block the threads work with.
     int a_row_it = blockIdx.x * NUM_ROWS_PER_CTA + (threadIdx.x / NUM_THREADS_PER_ROW);
 
@@ -2928,12 +3216,25 @@ void DILU_backward_1x1_kernel( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
+#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for ( int mask = NUM_THREADS_PER_ROW / 2 ; mask > 0 ; mask >>= 1 )
         {
             my_delta += utils::shfl_xor( my_delta, mask );
         }
+
+#else
+        s_mem[threadIdx.x] = my_delta;
+#pragma unroll
+
+        for ( int offset = NUM_THREADS_PER_ROW / 2 ; offset > 0 ; offset >>= 1 )
+            if ( lane_id_mod_NTPR < offset )
+            {
+                s_mem[threadIdx.x] = my_delta += s_mem[threadIdx.x + offset];
+            }
+
+#endif
 
         // Store the results.
         if ( lane_id_mod_NTPR == 0 )
@@ -2949,10 +3250,10 @@ void DILU_backward_1x1_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int N, int CTA_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
 __launch_bounds__( CTA_SIZE, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
+__launch_bounds__( CTA_SIZE, 8 )
 #endif
 void DILU_backward_NxN_kernel_skip( Vector_type *__restrict x,
                                     const WeightType weight,

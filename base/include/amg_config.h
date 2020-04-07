@@ -119,8 +119,8 @@ class ParameterMargins
         }
         ParameterMargins(const Parameter &min, const Parameter &max) : pm_type(PM_MINMAX), value_min_max(std::make_pair(min, max)) {}
         ParameterMarginsType pm_type;
-        std::vector<Parameter> value_set;           //the name of the parameter
-        std::pair<Parameter, Parameter> value_min_max;      //description of the parameter
+        std::vector<Parameter> value_set;                   // set of possible parameter values
+        std::pair<Parameter, Parameter> value_min_max;      // pair of minimum and maximum parameter value for continuous parameter space
 };
 
 /*******************************************
@@ -134,7 +134,8 @@ class ParameterDescription
         ParameterDescription(const ParameterDescription &p) : type(p.type), name(p.name), description(p.description), default_value(default_value), allowed_values(p.allowed_values) {}
         ParameterDescription(const std::type_info *type, const std::string &name, const std::string &description, const Parameter &default_value) : type(type), name(name), description(description), default_value(default_value), allowed_values(ParameterMargins()) {}
         ParameterDescription(const std::type_info *type, const std::string &name, const std::string &description, const Parameter &default_value, const ParameterMargins &parameter_allowed_values) : type(type), name(name), description(description), default_value(default_value), allowed_values(parameter_allowed_values) {}
-        const std::type_info *type;   //the type of the parameter
+        ParameterDescription& operator=(const ParameterDescription&) = default;
+        mutable const std::type_info *type;   //the type of the parameter
         std::string name;             //the name of the parameter
         std::string description;      //description of the parameter
         Parameter default_value;      //the default value of the parameter

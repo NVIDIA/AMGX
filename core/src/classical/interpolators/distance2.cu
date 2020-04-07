@@ -47,7 +47,6 @@
 #include <thrust/scan.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <device_properties.h>
 
 namespace amgx
 {
@@ -1965,7 +1964,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::~Distance2_Interpolator()
 {}
 
-enum { WARP_SIZE = 32, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::generateInterpolationMatrix_1x1(Matrix_d &A,
@@ -1984,18 +1983,12 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     const ValueType *Avalues = A.values.raw();
     const IndexType Anum_rows = (int) A.get_num_rows();
     typedef AMG<t_vecPrec, t_matPrec, t_indPrec> AMG_Class;
-
-    cudaDeviceProp props = getDeviceProperties();
-    int grid_size = (props.major >= 7) ? 1024 : 128;
-    int gmem_size = (props.major >= 7) ? 512 : 2048;
-
-    Hash_Workspace<TConfig_d, int> exp_wk(true, grid_size, 8, gmem_size);
-
+    Hash_Workspace<TConfig_d, int> exp_wk;
     IntVector C_hat_start( A.get_num_rows() + 1, 0 ), C_hat_end( A.get_num_rows() + 1, 0 );
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-        int work_offset = grid_size * NUM_WARPS;
+        int work_offset = GRID_SIZE * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
         int avg_nz_per_row = (A.get_num_rows() == 0) ? 0 : A.get_num_nz() / A.get_num_rows();
 
@@ -2046,13 +2039,13 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             int status = 0;
             cudaMemcpy( exp_wk.get_status(), &status, sizeof(int), cudaMemcpyHostToDevice );
             // Compute the set C_hat.
-            int work_offset = grid_size * NUM_WARPS;
+            int work_offset = GRID_SIZE * NUM_WARPS;
             cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
 
             // Run the computation.
             if ( avg_nz_per_row < 16 )
             {
-                distance2::compute_c_hat_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
+                distance2::compute_c_hat_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                     A.get_num_rows(),
                     A.row_offsets.raw(),
                     A.col_indices.raw(),
@@ -2069,7 +2062,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             }
             else
             {
-                distance2::compute_c_hat_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
+                distance2::compute_c_hat_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                     A.get_num_rows(),
                     A.row_offsets.raw(),
                     A.col_indices.raw(),
@@ -2205,12 +2198,12 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         int avg_nz_per_row = (A.get_num_rows() == 0) ? 0 : A.get_num_nz() / A.get_num_rows();
         // Compute the set C_hat.
-        int work_offset = grid_size * NUM_WARPS;
+        int work_offset = GRID_SIZE * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
         // Run the computation.
         typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
         {
-            distance2::compute_inner_sum_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
+            distance2::compute_inner_sum_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -2235,11 +2228,11 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         int avg_nz_per_row = (A.get_num_rows() == 0) ? 0 : A.get_num_nz() / A.get_num_rows();
         // Compute the set C_hat.
-        int work_offset = grid_size * NUM_WARPS;
+        int work_offset = GRID_SIZE * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
         // Run the computation.
         typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
-        distance2::compute_interp_weight_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
+        distance2::compute_interp_weight_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
             A.get_num_rows(),
             A.row_offsets.raw(),
             A.col_indices.raw(),

@@ -61,7 +61,7 @@ Cusparse &Cusparse::get_instance()
     return s_instance;
 }
 
-#ifndef CUSPARSE_GENERIC_INTERFACES
+#ifndef DISABLE_MIXED_PRECISION
 template <class T_Config>
 cusparseStatus_t
 CusparseMatPrec<T_Config>::set(cusparseMatDescr_t &cuMatDescr)
@@ -1021,7 +1021,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                           const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
 
     size_t bufferSize = 0;
-    cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_MV_ALG_DEFAULT, &bufferSize));
+    cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
 
     void* dBuffer = NULL;
     if(bufferSize > 0)
@@ -1029,7 +1029,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         amgx::memory::cudaMalloc(&dBuffer, bufferSize);
     }
 
-    cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_MV_ALG_DEFAULT, dBuffer) );
+    cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
 
     cusparseCheckError(cusparseDestroySpMat(matA_descr));
     cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
@@ -1109,7 +1109,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const double *beta,
                              double *y)
 {
-    #ifndef CUSPARSE_GENERIC_INTERFACES
+    #ifndef DISABLE_MIXED_PRECISION
         const double *d_bsrVal = reinterpret_cast<const double *>(const_cast<float *>(bsrVal)); // this works due to private API call in the matrix initialization which sets cusparse matrix description in the half precision mode
         cusparseCheckError(cusparseDbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
     #else
@@ -1269,7 +1269,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cuDoubleComplex *beta,
                              cuDoubleComplex *y)
 {
-    #ifndef CUSPARSE_GENERIC_INTERFACES
+    #ifndef DISABLE_MIXED_PRECISION
         const cuDoubleComplex *d_bsrVal = reinterpret_cast<cuDoubleComplex *>(const_cast<cuComplex *>(bsrVal));
         cusparseCheckError(cusparseZbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
     #else
@@ -1597,7 +1597,7 @@ AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
 
-#ifndef CUSPARSE_GENERIC_INTERFACES
+#ifndef DISABLE_MIXED_PRECISION
 #define AMGX_CASE_LINE(CASE) template struct CusparseMatPrec<TemplateMode<CASE>::Type>;
 AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)

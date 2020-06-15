@@ -68,7 +68,7 @@ class Cusparse;
 
 #include "amgx_types/util.h"
 
-#ifndef CUSPARSE_GENERIC_INTERFACES
+#ifndef DISABLE_MIXED_PRECISION
 
 // Support of mixed precision
 #ifndef CUSPARSEAPI
@@ -96,7 +96,7 @@ namespace amgx
 
 // The internal function cusparseSetMatFullPrecision is no longer exposed since CUDA 10.1.
 // The generic cuSPARSE routines must be used to achieve the same functionality
-#ifndef CUSPARSE_GENERIC_INTERFACES
+#ifndef DISABLE_MIXED_PRECISION
 template <class T_Config>
 struct CusparseMatPrec
 {

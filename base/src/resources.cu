@@ -71,7 +71,7 @@ void Resources::warning(const std::string s) const
 }
 
 // simplified resources constructor - single GPU only
-Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false)
+Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false), m_tmng(nullptr)
 {
     m_cfg = new AMG_Config;
     m_devices.clear();
@@ -95,17 +95,18 @@ Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false)
     Cusparse &c = Cusparse::get_instance();
     Cublas::get_handle();
     // create and initialize thread manager
-    m_tmng = new ThreadManager();
-    m_tmng->setup_streams();
+    //m_tmng = new ThreadManager();
+    //m_tmng->setup_streams();
     // spawn threads
-    m_tmng->spawn_threads(m_pool_size, m_max_alloc_size);
+    //m_tmng->spawn_threads(m_pool_size, m_max_alloc_size);
     // reset settings to normal
     memory::setAsyncFreeFlag(false);
     memory::setDeviceMemoryPoolFlag(true);
     m_handle_errors = m_cfg->getParameter<int>("exception_handling", default_scope);
 }
 
-Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const int *devices) : m_handle_errors(true), m_cfg_self(false), m_root_pool_expanded(false)
+Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const int *devices) : 
+    m_handle_errors(true), m_cfg_self(false), m_root_pool_expanded(false), m_tmng(nullptr)
 {
     m_devices.clear();
     m_cfg = cfg->getConfigObject();
@@ -141,10 +142,10 @@ Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const i
     Cublas::get_handle();
     // create communicator
     // create and initialize thread manager
-    m_tmng = new ThreadManager();
-    m_tmng->setup_streams(m_num_streams, m_high_priority_stream, m_serialize_threads);
+    //m_tmng = new ThreadManager();
+    //m_tmng->setup_streams(m_num_streams, m_high_priority_stream, m_serialize_threads);
     // spawn threads
-    m_tmng->spawn_threads(m_pool_size, m_max_alloc_size);
+    //m_tmng->spawn_threads(m_pool_size, m_max_alloc_size);
     // reset settings to normal
     memory::setAsyncFreeFlag(false);
     memory::setDeviceMemoryPoolFlag(true);
@@ -159,8 +160,8 @@ Resources::~Resources()
     // select device 0
     cudaSetDevice(m_devices[0]);
     // terminate threads
-    m_tmng->join_threads();
-    delete m_tmng;
+    // m_tmng->join_threads();
+    // delete m_tmng;
     // destroy NV libraries
     Cusparse &c = Cusparse::get_instance();
     c.destroy_handle();

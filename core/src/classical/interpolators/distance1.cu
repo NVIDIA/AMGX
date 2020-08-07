@@ -348,10 +348,14 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     IntVector edges_markers_on_stack( A.get_num_rows(), -1 );
     IntVector *edges_markers = &edges_markers_on_stack;
 #endif
-    typedef thrust::counting_iterator<int, thrust::host_space_tag> host_counting_iterator;
     detail::compute_weights<Matrix_h> compute_fct( A, diag, are_sc, cf_map, edges_markers, P );
-    thrust::for_each( host_counting_iterator( 0 ),
-                      host_counting_iterator( A.get_num_rows() ),
+//    typedef thrust::counting_iterator<int, thrust::host_space_tag> host_counting_iterator;
+//    thrust::for_each( host_counting_iterator( 0 ),
+//                      host_counting_iterator( A.get_num_rows() ),
+//                      compute_fct );
+    thrust::for_each( thrust::host,
+                      thrust::make_counting_iterator<int>( 0 ),
+                      thrust::make_counting_iterator<int>( A.get_num_rows() ),
                       compute_fct );
     cudaCheckError();
 #if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )

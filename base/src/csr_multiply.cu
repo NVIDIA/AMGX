@@ -399,22 +399,22 @@ CUSPARSE_CSRGEMMBUFSZ(double,          cusparseDcsrgemm2_bufferSizeExt)
 CUSPARSE_CSRGEMMBUFSZ(cuComplex,       cusparseCcsrgemm2_bufferSizeExt)
 CUSPARSE_CSRGEMMBUFSZ(cuDoubleComplex, cusparseZcsrgemm2_bufferSizeExt)
 
-#define CUSPARSE_GATHER(type, func) \
-cusparseStatus_t    \
-cusparseGthr(cusparseHandle_t    handle,\
-              int                 nnz,\
-              const type*         y,\
-              type*               xVal,\
-              const int*          xInd,\
-              cusparseIndexBase_t idxBase)\
-{                                                       \
-  return func(handle, nnz, y, xVal, xInd, idxBase);     \
-}
-
-CUSPARSE_GATHER(float,           cusparseSgthr)
-CUSPARSE_GATHER(double,          cusparseDgthr)
-CUSPARSE_GATHER(cuComplex,       cusparseCgthr)
-CUSPARSE_GATHER(cuDoubleComplex, cusparseZgthr)
+//#define CUSPARSE_GATHER(type, func) \
+//cusparseStatus_t    \
+//cusparseGthr(cusparseHandle_t    handle,\
+//              int                 nnz,\
+//              const type*         y,\
+//              type*               xVal,\
+//              const int*          xInd,\
+//              cusparseIndexBase_t idxBase)\
+//{                                                       \
+//  return func(handle, nnz, y, xVal, xInd, idxBase);     \
+//}
+//
+//CUSPARSE_GATHER(float,           cusparseSgthr)
+//CUSPARSE_GATHER(double,          cusparseDgthr)
+//CUSPARSE_GATHER(cuComplex,       cusparseCgthr)
+//CUSPARSE_GATHER(cuDoubleComplex, cusparseZgthr)
 
 // ====================================================================================================================
 

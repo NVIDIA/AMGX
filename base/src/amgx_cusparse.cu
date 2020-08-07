@@ -38,6 +38,10 @@
 
 #include <amgx_types/util.h>
 
+#if CUDART_VERSION < 11000
+#define CUSPARSE_SPMM_ALG_DEFAULT CUSPARSE_MM_ALG_DEFAULT
+#endif
+
 namespace amgx
 {
 
@@ -1383,7 +1387,7 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
     size_t bufferSize = 0;
     cusparseCheckError(
         cusparseSpMM_bufferSize(handle, transA, CUSPARSE_OPERATION_NON_TRANSPOSE, alpha, matA_descr, matB_descr,
-                                beta, matC_descr, matType, CUSPARSE_MM_ALG_DEFAULT, &bufferSize));
+                                beta, matC_descr, matType, CUSPARSE_SPMM_ALG_DEFAULT, &bufferSize));
 
     void* dBuffer = NULL;
     if(bufferSize > 0)
@@ -1394,7 +1398,7 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
     // Compute the sparse matrix - dense matrix product
     cusparseCheckError(
         cusparseSpMM(handle, transA, CUSPARSE_OPERATION_NON_TRANSPOSE, alpha, matA_descr, matB_descr, beta,
-                     matC_descr, matType, CUSPARSE_MM_ALG_DEFAULT, dBuffer));
+                     matC_descr, matType, CUSPARSE_SPMM_ALG_DEFAULT, dBuffer));
 
     // Clean up
     cusparseCheckError(cusparseDestroySpMat(matA_descr));

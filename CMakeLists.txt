@@ -174,10 +174,10 @@ endif()
 
 #Configuration specific nvcc flags
 if(CMAKE_COMPILER_IS_GNUCXX)
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++11;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++11;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++11;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++11;${NVTXRANGE_FLAG}" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
+  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
+  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "RelWithTraces compiler flags")
 else()
   set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
   set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
@@ -254,6 +254,19 @@ IF(CUDA_VERSION_MAJOR MATCHES 10)
     ENDIF(NOT WIN32)
   ENDIF(CUDA_VERSION_MINOR GREATER 0)
 ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
+
+#if compiling against CUDA Toolkit 11.x
+IF(CUDA_VERSION_MAJOR MATCHES 11)
+  SET(CUDA_ARCH "70 80" CACHE STRING "Target Architectures (SM70 SM80), multiple are allowed")
+
+  # Disable mixed precision for CUDA 10.1+
+  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION)
+
+  # Use the generic cuSPARSE interfaces available from 10.1 on Linux
+  IF(NOT WIN32)
+    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DCUSPARSE_GENERIC_INTERFACES)
+  ENDIF(NOT WIN32)
+ENDIF(CUDA_VERSION_MAJOR MATCHES 11)
 
 #replace ' ' with ; to match the proper cmake format
 STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})

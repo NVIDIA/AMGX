@@ -321,7 +321,7 @@ CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Impl( boo
 {}
 
 // ====================================================================================================================
-#ifndef CUSPARSE_USE_SPGEMM
+#ifndef CUSPARSE_USE_GENERIC_SPGEMM
 #define CUSPARSE_CSRGEMM(type, func) \
 cusparseStatus_t cusparseCsrgemm2(cusparseHandle_t handle,             \
                                  int m,                               \
@@ -366,7 +366,7 @@ CUSPARSE_CSRGEMM(cuComplex,       cusparseCcsrgemm2)
 CUSPARSE_CSRGEMM(cuDoubleComplex, cusparseZcsrgemm2)
 #endif
 
-#ifndef CUSPARSE_USE_SPGEMM
+#ifndef CUSPARSE_USE_GENERIC_SPGEMM
 #define CUSPARSE_CSRGEMMBUFSZ(type, func) \
 cusparseStatus_t cusparseCsrgemmBufferSize(cusparseHandle_t handle,             \
                                  int m,                               \
@@ -402,33 +402,15 @@ CUSPARSE_CSRGEMMBUFSZ(cuComplex,       cusparseCcsrgemm2_bufferSizeExt)
 CUSPARSE_CSRGEMMBUFSZ(cuDoubleComplex, cusparseZcsrgemm2_bufferSizeExt)
 #endif
 
-//#define CUSPARSE_GATHER(type, func) \
-//cusparseStatus_t    \
-//cusparseGthr(cusparseHandle_t    handle,\
-//              int                 nnz,\
-//              const type*         y,\
-//              type*               xVal,\
-//              const int*          xInd,\
-//              cusparseIndexBase_t idxBase)\
-//{                                                       \
-//  return func(handle, nnz, y, xVal, xInd, idxBase);     \
-//}
-//
-//CUSPARSE_GATHER(float,           cusparseSgthr)
-//CUSPARSE_GATHER(double,          cusparseDgthr)
-//CUSPARSE_GATHER(cuComplex,       cusparseCgthr)
-//CUSPARSE_GATHER(cuDoubleComplex, cusparseZgthr)
-
 // ====================================================================================================================
 
-#ifdef CUSPARSE_USE_SPGEMM
+#ifdef CUSPARSE_USE_GENERIC_SPGEMM
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply_generic( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
    // CUSPARSE APIs
-    cusparseHandle_t     handle = NULL;
+    cusparseHandle_t handle = Cusparse::get_instance().get_handle();
     cusparseSpMatDescr_t matA, matB, matC;
     void*  dBuffer1    = NULL, *dBuffer2   = NULL;
     size_t bufferSize1 = 0,    bufferSize2 = 0;
-    cusparseCheckError( cusparseCreate(&handle) );
     cudaDataType matType;
     if (M == AMGX_matDouble) matType = CUDA_R_64F;
     else if (M == AMGX_matFloat) matType = CUDA_R_32F;
@@ -469,7 +451,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                                   &alpha, matA, matB, &beta, matC,
                                   computeType, CUSPARSE_SPGEMM_DEFAULT,
                                   spgemmDesc, &bufferSize1, NULL);
-    cudaMalloc((void**) &dBuffer1, bufferSize1);
+    amgx::memory::cudaMalloc(&dBuffer1, bufferSize1);
     // inspect the matrices A and B to understand the memory requiremnent for
     // the next step
     cusparseSpGEMM_workEstimation(handle, opA, opB,
@@ -482,7 +464,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                            &alpha, matA, matB, &beta, matC,
                            computeType, CUSPARSE_SPGEMM_DEFAULT,
                            spgemmDesc, &bufferSize2, NULL);
-    cudaMalloc((void**) &dBuffer2, bufferSize2);
+    amgx::memory::cudaMalloc(&dBuffer2, bufferSize2);
 
     // compute the intermediate product of A * B
     cusparseSpGEMM_compute(handle, opA, opB,
@@ -522,10 +504,12 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     cusparseCheckError( cusparseDestroySpMat(matB) );
     cusparseCheckError( cusparseDestroySpMat(matC) );
     cusparseCheckError( cusparseDestroy(handle) );
+    amgx::memory::cudaFreeAsync(dBuffer1);
+    amgx::memory::cudaFreeAsync(dBuffer2);
 }
 #endif
 
-#ifndef CUSPARSE_USE_SPGEMM
+#ifndef CUSPARSE_USE_GENERIC_SPGEMM
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
     size_t pBufferSizeInBytes = 0;
     void *pBuffer = NULL;
@@ -664,7 +648,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
     // We have to fallback to the CUSPARSE path.
     if ( !done )
     {
-        #ifdef CUSPARSE_USE_SPGEMM
+        #ifdef CUSPARSE_USE_GENERIC_SPGEMM
         this->cusparse_multiply_generic(A,B,C,Aq1,Bq1,Aq2,Bq2);
         #else
         this->cusparse_multiply(A,B,C,Aq1,Bq1,Aq2,Bq2);

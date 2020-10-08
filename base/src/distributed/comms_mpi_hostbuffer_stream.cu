@@ -196,13 +196,8 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
     }
 
     int offset = 0;
-    //bool linear_buffers_changed = false;
     for (int i = 0; i < neighbors; i++)
     {
-    //    if (b.linear_buffers[i] != b.buffer->raw() + offset)
-    //    {
-    //        linear_buffers_changed = true;
-    //    }
         b.linear_buffers[i] = b.buffer->raw() + offset;
         offset += m.manager->B2L_rings[i][num_rings] * bsize * num_cols;
     }

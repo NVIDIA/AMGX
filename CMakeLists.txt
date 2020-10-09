@@ -293,7 +293,7 @@ set(pluginConf "PluginConfig.txt")                     # plugin configuration
 set(pluginCode "${CMAKE_SOURCE_DIR}/plugin_config.cu") # plugin code
 file(STRINGS ${pluginConf} pluginList)                 # plugin list
 set(libList base core ${pluginList})                   # lib list
-set(srcTarball "../srcTarball.txt")                    # dirs for source tarball
+set(srcTarball "srcTarball.txt")                       # dirs for source tarball
 
 
 # create initialization and finalization for plugins

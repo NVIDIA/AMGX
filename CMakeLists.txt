@@ -73,7 +73,10 @@ endif()
 # min compiler requirements
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
-    message(FATAL_ERROR "Insufficient gcc version. 4.8.2 is required to compile AMGX")
+    message(
+      FATAL_ERROR
+      "AmgX requires GCC >= 4.8.2 but GCC version is \"${CMAKE_CXX_COMPILER_VERSION}\""
+    )
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc")
   endif()

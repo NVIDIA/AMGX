@@ -24,11 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 2.8.10)
 
 # the project
 project (AMG)

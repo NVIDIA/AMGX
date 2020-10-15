@@ -203,7 +203,6 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
     }
 
     // Copy to device
-    //if (linear_buffers_changed)
     {
         cudaMemcpy(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
         cudaCheckError();

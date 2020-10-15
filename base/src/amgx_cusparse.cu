@@ -1109,23 +1109,105 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     #endif
 }
 
-// overloaded C++ wrappers for cusparse?bsrxmv
-// bsrxmv
-// matrix - float
-// vector - float
-inline void Cusparse::bsrxmv_internal( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans, int sizeOfMask,
+// Custom implementation of matrix-vector product to replace the original bsrxmv,
+// but with block size of 1.
+template<unsigned UNROLL, class T>
+__global__ void csrxmv(
+    int sizeOfMask,
+    const T alpha,
+    const T* __restrict__ csrVal,
+    const int* __restrict__ csrMask,
+    const int* __restrict__ csrRow,
+    const int* __restrict__ csrCol,
+    const T* __restrict__ x,
+    const T beta,
+    T* __restrict__ y)
+{
+    for(int i = threadIdx.x + blockIdx.x*blockDim.x; i < sizeOfMask; i += blockDim.x*gridDim.x)
+    {
+        int row = csrMask[i];
+        T y_tmp = amgx::types::util<T>::get_zero();
+
+        int row_b = csrRow[row];
+        int row_e = csrRow[row+1];
+
+        // Unrolling is important for performance here.
+        // Possible to squeeze more performance out of the key kernels if we
+        // measure the sparsity and use it to inform unrolling.
+        for (int col = row_b; col < row_e; col += UNROLL)
+        {
+#pragma unroll UNROLL
+            for(int off = 0; off < UNROLL; ++off)
+            {
+                int c = col + off;
+                if(c < row_e) y_tmp = alpha * csrVal[c] * x[csrCol[c]] + y_tmp;
+            }
+        }
+
+        // Don't read y unnecessarily
+        if(amgx::types::util<T>::is_zero(beta))
+        {
+            y[row] = y_tmp;
+        }
+        else
+        {
+            y[row] = beta*y[row] + y_tmp;
+        }
+    }
+}
+
+// Replaces the functionality of cusparse?bsrxmv for blockDim == 1
+template<class T>
+inline void Xcsrxmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans, int sizeOfMask,
                                        int mb, int nb, int nnzb,
-                                       const float *alpha,
+                                       const T *alpha,
                                        const cusparseMatDescr_t descr,
-                                       const float *bsrVal,
+                                       const T *bsrVal,
                                        const int *bsrMaskPtr,
                                        const int *bsrRowPtr,
                                        const int *bsrEndPtr,
                                        const int *bsrColInd,
                                        int blockDim,
-                                       const float *x,
-                                       const float *beta,
-                                       float *y)
+                                       const T *x,
+                                       const T *beta,
+                                       T *y)
+{
+    if(blockDim != 1)
+    {
+        FatalError("Xcsrxmv only to be called with scalar matrices.", AMGX_ERR_INTERNAL);
+    }
+    if (trans != CUSPARSE_OPERATION_NON_TRANSPOSE)
+    {
+        FatalError("Cannot currently latency hide a transposed matrix.", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+    if (dir != CUSPARSE_DIRECTION_ROW)
+    {
+        FatalError("Cannot currently latency hide if matrix is not row major.", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+
+    constexpr int nthreads = 128;
+    constexpr int unroll_factor = 16;
+    int nblocks = sizeOfMask / nthreads;
+    csrxmv<unroll_factor><<<nblocks, nthreads>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
+}
+
+// overloaded C++ wrappers for cusparse?bsrxmv
+// bsrxmv
+// matrix - float
+// vector - float
+inline void Cusparse::bsrxmv_internal(cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans, int sizeOfMask,
+                                      int mb, int nb, int nnzb,
+                                      const float *alpha,
+                                      const cusparseMatDescr_t descr,
+                                      const float *bsrVal,
+                                      const int *bsrMaskPtr,
+                                      const int *bsrRowPtr,
+                                      const int *bsrEndPtr,
+                                      const int *bsrColInd,
+                                      int blockDim,
+                                      const float *x,
+                                      const float *beta,
+                                      float *y)
 {
     if (bsrEndPtr == NULL && bsrMaskPtr == NULL)
     {
@@ -1134,9 +1216,19 @@ inline void Cusparse::bsrxmv_internal( cusparseHandle_t handle, cusparseDirectio
     }
     else
     {
-        if (bsrEndPtr == NULL) { bsrEndPtr = bsrRowPtr + 1; }
+        if (bsrEndPtr == NULL)
+        {
+            bsrEndPtr = bsrRowPtr + 1;
+        }
 
-        cusparseCheckError(cusparseSbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        if (blockDim == 1)
+        {
+            Xcsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y);
+        }
+        else
+        {
+            cusparseCheckError(cusparseSbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        }
     }
 }
 
@@ -1188,7 +1280,14 @@ inline void Cusparse::bsrxmv_internal( cusparseHandle_t handle, cusparseDirectio
             bsrEndPtr = bsrRowPtr + 1;
         }
 
-        cusparseCheckError(cusparseDbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        if (blockDim == 1)
+        {
+            Xcsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y);
+        }
+        else
+        {
+            cusparseCheckError(cusparseDbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        }
     }
 }
 
@@ -1295,9 +1394,19 @@ inline void Cusparse::bsrxmv_internal( cusparseHandle_t handle, cusparseDirectio
     }
     else
     {
-        if (bsrEndPtr == NULL) { bsrEndPtr = bsrRowPtr + 1; }
+        if (bsrEndPtr == NULL)
+        {
+            bsrEndPtr = bsrRowPtr + 1;
+        }
 
-        cusparseCheckError(cusparseCbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        if (blockDim == 1)
+        {
+            Xcsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y);
+        }
+        else
+        {
+            cusparseCheckError(cusparseCbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        }
     }
 }
 
@@ -1349,7 +1458,14 @@ inline void Cusparse::bsrxmv_internal( cusparseHandle_t handle, cusparseDirectio
             bsrEndPtr = bsrRowPtr + 1;
         }
 
-        cusparseCheckError(cusparseZbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        if (blockDim == 1)
+        {
+            Xcsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y);
+        }
+        else
+        {
+            cusparseCheckError(cusparseZbsrxmv(handle, dir, trans, sizeOfMask, mb, nb, nnzb, alpha, descr, bsrVal, bsrMaskPtr, bsrRowPtr, bsrEndPtr, bsrColInd, blockDim, x, beta, y));
+        }
     }
 }
 

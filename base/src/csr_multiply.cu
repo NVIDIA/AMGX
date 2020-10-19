@@ -405,7 +405,7 @@ CUSPARSE_CSRGEMMBUFSZ(cuDoubleComplex, cusparseZcsrgemm2_bufferSizeExt)
 // ====================================================================================================================
 
 #ifdef CUSPARSE_USE_GENERIC_SPGEMM
-template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply_generic( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
    // CUSPARSE APIs
     cusparseHandle_t handle = Cusparse::get_instance().get_handle();
     cusparseSpMatDescr_t matA, matB, matC;
@@ -416,12 +416,12 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     else if (M == AMGX_matFloat) matType = CUDA_R_32F;
     else if (M == AMGX_matDoubleComplex) matType = CUDA_C_64F;
     else if (M == AMGX_matComplex) matType = CUDA_C_32F;
-    else FatalError("multiply::cusparse_multiply_generic unknown matrix format", AMGX_ERR_INTERNAL);
+    else FatalError("multiply::cusparse_multiply unknown matrix format", AMGX_ERR_INTERNAL);
 
     cusparseIndexType_t indType;
     if (I == AMGX_indInt) indType = CUSPARSE_INDEX_32I;
     //if (I == AMGX_indInt64) indType = CUSPARSE_INDEX_64I; // As of CUDA 11.0, cusparseSpGEMM supports only 32-bit indices CUSPARSE_INDEX_32I
-    else FatalError("multiply::cusparse_multiply_generic unknown index format", AMGX_ERR_INTERNAL);
+    else FatalError("multiply::cusparse_multiply unknown index format", AMGX_ERR_INTERNAL);
 
     cusparseCheckError( cusparseCreateCsr(&matA, A.get_num_rows(), A.get_num_cols(), A.get_num_nz(),
                                       (void*)A.row_offsets.raw(), (void*)A.col_indices.raw(), (void*)A.values.raw(),
@@ -648,11 +648,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
     // We have to fallback to the CUSPARSE path.
     if ( !done )
     {
-        #ifdef CUSPARSE_USE_GENERIC_SPGEMM
-        this->cusparse_multiply_generic(A,B,C,Aq1,Bq1,Aq2,Bq2);
-        #else
         this->cusparse_multiply(A,B,C,Aq1,Bq1,Aq2,Bq2);
-        #endif
     }
 
     if ( done )

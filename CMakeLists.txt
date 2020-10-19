@@ -257,7 +257,7 @@ ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
 
 #if compiling against CUDA Toolkit 11.x
 IF(CUDA_VERSION_MAJOR MATCHES 11)
-  SET(CUDA_ARCH "70 80" CACHE STRING "Target Architectures (SM70 SM80), multiple are allowed")
+  SET(CUDA_ARCH "60 70 80" CACHE STRING "Target Architectures (SM70 SM80), multiple are allowed")
 
   # Disable mixed precision for CUDA 10.1+
   SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION)

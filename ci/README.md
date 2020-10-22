@@ -7,7 +7,6 @@ Continuous integration
   docker containers for each supported target and runs the AmgX tests.
 * [`./ci/test.sh`](test.sh) performs a clean run of the AmgX tests.
 
-The containers are specified using [`HPCCM`], e.g., see
-[`cuda_10_2.py`](cuda_10_2.py).
+The containers are specified using [`HPCCM`], see [`containers/`](containers).
 
 [`HPCCM`]: https://github.com/NVIDIA/hpc-container-maker

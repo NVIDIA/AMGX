@@ -1,5 +1,5 @@
 """
-AmgX base image for CUDA 10.2
+AmgX base image: x86_64-ubuntu18.04-gnu-cuda10.2
 """
 
 Stage0 += comment(__doc__, reformat=False)
@@ -11,7 +11,7 @@ compiler = gnu()
 Stage0 += compiler
 
 # Current minimum version required by AMGX
-Stage0 += cmake(eula=True, version='2.8.10')
+Stage0 += cmake(eula=True, version='3.7.0')
 
 # MPI
 Stage0 += mlnx_ofed(version='5.0-2.1.8.0')

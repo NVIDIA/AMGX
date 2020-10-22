@@ -2,14 +2,21 @@
 
 set -ex
 
-mkdir -p ci/docker/cuda_10_2
-hpccm --recipe ci/cuda_10_2.py --format=docker > ci/docker/cuda_10_2/Dockerfile
-(
-    cd ci/docker/cuda_10_2
-    docker build -f Dockerfile -t amgx:cuda10.2 .
-)
-nvidia-docker \
-    run \
-    -v $(pwd -LP):/amgx \
-    -u $(id -u ${USER}):$(id -g ${USER}) \
-    amgx:cuda10.2 bash -c "cd /amgx/ && ./ci/test.sh"
+CONTAINERS="\
+x86_64-ubuntu18.04-llvm-cuda11.0 \
+x86_64-ubuntu18.04-gnu-cuda11.0 \
+x86_64-ubuntu18.04-gnu-cuda10.2 \
+"
+
+for CONTAINER in $CONTAINERS; do
+    BASE_IMG="amgx:base_${CONTAINER}"
+    BUILD_DIR="build_${CONTAINER}"
+    hpccm --recipe ci/containers/$CONTAINER.py --format=docker | \
+        docker build -t $BASE_IMG -
+    nvidia-docker \
+        run \
+        -v $(pwd -LP):/amgx \
+        -u $(id -u ${USER}):$(id -g ${USER}) \
+        $BASE_IMG \
+        bash -c "cd /amgx/ && ./ci/test.sh ${BUILD_DIR}"
+done

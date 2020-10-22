@@ -7,11 +7,11 @@ Stage0 += baseimage(image='nvidia/cuda:11.0-devel-ubuntu18.04')
 
 # Last compiler supported for Ubuntu 18.04 by CUDA 11.0
 # https://docs.nvidia.com/cuda/archive/11.0/cuda-installation-guide-linux/index.html#system-requirements
-compiler = llvm(version='10')
+compiler = llvm(version='9')
 Stage0 += compiler
 Stage0 += shell(commands=[
-    'update-alternatives --install /usr/bin/cc cc /usr/bin/clang-10 40',
-    'update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-10 60'
+    'update-alternatives --install /usr/bin/cc cc /usr/bin/clang-9 40',
+    'update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-9 60'
 ])
 
 # Current minimum version required by AMGX

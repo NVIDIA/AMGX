@@ -16,5 +16,5 @@ mkdir -p $BUILD_DIR
     make -j 8 all
     # WIP: test_launcher is allowed to fail; not all tests pass
     set +e
-    ./$BUILD_DIR/tests/amgx_test_launcher
+    ./tests/amgx_tests_launcher
 )

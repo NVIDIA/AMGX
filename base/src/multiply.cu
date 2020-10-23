@@ -599,13 +599,13 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
     while (eighthwarp_id < num_block_rows)
     {
         //i = eighthwarp_id;
-        C_temp = 0.;
+        C_temp = types::util<ValueTypeB>::get_zero();
         // Contribution from diagonal
         offset = eighthwarp_id * bsize + vec_entry_index;
-        s_xtemp[threadIdx.x] = __cachingLoad(&B[offset]);
+        types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
         // Load dia_values and do matrix multiply
         s_offset = block_eighthwarp_id * bsize;
-        ValueTypeB temp[bsize];
+        ValueTypeA temp[bsize];
 
         if (ROW_MAJOR)
         {
@@ -625,7 +625,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
 
         for (int m = 0; m < bsize; m++)
         {
-            C_temp += temp[m] * s_xtemp[s_offset + m];
+            C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
         }
 
         // Contribution from each nonzero column
@@ -635,7 +635,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
         {
             IndexType jcol = column_indices[jind];
             offset = jcol * bsize + vec_entry_index;
-            s_xtemp[threadIdx.x] = __cachingLoad(&B[offset]);
+            types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
             // Load nonzero_values
             s_offset = block_eighthwarp_id * bsize;
 
@@ -659,7 +659,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
 
             for (int m = 0; m < bsize; m++)
             {
-                C_temp += temp[m] * s_xtemp[s_offset + m];
+                C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
             }
         }
 

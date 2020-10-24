@@ -7,7 +7,9 @@ if [ -z "${1}" ]; then
     BUILD_DIR=build
 fi
 
-rm -rf "${BUILD_DIR}" || true
+if [ "${AMGX_CI_KEEP_BUILD}" = "0" ]; then
+    rm -rf "${BUILD_DIR}" || true
+fi
 mkdir -p "${BUILD_DIR}"
 
 (

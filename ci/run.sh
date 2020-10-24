@@ -1,16 +1,25 @@
 #!/usr/bin/env sh
 #
-# Takes one optional argument with the name of the container to use.
-
+# Supports following environment variables:
+#
+# AMGX_CI_CONTAINERS: list of containers to run. Default: all containers.
+#
+# AMGX_CI_KEEP_BUILD: preserves build directory. Default: build directories
+# are cleaned up each time.
 set -ex
-
-CONTAINERS=$(ls ci/containers)
-if [ -n "${1}" ]; then
-    CONTAINERS=$1
-fi
 
 if command -v shellcheck ; then
     shellcheck ci/*.sh
+fi
+
+CONTAINERS=$(ls ci/containers)
+if [ -n "${AMGX_CI_CONTAINERS}" ]; then
+    CONTAINERS="${AMGX_CI_CONTAINERS}"
+fi
+
+KEEP_BUILD=0
+if [ -n "${AMGX_CI_KEEP_BUILD}" ]; then
+    KEEP_BUILD="${AMGX_CI_KEEP_BUILD}"
 fi
 
 for CONTAINER in $CONTAINERS; do
@@ -29,5 +38,5 @@ for CONTAINER in $CONTAINERS; do
         -v "$(pwd -LP)":/amgx \
         -u "$(id -u "${USER}")":"$(id -g "${USER}")" \
         "${BASE_IMG}" \
-        bash -c "cd /amgx/ && ./ci/test.sh ${BUILD_DIR}"
+        bash -c "cd /amgx/ && AMGX_CI_KEEP_BUILD=${KEEP_BUILD} ./ci/test.sh ${BUILD_DIR}"
 done

@@ -438,6 +438,75 @@ void multicolorGSSmoothCsrKernel_NAIVE_tex(const IndexType *row_offsets, const I
     }
 }
 
+// Kernel to smooth, warp per row version
+// each warp processes a row; contributions of threads are reduced and stored to x by lane 0
+template<typename IndexType, typename ValueTypeA,  typename ValueTypeB, int CTA_SIZE, int WARP_SIZE>
+__global__
+void multicolorGSSmoothCsrKernel_warpPerRow(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *diag, const ValueTypeA *nonzero_values, const ValueTypeA *Dinv,
+        const ValueTypeB *b, const ValueTypeB *x, ValueTypeB weight, const int *sorted_rows_by_color, const int num_rows_per_color, const int num_block_rows, ValueTypeB *xout)
+{
+    int i;
+    ValueTypeB bmAx, xin;
+    ValueTypeA dia, diatemp;
+
+    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
+    
+    const int warp_id = utils::warp_id();
+    const int lane_id = utils::lane_id();
+    
+    int row_id = blockIdx.x * NUM_WARPS + warp_id;
+    int a_col_tmp;
+
+    while (row_id < num_rows_per_color)
+    {
+        i = sorted_rows_by_color[row_id];
+
+        if ( lane_id < 2 )
+        {
+            a_col_tmp = row_offsets[i + lane_id];
+        }
+
+        int a_col_it  = utils::shfl( a_col_tmp, 0 );
+        int a_col_end = utils::shfl( a_col_tmp, 1 );
+
+        xin = x[i];
+        bmAx = amgx::types::util<ValueTypeB>::get_zero(); //utils::Ld<utils::LD_NC>::load(&b[i]);
+
+        for (a_col_it += lane_id; utils::any(a_col_it < a_col_end); a_col_it += WARP_SIZE )
+        {
+            const bool is_active = a_col_it < a_col_end;        
+       
+            int x_row_id;
+            ValueTypeB a_value;
+            ValueTypeB x_value;
+
+            if (is_active)
+            {
+                x_row_id = column_indices[a_col_it];
+                a_value  = nonzero_values[a_col_it];
+                x_value = x[x_row_id];
+
+                bmAx -= a_value*x_value;
+            }
+        }
+
+        typedef cub::WarpReduce<ValueTypeB> WarpReduce;
+        __shared__ typename WarpReduce::TempStorage temp_storage;
+        ValueTypeB bmAx_s = WarpReduce(temp_storage).Sum(bmAx);
+        
+        if (lane_id == 0)
+        {
+            bmAx = b[i] + bmAx_s;
+            diatemp = nonzero_values[diag[i]];
+            dia = isNotCloseToZero(diatemp) ? diatemp : epsilon(diatemp);
+            bmAx /= dia;
+            xout[i] = xin + bmAx;
+        }
+
+        row_id += gridDim.x * NUM_WARPS;
+    }
+}
+
 // Kernel to smooth, NAIVE implementation with texture
 // Batch version
 template<typename IndexType, typename ValueTypeA,  typename ValueTypeB>

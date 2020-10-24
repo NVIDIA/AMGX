@@ -502,7 +502,7 @@ void multicolorGSSmoothCsrKernel_WarpPerRow(const IndexType *row_offsets, const 
             diatemp = nonzero_values[diag[i]];
             dia = isNotCloseToZero(diatemp) ? diatemp : epsilon(diatemp);
             bmAx /= dia;
-            xout[i] = xin + bmAx;
+            xout[i] = xin + weight * bmAx;
         }
 
         row_id += gridDim.x * NUM_WARPS;
@@ -559,7 +559,7 @@ void multicolorGSSmoothCsrKernel_nPerRow(const IndexType *row_offsets, const Ind
             bmAx += b[i];
             bmAx /= dia;
            
-            xout[i] = x[i] + bmAx;
+            xout[i] = x[i] + weight * bmAx;
         }
 
         row_id += gridDim.x * blockDim.x/n_per_row;

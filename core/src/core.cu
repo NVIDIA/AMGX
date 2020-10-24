@@ -437,6 +437,14 @@ inline void registerParameters()
     AMG_Config::registerParameter<int>("kaczmarz_coloring_needed", "Enforces MC Kaczmarz (0 for naive single warp implementation)", 1);
     //CF-Jacobi smoother
     AMG_Config::registerParameter<int>("cf_smoothing_mode", "Flavour of CF-smoothing. 0=CF for the presmoothing and FC for post smoothing. 1=opposite of 0. Not yet implemented: 2=FCF. 3=CFC", 0);
+    //Multicolor Gauss-Seidel
+    std::vector<std::string> gs_values;
+    gs_values.push_back("4_PER_ROW");
+    gs_values.push_back("32_PER_ROW");
+    gs_values.push_back("WARP_PER_ROW");
+    gs_values.push_back("NAIVE");
+    gs_values.push_back("DYNAMIC");
+    AMG_Config::registerParameter<std::string>("gs_method", "Gauss-Seidel kernel <4_PER_ROW,32_PER_ROW,WARP_PER_ROW,NAIVE,*DYNAMIC*>", "DYNAMIC", gs_values);
     //Register AMGLevel Parameters
     std::vector<AlgorithmType> algorithm_values;
     algorithm_values.push_back(CLASSICAL);

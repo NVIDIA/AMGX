@@ -64,6 +64,7 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
 
         virtual void smooth_BxB(Matrix<T_Config> &A, VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void smooth_1x1(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
+        virtual void smooth_1x1_naive(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void smooth_3x3(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void smooth_4x4(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void computeDinv_1x1(const Matrix<T_Config> &A) = 0;
@@ -78,6 +79,7 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
         MVector Dinv;
         int symFlag;
         int use_bsrxmv;
+        string gs_method;
         bool m_reorder_cols_by_color_desired;
         bool m_insert_diagonal_desired;
 
@@ -131,6 +133,7 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_host, t_vecPrec, t_matPre
     private:
         void smooth_BxB(Matrix_h &A, VVector &b, VVector &x, ViewType separation_flag);
         void smooth_1x1(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
+        void smooth_1x1_naive(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_3x3(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_4x4(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
         void computeDinv_1x1(const Matrix_h &A);
@@ -165,6 +168,7 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_device, t_vecPrec, t_matP
     private:
         void smooth_BxB(Matrix_d &A, VVector &b, VVector &x, ViewType separation_flag);
         void smooth_1x1(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
+        void smooth_1x1_naive(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_3x3(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_4x4(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
         void computeDinv_1x1(const Matrix_d &A);

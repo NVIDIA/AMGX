@@ -45,6 +45,8 @@ namespace amgx
 namespace multicolor_gauss_seidel_solver
 {
 
+#define FULL_MASK 0xffffffff
+
 // -------------------------
 //  Kernels
 // -------------------------
@@ -439,10 +441,10 @@ void multicolorGSSmoothCsrKernel_NAIVE_tex(const IndexType *row_offsets, const I
 }
 
 // Kernel to smooth, warp per row version
-// each warp processes a row; contributions of threads are reduced and stored to x by lane 0
+// Each warp processes a row; contributions of threads are reduced and stored to x by lane 0
 template<typename IndexType, typename ValueTypeA,  typename ValueTypeB, int CTA_SIZE, int WARP_SIZE>
 __global__
-void multicolorGSSmoothCsrKernel_warpPerRow(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *diag, const ValueTypeA *nonzero_values, const ValueTypeA *Dinv,
+void multicolorGSSmoothCsrKernel_WarpPerRow(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *diag, const ValueTypeA *nonzero_values, const ValueTypeA *Dinv,
         const ValueTypeB *b, const ValueTypeB *x, ValueTypeB weight, const int *sorted_rows_by_color, const int num_rows_per_color, const int num_block_rows, ValueTypeB *xout)
 {
     int i;
@@ -505,6 +507,63 @@ void multicolorGSSmoothCsrKernel_warpPerRow(const IndexType *row_offsets, const 
 
         row_id += gridDim.x * NUM_WARPS;
     }
+}
+
+// Kernel to smooth, N per row version
+// Each row is processed by N threads; contributions of threads are reduced and stored to x by first thread processing each row
+template<typename IndexType, typename ValueTypeA,  typename ValueTypeB, int CTA_SIZE, int WARP_SIZE, int n_per_row>
+__global__
+void multicolorGSSmoothCsrKernel_nPerRow(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *diag, const ValueTypeA *nonzero_values, const ValueTypeA *Dinv,
+        const ValueTypeB *b, const ValueTypeB *x, ValueTypeB weight, const int *sorted_rows_by_color, const int num_rows_per_color, const int num_block_rows, ValueTypeB *xout)
+{
+    const int warp_id = utils::warp_id();
+    const int lane_id = utils::lane_id();
+
+    const int me_in_row = lane_id % n_per_row;
+    const int batch_row = lane_id / n_per_row;
+
+    int row_id = blockIdx.x * CTA_SIZE/n_per_row + (warp_id*WARP_SIZE)/n_per_row + batch_row;
+
+    int i;
+    ValueTypeB bmAx, temp, s_xtemp, diatemp;
+    ValueTypeA dia;
+    IndexType jcol;
+    int jit, jmax;
+
+    while (row_id < num_rows_per_color)
+    {
+        i = sorted_rows_by_color[row_id];
+        bmAx = amgx::types::util<ValueTypeB>::get_zero();
+        int jit  = row_offsets[i];
+        int jmax = row_offsets[i + 1];     
+
+        for (jit = jit + me_in_row; jit < jmax; jit += n_per_row)
+        {
+            jcol = column_indices[jit];
+            temp = nonzero_values[jit];            
+            s_xtemp = x[jcol];
+
+            bmAx -= temp * s_xtemp;
+        }
+
+        #pragma unroll
+        for (int offset = n_per_row >> 1 ; offset > 0; offset = offset >> 1) 
+        {
+            bmAx  += __shfl_down_sync(FULL_MASK, bmAx, offset);
+        }
+
+        if (me_in_row == 0)
+        {
+            diatemp = nonzero_values[diag[i]];
+            dia = isNotCloseToZero(diatemp) ? diatemp : epsilon(diatemp);
+            bmAx += b[i];
+            bmAx /= dia;
+           
+            xout[i] = x[i] + bmAx;
+        }
+
+        row_id += gridDim.x * blockDim.x/n_per_row;
+   }
 }
 
 // Kernel to smooth, NAIVE implementation with texture

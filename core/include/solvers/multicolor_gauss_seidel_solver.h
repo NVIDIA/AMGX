@@ -169,7 +169,7 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_device, t_vecPrec, t_matP
         {
             if (MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream == 0)
             {
-                cudaStreamCreateWithFlags(&MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream, cudaStreamDefault); // soon to be changed to cudaStreamNonBlocking
+                cudaStreamCreateWithFlags(&MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream, cudaStreamNonBlocking);
             }
         }
     private:

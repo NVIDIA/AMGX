@@ -1002,7 +1002,14 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     ValueTypeB *x_ptr = x.raw();
     const int num_colors = this->m_explicit_A->getMatrixColoring().getNumColors();
 
-    cudaStream_t stream = MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>>::aux_stream;
+    cudaStream_t stream = 0; // default stream
+    cudaStream_t aux_stream = MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>>::aux_stream;
+    cudaEvent_t start, end;
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, stream);
+    cudaStreamWaitEvent(aux_stream, start, 0); // aux_stream to wait for stream 
+
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
 
@@ -1041,7 +1048,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         stream_attribute.accessPolicyWindow.hitRatio  = 1.0;                            // Hint for cache hit ratio
         stream_attribute.accessPolicyWindow.hitProp   = cudaAccessPropertyPersisting;   // Type of access property on cache hit
         stream_attribute.accessPolicyWindow.missProp  = cudaAccessPropertyStreaming;    // Type of access property on cache miss.
-        cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   
+        cudaStreamSetAttribute(aux_stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   
     }
 #endif
 
@@ -1064,7 +1071,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         else if (method == 1) // WARP_PER_ROW
         {
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_WarpPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE>, cudaFuncCachePreferL1);
-            multicolorGSSmoothCsrKernel_WarpPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>
+            multicolorGSSmoothCsrKernel_WarpPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE, 0, aux_stream>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
              b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);
         }
@@ -1072,7 +1079,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         {
             const int N_PER_ROW = 32;
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW>, cudaFuncCachePreferL1);
-            multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>
+            multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, aux_stream>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
              b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);  
         }
@@ -1080,7 +1087,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         {
             const int N_PER_ROW = 4;
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW>, cudaFuncCachePreferL1);
-            multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>
+            multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, aux_stream>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
              b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);  
         }
@@ -1111,7 +1118,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
             else if (method == 1) // WARP_PER_ROW
             {
                 cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_WarpPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE>, cudaFuncCachePreferL1);
-                multicolorGSSmoothCsrKernel_WarpPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>
+                multicolorGSSmoothCsrKernel_WarpPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE, 0, aux_stream>>>
                 (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
                  b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);
             }
@@ -1119,7 +1126,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
             {
                 const int N_PER_ROW = 32;
                 cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW>, cudaFuncCachePreferL1);
-                multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>
+                multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, aux_stream>>>
                 (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
                  b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);  
             }
@@ -1127,7 +1134,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
             {
                 const int N_PER_ROW = 4;
                 cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW>, cudaFuncCachePreferL1);
-                multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>
+                multicolorGSSmoothCsrKernel_nPerRow<IndexType, ValueTypeA, ValueTypeB, CTA_SIZE, WARP_SIZE, N_PER_ROW> <<< GRID_SIZE, CTA_SIZE, 0, aux_stream>>>
                 (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
                  b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);  
             }
@@ -1145,11 +1152,13 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     {        
         cudaStreamAttrValue stream_attribute;   
         stream_attribute.accessPolicyWindow.num_bytes = 0;                                          // Setting the window size to 0 disable it
-        cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   // Overwrite the access policy attribute to a CUDA Stream
+        cudaStreamSetAttribute(aux_stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   // Overwrite the access policy attribute to a CUDA Stream
         cudaCtxResetPersistingL2Cache();                                                            // Remove any persistent lines in L2 
     }
 #endif
 
+    cudaEventRecord(end, aux_stream);
+    cudaStreamWaitEvent(stream, end, 0); // stream to wait for aux_stream
     cudaCheckError();
 }
 

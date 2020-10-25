@@ -1006,7 +1006,6 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const int num_colors = this->m_explicit_A->getMatrixColoring().getNumColors();
 
     cudaStream_t stream = thrust::global_thread_handle::getStream();
-    cudaStreamAttrValue stream_attribute;   
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
 
@@ -1032,9 +1031,11 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         if (A.get_num_nz() / this->m_explicit_A->getMatrixColoring().getNumColors() < 500000) method = 2;   // 1 should work as well or better
     }
 
-    // try to keep 'x' in L2 cache, if at least Ampere
+    // try to keep 'x' in L2 cache, if at least Ampere & CUDA 11
+#if CUDART_VERSION >= 11000
     if (arch >= 80 && use_l2_hint == 1)
     {
+        cudaStreamAttrValue stream_attribute;   
         cudaDeviceProp prop = getDeviceProperties();
         size_t x_size = min( A.get_num_rows()*8 , prop.persistingL2CacheMaxSize );      // set-aside length of 'x' (number of rows in A)*8 bytes
         cudaDeviceSetLimit( cudaLimitPersistingL2CacheSize, x_size);                    //            for persisting accesses or the max allowed
@@ -1045,6 +1046,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         stream_attribute.accessPolicyWindow.missProp  = cudaAccessPropertyStreaming;    // Type of access property on cache miss.
         cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   
     }
+#endif
 
 
     for (int i = 0; i < num_colors; i++)
@@ -1141,12 +1143,15 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     }
 
     // reset persisting L2 cache
+#if CUDART_VERSION >= 11000
     if (arch >= 80 && use_l2_hint == 1)
     {        
+        cudaStreamAttrValue stream_attribute;   
         stream_attribute.accessPolicyWindow.num_bytes = 0;                                          // Setting the window size to 0 disable it
         cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   // Overwrite the access policy attribute to a CUDA Stream
         cudaCtxResetPersistingL2Cache();                                                            // Remove any persistent lines in L2 
     }
+#endif
 
     cudaCheckError();
 }

@@ -47,6 +47,7 @@ namespace multicolor_gauss_seidel_solver
 {
 
 #define FULL_MASK 0xffffffff
+template<class T_Config> cudaStream_t MulticolorGaussSeidelSolver_Base<T_Config>::aux_stream = 0;
 
 // -------------------------
 //  Kernels
@@ -643,11 +644,10 @@ MulticolorGaussSeidelSolver_Base<T_Config>::MulticolorGaussSeidelSolver_Base( AM
     }
 
     gs_method = cfg.AMG_Config::getParameter<string>("gs_method", cfg_scope);
-    if (thrust::global_thread_handle::getStream() == 0)
+    
+    if (MulticolorGaussSeidelSolver_Base<T_Config>::aux_stream == 0)
     {
-        static cudaStream_t stream = 0;
-        cudaStreamCreate(&stream);
-        thrust::global_thread_handle::setStream(getCurrentThreadId(),stream);
+        cudaStreamCreateWithFlags(&MulticolorGaussSeidelSolver_Base<T_Config>::aux_stream, cudaStreamDefault); // soon to be changed to cudaStreamNonBlocking
     }
 }
 
@@ -1007,7 +1007,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     ValueTypeB *x_ptr = x.raw();
     const int num_colors = this->m_explicit_A->getMatrixColoring().getNumColors();
 
-    cudaStream_t stream = thrust::global_thread_handle::getStream();
+    cudaStream_t stream = MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>>::aux_stream;
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
 

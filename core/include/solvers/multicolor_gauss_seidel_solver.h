@@ -82,6 +82,7 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
         string gs_method;
         bool m_reorder_cols_by_color_desired;
         bool m_insert_diagonal_desired;
+        static cudaStream_t aux_stream;
 
     public:
         // Constructor.

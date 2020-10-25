@@ -165,7 +165,13 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_device, t_vecPrec, t_matP
         typedef typename Matrix<TConfig_d>::MVector MVector;
         void batch_smooth_1x1(const Matrix_d &A, int batch_sz, const VVector &b, VVector &x);
         void batch_smooth_1x1_fast(const Matrix_d &A, int batch_sz, const VVector &b, VVector &x);
-        MulticolorGaussSeidelSolver(AMG_Config &cfg, const std::string &cfg_scope) : MulticolorGaussSeidelSolver_Base<TConfig_d>(cfg, cfg_scope) {}
+        MulticolorGaussSeidelSolver(AMG_Config &cfg, const std::string &cfg_scope) : MulticolorGaussSeidelSolver_Base<TConfig_d>(cfg, cfg_scope)
+        {
+            if (MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream == 0)
+            {
+                cudaStreamCreateWithFlags(&MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream, cudaStreamDefault); // soon to be changed to cudaStreamNonBlocking
+            }
+        }
     private:
         void smooth_BxB(Matrix_d &A, VVector &b, VVector &x, ViewType separation_flag);
         void smooth_1x1(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);

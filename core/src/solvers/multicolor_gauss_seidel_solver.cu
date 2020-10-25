@@ -643,12 +643,7 @@ MulticolorGaussSeidelSolver_Base<T_Config>::MulticolorGaussSeidelSolver_Base( AM
         amgx_printf("Warning, setting weight to 1 instead of estimating largest_eigen_value in Multicolor GaussSeidel smoother\n");
     }
 
-    gs_method = cfg.AMG_Config::getParameter<string>("gs_method", cfg_scope);
-    
-    if (MulticolorGaussSeidelSolver_Base<T_Config>::aux_stream == 0)
-    {
-        cudaStreamCreateWithFlags(&MulticolorGaussSeidelSolver_Base<T_Config>::aux_stream, cudaStreamDefault); // soon to be changed to cudaStreamNonBlocking
-    }
+    gs_method = cfg.AMG_Config::getParameter<string>("gs_method", cfg_scope);  
 }
 
 // Destructor

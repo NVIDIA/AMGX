@@ -524,6 +524,7 @@ void multicolorGSSmoothCsrKernel_nPerRow(const IndexType *row_offsets, const Ind
     const int batch_row = lane_id / n_per_row;
 
     int row_id = blockIdx.x * CTA_SIZE/n_per_row + (warp_id*WARP_SIZE)/n_per_row + batch_row;
+    const int row_id_increment = gridDim.x * blockDim.x/n_per_row;
 
     int i;
     ValueTypeB bmAx, temp, s_xtemp, diatemp;
@@ -563,7 +564,7 @@ void multicolorGSSmoothCsrKernel_nPerRow(const IndexType *row_offsets, const Ind
             xout[i] = x[i] + weight * bmAx;
         }
 
-        row_id += gridDim.x * blockDim.x/n_per_row;
+        row_id += row_id_increment;
    }
 }
 

@@ -493,13 +493,15 @@ void multicolorGSSmoothCsrKernel_WarpPerRow(const IndexType *row_offsets, const 
             }
         }
 
-        typedef cub::WarpReduce<ValueTypeB> WarpReduce;
-        __shared__ typename WarpReduce::TempStorage temp_storage;
-        ValueTypeB bmAx_s = WarpReduce(temp_storage).Sum(bmAx);
+        #pragma unroll
+        for (int offset = 32 >> 1 ; offset > 0; offset = offset >> 1) 
+        {
+            bmAx  += __shfl_down_sync(FULL_MASK, bmAx, offset);
+        }
         
         if (lane_id == 0)
         {
-            bmAx = b[i] + bmAx_s;
+            bmAx += b[i];
             diatemp = nonzero_values[diag[i]];
             dia = isNotCloseToZero(diatemp) ? diatemp : epsilon(diatemp);
             bmAx /= dia;

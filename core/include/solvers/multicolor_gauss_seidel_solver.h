@@ -39,6 +39,14 @@ namespace amgx
 namespace multicolor_gauss_seidel_solver
 {
 
+enum MatrixProps
+{
+    NAIVE        = 0,   // use the "naive" implementation, thread per row - previously default
+    WARP_PER_ROW = 1,   // each row is processed by a warp
+    T32_PER_ROW  = 2,   // each row is processed by 32 threads (specialization of N_PER_ROW as opposed to fixed WARP_PER_ROW)
+    T4_PER_ROW   = 3    // each row is processed by  4 threads 
+};
+
 template <class T_Config> class MulticolorGaussSeidelSolver;
 
 template<class T_Config>

@@ -986,12 +986,6 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::smooth_1x1(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag)
 {
-    // gs_values.push_back("4_PER_ROW");    // 3
-    // gs_values.push_back("32_PER_ROW");   // 2
-    // gs_values.push_back("WARP_PER_ROW"); // 1
-    // gs_values.push_back("NAIVE");        // 0
-    // gs_values.push_back("DYNAMIC");      // 2 or 3
-
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     const ValueTypeA *A_nonzero_values_ptr = A.values.raw();

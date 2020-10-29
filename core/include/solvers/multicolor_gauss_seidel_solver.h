@@ -39,9 +39,9 @@ namespace amgx
 namespace multicolor_gauss_seidel_solver
 {
 
-enum MatrixProps
+enum KernelMethod
 {
-    DEFAULT      = 0,   
+    DEFAULT      = 0,   // default, let implementation choose appropriate kernel
     NAIVE        = 1,   // use the "naive" implementation, thread per row - previously default
     WARP_PER_ROW = 2,   // each row is processed by a warp
     T32_PER_ROW  = 3,   // each row is processed by 32 threads (specialization of N_PER_ROW as opposed to fixed WARP_PER_ROW)

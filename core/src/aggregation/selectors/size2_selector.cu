@@ -34,7 +34,6 @@
 #include <matrix_analysis.h>
 
 #include <async_event.h>
-#include <stream.h>
 #include <determinism_checker.h>
 
 #include <thrust/count.h> //count

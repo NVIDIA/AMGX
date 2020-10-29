@@ -41,10 +41,11 @@ namespace multicolor_gauss_seidel_solver
 
 enum MatrixProps
 {
-    NAIVE        = 0,   // use the "naive" implementation, thread per row - previously default
-    WARP_PER_ROW = 1,   // each row is processed by a warp
-    T32_PER_ROW  = 2,   // each row is processed by 32 threads (specialization of N_PER_ROW as opposed to fixed WARP_PER_ROW)
-    T4_PER_ROW   = 3    // each row is processed by  4 threads 
+    DEFAULT      = 0,   
+    NAIVE        = 1,   // use the "naive" implementation, thread per row - previously default
+    WARP_PER_ROW = 2,   // each row is processed by a warp
+    T32_PER_ROW  = 3,   // each row is processed by 32 threads (specialization of N_PER_ROW as opposed to fixed WARP_PER_ROW)
+    T4_PER_ROW   = 4    // each row is processed by  4 threads 
 };
 
 template <class T_Config> class MulticolorGaussSeidelSolver;
@@ -90,7 +91,9 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
         string gs_method;
         bool m_reorder_cols_by_color_desired;
         bool m_insert_diagonal_desired;
-        static cudaStream_t aux_stream;
+
+        cudaStream_t get_aux_stream();
+        cudaEvent_t m_start, m_end;
 
     public:
         // Constructor.
@@ -174,12 +177,7 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_device, t_vecPrec, t_matP
         void batch_smooth_1x1(const Matrix_d &A, int batch_sz, const VVector &b, VVector &x);
         void batch_smooth_1x1_fast(const Matrix_d &A, int batch_sz, const VVector &b, VVector &x);
         MulticolorGaussSeidelSolver(AMG_Config &cfg, const std::string &cfg_scope) : MulticolorGaussSeidelSolver_Base<TConfig_d>(cfg, cfg_scope)
-        {
-            if (MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream == 0)
-            {
-                cudaStreamCreateWithFlags(&MulticolorGaussSeidelSolver_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::aux_stream, cudaStreamNonBlocking);
-            }
-        }
+        {}
     private:
         void smooth_BxB(Matrix_d &A, VVector &b, VVector &x, ViewType separation_flag);
         void smooth_1x1(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);

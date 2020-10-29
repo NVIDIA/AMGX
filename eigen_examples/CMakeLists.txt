@@ -40,13 +40,13 @@ else(WIN32)
 endif(WIN32)
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
-IF(CMAKE_C_COMPILER_NAME MATCHES cl)
+IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(libs_all ${cusparse_library} ${cusolver_library})
   set(dyn_libs amgxsh cudart.lib)
-ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
+ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(libs_all ${cusparse_library} ${cusolver_library} rt dl)
   set(dyn_libs amgxsh rt dl cudart)
-ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
+ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(eigensolver eigensolver.c)
 

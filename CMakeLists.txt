@@ -173,7 +173,8 @@ if(NOT WIN32)
 endif()
 
 #Configuration specific nvcc flags
-if(CMAKE_COMPILER_IS_GNUCXX)
+GET_FILENAME_COMPONENT(CMAKE_CXX_COMPILER_NAME "${CMAKE_CXX_COMPILER}" NAME)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_NAME MATCHES "clang")
   set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
   set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
   set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
@@ -195,11 +196,11 @@ endif(AMGX_keep_intermediate)
 
 #windows/linux specific settings for C
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
-IF(CMAKE_C_COMPILER_NAME MATCHES cl)
+IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" CACHE STRING "nvcc flags")
-ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
+ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Xcompiler=-rdynamic;-Xcompiler=-fPIC;-Xcompiler=-fvisibility=default" CACHE STRING "nvcc flags")
-ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
+ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 # VS: include object files in target property SOURCES
 # otherwise a workaround for extracting ${obj_all} is necessary below

@@ -88,7 +88,7 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
         MVector Dinv;
         int symFlag;
         int use_bsrxmv;
-        string gs_method;
+        KernelMethod gs_method;
         bool m_reorder_cols_by_color_desired;
         bool m_insert_diagonal_desired;
 

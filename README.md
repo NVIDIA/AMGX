@@ -172,7 +172,7 @@ Total Time: 0.0170917
 ### <a name="testing"></a> Testing the library
 
 AmgX is automatically tested using the infrastructure in the `ci/` directory,
-see the [`README.md`](./ci/README.md) there for more information.
+see the [`README.md`](./ci/README.md) for more information.
 
 ## <a name="further-reading"></a> Further reading
 

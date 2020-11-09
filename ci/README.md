@@ -19,6 +19,9 @@ The behavior of the CI system is configured using the following environment vari
 * `AMGX_CI_KEEP_BUILD=0|1`: whether the build directories are preserved across
   CI runs. The default is `0`, i.e., the build directories are cleaned and amgx
   is re-built from scratch on every run.
+  
+* `AMGX_CI_CONTAINER_FILE`: dump container build recipe to a file in the current
+  working directory: `Dockerfile_${baseimage}`.
 
 For example, to only test the `x86_64-ubuntu18.04-gnu7-cuda10.2.py` container,
 preserving the build directory (e.g. during development):

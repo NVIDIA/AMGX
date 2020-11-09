@@ -22,6 +22,8 @@ if [ -n "${AMGX_CI_KEEP_BUILD}" ]; then
     KEEP_BUILD="${AMGX_CI_KEEP_BUILD}"
 fi
 
+CONTAINER_FILE=/dev/fd/2
+
 for CONTAINER in $CONTAINERS; do
     BASE_NAME=$(basename "${CONTAINER}" .py)
     BASE_IMG="amgx:base_${BASE_NAME}"
@@ -31,7 +33,13 @@ for CONTAINER in $CONTAINERS; do
         echo "Container at \"${RECIPE}\" does not exist"
         exit 1
     fi
-    hpccm --recipe "${RECIPE}" --format=docker | \
+
+    if [ -n "${AMGX_CI_CONTAINER_FILE}" ]; then
+        CONTAINER_FILE="Dockerfile_${BASE_NAME}"
+    fi
+
+    hpccm --recipe "${RECIPE}" --format=docker \
+        | tee "${CONTAINER_FILE}" | \
         docker build -t "${BASE_IMG}" -
     nvidia-docker \
         run \

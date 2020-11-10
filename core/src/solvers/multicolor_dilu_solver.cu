@@ -581,7 +581,7 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
 
                     // Run the loop.
                     b_col_it += lane_id_mod_NxN;
-                    int shared_found = utils::ballot( lane_id_mod_NxN == 0 && uniform_a_col_id == -1 );
+                    int shared_found = utils::ballot( lane_id_mod_NxN == 0 && uniform_a_col_id == -1, active_mask );
 
                     do
                     {
@@ -592,10 +592,10 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
                             *my_s_A_ji = b_col_it;
                         }
 
-                        shared_found = shared_found | utils::ballot(found);
+                        shared_found = shared_found | utils::ballot(found, active_mask);
                         b_col_it += NxN;
                     }
-                    while ( __popc( shared_found ) < NUM_ITEMS_PER_WARP && utils::any( b_col_it < b_col_end ) );
+                    while ( __popc( shared_found ) < NUM_ITEMS_PER_WARP && utils::any( b_col_it < b_col_end, active_mask ) );
 
                     // Load the blocks.
                     const int w_aji = *my_s_A_ji;
@@ -1667,6 +1667,7 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
     // Iterate over the rows of the matrix. One warp per row.
     for ( ; a_row_it < num_rows_per_color ; a_row_it += gridDim.x * NUM_HALF_WARPS )
     {
+        unsigned int active_mask = utils::activemask();
         int a_row_id = sorted_rows_by_color[a_row_it];
         // Load one block of B.
         Vector_type my_bmAx(0);
@@ -1690,6 +1691,7 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Each warp load column indices of 32 nonzero blocks
         for ( ; a_col_begin < a_col_max ; a_col_begin += 16 )
         {
+            unsigned int active_mask_inner = utils::activemask();
             int a_col_it = a_col_begin + thread_id_mod_16;
             // Get the ID of the column.
             int a_col_id = -1;
@@ -1734,8 +1736,8 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
             {
                 int my_k = k + thread_id_mod_16_div_4;
                 // Load 8 blocks of X.
-                int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
-                int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k );
+                int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k, warpSize, active_mask_inner );
+                int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k, warpSize, active_mask_inner );
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -1778,8 +1780,8 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Load Einvs.
         Matrix_type my_Einv = Einv[16 * a_row_id + thread_id_mod_16];
         // Reduce bmAx terms.
-        my_bmAx += utils::shfl_xor( my_bmAx, 4 );
-        my_bmAx += utils::shfl_xor( my_bmAx, 8 );
+        my_bmAx += utils::shfl_xor( my_bmAx, 4, warpSize, active_mask );
+        my_bmAx += utils::shfl_xor( my_bmAx, 8, warpSize, active_mask );
 
         // Update the shared terms.
         if ( thread_id_mod_16_div_4 == 0 )
@@ -1790,8 +1792,8 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Update the diagonal term.
         my_bmAx = my_Einv * my_s_mem[thread_id_mod_16_mod_4];
         // Reduce bmAx terms.
-        my_bmAx += utils::shfl_xor( my_bmAx, 1 );
-        my_bmAx += utils::shfl_xor( my_bmAx, 2 );
+        my_bmAx += utils::shfl_xor( my_bmAx, 1, warpSize, active_mask );
+        my_bmAx += utils::shfl_xor( my_bmAx, 2, warpSize, active_mask );
 
         // Store the results.
         if ( thread_id_mod_16_mod_4 == 0 )
@@ -2704,6 +2706,7 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
     // Iterate over the rows of the matrix. One warp per row.
     for ( ; a_row_it < num_rows_per_color ; a_row_it += gridDim.x * NUM_HALF_WARPS )
     {
+        unsigned int active_mask = utils::activemask();
         int a_row_id = sorted_rows_by_color[a_row_it];
         // Load one block of B.
         Vector_type my_delta(0);
@@ -2714,6 +2717,7 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Each warp load column indices of 32 nonzero blocks
         for ( ; a_col_begin < a_col_end ; a_col_begin += 16 )
         {
+            unsigned int active_mask_inner = utils::activemask();
             int a_col_it = a_col_begin + thread_id_mod_16;
             // Get the ID of the column.
             int a_col_id = -1;
@@ -2761,7 +2765,7 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
             {
                 int my_k = k + thread_id_mod_16_div_4;
                 // Load 8 blocks of X.
-                int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k );
+                int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k, warpSize, active_mask_inner );
                 Vector_type my_Delta(0);
 
                 if ( uniform_a_col_id != -1 )
@@ -2794,8 +2798,8 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Load EINV values.
         Matrix_type my_Einv = Einv[16 * a_row_id + thread_id_mod_16];
         // Reduce delta terms.
-        my_delta += utils::shfl_xor( my_delta, 4 );
-        my_delta += utils::shfl_xor( my_delta, 8 );
+        my_delta += utils::shfl_xor( my_delta, 4, warpSize, active_mask );
+        my_delta += utils::shfl_xor( my_delta, 8, warpSize, active_mask );
 
         // Update the shared terms.
         if ( thread_id_mod_16_div_4 == 0 )
@@ -2806,8 +2810,8 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         // Update the diagonal term.
         my_delta = my_Einv * my_s_mem[thread_id_mod_16_mod_4];
         // Regroup results.
-        my_delta += utils::shfl_xor( my_delta, 1 );
-        my_delta += utils::shfl_xor( my_delta, 2 );
+        my_delta += utils::shfl_xor( my_delta, 1, warpSize, active_mask );
+        my_delta += utils::shfl_xor( my_delta, 2, warpSize, active_mask );
         // Store the results.
         int offset = 4 * a_row_id + thread_id_mod_16_div_4;
         Vector_type my_b(0), my_x(0);

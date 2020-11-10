@@ -169,6 +169,11 @@ Total Time: 0.0170917
     solve(per iteration): 0.00173758 s
 ```
 
+### <a name="testing"></a> Testing the library
+
+AmgX is automatically tested using the infrastructure in the `ci/` directory,
+see the [`README.md`](./ci/README.md) for more information.
+
 ## <a name="further-reading"></a> Further reading
 
 ### <a name="bindings"></a> Plugins and bindings to other software

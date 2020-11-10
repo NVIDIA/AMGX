@@ -24,11 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 2.8.10)
 
 # the project
 project (AMG)
@@ -77,7 +73,10 @@ endif()
 # min compiler requirements
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
-    message(FATAL_ERROR "Insufficient gcc version. 4.8.2 is required to compile AMGX")
+    message(
+      FATAL_ERROR
+      "AmgX requires GCC >= 4.8.2 but GCC version is \"${CMAKE_CXX_COMPILER_VERSION}\""
+    )
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc")
   endif()
@@ -295,7 +294,6 @@ set(pluginConf "PluginConfig.txt")                     # plugin configuration
 set(pluginCode "${CMAKE_SOURCE_DIR}/plugin_config.cu") # plugin code
 file(STRINGS ${pluginConf} pluginList)                 # plugin list
 set(libList base core ${pluginList})                   # lib list
-set(srcTarball "../srcTarball.txt")                    # dirs for source tarball
 
 
 # create initialization and finalization for plugins
@@ -321,22 +319,19 @@ if(${pluginConf} IS_NEWER_THAN ${pluginCode})
 endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
 
 # create file with files and dirs for source tarball
-#if(${pluginConf} IS_NEWER_THAN ${srcTarball})
-  set(dirList "CMakeLists.txt" ${versionFile} ${pluginConf} "doc" "examples" ${libList})
-  if (${AMGX_INCLUDE_EXTERNAL})
-    set(dirList ${dirList} "external")
-  endif (${AMGX_INCLUDE_EXTERNAL})
-  set(dirList ${dirList} "tests")
-  string(REPLACE "/" " " dirliststr ${CMAKE_SOURCE_DIR})
-  string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" dirlist "${dirliststr}")
-  list(GET dirlist -1 branch)
-  #message (STATUS "working with branch = " ${branch})
-  file(WRITE ${srcTarball} "")
-  foreach( dir ${dirList} )
-    file(TO_NATIVE_PATH "${branch}/${dir}" nativePath)
-    file(APPEND ${srcTarball} "${nativePath}\n")
-  endforeach(dir)
-#endif(${pluginConf} IS_NEWER_THAN ${srcTarball})
+set(dirList "CMakeLists.txt" ${versionFile} ${pluginConf} "doc" "examples" ${libList})
+if (${AMGX_INCLUDE_EXTERNAL})
+  set(dirList ${dirList} "external")
+endif (${AMGX_INCLUDE_EXTERNAL})
+set(dirList ${dirList} "tests")
+string(REPLACE "/" " " dirliststr ${CMAKE_SOURCE_DIR})
+string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" dirlist "${dirliststr}")
+list(GET dirlist -1 branch)
+#message (STATUS "working with branch = " ${branch})
+foreach( dir ${dirList} )
+  file(TO_NATIVE_PATH "${branch}/${dir}" nativePath)
+  file(APPEND ${srcTarball} "${nativePath}\n")
+endforeach(dir)
 
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used

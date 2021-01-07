@@ -773,7 +773,8 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
 
             if ( lane_id == 0 )
             {
-                double div = (fabs(sum_C * diag[a_row_id]) < 1e-10) ? 1. : sum_C * diag[a_row_id];
+                // NOTE this matches the check for zero in HYPRE
+                double div = (fabs(sum_C * diag[a_row_id]) == 0.0) ? 1. : sum_C * diag[a_row_id];
                 alfa = -sum_N / div;
             }
 
@@ -967,7 +968,8 @@ compute_interp_weight_kernel( const int A_num_rows,
 
         if ( lane_id == 0 )
         {
-            double div = (fabs(sum_C * diag[a_row_id]) < 1e-10) ? 1. : sum_C * diag[a_row_id];
+            // NOTE this matches the check for zero in HYPRE
+            double div = (fabs(sum_C * diag[a_row_id]) == 0.0) ? 1. : sum_C * diag[a_row_id];
             alfa = -sum_N / div;
             // alfa = -sum_N/(sum_C*diag[a_row_id]);
         }

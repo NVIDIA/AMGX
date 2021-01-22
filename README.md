@@ -189,7 +189,9 @@ see the [`README.md`](./ci/README.md) for more information.
 ### <a name="bindings"></a> Plugins and bindings to other software
 User @shwina built python bindings to AMGX, check out following repository: https://github.com/shwina/pyamgx.
 
-User @piyueh provided link to their work on PETSc wrapper plugins for AMGX: https://github.com/barbagroup/AmgXWrapper
+User @piyueh provided link to their work on PETSc wrapper plugins for AMGX: https://github.com/barbagroup/AmgXWrapper.
+
+Julia bindings to AMGX are available at: https://github.com/JuliaGPU/AMGX.jl.
 
 See [API reference doc](doc/AMGX_Reference.pdf) for detailed description of the interface. In the next few weeks we will be providing more information and details on the project such as:
   * Plans on the project development and priorities

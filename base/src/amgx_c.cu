@@ -219,7 +219,7 @@ int create_part_offsets(int &root, int &rank, MPI_Comm &mpicm, Matrix<TConfig> *
         }
 
         //perform a prefix sum
-        thrust_wrapper::inclusive_scan(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets_h.begin());
+        thrust::inclusive_scan(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets_h.begin());
         //create the corresponding array on device (this is important)
         nv_mtx->manager->part_offsets.resize(nranks + 1);
         thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets.begin());

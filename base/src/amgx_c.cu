@@ -1936,7 +1936,7 @@ inline void solver_get_iterations_number(AMGX_solver_handle slv, int *n)
 {
     auto *solver = get_mode_object_from<CASE, AMG_Solver, AMGX_solver_handle>(slv);
     cudaSetDevice(solver->getResources()->getDevice(0));
-    *n = solver->get_num_iters() + 1;
+    *n = solver->get_num_iters();
 }
 
 template<AMGX_Mode CASE>

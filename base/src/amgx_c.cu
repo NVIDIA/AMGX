@@ -318,7 +318,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
             thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
             //thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), di.begin(), add_constant_op<t_IndPrec>(1));
+            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
             cudaCheckError();
         }
 
@@ -552,7 +552,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         {
             thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
-            thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), di.begin());
+            thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();
         }
 

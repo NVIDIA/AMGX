@@ -393,13 +393,13 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         // Call the preconditioner to get M^-1*(sum_m vm*ym), store in m_V_Vectors[0]
         if (no_preconditioner)
         {
-            copy( m_V_vectors[0], m_Z_vector, offset, size);
+            copy( m_Z_vector, m_V_vectors[0], offset, size);
         }
         else
         {
             m_V_vectors[0].delayed_send = 1;
             m_Z_vector.delayed_send = 1;
-            m_preconditioner->solve( m_V_vectors[0], m_Z_vector, true );
+            m_preconditioner->solve( m_Z_vector, m_V_vectors[0], true );
             m_V_vectors[0].delayed_send = 1;
             m_Z_vector.delayed_send = 1;
         }

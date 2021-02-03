@@ -48,9 +48,9 @@ namespace amgx
 template<class TConfig>
 Solver<TConfig>::Solver(AMG_Config &cfg, const std::string &cfg_scope,
                         ThreadManager *tmng) :
-    m_cfg(&cfg), m_cfg_scope(cfg_scope), m_is_solver_setup(false), m_A(NULL), m_r(
-        NULL), m_num_iters(0), m_curr_iter(0), m_ref_count(1), tag(0), m_solver_name(
-            "SolverNameNotSet"), m_tmng(tmng)
+    m_cfg(&cfg), m_cfg_scope(cfg_scope), m_is_solver_setup(false), m_A(NULL), 
+    m_r(NULL), m_num_iters(0), m_curr_iter(0), m_ref_count(1), tag(0), 
+    m_solver_name("SolverNameNotSet"), m_skip_glued_setup(false), m_tmng(tmng)
 {
     m_verbosity_level = cfg.getParameter<int>("verbosity_level", cfg_scope);
     m_print_vis_data = cfg.getParameter<int>("print_vis_data", cfg_scope) != 0;
@@ -408,7 +408,7 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
         // block jacobi fails to find diagonal if the matrix is empty
         if (B.manager != NULL)
         {
-            if (this->level == -999)
+            if (this->m_skip_glued_setup)
             {
                 this->set_A(A);
                 m_is_solver_setup = true;

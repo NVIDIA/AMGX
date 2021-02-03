@@ -204,9 +204,11 @@ class Solver : public AuxData
         // Decrement the reference counter.
         bool decr_ref_count() { return --m_ref_count == 0; }
 
+        void setGluedSetup(bool val) { m_skip_glued_setup = val; }
+
+        // tag used for communication
         int tag;
 
-        int level;
     protected:
         // Define the matrix and the residual.
         inline void set_A(Operator<TConfig> &in_A)
@@ -280,6 +282,8 @@ class Solver : public AuxData
 
         // Timings.
         float m_setup_time, m_solve_time;
+
+        bool m_skip_glued_setup;
 
         ThreadManager *m_tmng;
 };

@@ -2265,23 +2265,19 @@ void DistributedManagerBase<TConfig>::createComms(Resources *rsrc)
     if (comm_value == "MPI_DIRECT")
     {
         _comms = new CommsMPIDirect<TConfig>(*cfg, comm_scope, mpi_comm);
-
-        if ( rank == 0 )
-        {
-            std::cout << "Using CUDA-Aware MPI (GPU Direct) communicator..." << std::endl;
-        }
+        std::string comm_log("Using CUDA-Aware MPI (GPU Direct) communicator...\n");
+        amgx_distributed_output(comm_log.c_str(), comm_log.length());
     }
     else if (comm_value == "MPI")
     {
-        CommsMPIHostBufferStream<TConfig> *ptr_comm = new CommsMPIHostBufferStream<TConfig>(*cfg, comm_scope, mpi_comm);
-        _comms =  ptr_comm;
-
-        if ( rank == 0 )
-        {
-            std::cout << "Using Normal MPI (Hostbuffer) communicator..." << std::endl;
-        }
+        _comms =  new CommsMPIHostBufferStream<TConfig>(*cfg, comm_scope, mpi_comm);
+        std::string comm_log("Using Normal MPI (Hostbuffer) communicator...\n");
+        amgx_distributed_output(comm_log.c_str(), comm_log.length());
     }
-    else { throw std::string("Bad communicator value"); }
+    else 
+    { 
+        FatalError("External diag not supported in classical path", AMGX_ERR_NOT_IMPLEMENTED); 
+    }
 
 #endif
 }
@@ -2542,7 +2538,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (diag)
     {
-        FatalError("External diag not supported in classical path", AMGX_ERR_NOT_IMPLEMENTED);
+        FatalError("External diag not supported in classical path", AMGX_ERR_BAD_PARAMETERS);
     }
 
 //

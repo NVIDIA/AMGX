@@ -2276,7 +2276,7 @@ void DistributedManagerBase<TConfig>::createComms(Resources *rsrc)
     }
     else 
     { 
-        FatalError("External diag not supported in classical path", AMGX_ERR_NOT_IMPLEMENTED); 
+        FatalError("Bad communicator value", AMGX_ERR_BAD_PARAMETERS); 
     }
 
 #endif
@@ -2538,7 +2538,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (diag)
     {
-        FatalError("External diag not supported in classical path", AMGX_ERR_BAD_PARAMETERS);
+        FatalError("External diag not supported in classical path", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
 //

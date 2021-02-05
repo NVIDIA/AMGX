@@ -776,7 +776,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
 
         int nnz_per_row = float(A.get_num_nz()) / A.get_num_rows();
 
-        if (iter > std::min((int)pow((double)nnz_per_row, (int)this->m_coloring_level), 63)) //estimate number of epochs required for coloring
+        if (iter > std::min((int)std::pow(nnz_per_row, this->m_coloring_level), 63)) //estimate number of epochs required for coloring
         {
             num_uncolored = (int) thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_zero() );
             cudaCheckError();

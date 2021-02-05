@@ -249,9 +249,7 @@ IF(CUDA_VERSION_MAJOR MATCHES 10)
     SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION)
 
     # Use the generic cuSPARSE interfaces available from 10.1 on Linux
-    IF(NOT WIN32)
       SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DCUSPARSE_GENERIC_INTERFACES)
-    ENDIF(NOT WIN32)
   ENDIF(CUDA_VERSION_MINOR GREATER 0)
 ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
 
@@ -263,9 +261,7 @@ IF(CUDA_VERSION_MAJOR MATCHES 11)
   SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION)
 
   # Use the generic cuSPARSE interfaces available from 10.1 on Linux, cusparseSpGEMM from 11.0
-  IF(NOT WIN32)
     SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DCUSPARSE_GENERIC_INTERFACES -DCUSPARSE_USE_GENERIC_SPGEMM)
-  ENDIF(NOT WIN32)
 ENDIF(CUDA_VERSION_MAJOR MATCHES 11)
 
 #replace ' ' with ; to match the proper cmake format
@@ -317,21 +313,6 @@ if(${pluginConf} IS_NEWER_THAN ${pluginCode})
   file(APPEND ${pluginCode} "}\n")
   file(APPEND ${pluginCode} "} // namespace amgx\n")
 endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
-
-# create file with files and dirs for source tarball
-set(dirList "CMakeLists.txt" ${versionFile} ${pluginConf} "doc" "examples" ${libList})
-if (${AMGX_INCLUDE_EXTERNAL})
-  set(dirList ${dirList} "external")
-endif (${AMGX_INCLUDE_EXTERNAL})
-set(dirList ${dirList} "tests")
-string(REPLACE "/" " " dirliststr ${CMAKE_SOURCE_DIR})
-string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" dirlist "${dirliststr}")
-list(GET dirlist -1 branch)
-#message (STATUS "working with branch = " ${branch})
-foreach( dir ${dirList} )
-  file(TO_NATIVE_PATH "${branch}/${dir}" nativePath)
-  file(APPEND ${srcTarball} "${nativePath}\n")
-endforeach(dir)
 
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used

@@ -162,23 +162,17 @@ class AMG_Config
         **********************************************/
         template <typename Type> static void registerParameter(std::string name, std::string description, Type default_value)
         {
-            if (param_desc.find(name) != param_desc.end())
-                param_desc.erase(name);
-            param_desc.emplace(name, ParameterDescription(&typeid(Type), name, description, default_value));
+            param_desc[name] = ParameterDescription(&typeid(Type), name, description, default_value);
         }
 
         template <typename Type> static void registerParameter(std::string name, std::string description, Type default_value, const Type min_value, const Type max_value)
         {
-            if (param_desc.find(name) != param_desc.end())
-                param_desc.erase(name);
-            param_desc.emplace(name, ParameterDescription(&typeid(Type), name, description, default_value, ParameterMargins(Parameter(min_value), Parameter(max_value))));
+            param_desc[name] = ParameterDescription(&typeid(Type), name, description, default_value, ParameterMargins(Parameter(min_value), Parameter(max_value)));
         }
 
         template <typename Type> static void registerParameter(std::string name, std::string description, Type default_value, const std::vector<Type> &allowed_values)
         {
-            if (param_desc.find(name) != param_desc.end())
-                param_desc.erase(name);
-            param_desc.emplace(name, ParameterDescription(&typeid(Type), name, description, default_value, ParameterMargins(allowed_values)));
+            param_desc[name] = ParameterDescription(&typeid(Type), name, description, default_value, ParameterMargins(allowed_values));
         }
 
         /***********************************************

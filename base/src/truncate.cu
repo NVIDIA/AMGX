@@ -575,7 +575,7 @@ void truncateAndScale_kernel(const IndexType *A_offsets, const IndexType *A_indi
         const int row_len = row_end - row_start;
         const int At_row_start = s_At_ptr[vector_lane][0];
         // mark & scan over consecutive blocks of 32 threads
-        int nloops = (int)ceil((float)row_len / THREADS_PER_VECTOR);
+        int nloops = (int)ceilf((float)row_len / THREADS_PER_VECTOR);
 #pragma unroll 2
 
         for (int i = 0; i < nloops; i++)

@@ -67,6 +67,7 @@ __device__ __forceinline__ int get_work( int *queue, int warp_id )
     return utils::shfl( offset, 0 );
 }
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template< int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool COUNT_ONLY >
@@ -90,7 +91,7 @@ count_non_zeroes_kernel( const int A_num_rows,
 {
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -149,6 +150,7 @@ count_non_zeroes_kernel( const int A_num_rows,
                 if (Aq2 != NULL)
                 {
                     b_row_id = Aq2[b_row_id];
+	    		
                 }
 
                 if (Bq1 != NULL)
@@ -267,7 +269,6 @@ count_non_zeroes_kernel( const int A_num_rows,
     // Create local storage for the set.
     Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 
-    // Loop over rows of A.
     for ( ; a_row_id < A_num_rows ; a_row_id = get_work( wk_work_queue, warp_id ) )
     {
         int c_row_id = a_row_id;
@@ -370,7 +371,7 @@ count_non_zeroes_kernel( const int A_num_rows,
         // Store the results.
         if ( COUNT_ONLY )
         {
-            int count = set.compute_size_with_duplicates();
+            int count = set.compute_size();
 
             if ( lane_id == 0 )
             {
@@ -458,7 +459,7 @@ __device__ __forceinline__ void sparse_add_process_row_values(int row_id, const 
             value  = utils::Ld<utils::LD_NC>::load( &vals[col_it] );
         }
 
-        map.insert_with_duplicates( col_id, value, wk_status );
+        map.insert( col_id, value, wk_status );
     }
 }
 
@@ -542,7 +543,7 @@ count_non_zeroes_RAP_ext_kernel( const int RAP_int_num_rows,
         // Store the results.
         if ( COUNT_ONLY )
         {
-            int count = set.compute_size_with_duplicates();
+            int count = set.compute_size();
 
             if ( lane_id == 0 )
             {
@@ -612,7 +613,7 @@ count_non_zeroes_ilu1_kernel( const int A_num_rows,
     // Tables to broadcast values.
     __shared__ volatile int s_b_rows[CTA_SIZE], s_b_colors[CTA_SIZE];
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -930,7 +931,7 @@ count_non_zeroes_ilu1_kernel( const int A_num_rows,
         // Store the results.
         if ( COUNT_ONLY )
         {
-            int count = set.compute_size_with_duplicates();
+            int count = set.compute_size();
 
             if ( lane_id == 0 )
             {
@@ -986,20 +987,20 @@ compute_values_kernel( const int A_num_rows,
                        int *wk_work_queue,
                        int *wk_status )
 {
-    const int NUM_WARPS = CTA_SIZE / 32;
+    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The hash values stored in shared memory.
-    __shared__ volatile Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE]; 
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-    Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
+    Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map(&s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 
@@ -1089,7 +1090,7 @@ compute_values_kernel( const int A_num_rows,
                         }
                     }
 
-                    map.insert( b_col_id, uniform_a_value, b_value, wk_status );
+                    map.insert( b_col_id, uniform_a_value * b_value, wk_status );
                 }
             }
         }
@@ -1114,6 +1115,7 @@ compute_values_kernel( const int A_num_rows,
 
         map.store( count, &C_cols[c_col_it], &C_vals[c_col_it] );
     }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1141,12 +1143,13 @@ compute_values_kernel( const int A_num_rows,
                        int *wk_work_queue,
                        int *wk_status )
 {
+
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The hash values stored in shared memory.
-    __shared__ volatile Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE]; 
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -1156,9 +1159,9 @@ compute_values_kernel( const int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-    Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
+    Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map(&s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 
@@ -1173,7 +1176,7 @@ compute_values_kernel( const int A_num_rows,
         }
 
         // Clear the map.
-        map.clear_all();
+        map.clear();
         // Load the range of the row.
         int a_col_tmp = -1;
 
@@ -1252,7 +1255,7 @@ compute_values_kernel( const int A_num_rows,
                         }
                     }
 
-                    map.insert_with_duplicates( b_col_id, uniform_a_value * b_value, wk_status );
+                    map.insert( b_col_id, uniform_a_value * b_value, wk_status );
                 }
             }
         }
@@ -1277,6 +1280,7 @@ compute_values_kernel( const int A_num_rows,
 
         map.store( count, &C_cols[c_col_it], &C_vals[c_col_it] );
     }
+
 }
 
 
@@ -1305,7 +1309,7 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The hash values stored in shared memory.
-    __shared__ volatile Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -1314,7 +1318,7 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
     // Create local storage for the set.
     Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[rap_int_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[rap_int_row_id * gmem_size],
             gmem_size );
 
@@ -1322,7 +1326,7 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
     for ( ; rap_int_row_id < RAP_int_num_rows ; rap_int_row_id = get_work( wk_work_queue, warp_id ) )
     {
         // Clear the map.
-        map.clear_all();
+        map.clear();
         // ---------------------------------
         // First process RAP_int
         // ---------------------------------
@@ -1402,6 +1406,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
     // Reset work queue.
     int work_offset = GRID_SIZE * NUM_WARPS;
     CUDA_SAFE_CALL( cudaMemcpy( this->m_work_queue, &work_offset, sizeof(int), cudaMemcpyHostToDevice ) );
+    
 
     // Compute non-zero elements.
     switch ( this->m_num_threads_per_row_count )
@@ -1503,6 +1508,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
 
     cudaCheckError();
     //CUDA_SAFE_CALL( cudaGetLastError() );
+
 }
 
 
@@ -1892,6 +1898,8 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
     {
         status = this->m_status;
     }
+
+    		
 
     switch ( num_threads )
     {

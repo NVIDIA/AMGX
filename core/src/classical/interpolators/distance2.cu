@@ -906,11 +906,12 @@ compute_c_hat_kernel( int A_num_rows,
                       int *wk_work_queue,
                       int *wk_status )
 {
+
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Shared memory to vote.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -1044,6 +1045,7 @@ compute_c_hat_kernel( int A_num_rows,
             C_hat_end[a_row_id] = c_col_it + count;
         }
     }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1070,7 +1072,7 @@ compute_c_hat_kernel( int A_num_rows,
     // Shared memory to vote.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
 
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
@@ -1221,6 +1223,7 @@ compute_c_hat_kernel( int A_num_rows,
             C_hat_end[a_row_id] = c_col_it + count;
         }
     }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1245,9 +1248,10 @@ compute_inner_sum_kernel( const int A_num_rows,
                           int *g_keys,
                           int *wk_work_queue )
 {
+
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // A shared location where threads propose a row of B to load.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads propose a value.
@@ -1411,6 +1415,7 @@ compute_inner_sum_kernel( const int A_num_rows,
             inner_sum_offset += num_rows;
         }
     }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1435,10 +1440,11 @@ compute_inner_sum_kernel( const int A_num_rows,
                           int *g_keys,
                           int *wk_work_queue )
 {
+
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // A shared location where threads propose a row of B to load.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads propose a value.
@@ -1617,6 +1623,7 @@ compute_inner_sum_kernel( const int A_num_rows,
             inner_sum_offset += num_rows;
         }
     }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1645,16 +1652,17 @@ compute_interp_weight_kernel( const int A_num_rows,
                               Value_type *g_vals,
                               int *wk_work_queue )
 {
+    
     const int NUM_WARPS = CTA_SIZE / 32;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // A shared location where threads propose a row of B to load.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads propose a value.
     __shared__ volatile Value_type s_aki[NUM_WARPS];
     // The hash values stored in shared memory.
 #if __CUDA_ARCH__ >= 700
-    __shared__ volatile distance2_sm70::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
 #else
     __shared__ volatile distance2_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
 #endif
@@ -1667,7 +1675,7 @@ compute_interp_weight_kernel( const int A_num_rows,
 #if __CUDA_ARCH__ >= 700
     distance2_sm70::Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #else
@@ -1864,6 +1872,7 @@ compute_interp_weight_kernel( const int A_num_rows,
         map.store_map_keys_scale_values( p_col_end - p_col_it, cf_map, &P_cols[p_col_it], sum, &P_vals[p_col_it] );
     }
 }
+
 
 } // namespace distance2
 

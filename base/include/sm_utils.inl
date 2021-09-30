@@ -87,6 +87,17 @@ static __device__ __forceinline__ void atomic_add( cuDoubleComplex *address, cuD
     atomic_add((double *)((char *)(address) + sizeof(double)), cuCimag(value));
 }
 
+static __device__ __forceinline__ int64_t atomic_CAS(int64_t* address, int64_t compare, int64_t val)
+{
+    return (int64_t)atomicCAS((unsigned long long *)address, (unsigned long long)compare, (unsigned long long)val);
+}
+
+static __device__ __forceinline__ int atomic_CAS(int* address, int compare, int val)
+{
+    return atomicCAS(address, compare, val);
+}
+
+
 // ====================================================================================================================
 // Bit tools.
 // ====================================================================================================================

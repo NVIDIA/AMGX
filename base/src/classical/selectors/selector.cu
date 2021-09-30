@@ -431,7 +431,7 @@ compute_c_hat_kernel( int A_num_rows,
     // Shared memory to vote.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -592,7 +592,7 @@ compute_c_hat_kernel( int A_num_rows,
     // Shared memory to vote.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );

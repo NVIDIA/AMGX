@@ -88,8 +88,15 @@ class DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >
 
         typedef Solver<TemplateConfig<AMGX_device, V, M, I> > Base;
         typedef TemplateConfig<AMGX_device, V, M, I> Config_d;
+        typedef TemplateConfig<AMGX_host, V, M, I> Config_h;
         typedef Matrix<Config_d> Matrix_d;
+        typedef Matrix<Config_h> Matrix_h;
         typedef Vector<Config_d> Vector_d;
+        typedef Vector<Config_d> Vector_h;
+        typedef typename Matrix_d::IVector IVector_d;
+        typedef typename Matrix_h::IVector IVector_h;
+        typedef typename Matrix_d::MVector MVector_d;
+        typedef typename Matrix_h::MVector MVector_h;
         typedef typename MatPrecisionMap<M>::Type Matrix_data;
         typedef typename VecPrecisionMap<V>::Type Vector_data;
 
@@ -112,10 +119,20 @@ class DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >
         cusolverDnHandle_t m_cuds_handle;
         cublasHandle_t m_cublas_handle;
         int m_num_rows, m_num_cols, m_lda;
+        int m_nnz_global;
         Matrix_data *m_dense_A;   // store sparse as dense
         int *m_ipiv;              // The pivot sequence from getrf()
         int *m_cuds_info;         // host pointer for debug info from getrf()
         Matrix_data *m_trf_wspace; // workspace for trf/trs
+        bool m_enable_exact_solve = false;
+
+        // Cached in the case of an exact coarse solve
+        IVector_h nz_all;
+        IVector_h nz_displs;
+        IVector_h row_all;
+        IVector_h row_displs;
+        IVector_d Acols_global;
+        IVector_d Arows_global;
 
         void csr_to_dense(); // Pack a CSR matrix to a dense matrix
         void cudense_getrf(); // LU decomposition

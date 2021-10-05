@@ -117,6 +117,7 @@ struct util <float,  PODTypes<float>::type >
     static __host__ __device__ __inline__ float conjugate(const float &val) {return val;};
     static __host__ __device__ __inline__ void  invert_inplace(float &val) {val = -val;};
     static __host__ __device__ __inline__ void  conjugate_inplace(float &val) {};
+    static __host__ __device__ __inline__ void divide_by_integer(float& val, int64_t &denom) {val /= static_cast<float>(denom);};
 
     static __host__ __device__ __inline__ float abs (const float &val)
     {
@@ -168,6 +169,7 @@ struct util <double, PODTypes<double>::type>
     static __host__ __device__ __inline__ double conjugate(const double &val) {return val;};
     static __host__ __device__ __inline__ void invert_inplace(double &val) {val = -val;};
     static __host__ __device__ __inline__ void conjugate_inplace(double &val) {};
+    static __host__ __device__ __inline__ void divide_by_integer(double& val, int64_t &denom) {val /= static_cast<double>(denom);};
 
     static __host__ __device__ __inline__ double abs (const double &val)
     {
@@ -220,6 +222,12 @@ struct util <cuComplex, PODTypes<cuComplex>::type >
     static __host__ __device__ __inline__ cuComplex conjugate(const cuComplex &val) {return make_cuComplex(cuCrealf(val), -cuCimagf(val));};
     static __host__ __device__ __inline__ void invert_inplace(cuComplex &val) {val = make_cuComplex(-cuCrealf(val), -cuCimagf(val));};
     static __host__ __device__ __inline__ void conjugate_inplace(cuComplex &val) {val = make_cuComplex(cuCrealf(val), -cuCimagf(val));};
+    static __host__ __device__ __inline__ void divide_by_integer(cuComplex& val, int64_t &denom)
+    {
+        float den = static_cast<float>(denom);
+        val.x /= den;
+        val.y /= den;
+    };
 
     static __host__ __device__ __inline__ float abs (const cuComplex &val)
     {
@@ -294,6 +302,12 @@ struct util <cuDoubleComplex, PODTypes<cuDoubleComplex>::type>
     static __host__ __device__ __inline__ cuDoubleComplex conjugate(const cuDoubleComplex &val) {return make_cuDoubleComplex(cuCreal(val), -cuCimag(val));};
     static __host__ __device__ __inline__ void invert_inplace(cuDoubleComplex &val) {val =  make_cuDoubleComplex(-cuCreal(val), -cuCimag(val));};
     static __host__ __device__ __inline__ void conjugate_inplace(cuDoubleComplex &val) {val = make_cuDoubleComplex(cuCreal(val), -cuCimag(val));};
+    static __host__ __device__ __inline__ void divide_by_integer(cuDoubleComplex& val, int64_t &denom)
+    {
+        double den = static_cast<double>(denom);
+        val.x /= den;
+        val.y /= den;
+    };
 
     static __host__ __device__ __inline__ double abs (const cuDoubleComplex &val)
     {

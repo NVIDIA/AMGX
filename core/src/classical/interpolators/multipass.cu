@@ -1033,7 +1033,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::~Multipass_Interpolator()
 {}
 
-enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, GRID_SIZE = 1024, SMEM_SIZE = 128 };
 
 
 struct is_less_than_zero
@@ -1195,7 +1195,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // ----------------------------------------------------------
     // Create an upper bound for the length of each row P
     // ----------------------------------------------------------
-    Hash_Workspace<TConfig_d, int64_t> exp_wk;
+    Hash_Workspace<TConfig_d, int64_t> exp_wk(true, GRID_SIZE);
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;

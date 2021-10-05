@@ -338,7 +338,6 @@ vstack(Vector<TConfig> &dst, const Vector<TConfig> &top, const Vector<TConfig> &
     int height = top.get_num_rows();
     cudaMemcpy2D(dst.raw(), dpitch, top.raw(), spitch, width, height,
                  cudaMemcpyDeviceToDevice);
-    int offset = top.get_num_cols();
     cudaMemcpy2D(dst.raw() + top.get_num_cols(), dpitch, bottom.raw(), spitch, width, height,
                  cudaMemcpyDeviceToDevice);
 }

@@ -70,6 +70,10 @@ inline NormType getValue<NormType>(const char *name)
     {
         return L1;
     }
+    else if (strncmp(name, "L1_SCALED", 100) == 0)
+    {
+        return L1_SCALED;
+    }
     else if (strncmp(name, "L2", 100) == 0)
     {
         return L2;

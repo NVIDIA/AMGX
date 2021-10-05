@@ -117,7 +117,7 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
     typedef Matrix<TConfig> TMatrix;
     typedef Vector<TConfig> TVector;
 
-    bool latencyHiding = (A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && B.dirtybit != 0);
+    bool latencyHiding = (view == A.getViewExterior() && A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && B.dirtybit != 0);
 
     if (latencyHiding)
     {
@@ -135,12 +135,12 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
     }
     else
     {
-        if (!A.is_matrix_singleGPU() && B.dirtybit != 0)
+        if (view != INTERIOR && !A.is_matrix_singleGPU() && B.dirtybit != 0)
         {
             A.manager->exchange_halo_v2(B, B.tag);
         }
 
-        multiply_block_size(A, B, C, A.getViewExterior());
+        multiply_block_size(A, B, C, view);
     }
 
     C.dirtybit = 1;

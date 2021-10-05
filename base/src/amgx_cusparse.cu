@@ -1187,7 +1187,7 @@ inline void Xcsrxmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseO
 
     constexpr int nthreads = 128;
     constexpr int unroll_factor = 16;
-    int nblocks = sizeOfMask / nthreads;
+    int nblocks = sizeOfMask / nthreads + 1;
     csrxmv<unroll_factor><<<nblocks, nthreads>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
 }
 
@@ -1651,6 +1651,64 @@ void Cusparse::csrmm(typename TConfig::VecPrec alpha,
     Res.dirtybit = 1;
 }
 
+template <class T>
+void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, const T* Avals, const int* Arows, const int* Acols, T* Bvals, int* Brows, int* Bcols, cudaDataType valType)
+{
+    size_t bufferSize;
+    cusparseCheckError(cusparseCsr2cscEx2_bufferSize(
+        handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, valType,
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG2, &bufferSize));
+
+    void *buffer = nullptr;
+    if (bufferSize > 0)
+    {
+        amgx::memory::cudaMalloc(&buffer, bufferSize);
+    }
+
+    cusparseCheckError(cusparseCsr2cscEx2(
+        handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, valType,
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG2, buffer));
+
+    if(bufferSize > 0)
+    {
+        amgx::memory::cudaFreeAsync(buffer);
+    }
+}
+
+void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, const float* Avals, const int* Arows, const int* Acols, float* Bvals, int* Brows, int* Bcols)
+{
+    transpose_internal(handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, CUDA_R_32F);
+}
+void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, const double* Avals, const int* Arows, const int* Acols, double* Bvals, int* Brows, int* Bcols)
+{
+    transpose_internal(handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, CUDA_R_64F);
+}
+void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, const cuComplex* Avals, const int* Arows, const int* Acols, cuComplex* Bvals, int* Brows, int* Bcols)
+{
+    transpose_internal(handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, CUDA_C_32F);
+}
+void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, const cuDoubleComplex* Avals, const int* Arows, const int* Acols, cuDoubleComplex* Bvals, int* Brows, int* Bcols)
+{
+    transpose_internal(handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, CUDA_C_64F);
+}
+
+template <class TConfig>
+void Cusparse::transpose(const Matrix<TConfig>& A, Matrix<TConfig>& B, const int nRows, const int nNz)
+{
+    cusparseHandle_t handle = Cusparse::get_instance().m_handle;
+    transpose_internal(handle, nRows, A.get_num_cols(), nNz,
+        A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
+        B.values.raw(), B.row_offsets.raw(), B.col_indices.raw());
+}
+
+template <class TConfig>
+void Cusparse::transpose(const Matrix<TConfig>& A, Matrix<TConfig>& B)
+{
+    cusparseHandle_t handle = Cusparse::get_instance().m_handle;
+    transpose_internal(handle, A.get_num_rows(), A.get_num_cols(), A.get_num_nz(),
+        A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
+        B.values.raw(), B.row_offsets.raw(), B.col_indices.raw());
+}
 
 //#define AMGX_CASE_LINE(CASE) template class Cusparse<TemplateMode<CASE>::Type>;
 //    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
@@ -1701,6 +1759,13 @@ AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 
 #define AMGX_CASE_LINE(CASE) \
   template void Cusparse::csrmm(typename TemplateMode<CASE>::Type::VecPrec, Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>&);
+AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+#define AMGX_CASE_LINE(CASE) \
+  template void Cusparse::transpose(const Matrix<TemplateMode<CASE>::Type>& A, Matrix<TemplateMode<CASE>::Type>& B); \
+  template void Cusparse::transpose(const Matrix<TemplateMode<CASE>::Type>& A, Matrix<TemplateMode<CASE>::Type>& B, const int nRows, const int nNz);
 AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE

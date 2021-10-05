@@ -1560,6 +1560,57 @@ void CommsMPIHostBufferStream<T_Config>::all_gather_v_templated(T &my_data, int 
 #endif
 }
 
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HDVector& data, int num_elems, HDVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    MPI_Allgatherv(data.raw(), num_elems, MPI_DOUBLE, gathered_data.raw(), counts.raw(), displs.raw(), MPI_DOUBLE, mpi_comm);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HFVector& data, int num_elems, HFVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    MPI_Allgatherv(data.raw(), num_elems, MPI_FLOAT, gathered_data.raw(), counts.raw(), displs.raw(), MPI_FLOAT, mpi_comm);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HCVector& data, int num_elems, HCVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    FatalError("AllgatherV with complex data.", AMGX_ERR_NOT_IMPLEMENTED);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HZVector& data, int num_elems, HZVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    FatalError("AllgatherV with complex data.", AMGX_ERR_NOT_IMPLEMENTED);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HIVector& data, int num_elems, HIVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    MPI_Allgatherv(data.raw(), num_elems, MPI_INT, gathered_data.raw(), counts.raw(), displs.raw(), MPI_INT, mpi_comm);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+
 /****************************************
  * Explict instantiations
  ***************************************/

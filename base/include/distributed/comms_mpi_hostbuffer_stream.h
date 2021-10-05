@@ -505,6 +505,12 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void all_gather_v(HIVector &my_data, HIVector &gathered_data, int num_parts);
         void all_reduce_max(IndexType_h &my_data, IndexType_h &result_data);
 
+        void all_gather_v(HDVector& data, int num_elems, HDVector& gathered_data, HIVector counts, HIVector displs);
+        void all_gather_v(HFVector& data, int num_elems, HFVector& gathered_data, HIVector counts, HIVector displs);
+        void all_gather_v(HCVector& data, int num_elems, HCVector& gathered_data, HIVector counts, HIVector displs);
+        void all_gather_v(HZVector& data, int num_elems, HZVector& gathered_data, HIVector counts, HIVector displs);
+        void all_gather_v(HIVector& data, int num_elems, HIVector& gathered_data, HIVector counts, HIVector displs);
+
 #ifdef AMGX_WITH_MPI
         const MPI_Comm &get_mpi_comm() const {return mpi_comm;}
 #endif

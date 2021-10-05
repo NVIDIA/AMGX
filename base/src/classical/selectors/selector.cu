@@ -768,7 +768,7 @@ void __global__  createCfMapGlobal(const IndexType *cf_map, int64_t *cf_map_glob
 
 #include <sm_utils.inl>
 
-enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, GRID_SIZE = 1024, SMEM_SIZE = 128 };
 
 template< typename Value_type, int CTA_SIZE, int WARP_SIZE >
 __global__ __launch_bounds__( CTA_SIZE )
@@ -946,18 +946,17 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     const ValueType *Avalues = A.values.raw();
     const IndexType Anum_rows = (int) A.get_num_rows();
     int *cf_map_ptr = cf_map.raw();
-    Hash_Workspace<TConfig_d, int> exp_wk;
+    Hash_Workspace<TConfig_d, int> exp_wk(true, GRID_SIZE);
     IntVector C_hat_start( A.get_num_rows() + 1, 0 ), C_hat_end( A.get_num_rows() + 1, 0 );
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-        int work_offset = GRID_SIZE * NUM_WARPS;
-        cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
         int avg_nz_per_row = A.get_num_nz() / A.get_num_rows();
+        int grid_size = A.get_num_rows()/NUM_WARPS + 1;
 
         if ( avg_nz_per_row < 16 )
         {
-            amgx::classical::selector::estimate_c_hat_size_kernel< 8, CTA_SIZE, WARP_SIZE> <<< 2048, CTA_SIZE>>>(
+            amgx::classical::selector::estimate_c_hat_size_kernel< 8, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -967,7 +966,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         }
         else
         {
-            amgx::classical::selector::estimate_c_hat_size_kernel<CTA_SIZE, WARP_SIZE> <<< 2048, CTA_SIZE>>>(
+            amgx::classical::selector::estimate_c_hat_size_kernel<CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1075,7 +1074,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     }
 
     // count the number of non-zeros in the interpolation matrix
-    int numBlocks = min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
+    int numBlocks = (int) (A.get_num_rows() + blockSize - 1) / blockSize;
     IntVector nonZeroOffsets(S2_num_rows + 1);
     IntVector nonZerosPerRow(S2_num_rows);
     // Updating the number of nonZeros for your own coarse rows
@@ -1110,9 +1109,12 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         // Run the computation.
         typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
 
+        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         if (!A.is_matrix_distributed())
         {
-            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            int grid_size = (A.get_num_rows() / NUM_WARPS) + 1;
+
+            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 cf_map.raw(),
                 C_hat.raw(),
@@ -1129,14 +1131,17 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             int num_owned_fine_pts = A.get_num_rows();
             int my_rank = A.manager->global_id();
             const int cta_size = 128;
-            const int grid_size = std::min( 4096, (num_owned_fine_pts + cta_size - 1) / cta_size);
+            int grid_size = (num_owned_fine_pts + cta_size - 1) / cta_size;
             createCfMapGlobal <<< grid_size, cta_size>>>(cf_map.raw(), cf_map_global.raw(), S2.manager->part_offsets_h[my_rank], num_owned_fine_pts);
             cudaCheckError();
+
             // Exchange the cf_map_global so that we know the coarse global id of halo nodes
             cf_map_global.dirtybit = 1;
             A.manager->exchange_halo_2ring(cf_map_global, cf_map_global.tag);
             I64Vector_d S2_col_indices_global(S2.col_indices.size());
-            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+
+            grid_size = (A.get_num_rows() / NUM_WARPS) + 1;
+            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 cf_map.raw(),
                 C_hat.raw(),

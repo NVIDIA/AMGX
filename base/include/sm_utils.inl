@@ -343,9 +343,7 @@ static __device__ __forceinline__ float shfl( float r, int lane, int bound = war
 static __device__ __forceinline__ double shfl( double r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_sync(mask, __double2hiint(r), lane, bound );
-    int lo = __shfl_sync(mask, __double2loint(r), lane, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_sync(mask, r, lane, bound );
 #else
     int hi = __shfl( __double2hiint(r), lane, bound );
     int lo = __shfl( __double2loint(r), lane, bound );
@@ -395,9 +393,7 @@ static __device__ __forceinline__ float shfl_xor( float r, int lane_mask, int bo
 static __device__ __forceinline__ double shfl_xor( double r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_xor_sync( mask, __double2hiint(r), lane_mask, bound );
-    int lo = __shfl_xor_sync( mask, __double2loint(r), lane_mask, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_xor_sync( mask, r, lane_mask, bound );
 #else
     int hi = __shfl_xor( __double2hiint(r), lane_mask, bound );
     int lo = __shfl_xor( __double2loint(r), lane_mask, bound );
@@ -446,9 +442,7 @@ static __device__ __forceinline__ float shfl_down( float r, int offset, int boun
 static __device__ __forceinline__ double shfl_down( double r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_down_sync( mask, __double2hiint(r), offset, bound );
-    int lo = __shfl_down_sync( mask, __double2loint(r), offset, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_down_sync( mask, r, offset, bound );
 #else
     int hi = __shfl_down( __double2hiint(r), offset, bound );
     int lo = __shfl_down( __double2loint(r), offset, bound );
@@ -498,9 +492,7 @@ static __device__ __forceinline__ float shfl_up( float r, int offset, int bound 
 static __device__ __forceinline__ double shfl_up( double r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_up_sync( mask, __double2hiint(r), offset, bound );
-    int lo = __shfl_up_sync( mask, __double2loint(r), offset, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_up_sync( mask, r, offset, bound );
 #else
     int hi = __shfl_up( __double2hiint(r), offset, bound );
     int lo = __shfl_up( __double2loint(r), offset, bound );

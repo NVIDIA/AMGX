@@ -485,7 +485,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
     // choose a blocksize. Use 1 warp per row
     const int blockSize = 256;
     const int numWarps  = blockSize / 32;
-    const int numBlocks = min( 4096, (int) (A.get_num_rows() + numWarps - 1) / numWarps );
+    const int numBlocks = (int) (A.get_num_rows() + numWarps - 1) / numWarps;
 
     if (A.get_num_rows() > 0)
     {

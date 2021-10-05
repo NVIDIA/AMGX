@@ -250,7 +250,14 @@ class Cusparse
                           Vector<TConfig> &Res);
 
 
+        template <class TConfig>
+        static void transpose(const Matrix<TConfig> &A, Matrix<TConfig> &B);
+
+        template <class TConfig>
+        static void transpose(const Matrix<TConfig> &A, Matrix<TConfig> &B, const int nRows, const int nNz);
+
     private:
+
         template <class TConfig>
         static void bsrmv_internal( typename TConfig::VecPrec alphaConst,
                                     const Matrix<TConfig> &A,

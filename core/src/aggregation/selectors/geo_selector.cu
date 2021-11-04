@@ -28,6 +28,7 @@
 #include <basic_types.h>
 #include <algorithm>
 #include <list>
+#include <cmath>
 #include <aggregation/selectors/geo_selector.h>
 #include <error.h>
 #include <types.h>
@@ -265,7 +266,7 @@ void GEO_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 
     if (this->dimension == 3) { nlevel = ceil(log(cbrt((double)n)) / log(2.0)); }
 
-    int num_per_row = (int)pow(2.0, nlevel - 1);
+    int num_per_row = (int)std::pow(2, nlevel - 1);
     const int threads_per_block = 512;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (n - 1) / threads_per_block + 1 );
     // generate aggregation index in 1d

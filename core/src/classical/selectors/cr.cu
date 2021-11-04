@@ -39,6 +39,7 @@
 #include <thrust/functional.h>
 #include <thrust/random.h>
 #include <thrust/transform.h>
+#include <thrust_wrapper.h>
 #include <solvers/block_common_solver.h>
 
 
@@ -523,7 +524,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 #endif
     cudaCheckError();
     // get the offsets in Asc with an inclusive scan
-    thrust::inclusive_scan(Asc_nnzPerRow.begin(), Asc_nnzPerRow.end(), Asc_nnzPerRow.begin());
+    thrust_wrapper::inclusive_scan(Asc_nnzPerRow.begin(), Asc_nnzPerRow.end(), Asc_nnzPerRow.begin());
     cudaCheckError();
     // get total num of non-zeros in P
     const int Asc_nnz = Asc_nnzPerRow[AnumRows - 1];

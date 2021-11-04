@@ -34,7 +34,6 @@
 #include <transpose.h>
 
 #include <async_event.h>
-#include <stream.h>
 
 #include <thrust/count.h> //count
 #include <thrust/sort.h> //sort

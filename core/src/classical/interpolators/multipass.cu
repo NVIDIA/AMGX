@@ -47,6 +47,7 @@
 #include <thrust/scan.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -270,26 +271,6 @@ void Multipass_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace multipass_sm20
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm20.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( volatile int *offsets, int *queue, int warp_id )
-{
-    if ( utils::lane_id() == 0 )
-    {
-        offsets[warp_id] = atomicAdd( queue, 1 );
-    }
-
-    return offsets[warp_id];
-}
-
-} // namespace multipass_sm20
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 namespace multipass_sm35
 {
 
@@ -298,7 +279,6 @@ namespace multipass_sm35
 
 __device__ __forceinline__ int get_work( int *queue, int warp_id )
 {
-#if __CUDA_ARCH__ >= 300
     int offset = -1;
 
     if ( utils::lane_id() == 0 )
@@ -307,12 +287,29 @@ __device__ __forceinline__ int get_work( int *queue, int warp_id )
     }
 
     return utils::shfl( offset, 0 );
-#else
-    return 0;
-#endif
 }
 
 } // namespace multipass_sm35
+
+namespace multipass_sm70
+{
+
+#include <sm_utils.inl>
+#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
+
+__device__ __forceinline__ int get_work( int *queue, int warp_id )
+{
+    int offset = -1;
+
+    if ( utils::lane_id() == 0 )
+    {
+        offset = atomicAdd( queue, 1 );
+    }
+
+    return utils::shfl( offset, 0 );
+}
+
+} // namespace multipass_sm70
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -334,9 +331,6 @@ estimate_c_hat_size_kernel( const int A_num_rows,
                             int *C_hat_offsets,
                             int pass )
 {
-#if __CUDA_ARCH__ < 300
-    __shared__ volatile int s_mem[CTA_SIZE];
-#endif
     const int NUM_WARPS_PER_CTA = CTA_SIZE / WARP_SIZE;
     // Number of items per grid.
     const int NUM_WARPS_PER_GRID = gridDim.x * NUM_WARPS_PER_CTA;
@@ -385,25 +379,12 @@ estimate_c_hat_size_kernel( const int A_num_rows,
         }
 
         // Do reduction
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for ( int mask = WARP_SIZE / 2 ; mask > 0 ; mask >>= 1 )
         {
             my_count += utils::shfl_xor( my_count, mask );
         }
-
-#else
-        s_mem[threadIdx.x] = my_count;
-#pragma unroll
-
-        for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
-            if ( lane_id < offset )
-            {
-                s_mem[threadIdx.x] = my_count += s_mem[threadIdx.x + offset];
-            }
-
-#endif
 
         // Write result -- RACE CONDITION!
         if (lane_id == 0)
@@ -428,11 +409,6 @@ compute_c_hat_first_pass_kernel( int A_num_rows,
 {
     const int NUM_WARPS_PER_CTA = CTA_SIZE / WARP_SIZE;
     const int NUM_WARPS_PER_GRID = gridDim.x * NUM_WARPS_PER_CTA;
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS_PER_CTA];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -449,7 +425,6 @@ compute_c_hat_first_pass_kernel( int A_num_rows,
         }
 
         // Load the range of the row.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -459,16 +434,7 @@ compute_c_hat_first_pass_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
 
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
         int count = 0;
         int c_col_it = C_hat_start[a_row_id];
 
@@ -541,13 +507,6 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile KeyType s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -557,17 +516,16 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    multipass_sm35::Hash_set<KeyType, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    multipass_sm70::Hash_set<KeyType, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    multipass_sm20::Hash_set<KeyType, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    multipass_sm35::Hash_set<KeyType, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip if not in current pass
@@ -579,7 +537,6 @@ compute_c_hat_kernel( int A_num_rows,
         // Clear the set.
         set.clear();
         // Load the range of the row.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -589,16 +546,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
 
         // _iterate over the columns of A to build C_hat.
         for ( int a_col_it = a_col_begin + lane_id ; utils::any(a_col_it < a_col_end) ; a_col_it += WARP_SIZE )
@@ -712,14 +659,7 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
 {
     const int NUM_WARPS_PER_CTA = CTA_SIZE / 32;
     const int NUM_WARPS_PER_GRID = gridDim.x * NUM_WARPS_PER_CTA;
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS_PER_CTA];
-    // Shared memory for broadcast.
-    __shared__ volatile Value_type s_n_values[CTA_SIZE];
-    __shared__ volatile Value_type s_c_values[CTA_SIZE];
-#endif
+
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -751,7 +691,6 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
         else if (assigned[a_row_id] == 1)
         {
             // Load A row IDs.
-#if __CUDA_ARCH__ >= 300
             int a_col_tmp = -1;
 
             if ( lane_id < 2 )
@@ -761,17 +700,7 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
 
             int a_col_it  = utils::shfl( a_col_tmp, 0 );
             int a_col_end = utils::shfl( a_col_tmp, 1 );
-#else
 
-            if ( lane_id < 2 )
-            {
-                s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-            }
-
-            int a_col_it  = s_rows[2 * warp_id + 0];
-            int a_col_end = s_rows[2 * warp_id + 1];
-#endif
-#if __CUDA_ARCH__ >= 300
             int p_col_tmp = -1;
 
             if ( lane_id < 2 )
@@ -781,16 +710,7 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
 
             int p_col_it  = utils::shfl( p_col_tmp, 0 );
             int p_col_end = utils::shfl( p_col_tmp, 1 );
-#else
 
-            if ( lane_id < 2 )
-            {
-                s_rows[2 * warp_id + lane_id] = P_rows[a_row_id + lane_id];
-            }
-
-            int p_col_it  = s_rows[2 * warp_id + 0];
-            int p_col_end = s_rows[2 * warp_id + 1];
-#endif
             // Weak value.
             Value_type sum_N(0), sum_C(0), alfa(0);
             int count = 0;
@@ -844,9 +764,7 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
             }
 
             // We're done with that row of A, now reduce sum_N and sum_C
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
-
             for ( int mask = WARP_SIZE / 2 ; mask > 0 ; mask >>= 1 )
             {
                 sum_C += utils::shfl_xor( sum_C, mask );
@@ -855,38 +773,12 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
 
             if ( lane_id == 0 )
             {
-                double div = (fabs(sum_C * diag[a_row_id]) < 1e-10) ? 1. : sum_C * diag[a_row_id];
+                // NOTE this matches the check for zero in HYPRE
+                double div = (fabs(sum_C * diag[a_row_id]) == 0.0) ? 1. : sum_C * diag[a_row_id];
                 alfa = -sum_N / div;
             }
 
             alfa = utils::shfl( alfa, 0 );
-#else
-            s_c_values[threadIdx.x] = sum_C;
-            s_n_values[threadIdx.x] = sum_N;
-#pragma unroll
-
-            for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
-                if ( lane_id < offset )
-                {
-                    s_c_values[threadIdx.x] = sum_C += s_c_values[threadIdx.x + offset];
-                    s_n_values[threadIdx.x] = sum_N += s_n_values[threadIdx.x + offset];
-                }
-
-            sum_C = s_c_values[warp_id * WARP_SIZE];
-            sum_N = s_n_values[warp_id * WARP_SIZE];
-
-            if ( lane_id == 0 )
-            {
-                if (fabs(sum_C * diag[a_row_id]) < 1e-10) { printf("Dividing by zero\n"); }
-
-                double div = (fabs(sum_C * diag[a_row_id]) < 1e-10) ? 1. : sum_C * diag[a_row_id];
-                alfa = -sum_N / div;
-                // alfa = -sum_N/(sum_C*diag[a_row_id]);
-                s_c_values[threadIdx.x] = alfa;
-            }
-
-            alfa = s_c_values[warp_id * WARP_SIZE];
-#endif
 
             // Scale the value of P
             for ( p_col_it += lane_id ; utils::any( p_col_it < p_col_end ) ; p_col_it += WARP_SIZE )
@@ -900,8 +792,6 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
         } // if (assigned[a_row_id] == 1)
     } // Loop over rows
 }
-
-
 
 template< typename Value_type, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, typename KeyType >
 __global__ __launch_bounds__( CTA_SIZE )
@@ -927,7 +817,6 @@ compute_interp_weight_kernel( const int A_num_rows,
                               const int *__restrict assigned,
                               int pass)
 {
-#if 1
     const int NUM_WARPS = CTA_SIZE / 32;
     // The hash keys stored in shared memory.
     __shared__ volatile KeyType s_keys[NUM_WARPS * SMEM_SIZE];
@@ -935,18 +824,11 @@ compute_interp_weight_kernel( const int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads store a value of B to load.
     __shared__ volatile Value_type s_b_values[CTA_SIZE];
-#if __CUDA_ARCH__ >= 300
     // The hash values stored in shared memory.
-    __shared__ volatile multipass_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+#if __CUDA_ARCH__ >= 700
+    __shared__ volatile multipass_sm70::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
 #else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-    // Shared memory to store the values in the hash table.
-    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
-    __shared__ volatile Value_type s_n_values[CTA_SIZE];
-    __shared__ volatile Value_type s_c_values[CTA_SIZE];
+    __shared__ volatile multipass_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
 #endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
@@ -954,25 +836,24 @@ compute_interp_weight_kernel( const int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     volatile int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    multipass_sm35::Hash_map<KeyType, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
+#if __CUDA_ARCH__ >= 700
+    multipass_sm70::Hash_map<KeyType, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
             &s_vote[warp_id * SMEM_SIZE / 4],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #else
-    multipass_sm20::Hash_map<KeyType, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
+    multipass_sm35::Hash_map<KeyType, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vals[warp_id * SMEM_SIZE],
+            &s_vote[warp_id * SMEM_SIZE / 4],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = multipass_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Only do work if assigned[row_id] == pass
@@ -988,7 +869,6 @@ compute_interp_weight_kernel( const int A_num_rows,
         int c_hat_end = c_hat_it + C_hat_size[a_row_id];
         map.load( c_hat_end - c_hat_it, &C_hat[c_hat_it], &C_hat_pos[c_hat_it] );
         // Load A row IDs.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -998,16 +878,7 @@ compute_interp_weight_kernel( const int A_num_rows,
 
         int a_col_it  = utils::shfl( a_col_tmp, 0 );
         int a_col_end = utils::shfl( a_col_tmp, 1 );
-#else
 
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_it  = s_rows[2 * warp_id + 0];
-        int a_col_end = s_rows[2 * warp_id + 1];
-#endif
         // sums
         Value_type sum_N(0), sum_C(0), alfa(0);
 
@@ -1088,9 +959,7 @@ compute_interp_weight_kernel( const int A_num_rows,
         }
 
         // We're done with that row of A, now reduce sum_N and sum_C
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
-
         for ( int mask = WARP_SIZE / 2 ; mask > 0 ; mask >>= 1 )
         {
             sum_C += utils::shfl_xor( sum_C, mask );
@@ -1099,37 +968,14 @@ compute_interp_weight_kernel( const int A_num_rows,
 
         if ( lane_id == 0 )
         {
-            double div = (fabs(sum_C * diag[a_row_id]) < 1e-10) ? 1. : sum_C * diag[a_row_id];
+            // NOTE this matches the check for zero in HYPRE
+            double div = (fabs(sum_C * diag[a_row_id]) == 0.0) ? 1. : sum_C * diag[a_row_id];
             alfa = -sum_N / div;
             // alfa = -sum_N/(sum_C*diag[a_row_id]);
         }
 
         alfa = utils::shfl( alfa, 0 );
-#else
-        s_c_values[threadIdx.x] = sum_C;
-        s_n_values[threadIdx.x] = sum_N;
-#pragma unroll
 
-        for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
-            if ( lane_id < offset )
-            {
-                s_c_values[threadIdx.x] = sum_C += s_c_values[threadIdx.x + offset];
-                s_n_values[threadIdx.x] = sum_N += s_n_values[threadIdx.x + offset];
-            }
-
-        sum_C = s_c_values[warp_id * WARP_SIZE];
-        sum_N = s_n_values[warp_id * WARP_SIZE];
-
-        if ( lane_id == 0 )
-        {
-            double div = (fabs(sum_C * diag[a_row_id]) < 1e-10) ? 1. : sum_C * diag[a_row_id];
-            alfa = -sum_N / div;
-            s_c_values[threadIdx.x] = alfa;
-        }
-
-        alfa = s_c_values[warp_id * WARP_SIZE];
-#endif
-#if __CUDA_ARCH__ >= 300
         int p_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -1139,20 +985,9 @@ compute_interp_weight_kernel( const int A_num_rows,
 
         int p_col_it  = utils::shfl( p_col_tmp, 0 );
         int p_col_end = utils::shfl( p_col_tmp, 1 );
-#else
 
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = P_rows[a_row_id + lane_id];
-        }
-
-        int p_col_it  = s_rows[2 * warp_id + 0];
-        int p_col_end = s_rows[2 * warp_id + 1];
-#endif
         map.store_keys_scale_values( p_col_end - p_col_it, &P_cols[p_col_it], alfa, &P_vals[p_col_it] );
     }
-
-#endif
 }
 
 } // namespace multipass
@@ -1198,7 +1033,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::~Multipass_Interpolator()
 {}
 
-enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, GRID_SIZE = 1024, SMEM_SIZE = 128 };
 
 
 struct is_less_than_zero
@@ -1276,9 +1111,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     int pass = 2;
     int max_num_passes = 10;
     // Count the number of unassigned nodes by checking which nodes have assigned[i] = -1
-    IndexType num_unassigned = thrust::count_if(assigned.begin(), assigned.end(), is_less_than_zero());
+    IndexType num_unassigned = thrust_wrapper::count_if(assigned.begin(), assigned.end(), is_less_than_zero());
     cudaCheckError();
-    IndexType num_strong_fine = thrust::count_if(cf_map.begin(), cf_map.end(), is_strong_fine());
+    IndexType num_strong_fine = thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_strong_fine());
     cudaCheckError();
     IndexType num_unassigned_max = num_unassigned - num_strong_fine;
 
@@ -1297,7 +1132,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     while (num_unassigned_max && pass < max_num_passes)
     {
         fillAssignedArray<IndexType, cta_size> <<< grid_size, cta_size>>>(assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), Anum_rows, pass);
-        num_unassigned = thrust::count_if(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
+        num_unassigned = thrust_wrapper::count_if(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
         cudaCheckError();
         num_unassigned_max = num_unassigned - num_strong_fine;
 
@@ -1330,9 +1165,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
         cudaCheckError();
-        int num_halo_coarse_pts = thrust::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         coarsePoints = num_owned_coarse_pts + num_halo_coarse_pts;
         // Partially initialize the distributed manager of matrix P, using num_owned_coarse_pts
@@ -1349,7 +1184,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
     else
     {
-        coarsePoints = (int) thrust::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        coarsePoints = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
         const int cta_size = 128;
         const int grid_size = std::min( 4096, (A.get_num_rows() + cta_size - 1) / cta_size);
@@ -1360,7 +1195,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // ----------------------------------------------------------
     // Create an upper bound for the length of each row P
     // ----------------------------------------------------------
-    Hash_Workspace<TConfig_d, int64_t> exp_wk;
+    Hash_Workspace<TConfig_d, int64_t> exp_wk(true, GRID_SIZE);
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -1395,8 +1230,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         cudaCheckError();
     }
+
     // Do an exclusive scan on C_hat_start to compute compute upper bound on row offsets
-    thrust::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
+    thrust_wrapper::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
     cudaCheckError();
     // Now C_hat_start contains the offsets
     // Create a temporary manager that can be used to exchange halo information on values and/or column indices, where there's more than 1 value associated with each node
@@ -1519,10 +1355,10 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
 
     // get total number of non-zeros with reduction
-    int nonZeros = thrust::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[nonZeroOffsets.size() - 1] = nonZeros;
     // resize P

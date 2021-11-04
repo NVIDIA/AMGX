@@ -275,40 +275,28 @@ static __device__ __forceinline__ void load_vec4( double (&u)[4], const double *
 // ====================================================================================================================
 static __device__ __forceinline__ unsigned int ballot(int p, unsigned int mask = DEFAULT_MASK)
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __ballot_sync(mask, p);
 #else
     return __ballot(p);   
 #endif
-#else
-    return 0;
-#endif
 }
 
 static __device__ __forceinline__ unsigned int any(int p, unsigned int mask = DEFAULT_MASK)
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __any_sync(mask, p);
 #else
     return __any(p);   
 #endif
-#else
-    return 0;
-#endif
 }
 
 static __device__ __forceinline__ unsigned int all(int p, unsigned int mask = DEFAULT_MASK)
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __all_sync(mask, p);
 #else
     return __all(p);   
-#endif
-#else
-    return 0;
 #endif
 }
 
@@ -335,51 +323,36 @@ static __device__ __forceinline__ void syncwarp(unsigned int mask = 0xffffffff)
 // ====================================================================================================================
 static __device__ __forceinline__ int shfl( int r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_sync( mask, r, lane, bound );
 #else
     return __shfl( r, lane, bound );
-#endif
-#else // __CUDA_ARCH__
-    return 0.0f;
 #endif
 }
 
 
 static __device__ __forceinline__ float shfl( float r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_sync( mask, r, lane, bound );
 #else
     return __shfl( r, lane, bound );
 #endif
-#else // __CUDA_ARCH__
-    return 0.0f;
-#endif
 }
 
 static __device__ __forceinline__ double shfl( double r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_sync(mask, __double2hiint(r), lane, bound );
-    int lo = __shfl_sync(mask, __double2loint(r), lane, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_sync(mask, r, lane, bound );
 #else
     int hi = __shfl( __double2hiint(r), lane, bound );
     int lo = __shfl( __double2loint(r), lane, bound );
     return __hiloint2double( hi, lo );
 #endif
-#else
-    return 0.0;
-#endif
 }
 
 static __device__ __forceinline__ cuComplex shfl( cuComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     float re = __shfl_sync( mask, cuCrealf(r), lane, bound );
     float im = __shfl_sync( mask, cuCimagf(r), lane, bound );
@@ -389,69 +362,47 @@ static __device__ __forceinline__ cuComplex shfl( cuComplex r, int lane, int bou
     float im = __shfl( cuCimagf(r), lane, bound );
     return make_cuComplex(re, im);
 #endif
-#else
-    return amgx::types::util<cuComplex>::get_zero();
-#endif
 }
 
 static __device__ __forceinline__ cuDoubleComplex shfl( cuDoubleComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
     double re = shfl( cuCreal(r), lane, mask, bound );
     double im = shfl( cuCimag(r), lane, mask, bound );
     return make_cuDoubleComplex( re, im );
-#else
-    return amgx::types::util<cuDoubleComplex>::get_zero();
-#endif
 }
 
 static __device__ __forceinline__ int shfl_xor( int r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_xor_sync( mask, r, lane_mask, bound );
 #else
     return __shfl_xor( r, lane_mask, bound );
-#endif
-#else
-    return 0.0f;
 #endif
 }
 
 
 static __device__ __forceinline__ float shfl_xor( float r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_xor_sync( mask, r, lane_mask, bound );
 #else
     return __shfl_xor( r, lane_mask, bound );
 #endif
-#else
-    return 0.0f;
-#endif
 }
 
 static __device__ __forceinline__ double shfl_xor( double r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_xor_sync( mask, __double2hiint(r), lane_mask, bound );
-    int lo = __shfl_xor_sync( mask, __double2loint(r), lane_mask, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_xor_sync( mask, r, lane_mask, bound );
 #else
     int hi = __shfl_xor( __double2hiint(r), lane_mask, bound );
     int lo = __shfl_xor( __double2loint(r), lane_mask, bound );
     return __hiloint2double( hi, lo );
 #endif
-#else
-    return 0.0;
-#endif
 }
 
 static __device__ __forceinline__ cuComplex shfl_xor( cuComplex r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     float re = __shfl_xor_sync( mask, cuCrealf(r), lane_mask, bound );
     float im = __shfl_xor_sync( mask, cuCimagf(r), lane_mask, bound );
@@ -461,68 +412,46 @@ static __device__ __forceinline__ cuComplex shfl_xor( cuComplex r, int lane_mask
     float im = __shfl_xor( cuCimagf(r), lane_mask, bound );
     return make_cuComplex(re, im);
 #endif
-#else
-    return amgx::types::util<cuComplex>::get_zero();
-#endif
 }
 
 static __device__ __forceinline__ cuDoubleComplex shfl_xor( cuDoubleComplex r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
     double re = shfl_xor( cuCreal(r), lane_mask, mask, bound );
     double im = shfl_xor( cuCimag(r), lane_mask, mask, bound );
     return make_cuDoubleComplex( re, im );
-#else
-    return amgx::types::util<cuDoubleComplex>::get_zero();
-#endif
 }
 
 static __device__ __forceinline__ int shfl_down( int r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_down_sync( mask, r, offset, bound );
 #else
     return __shfl_down( r, offset, bound );
-#endif
-#else
-    return 0.0f;
 #endif
 }
 
 static __device__ __forceinline__ float shfl_down( float r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_down_sync( mask, r, offset, bound );
 #else
     return __shfl_down( r, offset, bound );
 #endif
-#else
-    return 0.0f;
-#endif
 }
 
 static __device__ __forceinline__ double shfl_down( double r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_down_sync( mask, __double2hiint(r), offset, bound );
-    int lo = __shfl_down_sync( mask, __double2loint(r), offset, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_down_sync( mask, r, offset, bound );
 #else
     int hi = __shfl_down( __double2hiint(r), offset, bound );
     int lo = __shfl_down( __double2loint(r), offset, bound );
     return __hiloint2double( hi, lo );
 #endif
-#else
-    return 0.0;
-#endif
 }
 
 static __device__ __forceinline__ cuComplex shfl_down( cuComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     float re = __shfl_down_sync( mask, cuCrealf(r), lane, bound );
     float im = __shfl_down_sync( mask, cuCimagf(r), lane, bound );
@@ -532,69 +461,47 @@ static __device__ __forceinline__ cuComplex shfl_down( cuComplex r, int lane, in
     float im = __shfl_down( cuCimagf(r), lane, bound );
     return make_cuComplex(re, im);
 #endif
-#else
-    return amgx::types::util<cuComplex>::get_zero();
-#endif
 }
 
 static __device__ __forceinline__ cuDoubleComplex shfl_down( cuDoubleComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
     double re = shfl_down( cuCreal(r), lane, bound );
     double im = shfl_down( cuCimag(r), lane, bound );
     return make_cuDoubleComplex( re, im );
-#else
-    return amgx::types::util<cuDoubleComplex>::get_zero();
-#endif
 }
 
 
 static __device__ __forceinline__ int shfl_up( int r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_up_sync( mask, r, offset, bound );
 #else
     return __shfl_up( r, offset, bound );
-#endif
-#else
-    return 0.0f;
 #endif
 }
 
 static __device__ __forceinline__ float shfl_up( float r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     return __shfl_up_sync( mask, r, offset, bound );
 #else
     return __shfl_up( r, offset, bound );
 #endif
-#else
-    return 0.0f;
-#endif
 }
 
 static __device__ __forceinline__ double shfl_up( double r, int offset, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
-    int hi = __shfl_up_sync( mask, __double2hiint(r), offset, bound );
-    int lo = __shfl_up_sync( mask, __double2loint(r), offset, bound );
-    return __hiloint2double( hi, lo );
+    return __shfl_up_sync( mask, r, offset, bound );
 #else
     int hi = __shfl_up( __double2hiint(r), offset, bound );
     int lo = __shfl_up( __double2loint(r), offset, bound );
     return __hiloint2double( hi, lo );
 #endif
-#else
-    return 0.0;
-#endif
 }
 
 static __device__ __forceinline__ cuComplex shfl_up( cuComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
 #if CUDART_VERSION >= 9000
     float re = __shfl_up_sync( mask, cuCrealf(r), lane, bound );
     float im = __shfl_up_sync( mask, cuCimagf(r), lane, bound );
@@ -604,20 +511,13 @@ static __device__ __forceinline__ cuComplex shfl_up( cuComplex r, int lane, int 
     float im = __shfl_up( cuCimagf(r), lane, bound );
     return make_cuComplex(re, im);
 #endif
-#else
-    return amgx::types::util<cuComplex>::get_zero();
-#endif
 }
 
 static __device__ __forceinline__ cuDoubleComplex shfl_up( cuDoubleComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-#if __CUDA_ARCH__ >= 300
     double re = shfl_up( cuCreal(r), lane, bound );
     double im = shfl_up( cuCimag(r), lane, bound );
     return make_cuDoubleComplex( re, im );
-#else
-    return amgx::types::util<cuDoubleComplex>::get_zero();
-#endif
 }
 
 // ====================================================================================================================
@@ -629,8 +529,6 @@ struct Add
     template< typename Value_type >
     static __device__ __forceinline__ Value_type eval( Value_type x, Value_type y ) { return x + y; }
 };
-
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
 
 template< int NUM_THREADS_PER_ITEM, int WarpSize >
 struct Warp_reduce_pow2
@@ -672,51 +570,6 @@ struct Warp_reduce_linear
         return x;
     }
 };
-
-#else
-
-template< int NUM_THREADS_PER_ITEM, int WarpSize >
-struct Warp_reduce_pow2
-{
-    template< typename Operator, typename Value_type >
-    static __device__ __inline__ Value_type execute( volatile Value_type *smem, Value_type x )
-    {
-        int my_lane_id = utils::lane_id();
-#pragma unroll
-
-        for ( int offset = WarpSize / 2 ; offset >= NUM_THREADS_PER_ITEM ; offset >>= 1 )
-            if ( my_lane_id < offset )
-            {
-                x = Operator::eval( x, smem[threadIdx.x + offset] );
-                amgx::types::util<Value_type>::volcast(x, smem + threadIdx.x);
-            }
-
-        return x;
-    }
-};
-
-template< int NUM_THREADS_PER_ITEM, int WarpSize >
-struct Warp_reduce_linear
-{
-    template< typename Operator, typename Value_type >
-    static __device__ __inline__ Value_type execute( volatile Value_type *smem, Value_type x )
-    {
-        const int NUM_STEPS = WarpSize / NUM_THREADS_PER_ITEM;
-        int my_lane_id = utils::lane_id();
-#pragma unroll
-
-        for ( int i = 1 ; i < NUM_STEPS ; ++i )
-            if ( my_lane_id < NUM_THREADS_PER_ITEM )
-            {
-                x = Operator::eval( x, smem[threadIdx.x + i * NUM_THREADS_PER_ITEM] );
-                amgx::types::util<Value_type>::volcast(x, smem + threadIdx.x);
-            }
-
-        return x;
-    }
-};
-
-#endif
 
 // ====================================================================================================================
 
@@ -761,40 +614,11 @@ struct Warp_reduce<15, WarpSize> : public Warp_reduce_linear<15, WarpSize> {};
 
 // ====================================================================================================================
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
-
 template< int NUM_THREADS_PER_ITEM, typename Operator, typename Value_type >
 static __device__ __forceinline__ Value_type warp_reduce( Value_type x )
 {
     return Warp_reduce<NUM_THREADS_PER_ITEM>::template execute<Operator>( x );
 }
-
-#else
-
-template< int NUM_THREADS_PER_ITEM, typename Operator, typename Value_type >
-static __device__ __forceinline__ Value_type warp_reduce( volatile Value_type *smem, Value_type x )
-{
-    return Warp_reduce<NUM_THREADS_PER_ITEM>::template execute<Operator>( smem, x );
-}
-
-template< int NUM_THREADS_PER_ITEM, typename Value_type, int WarpSize = 32 >
-static __device__ __forceinline__ Value_type warp_reduce_sum(volatile Value_type *smem, Value_type x)
-{
-    const int NUM_STEPS = WarpSize / NUM_THREADS_PER_ITEM;
-    int my_lane_id = utils::lane_id();
-#pragma unroll
-
-    for (int i = 1; i < NUM_STEPS; ++i)
-        if (my_lane_id < NUM_THREADS_PER_ITEM)
-        {
-            x = x + amgx::types::util<Value_type>::volcast(smem[threadIdx.x + i * NUM_THREADS_PER_ITEM]);
-            amgx::types::util<Value_type>::volcast(x, smem + threadIdx.x);
-        }
-
-    return x;
-}
-
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -208,7 +208,6 @@ void find_max_neighbor_kernel_and_propagate_used_colors( const int A_num_rows,
         }
 
         //BEGIN: Reduce used_colors/max_hashes amongst subwarps
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
@@ -231,36 +230,6 @@ void find_max_neighbor_kernel_and_propagate_used_colors( const int A_num_rows,
             used_colors |= tmpu;
         }
 
-#else
-        __shared__ volatile int s_max_hash[CTA_SIZE + WARP_SIZE / 2];
-        __shared__ volatile int s_max_hash_id[CTA_SIZE + WARP_SIZE / 2];
-        __shared__ volatile long long s_used_colors[CTA_SIZE + WARP_SIZE / 2];
-#pragma unroll
-
-        for (int i = 1; i <= WARP_SIZE / 2; i *= 2)
-        {
-            s_max_hash[threadIdx.x] = max_hash;
-            s_max_hash_id[threadIdx.x] = max_hash_id;
-            int tmp    = s_max_hash[threadIdx.x + i];
-            int tmp_id = s_max_hash_id[threadIdx.x + i];
-
-            if (lane_id + i < WARP_SIZE)
-            {
-                if (tmp_id >= 0 && (max_hash_id < 0 || tmp > max_hash || (tmp == max_hash && tmp_id >= max_hash_id)))
-                {
-                    max_hash = tmp;
-                    max_hash_id = tmp_id;
-                }
-            }
-
-            ///
-            s_used_colors[threadIdx.x] = used_colors;
-            long long tmpu = s_used_colors[threadIdx.x + i];
-
-            if (lane_id + i < WARP_SIZE) { used_colors |= tmpu; }
-        }
-
-#endif
         //END: Reduce used_colors/max_hashes amongst subwarps
 
         //The subwarp leader stores the result.
@@ -355,7 +324,6 @@ void color_kernel_greedy_onlymax(
         }
 
         //reduce used colors bit by bit.
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
@@ -368,19 +336,6 @@ void color_kernel_greedy_onlymax(
             used_colors |= tmp;
         }
 
-#else
-        __shared__ volatile long long s_used_colors[CTA_SIZE + WARP_SIZE / 2];
-#pragma unroll
-
-        for (int i = 1; i <= WARP_SIZE / 2; i *= 2)
-        {
-            s_used_colors[threadIdx.x] = used_colors;
-            long long tmp = s_used_colors[threadIdx.x + i];
-
-            if (lane_id + i < WARP_SIZE) { used_colors |= tmp; }
-        }
-
-#endif
         int my_color_1 = 64 - utils::bfind( ~used_colors );
 
         if (__popc(used_colors) >= 64 || my_color_1 > 64 || my_color_1 <= 0)
@@ -624,7 +579,6 @@ void color_kernel_greedy_gtlt(
         //is_max_vertex = row_gt_count==0;
         //is_min_vertex = false;
         //reduce used colors bit by bit.
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
 
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
@@ -637,19 +591,6 @@ void color_kernel_greedy_gtlt(
             used_colors |= tmp;
         }
 
-#else
-        __shared__ volatile long long s_used_colors[CTA_SIZE + WARP_SIZE / 2];
-#pragma unroll
-
-        for (int i = 1; i <= WARP_SIZE / 2; i *= 2)
-        {
-            s_used_colors[threadIdx.x] = used_colors;
-            long long tmp = s_used_colors[threadIdx.x + i];
-
-            if (lane_id + i < WARP_SIZE) { used_colors |= tmp; }
-        }
-
-#endif
         int my_color_1 = 0;
         int my_color_2 = 0;
         int free_colors = __popc(used_colors);
@@ -835,7 +776,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
 
         int nnz_per_row = float(A.get_num_nz()) / A.get_num_rows();
 
-        if (iter > std::min((int)pow((double)nnz_per_row, (int)this->m_coloring_level), 63)) //estimate number of epochs required for coloring
+        if (iter > std::min((int)std::pow(nnz_per_row, this->m_coloring_level), 63)) //estimate number of epochs required for coloring
         {
             num_uncolored = (int) thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_zero() );
             cudaCheckError();
@@ -875,7 +816,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
         }
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
     cudaCheckError();
 }
 

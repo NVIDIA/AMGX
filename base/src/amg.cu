@@ -1140,7 +1140,10 @@ class AMG_Solve
             assert(fine != NULL);
             CycleFactory<TConfig>::generate( amg, fine, b, x );
             fine->unsetInitCycle();
-            MemoryInfo::updateMaxMemoryUsage();
+            // Note: this sometimes takes too much time on host making GPU idle. 
+            // Solve is not that important for memory - main mem usage comes from setup.
+            // Disabling this call for now
+            //MemoryInfo::updateMaxMemoryUsage();
             cudaStreamSynchronize(0);
         }
 

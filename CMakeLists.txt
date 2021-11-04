@@ -24,11 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 2.8.10)
 
 # the project
 project (AMG)
@@ -77,7 +73,10 @@ endif()
 # min compiler requirements
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
-    message(FATAL_ERROR "Insufficient gcc version. 4.8.2 is required to compile AMGX")
+    message(
+      FATAL_ERROR
+      "AmgX requires GCC >= 4.8.2 but GCC version is \"${CMAKE_CXX_COMPILER_VERSION}\""
+    )
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc")
   endif()
@@ -173,11 +172,12 @@ if(NOT WIN32)
 endif()
 
 #Configuration specific nvcc flags
-if(CMAKE_COMPILER_IS_GNUCXX)
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++11;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++11;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++11;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++11;${NVTXRANGE_FLAG}" CACHE STRING "RelWithTraces compiler flags")
+GET_FILENAME_COMPONENT(CMAKE_CXX_COMPILER_NAME "${CMAKE_CXX_COMPILER}" NAME)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_NAME MATCHES "clang")
+  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
+  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
+  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "RelWithTraces compiler flags")
 else()
   set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
   set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
@@ -195,11 +195,11 @@ endif(AMGX_keep_intermediate)
 
 #windows/linux specific settings for C
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
-IF(CMAKE_C_COMPILER_NAME MATCHES cl)
+IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" CACHE STRING "nvcc flags")
-ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
+ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Xcompiler=-rdynamic;-Xcompiler=-fPIC;-Xcompiler=-fvisibility=default" CACHE STRING "nvcc flags")
-ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
+ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 # VS: include object files in target property SOURCES
 # otherwise a workaround for extracting ${obj_all} is necessary below
@@ -230,10 +230,10 @@ if(MPI_FOUND)
   endif (DEFINED ENV{VAMPIR_TRACE_PATH})
 endif(MPI_FOUND)
 
-#if compiling against CUDA Toolkit 8.x
-IF(CUDA_VERSION_MAJOR MATCHES 8)
-  SET(CUDA_ARCH "35 37 52 60" CACHE STRING "Target Architectures (SM35 SM37 SM52 SM60), multiple are allowed")
-ENDIF(CUDA_VERSION_MAJOR MATCHES 8)
+#if CUDA Toolkit is older than 9.0
+if(CUDA_VERSION_MAJOR LESS 9)
+  message(FATAL_ERROR "CUDA versions older than 9.0 are not supported")
+endif()
 
 #if compiling against CUDA Toolkit 9.x
 IF(CUDA_VERSION_MAJOR MATCHES 9)
@@ -246,14 +246,20 @@ IF(CUDA_VERSION_MAJOR MATCHES 10)
 
   IF(CUDA_VERSION_MINOR GREATER 0)
     # Disable mixed precision for CUDA 10.1+
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION)
-
     # Use the generic cuSPARSE interfaces available from 10.1 on Linux
-    IF(NOT WIN32)
-      SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DCUSPARSE_GENERIC_INTERFACES)
-    ENDIF(NOT WIN32)
+    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION -DCUSPARSE_GENERIC_INTERFACES)
   ENDIF(CUDA_VERSION_MINOR GREATER 0)
 ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
+
+#if compiling against CUDA Toolkit 11.x
+IF(CUDA_VERSION_MAJOR MATCHES 11)
+  SET(CUDA_ARCH "60 70 80" CACHE STRING "Target Architectures (SM60 SM70 SM80), multiple are allowed")
+
+  # Disable mixed precision for CUDA 10.1+
+  # Use the generic cuSPARSE interfaces available from 10.1 on Linux, cusparseSpGEMM from 11.0
+  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION -DCUSPARSE_GENERIC_INTERFACES -DCUSPARSE_USE_GENERIC_SPGEMM)
+
+ENDIF(CUDA_VERSION_MAJOR MATCHES 11)
 
 #replace ' ' with ; to match the proper cmake format
 STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})
@@ -281,7 +287,6 @@ set(pluginConf "PluginConfig.txt")                     # plugin configuration
 set(pluginCode "${CMAKE_SOURCE_DIR}/plugin_config.cu") # plugin code
 file(STRINGS ${pluginConf} pluginList)                 # plugin list
 set(libList base core ${pluginList})                   # lib list
-set(srcTarball "../srcTarball.txt")                    # dirs for source tarball
 
 
 # create initialization and finalization for plugins
@@ -305,24 +310,6 @@ if(${pluginConf} IS_NEWER_THAN ${pluginCode})
   file(APPEND ${pluginCode} "}\n")
   file(APPEND ${pluginCode} "} // namespace amgx\n")
 endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
-
-# create file with files and dirs for source tarball
-#if(${pluginConf} IS_NEWER_THAN ${srcTarball})
-  set(dirList "CMakeLists.txt" ${versionFile} ${pluginConf} "doc" "examples" ${libList})
-  if (${AMGX_INCLUDE_EXTERNAL})
-    set(dirList ${dirList} "external")
-  endif (${AMGX_INCLUDE_EXTERNAL})
-  set(dirList ${dirList} "tests")
-  string(REPLACE "/" " " dirliststr ${CMAKE_SOURCE_DIR})
-  string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" dirlist "${dirliststr}")
-  list(GET dirlist -1 branch)
-  #message (STATUS "working with branch = " ${branch})
-  file(WRITE ${srcTarball} "")
-  foreach( dir ${dirList} )
-    file(TO_NATIVE_PATH "${branch}/${dir}" nativePath)
-    file(APPEND ${srcTarball} "${nativePath}\n")
-  endforeach(dir)
-#endif(${pluginConf} IS_NEWER_THAN ${srcTarball})
 
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used

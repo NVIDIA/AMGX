@@ -113,8 +113,37 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
         FatalError(ss.str().c_str(), AMGX_ERR_BAD_PARAMETERS);
     }
 
-    multiply_block_size(A, B, C, view);
 
+    typedef Matrix<TConfig> TMatrix;
+    typedef Vector<TConfig> TVector;
+
+    bool latencyHiding = (view == A.getViewExterior() && A.getViewInterior() != A.getViewExterior() && !A.is_matrix_singleGPU() && B.dirtybit != 0);
+
+    if (latencyHiding)
+    {
+        A.manager->exchange_halo_split_gather(B, B.tag);
+
+        // Multiply interior rows
+        multiply_block_size(A, B, C, A.getViewInterior());
+
+        // Finish halo exchange
+        A.manager->exchange_halo_split_finish(B, B.tag);
+
+        // Multiply rows with halo dependencies
+        ViewType bnd_view = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
+        multiply_block_size(A, B, C, bnd_view);
+    }
+    else
+    {
+        if (view != INTERIOR && !A.is_matrix_singleGPU() && B.dirtybit != 0)
+        {
+            A.manager->exchange_halo_v2(B, B.tag);
+        }
+
+        multiply_block_size(A, B, C, view);
+    }
+
+    C.dirtybit = 1;
     C.set_block_dimy(A.get_block_dimx());
 }
 
@@ -395,10 +424,10 @@ void blockDiaCsrMultiplyKernel(const IndexType *row_offsets,
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, int CTA_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 8 )
+__launch_bounds__( CTA_SIZE, 16 )
 #endif
 void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         const IndexType *column_indices,
@@ -410,19 +439,13 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         const int row_offset )
 {
     const int nHalfWarps = CTA_SIZE / 16; // Number of half warps per CTA.
-    const int laneId = threadIdx.x % 32;
+    const int laneId = threadIdx.x % warpSize;
     const int halfWarpId = threadIdx.x / 16;
     const int halfLaneId = threadIdx.x % 16;
     const int halfLaneId_div_4 = halfLaneId / 4;
     const int halfLaneId_mod_4 = halfLaneId % 4;
     const int laneId_div_16 = laneId / 16;
     const int upperHalf = 16 * laneId_div_16;
-    const int upperMask = 0xffff << upperHalf;
-#if __CUDA_ARCH__ < 300
-    const int nWarps = CTA_SIZE / 32; // Number of half warps per CTA.
-    const int warpId = threadIdx.x / 32;
-    volatile __shared__ IndexType s_aColIds[nWarps][32];
-#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile ValueTypeB s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -431,6 +454,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
     // Iterate over the rows of the matrix. One warp per two rows.
     for ( int aRowId = blockIdx.x * nHalfWarps + halfWarpId ; aRowId < num_block_rows ; aRowId += gridDim.x * nHalfWarps )
     {
+        unsigned int active_mask = utils::activemask();
         // Load one block of B.
         ValueTypeB my_Ax = types::util<ValueTypeB>::get_zero();
 
@@ -459,7 +483,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         int aColEnd   = row_offsets[aRowId + 1];
 
         // Each warp load column indices of 16 nonzero blocks
-        for ( ; utils::any( aColBegin < aColEnd ) ; aColBegin += 16 )
+        for ( ; utils::any( aColBegin < aColEnd, active_mask ) ; aColBegin += 16 )
         {
             int aColIt = aColBegin + halfLaneId;
             // Get the ID of the column.
@@ -470,20 +494,17 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
                 aColId = column_indices[aColIt];
             }
 
-#if __CUDA_ARCH__ < 300
-            s_aColIds[warpId][laneId] = aColId;
-#endif
+            // Count the number of active columns.
+            int vote =  utils::ballot(aColId != -1, active_mask);
+            // The number of iterations.
+            int nCols = max( __popc( vote & 0x0000ffff ), __popc( vote & 0xffff0000 ) );
 
             // Loop over columns. We compute 8 columns per iteration.
-            for ( int k = 0, nCols = __popc( utils::ballot(aColId != -1) & upperMask ) ; k < nCols ; k += 4 )
+            for ( int k = 0 ; k < nCols ; k += 4 )
             {
                 int my_k = k + halfLaneId_div_4;
                 // Exchange column indices.
-#if __CUDA_ARCH__ >= 300
-                int waColId = utils::shfl( aColId, upperHalf + my_k );
-#else
-                int waColId = s_aColIds[warpId][upperHalf + my_k];
-#endif
+                int waColId = utils::shfl( aColId, upperHalf + my_k, warpSize, active_mask );
                 // Load 8 blocks of X if needed.
                 ValueTypeB my_x = types::util<ValueTypeB>::get_zero();
 
@@ -525,52 +546,16 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         } // Loop over aColIt
 
         // Reduce bmAx terms.
-#if __CUDA_ARCH__ >= 300
-
         if ( ROW_MAJOR )
         {
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 1 );
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 2 );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 1, warpSize, active_mask );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 2, warpSize, active_mask );
         }
         else
         {
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 4 );
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 8 );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 4, warpSize, active_mask );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 8, warpSize, active_mask );
         }
-
-#else
-        types::util<ValueTypeB>::volcast(my_Ax, s_mem + threadIdx.x);
-        {
-            if ( ROW_MAJOR )
-            {
-                if ( laneId < 31 )
-                {
-                    my_Ax = my_Ax + types::util<ValueTypeB>::volcast(s_mem[threadIdx.x + 1]);
-                    types::util<ValueTypeB>::volcast(my_Ax, s_mem + threadIdx.x);
-                }
-
-                if ( laneId < 30 )
-                {
-                    my_Ax = my_Ax + types::util<ValueTypeB>::volcast(s_mem[threadIdx.x + 2]);
-                    types::util<ValueTypeB>::volcast(my_Ax, s_mem + threadIdx.x);
-                }
-            }
-            else
-            {
-                if ( laneId < 31 )
-                {
-                    my_Ax = my_Ax + types::util<ValueTypeB>::volcast(s_mem[threadIdx.x + 4]);
-                    types::util<ValueTypeB>::volcast(my_Ax, s_mem + threadIdx.x);
-                }
-
-                if ( laneId < 30 )
-                {
-                    my_Ax = my_Ax + types::util<ValueTypeB>::volcast(s_mem[threadIdx.x + 8]);
-                    types::util<ValueTypeB>::volcast(my_Ax, s_mem + threadIdx.x);
-                }
-            }
-        }
-#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -614,13 +599,13 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
     while (eighthwarp_id < num_block_rows)
     {
         //i = eighthwarp_id;
-        C_temp = 0.;
+        C_temp = types::util<ValueTypeB>::get_zero();
         // Contribution from diagonal
         offset = eighthwarp_id * bsize + vec_entry_index;
-        s_xtemp[threadIdx.x] = __cachingLoad(&B[offset]);
+        types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
         // Load dia_values and do matrix multiply
         s_offset = block_eighthwarp_id * bsize;
-        ValueTypeB temp[bsize];
+        ValueTypeA temp[bsize];
 
         if (ROW_MAJOR)
         {
@@ -640,7 +625,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
 
         for (int m = 0; m < bsize; m++)
         {
-            C_temp += temp[m] * s_xtemp[s_offset + m];
+            C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
         }
 
         // Contribution from each nonzero column
@@ -650,7 +635,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
         {
             IndexType jcol = column_indices[jind];
             offset = jcol * bsize + vec_entry_index;
-            s_xtemp[threadIdx.x] = __cachingLoad(&B[offset]);
+            types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
             // Load nonzero_values
             s_offset = block_eighthwarp_id * bsize;
 
@@ -674,7 +659,7 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
 
             for (int m = 0; m < bsize; m++)
             {
-                C_temp += temp[m] * s_xtemp[s_offset + m];
+                C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
             }
         }
 

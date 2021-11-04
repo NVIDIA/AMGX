@@ -896,7 +896,7 @@ struct ExcHalo3AsyncFunctor: ExcHalo1Functor<TConfig, Tb>
     ExcHalo3AsyncFunctor(Tb &b,
                          const Matrix<TConfig> &m,
                          int num_rings,
-                         int offset, 
+                         int offset,
                          cudaStream_t stream):
         ExcHalo1Functor<TConfig, Tb>(b, m, num_rings, offset, stream)
     {

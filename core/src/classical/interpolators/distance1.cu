@@ -27,6 +27,7 @@
 
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
+#include <thrust_wrapper.h>
 #include <classical/interpolators/distance1.h>
 #include <classical/interpolators/common.h>
 #include <basic_types.h>
@@ -347,10 +348,11 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     IntVector edges_markers_on_stack( A.get_num_rows(), -1 );
     IntVector *edges_markers = &edges_markers_on_stack;
 #endif
-    typedef thrust::counting_iterator<int, thrust::host_space_tag> host_counting_iterator;
     detail::compute_weights<Matrix_h> compute_fct( A, diag, are_sc, cf_map, edges_markers, P );
-    thrust::for_each( host_counting_iterator( 0 ),
-                      host_counting_iterator( A.get_num_rows() ),
+
+    thrust::for_each( thrust::host,
+                      thrust::make_counting_iterator<int>( 0 ),
+                      thrust::make_counting_iterator<int>( A.get_num_rows() ),
                       compute_fct );
     cudaCheckError();
 #if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
@@ -868,9 +870,9 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // now I have the non-zeros per row for matrix P, count the non-zeros on each row
     // to get total NNZ
     // sum non-zeros per row
-    int NNZidx = thrust::reduce(nonZerosVec.begin(), nonZerosVec.end());
+    int NNZidx = thrust_wrapper::reduce(nonZerosVec.begin(), nonZerosVec.end());
     cudaCheckError();
-    thrust::exclusive_scan(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
+    thrust_wrapper::exclusive_scan(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
     cudaCheckError();
     nonZerosVec[A.get_num_rows()] = NNZidx;
     // generate sets on the device

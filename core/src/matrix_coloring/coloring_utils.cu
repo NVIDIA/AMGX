@@ -37,6 +37,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <error.h>
 #include <vector_thrust_allocator.h>
+#include <thrust_wrapper.h>
 
 #include <algorithm>
 
@@ -50,7 +51,7 @@ void coloring_histogram(int *out_hist_host, int num_rows, int max_color, int *ro
     if (false) //TODO: enable, since almost always faster
     {
         device_vector_alloc<int> histogram(num_rows);
-        thrust::sort(data, data + num_rows);
+        thrust_wrapper::sort(data, data + num_rows);
         cudaCheckError();
         thrust::counting_iterator<int> search_begin(0);
         thrust::upper_bound(data, data + num_rows,
@@ -87,11 +88,7 @@ __global__ void permute_colors_kernel(int num_rows, int *row_colors, int *color_
     for ( ; row_id < num_rows ; row_id += blockDim.x * gridDim.x )
     {
         int color = row_colors[row_id];
-#if __CUDA_ARCH__ >= 350
         color = __ldg(color_permutation + color);
-#else
-        color = color_permutation[color];
-#endif
         row_colors[row_id] = color;
     }
 }

@@ -193,6 +193,9 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
         virtual void compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) = 0;
         virtual void compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads) = 0;
 
+    private:
+        void cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 );
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

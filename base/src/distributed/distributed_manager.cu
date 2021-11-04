@@ -35,6 +35,7 @@
 #include <thrust/unique.h>
 #include <thrust/binary_search.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust_wrapper.h>
 #include <basic_types.h>
 #include <error.h>
 #include <util.h>
@@ -836,6 +837,12 @@ void DistributedManagerBase<TConfig>::set_unassigned(IVector_d &partition_flags,
 template <class TConfig >
 inline void DistributedManagerBase<TConfig>::set_initialized(IVector &row_offsets)
 {
+    // For P and R sizes the sizes are fixed at creation
+    if(m_fixed_view_size)
+    {
+        return;
+    }
+
     if (neighbors.size() > 0)
     {
         //distributed: cache num_rows/num_nz for different views
@@ -961,7 +968,7 @@ template <class TConfig>
 inline DistributedManagerBase<TConfig>::DistributedManagerBase(Matrix<TConfig> &a) :
     m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), _num_interior_nodes(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false),
     neighbors(_neighbors), B2L_maps(_B2L_maps), L2H_maps(_L2H_maps),  B2L_rings(_B2L_rings),
-    halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+    halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 {
     cudaEventCreate(&comm_event);
     cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
@@ -1015,7 +1022,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     const int cta_size = 128;
     const int grid_size = std::min( 4096, (num_rows + cta_size - 1) / cta_size );
     poisson7pt_count_row_len <<< grid_size, cta_size>>>(this->A->row_offsets.raw(), nx, ny, nz, p, q, r, P, Q, R, num_rows);
-    thrust::exclusive_scan(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
+    thrust_wrapper::exclusive_scan(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
     cudaCheckError();
     // Now set nonzeros columns and values
     // TODO: vectorize this
@@ -1162,22 +1169,16 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (partition == NULL)
     {
-        // initialize equal partitioning
-        IVector_h scanPartSize(num_ranks + 1);
+        IVector_h rowCounts(num_ranks);
+        this->getComms()->all_gather(num_rows, rowCounts, 1);
 
-        for (int p = 0; p < num_ranks; p++)
-        {
-            scanPartSize[p] = p * num_rows_global / num_ranks;
-        }
-
-        scanPartSize[num_ranks] = num_rows_global;
         int p = 0;
-
-        for (int i = 0; i < num_rows_global; i++)
+        for (int i = 0; i < num_ranks; ++i)
         {
-            if (i >= scanPartSize[p + 1]) { p++; }
-
-            partitionVec[i] = p;
+            for (int j = 0; j < rowCounts[i]; ++j)
+            {
+                partitionVec[p++] = i;
+            }
         }
     }
     else
@@ -1462,7 +1463,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     cudaCheckError();
     global_col_indices.dirtybit = 1;
     this->exchange_halo(global_col_indices, global_col_indices.tag);
-    thrust::copy(global_col_indices.begin() + num_owned_rows, global_col_indices.begin() + size_one_ring, this->local_to_global_map.begin());
+    thrust_wrapper::copy(global_col_indices.begin() + num_owned_rows, global_col_indices.begin() + size_one_ring, this->local_to_global_map.begin(), this->get_int_stream(), true);
     cudaCheckError();
 }
 
@@ -1514,7 +1515,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         cudaCheckError();
     }
 
-    thrust::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + num_owned_coarse_pts + 1, new_row_offsets.begin());
+    thrust_wrapper::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + num_owned_coarse_pts + 1, new_row_offsets.begin());
     cudaCheckError();
     // Copy the row_offsets for halo rows
     thrust::copy(R.row_offsets.begin() + num_owned_coarse_pts, R.row_offsets.end(), new_row_offsets.begin() + num_owned_coarse_pts);
@@ -1546,7 +1547,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         cudaCheckError();
         global_col_indices.dirtybit = 1;
         P.manager->exchange_halo(global_col_indices, global_col_indices.tag);
-        thrust::copy(global_col_indices.begin() + num_owned_coarse_pts, global_col_indices.begin() + size_one_ring, P.manager->local_to_global_map.begin());
+        thrust_wrapper::copy(global_col_indices.begin() + num_owned_coarse_pts, global_col_indices.begin() + size_one_ring, P.manager->local_to_global_map.begin(), this->get_int_stream(), true);
         cudaCheckError();
     }
 
@@ -1621,7 +1622,7 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(
     INDEX_TYPE num_import_rings,
     int num_neighbors,
     const VecInt_t *neighbors_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), _num_interior_nodes(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false), neighbors(_neighbors), halo_rows_ref_count(0), halo_rows(NULL), halo_btl_ref_count(0), halo_btl(NULL), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-    B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false)
+    B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 {
     cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
     cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -2264,23 +2265,19 @@ void DistributedManagerBase<TConfig>::createComms(Resources *rsrc)
     if (comm_value == "MPI_DIRECT")
     {
         _comms = new CommsMPIDirect<TConfig>(*cfg, comm_scope, mpi_comm);
-
-        if ( rank == 0 )
-        {
-            std::cout << "Using CUDA-Aware MPI (GPU Direct) communicator..." << std::endl;
-        }
+        std::string comm_log("Using CUDA-Aware MPI (GPU Direct) communicator...\n");
+        amgx_distributed_output(comm_log.c_str(), comm_log.length());
     }
     else if (comm_value == "MPI")
     {
-        CommsMPIHostBufferStream<TConfig> *ptr_comm = new CommsMPIHostBufferStream<TConfig>(*cfg, comm_scope, mpi_comm);
-        _comms =  ptr_comm;
-
-        if ( rank == 0 )
-        {
-            std::cout << "Using Normal MPI (Hostbuffer) communicator..." << std::endl;
-        }
+        _comms =  new CommsMPIHostBufferStream<TConfig>(*cfg, comm_scope, mpi_comm);
+        std::string comm_log("Using Normal MPI (Hostbuffer) communicator...\n");
+        amgx_distributed_output(comm_log.c_str(), comm_log.length());
     }
-    else { throw std::string("Bad communicator value"); }
+    else 
+    { 
+        FatalError("Bad communicator value", AMGX_ERR_BAD_PARAMETERS); 
+    }
 
 #endif
 }
@@ -2333,7 +2330,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (this->L2H_maps.size())
     {
-        size = thrust::reduce(this->A->col_indices.begin(), this->A->col_indices.end(), int(0), thrust::maximum<int>()) + 1; //Sufficient to do reduction on lth maps
+        size = thrust_wrapper::reduce(this->A->col_indices.begin(), this->A->col_indices.end(), int(0), thrust::maximum<int>()) + 1; //Sufficient to do reduction on lth maps
         cudaCheckError();
     }
     else
@@ -2375,7 +2372,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     //gets the renumbering of interior nodes
-    thrust::exclusive_scan(flagArray.begin(), flagArray.begin() + size + 1, renumbering.begin());
+    thrust_wrapper::exclusive_scan(flagArray.begin(), flagArray.begin() + size + 1, renumbering.begin());
     cudaCheckError();
     /*
      EXAMPLE
@@ -2427,7 +2424,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     boundary_renum_flags.raw(), size, global_size /*,rank*/);
 
         //calculate the local renumbering (within this boundary region) of these nodes
-        thrust::exclusive_scan(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, boundary_renum.begin());
+        thrust_wrapper::exclusive_scan(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, boundary_renum.begin());
 
         //apply renumbering to the big numbering table
         if (size > 0)
@@ -2476,7 +2473,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                         boundary_renum_flags.raw(), size, global_size /*,rank*/);
 
             //calculate the local renumbering (within this boundary region) of these nodes
-            thrust::exclusive_scan(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, boundary_renum.begin());
+            thrust_wrapper::exclusive_scan(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, boundary_renum.begin());
 
             //apply renumbering to the big numbering table
             if (size > 0)
@@ -2590,7 +2587,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                  this->A->col_indices.begin());
     cudaCheckError();
     //row_offsets array created by exclusive scan of row sizes
-    thrust::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + size + 1, new_row_offsets.begin());
+    thrust_wrapper::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + size + 1, new_row_offsets.begin());
     cudaCheckError();
 //
 // Step 7 - consolidate column indices and values
@@ -2954,7 +2951,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     cudaCheckError();
     //row_offsets array created by exclusive scan of row sizes
-    thrust::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + size + this->num_halo_rows() + 1, new_row_offsets.begin());
+    thrust_wrapper::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + size + this->num_halo_rows() + 1, new_row_offsets.begin());
     cudaCheckError();
     /*
      EXAMPLE
@@ -4458,7 +4455,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         cudaEventCreate(&event);
         // Populate the halo rows with diagonal, increase the length of the halo rows
         thrust::fill(this->A->row_offsets.begin() + halo_offsets[0], this->A->row_offsets.begin() + halo_offsets[root_num_cons_neighbors], 1);
-        thrust::exclusive_scan(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
+        thrust_wrapper::exclusive_scan(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
         cudaEventRecord(event);
         cudaEventSynchronize(event);
         cudaCheckError();

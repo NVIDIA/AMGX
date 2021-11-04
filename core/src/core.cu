@@ -368,6 +368,7 @@ inline void registerParameters()
     AMG_Config::registerParameter<ViewType>("separation_interior", "separation for latency hiding and coloring/smoothing <ViewType>", INTERIOR, viewtype_values);
     AMG_Config::registerParameter<ViewType>("separation_exterior", "limit of calculations for coloring/smoothing <ViewType>", OWNED, viewtype_values);
     AMG_Config::registerParameter<int>("min_rows_latency_hiding", "number of rows at which to disable latency hiding, negative value means latency hiding is completely disabled", -1);
+    AMG_Config::registerParameter<int>("exact_coarse_solve", "flag that changes the dense LU coarse solve to solve the exact global problem for Classical AMG preconditioning <0=disable|1=enable>", 0, bool_flag_values);
     AMG_Config::registerParameter<int>("matrix_halo_exchange", "0 - No halo exchange on lower levels, 1 - just diagonal values, 2 - full", 0);
     std::vector<ColoringType> coloring_values;
     coloring_values.push_back(FIRST);

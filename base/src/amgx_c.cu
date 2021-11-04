@@ -53,6 +53,7 @@
 #include <solvers/solver.h>
 #include <matrix.h>
 #include <vector.h>
+#include <thrust_wrapper.h>
 
 #include "amgx_types/util.h"
 #include "amgx_types/rand.h"
@@ -317,7 +318,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
             thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
             //thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), di.begin(), add_constant_op<t_IndPrec>(1));
+            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
             cudaCheckError();
         }
 
@@ -551,7 +552,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         {
             thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
-            thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), di.begin());
+            thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();
         }
 
@@ -1936,7 +1937,7 @@ inline void solver_get_iterations_number(AMGX_solver_handle slv, int *n)
 {
     auto *solver = get_mode_object_from<CASE, AMG_Solver, AMGX_solver_handle>(slv);
     cudaSetDevice(solver->getResources()->getDevice(0));
-    *n = solver->get_num_iters() + 1;
+    *n = solver->get_num_iters();
 }
 
 template<AMGX_Mode CASE>

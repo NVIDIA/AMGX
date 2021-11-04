@@ -160,30 +160,6 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
         b.requests[i] = MPI_REQUEST_NULL;
     }
 
-    int total = 0;
-
-    for (int i = 0; i < neighbors; i++)
-    {
-        total += m.manager->B2L_rings[i][num_rings] * bsize * num_cols;
-    }
-
-    b.buffer_size = total;
-
-    if (b.buffer == NULL)
-    {
-        b.buffer = new T(total);
-    }
-    else
-    {
-        if (total > b.buffer->size())
-        {
-            b.buffer->resize(total);
-
-            // It is more efficient to synchronise only when linear buffers change
-            cudaStreamSynchronize(0);
-        }
-    }
-
     typedef typename T::value_type vtyp;
 
     if (b.linear_buffers_size < neighbors)
@@ -192,51 +168,62 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
 
         amgx::memory::cudaMallocHost((void **) & (b.linear_buffers), neighbors * sizeof(vtyp *));
         b.linear_buffers_size = neighbors;
+        b.linear_buffers_ptrs.resize(neighbors);
     }
 
     cudaCheckError();
-    total = 0;
-    //bool linear_buffers_changed = false;
 
+    int send_size = 0;
     for (int i = 0; i < neighbors; i++)
     {
-        //if (b.linear_buffers[i] != b.buffer->raw() + total)
-        //{
-        //    linear_buffers_changed = true;
-        //}
+        send_size += m.manager->B2L_rings[i][num_rings] * bsize * num_cols;
+    }
 
-        b.linear_buffers[i] = b.buffer->raw() + total;
-        total += m.manager->B2L_rings[i][num_rings] * bsize * num_cols;
+    int total_size = send_size + (m.manager->halo_offsets[num_rings * neighbors] - m.manager->halo_offsets[0]) * bsize * num_cols;
+
+    b.buffer_size = send_size;
+
+    if (b.buffer == NULL)
+    {
+        b.buffer = new T(total_size);
+    }
+    else if (total_size > b.buffer->size())
+    {
+        b.buffer->resize(total_size);
+
+        // It is more efficient to synchronise only when linear buffers change
+        cudaStreamSynchronize(0);
+    }
+
+    int offset = 0;
+    for (int i = 0; i < neighbors; i++)
+    {
+        b.linear_buffers[i] = b.buffer->raw() + offset;
+        offset += m.manager->B2L_rings[i][num_rings] * bsize * num_cols;
     }
 
     // Copy to device
-    // TODO: This optimisation would be preferred, but there seems to be an edge
-    // case that stops this from updating properly.
-    //if (b.linear_buffers_ptrs.size() != neighbors || linear_buffers_changed)
     {
-        b.linear_buffers_ptrs.resize(neighbors);
         cudaMemcpy(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
         cudaCheckError();
     }
 
-    int size = total + (m.manager->halo_offsets[num_rings * neighbors] - m.manager->halo_offsets[0]) * bsize * num_cols;
-
-    if (size != 0)
+    if (total_size != 0)
     {
         if (b.explicit_host_buffer == NULL)
         {
             b.host_buffer.resize(1);
             cudaEventCreateWithFlags(&b.mpi_event, cudaEventDisableTiming);
-            amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, size * sizeof(vtyp));
+            amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, total_size * sizeof(vtyp));
         }
-        else if (size > b.explicit_buffer_size)
+        else if (total_size > b.explicit_buffer_size)
         {
             amgx::memory::cudaFreeHost(b.explicit_host_buffer);
-            amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, size * sizeof(vtyp));
+            amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, total_size * sizeof(vtyp));
         }
 
         cudaCheckError();
-        b.explicit_buffer_size = size;
+        b.explicit_buffer_size = total_size;
     }
 
 #else
@@ -312,29 +299,16 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
         b.linear_buffers_size = neighbors;
     }
 
-    bool linear_buffers_changed = false;
     int total = 0;
 
     for (int i = 0; i < num_neighbors; i++)
     {
-        if (b.linear_buffers[i] != b.buffer->raw() + total)
-        {
-            linear_buffers_changed = true;
-        }
-
         b.linear_buffers[i] = b.buffer->raw() + total;
 
         for (int j = 0; j < num_rings; j++)
         {
             total += (m.manager->halo_offsets[j * num_neighbors + i + 1] - m.manager->halo_offsets[j * num_neighbors + i]) * bsize;
         }
-    }
-
-    if (b.linear_buffers_ptrs.size() != num_neighbors || linear_buffers_changed)
-    {
-        b.linear_buffers_ptrs.resize(num_neighbors);
-        cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
-        cudaCheckError();
     }
 
 #else
@@ -1585,6 +1559,57 @@ void CommsMPIHostBufferStream<T_Config>::all_gather_v_templated(T &my_data, int 
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
 #endif
 }
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HDVector& data, int num_elems, HDVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    MPI_Allgatherv(data.raw(), num_elems, MPI_DOUBLE, gathered_data.raw(), counts.raw(), displs.raw(), MPI_DOUBLE, mpi_comm);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HFVector& data, int num_elems, HFVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    MPI_Allgatherv(data.raw(), num_elems, MPI_FLOAT, gathered_data.raw(), counts.raw(), displs.raw(), MPI_FLOAT, mpi_comm);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HCVector& data, int num_elems, HCVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    FatalError("AllgatherV with complex data.", AMGX_ERR_NOT_IMPLEMENTED);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HZVector& data, int num_elems, HZVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    FatalError("AllgatherV with complex data.", AMGX_ERR_NOT_IMPLEMENTED);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather_v(HIVector& data, int num_elems, HIVector& gathered_data, HIVector counts, HIVector displs)
+{
+#ifdef AMGX_WITH_MPI
+    MPI_Allgatherv(data.raw(), num_elems, MPI_INT, gathered_data.raw(), counts.raw(), displs.raw(), MPI_INT, mpi_comm);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
 
 /****************************************
  * Explict instantiations

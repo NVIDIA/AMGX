@@ -136,7 +136,6 @@ void csr_to_dense_kernel(
 }
 
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
 template< int N, bool ROW_MAJOR, int WARP_SIZE, typename Value_type >
 static __device__ __forceinline__
 Value_type reduce_distributed_vectors( Value_type x, int is_leader, unsigned int active_mask )
@@ -167,53 +166,16 @@ Value_type reduce_distributed_vectors( Value_type x, int is_leader, unsigned int
 
     return x;
 }
-#else
-template< int N, bool ROW_MAJOR, int WARP_SIZE, typename Value_type >
-static __device__ __forceinline__
-Value_type reduce_distributed_vectors( volatile Value_type *s_mem, Value_type x, int is_leader )
-{
-    if ( N & (N - 1) )
-    {
-#pragma unroll
-
-        for ( int i = 1 ; i < N ; ++i )
-        {
-            const int offset = ROW_MAJOR ? i : N * i;
-
-            if ( is_leader && utils::lane_id() < WARP_SIZE - offset )
-            {
-                s_mem[threadIdx.x] = x += s_mem[threadIdx.x + offset];
-            }
-        }
-    }
-    else
-    {
-#pragma unroll
-
-        for ( int i = 1 ; i < N ; i <<= 1 )
-        {
-            const int offset = ROW_MAJOR ? i : N * i;
-
-            if ( utils::lane_id() < WARP_SIZE - offset )
-            {
-                s_mem[threadIdx.x] = x += s_mem[threadIdx.x + offset];
-            }
-        }
-    }
-
-    return x;
-}
-#endif
 
 
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE,
           int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 350
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
 #elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 8 )
+__launch_bounds__( CTA_SIZE, 12 )
 #endif
 void b_minus_A_halo_x( const int *__restrict A_rows,
                        const int *__restrict A_cols,
@@ -242,17 +204,8 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
     // Useful index to compute matrix products.
     const int lane_id_mod_NxN_div_N = lane_id_mod_NxN / N;
     const int lane_id_mod_NxN_mod_N = lane_id_mod_NxN % N;
-#if __CUDA_ARCH__ < 300
-    // Shared memory to broadcast column IDs.
-    __shared__ volatile int s_a_col_ids[CTA_SIZE];
-    __shared__ volatile int s_a_col_is_valid[CTA_SIZE];
-    // Each thread keeps its own pointer.
-    volatile int *my_s_a_col_ids = &s_a_col_ids[threadIdx.x - lane_id_mod_NxN];
-    volatile int *my_s_a_col_is_valid = &s_a_col_is_valid[threadIdx.x - lane_id_mod_NxN];
-#else
     // We to get my data from when I use SHFL.
     const int shfl_offset = lane_id - lane_id_mod_NxN;
-#endif
     // Shared memory needed to exchange X and delta.
     __shared__ volatile Vector_type s_mem[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
@@ -320,10 +273,6 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
 
             // Determine if the column is halo column
             int a_col_is_valid = (a_col_id != -1) && (a_col_id >= num_owned_rows);
-#if __CUDA_ARCH__ < 300
-            my_s_a_col_ids[lane_id_mod_NxN] = a_col_id;
-            my_s_a_col_is_valid[lane_id_mod_NxN] = a_col_is_valid;
-#endif
             // Count the number of active columns.
             // int vote =  __ballot(aColId != -1);
             // The number of iterations.
@@ -334,13 +283,8 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
             {
                 int my_k = k + lane_id_mod_NxN_div_N;
                 // Load N blocks of X.
-#if __CUDA_ARCH__ < 300
-                int uniform_a_col_id = my_s_a_col_ids[my_k];
-                int uniform_a_col_is_valid = my_s_a_col_is_valid[my_k];
-#else
                 int uniform_a_col_id = utils::shfl( a_col_id, shfl_offset + my_k, WARP_SIZE, active_mask);
                 int uniform_a_col_is_valid = utils::shfl( a_col_is_valid, shfl_offset + my_k, WARP_SIZE, active_mask );
-#endif
                 Vector_type my_x(0);
 
                 if ( uniform_a_col_id != -1 && uniform_a_col_is_valid)
@@ -390,12 +334,7 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
             is_leader = lane_id_mod_NxN_mod_N == 0;
         }
 
-#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader, active_mask );
-#else
-        s_mem[threadIdx.x] = my_bmAx;
-        my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
-#endif
 
         // Update the shared terms.
         if ( ROW_MAJOR )
@@ -424,12 +363,7 @@ void b_minus_A_halo_x( const int *__restrict A_rows,
         }
 
         // Reduce bmAx terms.
-#if __CUDA_ARCH__ >= 300
         my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( my_bmAx, is_leader, active_mask );
-#else
-        s_mem[threadIdx.x] = my_bmAx;
-        my_bmAx = reduce_distributed_vectors<N, ROW_MAJOR, WARP_SIZE>( s_mem, my_bmAx, is_leader );
-#endif
 
         // Store the results.
         if ( ROW_MAJOR )
@@ -752,6 +686,11 @@ DenseLUSolver(AMG_Config &cfg,
     // Make sure we don't run more than 1 iteration.
     this->set_max_iters(1);
     allocMem(m_cuds_info, sizeof(int), false);
+
+    // Determine if the scalable coarse solve optimisation is enabled
+    m_enable_exact_solve = (
+        cfg.getParameter<AlgorithmType>( "algorithm", cfg_scope) == CLASSICAL &&
+        cfg.getParameter<int>( "exact_coarse_solve", cfg_scope) == 1);
 }
 
 
@@ -795,12 +734,40 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::solve_finalize(Vector_d &, Vector_d &)
 {}
 
+// Offset the local row offsets to global row offsets
+template <class IndexType>
+__global__ void local_row_offsets_to_global(
+        int num_rows, int offset,
+        IndexType* local_Arows)
+{
+    int i = threadIdx.x + blockIdx.x*blockDim.x;
+    if(i >= num_rows) { return; }
+
+    local_Arows[i] += offset;
+}
+
+// Offset local packed column indices to global unpacked indices
+template <class IndexType, class L2GType>
+__global__ void local_col_indices_to_global(
+        int nnz, int num_rows, int offset, IndexType* local_Acols, L2GType* l2g)
+{
+    int i = threadIdx.x + blockIdx.x*blockDim.x;
+    if(i >= nnz) { return; }
+
+    if(local_Acols[i] >= num_rows)
+    {
+        local_Acols[i] = l2g[local_Acols[i] - num_rows];
+    }
+    else
+    {
+        local_Acols[i] += offset;
+    }
+}
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::
 solver_setup(bool reuse_matrix_structure)
 {
-    // This is probably not much.
     Matrix_d *A = dynamic_cast<Matrix_d *>(Base::m_A);
 
     if (!A)
@@ -811,21 +778,142 @@ solver_setup(bool reuse_matrix_structure)
 
     ViewType oldView = A->currentView();
     A->setViewExterior();
-    m_num_rows = A->get_num_rows() * A->get_block_dimx();
-    // don't use A->get_num_cols() because A is rectangular.
-    // Only the diagonal block owned by this rank is factored.
-    m_num_cols = A->get_num_rows() * A->get_block_dimy();
-    m_lda      = m_num_rows; // col-major
-    // Allocate mem for cudense pivoting sequence.
-    allocMem(m_ipiv, m_num_rows, false);
-    // Allocate memory to store the dense A and initialize to zero.
-    allocMem(m_dense_A, m_num_cols * m_lda, true);
-    csr_to_dense(); // copy sparse A to dense_A
+
+    if(A->is_matrix_distributed() && m_enable_exact_solve)
+    {
+        int rank = A->manager->global_id();
+        int nranks = A->manager->get_num_partitions();
+        MPI_Comm comm = A->manager->getComms()->get_mpi_comm();
+
+        int offset, num_rows, nnz;
+        A->getOffsetAndSizeForView(OWNED, &offset, &num_rows);
+        A->getNnzForView(OWNED, &nnz);
+
+        m_num_rows = A->manager->num_rows_global * A->get_block_dimx();
+        m_num_cols = A->manager->num_rows_global * A->get_block_dimy();
+        m_lda = m_num_rows; // col-major
+
+        // Allocate mem for cudense pivoting sequence.
+        allocMem(m_ipiv, m_num_rows, false);
+
+        // Allocate memory to store the dense A and initialize to zero.
+        allocMem(m_dense_A, m_num_cols * m_num_rows, true);
+
+        // Much of the data can be reused if we are performing a resetup
+        if (!reuse_matrix_structure)
+        {
+            // Gather the number of non zeros on each rank
+            A->manager->getComms()->all_gather(nnz, nz_all, nranks);
+
+            // Gather the number of rows on each rank
+            A->manager->getComms()->all_gather(num_rows, row_all, nranks);
+
+            // Get the number of non zeros on all ranks
+            m_nnz_global = thrust::reduce(nz_all.begin(), nz_all.end());
+
+            // Turn the non-zero counts into displacements
+            nz_displs.resize(nranks);
+            thrust::exclusive_scan(nz_all.begin(), nz_all.end(), nz_displs.begin());
+
+            // Turn the number of rows into displacements
+            row_displs.resize(nranks);
+            thrust::exclusive_scan(row_all.begin(), row_all.end(), row_displs.begin());
+
+            IVector_d local_Acols_d(nnz);
+            IVector_d local_Arows_d(num_rows);
+
+            thrust::copy(A->col_indices.begin(), A->col_indices.begin() + nnz, local_Acols_d.begin());
+            thrust::copy(A->row_offsets.begin(), A->row_offsets.begin() + num_rows, local_Arows_d.begin());
+
+            // XXX Local to global map is the current limiting factor to enabling this
+            // code for the aggregation based path. It's not clear whether there is
+            // a structure that provides the same inverse mapping with aggregation.
+            // Note that at one point inverse_renumbering was tested for aggregation
+            // but didn't appear to work in all cases.
+
+            // Convert the local column indices and row offsets to the global index space
+            constexpr int nthreads = 128;
+            int nblocks = nnz / nthreads + 1;
+            local_col_indices_to_global<<<nblocks, nthreads>>>(nnz, num_rows, row_displs[rank], local_Acols_d.raw(), A->manager->local_to_global_map.raw());
+
+            nblocks = num_rows / nthreads + 1;
+            local_row_offsets_to_global<<<nblocks, nthreads>>>(num_rows, nz_displs[rank], local_Arows_d.raw());
+
+            // Copy the transformed indices to the host
+            IVector_h local_Acols_h(nnz);
+            IVector_h local_Arows_h(num_rows);
+            thrust::copy(local_Acols_d.begin(), local_Acols_d.end(), local_Acols_h.begin());
+            thrust::copy(local_Arows_d.begin(), local_Arows_d.end(), local_Arows_h.begin());
+
+            // Gather the local matrix structure redundantly to every rank
+            IVector_h Acols_global_h(m_nnz_global);
+            A->manager->getComms()->all_gather_v(local_Acols_h, nnz, Acols_global_h, nz_all, nz_displs);
+
+            // Note: Copy the local data to global without guard value
+            IVector_h Arows_global_h(m_num_rows + 1);
+            A->manager->getComms()->all_gather_v(local_Arows_h, num_rows, Arows_global_h, row_all, row_displs);
+
+            // Manually set the guard value on the global matrix
+            Arows_global_h[m_num_rows] = m_nnz_global;
+            Acols_global.resize(m_nnz_global);
+            Arows_global.resize(m_num_rows + 1);
+            thrust::copy(Acols_global_h.begin(), Acols_global_h.end(), Acols_global.begin());
+            thrust::copy(Arows_global_h.begin(), Arows_global_h.end(), Arows_global.begin());
+        }
+
+        // Fetch to the host a copy of the local sparse matrix
+        MVector_h local_Avals_h(nnz);
+        thrust::copy(A->values.begin(), A->values.begin() + nnz, local_Avals_h.begin());
+
+        // Gather the matrix values to all ranks
+        MVector_h Avals_global_h(m_nnz_global);
+        A->manager->getComms()->all_gather_v(local_Avals_h, nnz, Avals_global_h, nz_all, nz_displs);
+
+        allocMem(m_dense_A, m_num_cols * m_lda, true);
+
+        MVector_d Avals_global(m_nnz_global);
+        thrust::copy(Avals_global_h.begin(), Avals_global_h.end(), Avals_global.begin());
+
+        const int block_size = 256;
+        const int num_warps = block_size / WARP_SIZE;
+        const int grid_size = std::min(4096, (A->get_num_rows() + num_warps - 1) / num_warps);
+        cudaStream_t stream = thrust::global_thread_handle::get_stream();
+        csr_to_dense_kernel<Matrix_data, Vector_data, WARP_SIZE><<<grid_size, block_size, 0, stream>>>(
+            m_num_rows,
+            m_num_cols,
+            A->get_block_dimx(),
+            A->get_block_dimy(),
+            Arows_global.raw(),
+            Acols_global.raw(),
+            Avals_global.raw(),
+            A->hasProps(DIAG) ? A->diag.raw() : NULL,
+            m_dense_A,
+            m_lda);
+
+        cudaStreamSynchronize(stream);
+        cudaCheckError();
+    }
+    else
+    {
+        ViewType oldView = A->currentView();
+        A->setViewExterior();
+        m_num_rows = A->get_num_rows() * A->get_block_dimx();
+        // don't use A->get_num_cols() because A is rectangular.
+        // Only the diagonal block owned by this rank is factored.
+        m_num_cols = A->get_num_rows() * A->get_block_dimy();
+        m_lda = m_num_rows; // col-major
+        // Allocate mem for cudense pivoting sequence.
+        allocMem(m_ipiv, m_num_rows, false);
+        // Allocate memory to store the dense A and initialize to zero.
+        allocMem(m_dense_A, m_num_cols * m_lda, true);
+        csr_to_dense(); // copy sparse A to dense_A
+    }
+
     cudense_getrf(); // do LU factor
     A->setView(oldView);
 }
 
-// There is one subtle point here:
+// There is one subtle point here (for inexact solve):
 // We only do LU on the diagonal blocks associated with each rank.
 // Halo is used to update the right-hand-side (RHS) vector.
 // For multi GPU cases, this is essentially block Jacobi. Since the block size
@@ -840,24 +928,91 @@ solve_iteration(Vector_d &rhs,
     ViewType oldView = A->currentView();
     A->setViewExterior();
 
-    if ((!A->is_matrix_singleGPU()) && (!xIsZero))
+    if(A->is_matrix_distributed() && m_enable_exact_solve)
     {
-        // Modify rhs to include contribution from halo nodes
-        // i.e. new_rhs = b - A_halo*x;
-        // Note: dense_lu solver doesn't support latency hiding
-        A->manager->exchange_halo_async(x, x.tag);
-        A->manager->exchange_halo_wait(x, x.tag);
-        Vector_d new_rhs(rhs.size());
-        distributed_rhs_mod(x, rhs, new_rhs);
-        thrust::copy(new_rhs.begin(), new_rhs.begin() + m_num_rows, x.begin());
-        cudaCheckError();
+        int offset, num_rows;
+        A->getOffsetAndSizeForView(OWNED, &offset, &num_rows);
+
+        cusolverStatus_t status;
+
+        if (A->is_matrix_distributed())
+        {
+            int rank = A->manager->global_id();
+            int nranks = A->manager->get_num_partitions();
+            MPI_Comm comm = A->manager->getComms()->get_mpi_comm();
+
+            // Make host copy of the RHS
+            MVector_h rhs_local_h(num_rows);
+            thrust::copy(rhs.begin(), rhs.begin() + num_rows, rhs_local_h.begin());
+
+            // Gather the local RHS from all ranks to global vectors on all ranks
+            MVector_h rhs_global_h(m_num_rows);
+            A->manager->getComms()->all_gather_v(rhs_local_h, num_rows, rhs_global_h, row_all, row_displs);
+
+            //Solve L*X = RHS
+            MVector_d x_global(m_num_rows);
+            thrust::copy(rhs_global_h.begin(), rhs_global_h.end(), x_global.begin());
+            status = cusolverDnXgetrs(m_cuds_handle,
+                                      CUBLAS_OP_N,
+                                      m_num_rows,
+                                      1,
+                                      m_dense_A,
+                                      m_lda,
+                                      m_ipiv,
+                                      x_global.raw(),
+                                      m_num_rows,
+                                      m_cuds_info);
+
+            // Copy the local portion of the solution back into x
+            thrust::copy(x_global.begin() + row_displs[rank], x_global.begin() + row_displs[rank] + num_rows, x.begin());
+        }
+        else
+        {
+            //Solve L*X = RHS
+            thrust::copy(rhs.begin(), rhs.begin() + num_rows, x.begin());
+            status = cusolverDnXgetrs(m_cuds_handle,
+                                      CUBLAS_OP_N,
+                                      m_num_rows,
+                                      1,
+                                      m_dense_A,
+                                      m_lda,
+                                      m_ipiv,
+                                      (Matrix_data *)(x.raw()),
+                                      m_num_rows,
+                                      m_cuds_info);
+        }
+
+        if (status != CUSOLVER_STATUS_SUCCESS)
+        {
+            FatalError("cuSolver trsv failed to solve Lx=rhs", AMGX_ERR_INTERNAL);
+        }
     }
     else
     {
-        x.copy(rhs);
+        Matrix_d *A = dynamic_cast<Matrix_d *>(Base::m_A);
+        ViewType oldView = A->currentView();
+        A->setViewExterior();
+
+        if ((!A->is_matrix_singleGPU()) && (!xIsZero))
+        {
+            // Modify rhs to include contribution from halo nodes
+            // i.e. new_rhs = b - A_halo*x;
+            // Note: dense_lu solver doesn't support latency hiding
+            A->manager->exchange_halo_async(x, x.tag);
+            A->manager->exchange_halo_wait(x, x.tag);
+            Vector_d new_rhs(rhs.size());
+            distributed_rhs_mod(x, rhs, new_rhs);
+            thrust::copy(new_rhs.begin(), new_rhs.begin() + m_num_rows, x.begin());
+            cudaCheckError();
+        }
+        else
+        {
+            x.copy(rhs);
+        }
+
+        cudense_getrs(x); // triangular solves
     }
 
-    cudense_getrs(x); // triangular solves
     //Speculative send of x vector
     x.dirtybit = 1;
     A->setView(oldView);

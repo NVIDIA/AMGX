@@ -1566,7 +1566,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_none(const Mat
         Ac.manager->inverse_renumbering.resize(c_size);
         //get coarse -> fine renumbering
         int num_blocks = min(4096, (c_size + 127) / 128);
-        coarse_to_global <<< num_blocks, 128>>>(this->m_aggregates.raw(), this->m_aggregates_fine_idx.raw(), Ac.manager->inverse_renumbering.raw(), f_size, -1 * A.manager->base_index());
+        coarse_to_global <<< num_blocks, 128>>>(this->m_aggregates.raw(), this->m_aggregates_fine_idx.raw(), Ac.manager->inverse_renumbering.raw(), f_size, 0);
         cudaCheckError();
         Ac.manager->set_num_halo_rows(Ac.manager->halo_offsets[Ac.manager->halo_offsets.size() - 1] - c_size);
         Ac.set_initialized(1);

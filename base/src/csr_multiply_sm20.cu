@@ -28,6 +28,7 @@
 #include <cassert>
 #include <iostream>
 #include <thrust/scan.h>
+#include <thrust_wrapper.h>
 #include <csr_multiply.h>
 #include <csr_multiply_sm20.h>
 
@@ -1775,7 +1776,7 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( 
 {
     thrust::device_ptr<int> offsets_begin(C.row_offsets.raw());
     thrust::device_ptr<int> offsets_end  (C.row_offsets.raw() + C.get_num_rows() + 1);
-    thrust::exclusive_scan( offsets_begin, offsets_end, offsets_begin );
+    thrust_wrapper::exclusive_scan( C.row_offsets.begin(), C.row_offsets.begin() + C.get_num_rows() + 1, C.row_offsets.begin() );
     cudaCheckError();
 }
 

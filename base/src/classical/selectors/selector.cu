@@ -29,6 +29,7 @@
 #include <classical/selectors/selector.h>
 #include <thrust/count.h>
 #include <hash_workspace.h>
+#include <thrust_wrapper.h>
 
 #include <algorithm>
 #include <assert.h>
@@ -119,25 +120,6 @@ void resolve_boundary(const IndexType *offsets, const IndexType *column_indices,
     }
 }
 
-
-namespace selector_sm20
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm20.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( volatile int *offsets, int *queue, int warp_id )
-{
-    if ( utils::lane_id() == 0 )
-    {
-        offsets[warp_id] = atomicAdd( queue, 1 );
-    }
-
-    return offsets[warp_id];
-}
-
-} // namespace distance2_sm20
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace selector_sm35
@@ -148,7 +130,6 @@ namespace selector_sm35
 
 __device__ __forceinline__ int get_work( int *queue, int warp_id )
 {
-#if __CUDA_ARCH__ >= 300
     int offset = -1;
 
     if ( utils::lane_id() == 0 )
@@ -157,13 +138,29 @@ __device__ __forceinline__ int get_work( int *queue, int warp_id )
     }
 
     return utils::shfl( offset, 0 );
-#else
-    return 0;
-#endif
 }
 
 }
 
+namespace selector_sm70
+{
+
+#include <sm_utils.inl>
+#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
+
+__device__ __forceinline__ int get_work( int *queue, int warp_id )
+{
+    int offset = -1;
+
+    if ( utils::lane_id() == 0 )
+    {
+        offset = atomicAdd( queue, 1 );
+    }
+
+    return utils::shfl( offset, 0 );
+}
+
+}
 
 namespace selector
 {
@@ -435,30 +432,22 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    amgx::classical::selector_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip fine rows.
@@ -473,7 +462,6 @@ compute_c_hat_kernel( int A_num_rows,
         set.clear();
         // Load the range of the row.
         __syncthreads();
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -483,16 +471,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
         __syncthreads();
 
         // _iterate over the columns of A to build C_hat.
@@ -615,13 +593,6 @@ compute_c_hat_kernel( int A_num_rows,
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
-#if __CUDA_ARCH__ >= 300
-#else
-    // Shared memory to acquire work.
-    __shared__ volatile int s_offsets[NUM_WARPS];
-    // Shared memory to store where to load from.
-    __shared__ volatile int s_rows[2 * NUM_WARPS];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -631,17 +602,16 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 300
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+#if __CUDA_ARCH__ >= 700
+    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #else
-    amgx::classical::selector_sm20::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
 #endif
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 300
-
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
+#if __CUDA_ARCH__ >= 700
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
 #else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm20::get_work( s_offsets, wk_work_queue, warp_id ) )
+    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
 #endif
     {
         // Skip fine rows.
@@ -655,7 +625,6 @@ compute_c_hat_kernel( int A_num_rows,
         // Clear the set.
         set.clear();
         // Load the range of the row.
-#if __CUDA_ARCH__ >= 300
         int a_col_tmp = -1;
 
         if ( lane_id < 2 )
@@ -665,16 +634,6 @@ compute_c_hat_kernel( int A_num_rows,
 
         int a_col_begin = utils::shfl( a_col_tmp, 0 );
         int a_col_end   = utils::shfl( a_col_tmp, 1 );
-#else
-
-        if ( lane_id < 2 )
-        {
-            s_rows[2 * warp_id + lane_id] = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = s_rows[2 * warp_id + 0];
-        int a_col_end   = s_rows[2 * warp_id + 1];
-#endif
 
         // _iterate over the columns of A to build C_hat.
         for ( int a_col_it = a_col_begin + lane_id ; utils::any(a_col_it < a_col_end) ; a_col_it += WARP_SIZE )
@@ -809,7 +768,7 @@ void __global__  createCfMapGlobal(const IndexType *cf_map, int64_t *cf_map_glob
 
 #include <sm_utils.inl>
 
-enum { WARP_SIZE = 32, GRID_SIZE = 128, SMEM_SIZE = 128 };
+enum { WARP_SIZE = 32, GRID_SIZE = 1024, SMEM_SIZE = 128 };
 
 template< typename Value_type, int CTA_SIZE, int WARP_SIZE >
 __global__ __launch_bounds__( CTA_SIZE )
@@ -892,7 +851,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
     }
 
     // get the sequence of values
-    thrust::inclusive_scan(mark.begin(), mark.end(), mark.begin());
+    thrust_wrapper::inclusive_scan(mark.begin(), mark.end(), mark.begin());
     cudaCheckError();
 
     // assign to cf_map
@@ -902,7 +861,8 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
         cudaCheckError();
     }
 
-    num_coarse_points = (int) thrust::count_if(cf_map.begin(), cf_map.begin() + num_rows, is_non_neg());
+
+    num_coarse_points = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_rows, is_non_neg());
     cudaCheckError();
 }
 
@@ -986,18 +946,17 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     const ValueType *Avalues = A.values.raw();
     const IndexType Anum_rows = (int) A.get_num_rows();
     int *cf_map_ptr = cf_map.raw();
-    Hash_Workspace<TConfig_d, int> exp_wk;
+    Hash_Workspace<TConfig_d, int> exp_wk(true, GRID_SIZE);
     IntVector C_hat_start( A.get_num_rows() + 1, 0 ), C_hat_end( A.get_num_rows() + 1, 0 );
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-        int work_offset = GRID_SIZE * NUM_WARPS;
-        cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
         int avg_nz_per_row = A.get_num_nz() / A.get_num_rows();
+        int grid_size = A.get_num_rows()/NUM_WARPS + 1;
 
         if ( avg_nz_per_row < 16 )
         {
-            amgx::classical::selector::estimate_c_hat_size_kernel< 8, CTA_SIZE, WARP_SIZE> <<< 2048, CTA_SIZE>>>(
+            amgx::classical::selector::estimate_c_hat_size_kernel< 8, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1007,7 +966,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         }
         else
         {
-            amgx::classical::selector::estimate_c_hat_size_kernel<CTA_SIZE, WARP_SIZE> <<< 2048, CTA_SIZE>>>(
+            amgx::classical::selector::estimate_c_hat_size_kernel<CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1018,8 +977,9 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
 
         cudaCheckError();
     }
+
     // Compute row offsets.
-    thrust::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
+    thrust_wrapper::exclusive_scan(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
     cudaCheckError();
     //if ( (!A.is_matrix_singleGPU() && A.manager->global_id() == 0) || A.is_matrix_singleGPU())
     //  std::cerr << "pool::allocate; before c_hat resize" << std::endl;
@@ -1101,20 +1061,20 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
-        int num_halo_coarse_pts = thrust::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         S2_num_rows = num_owned_coarse_pts;
         prep->initialize_manager(A, S2, num_owned_coarse_pts);
     }
     else
     {
-        S2_num_rows = (int) thrust::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        S2_num_rows = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
     }
 
     // count the number of non-zeros in the interpolation matrix
-    int numBlocks = min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
+    int numBlocks = (int) (A.get_num_rows() + blockSize - 1) / blockSize;
     IntVector nonZeroOffsets(S2_num_rows + 1);
     IntVector nonZerosPerRow(S2_num_rows);
     // Updating the number of nonZeros for your own coarse rows
@@ -1123,10 +1083,10 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             nonZerosPerRow_ptr);
     cudaCheckError();
     // get total with a reduction
-    int nonZeros = thrust::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[S2_num_rows] = nonZeros;
     // resize S2
@@ -1149,9 +1109,12 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         // Run the computation.
         typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
 
+        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         if (!A.is_matrix_distributed())
         {
-            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            int grid_size = (A.get_num_rows() / NUM_WARPS) + 1;
+
+            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 cf_map.raw(),
                 C_hat.raw(),
@@ -1168,14 +1131,17 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             int num_owned_fine_pts = A.get_num_rows();
             int my_rank = A.manager->global_id();
             const int cta_size = 128;
-            const int grid_size = std::min( 4096, (num_owned_fine_pts + cta_size - 1) / cta_size);
+            int grid_size = (num_owned_fine_pts + cta_size - 1) / cta_size;
             createCfMapGlobal <<< grid_size, cta_size>>>(cf_map.raw(), cf_map_global.raw(), S2.manager->part_offsets_h[my_rank], num_owned_fine_pts);
             cudaCheckError();
+
             // Exchange the cf_map_global so that we know the coarse global id of halo nodes
             cf_map_global.dirtybit = 1;
             A.manager->exchange_halo_2ring(cf_map_global, cf_map_global.tag);
             I64Vector_d S2_col_indices_global(S2.col_indices.size());
-            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+
+            grid_size = (A.get_num_rows() / NUM_WARPS) + 1;
+            fillS2ColIndices<Value_type, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
                 A.get_num_rows(),
                 cf_map.raw(),
                 C_hat.raw(),

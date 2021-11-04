@@ -36,13 +36,16 @@ namespace amgx
 enum ASSIGNMENTS {COARSE = -1, FINE = -2, STRONG_FINE = -3, UNASSIGNED = -4};
 
 // NormType
-enum NormType {L1, L2, LMAX};
+enum NormType {L1, L1_SCALED, L2, LMAX};
 inline const char *getString(NormType p)
 {
     switch (p)
     {
         case L1:
             return "L1";
+
+        case L1_SCALED:
+            return "L1_SCALED";
 
         case L2:
             return "L2";

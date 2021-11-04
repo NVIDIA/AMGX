@@ -41,6 +41,7 @@
 #include <sm_utils.inl>
 #include <csr_multiply.h>
 #include <algorithm>
+#include <thrust_wrapper.h>
 
 #include <amgx_types/util.h>
 
@@ -72,12 +73,14 @@ struct is_non_neg
 
 template<typename IndexType, int cta_size >
 __global__
-void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int *boundary_flags,  int num_owned_coarse_pts, int A_num_rows)
+void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int *boundary_flags,  int num_owned_coarse_pts, int A_num_rows, int* nnz_interior)
 {
     const int nWarps = cta_size / 32;
     // The coordinates of the thread inside the CTA/warp.
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
+
+    int nnz_int = 0;
 
     // Loop over rows of A.
     for ( int aRowId = blockIdx.x * nWarps + warpId ; aRowId < A_num_rows ; aRowId += gridDim.x * nWarps )
@@ -85,6 +88,7 @@ void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int
         // Load A row IDs.
         int aColIt  = A_rows[aRowId  ];
         int aColEnd = A_rows[aRowId + 1];
+        int nnz = aColEnd - aColIt;
         bool halo_found = 0;
 
         // Iterate over the columns of A.
@@ -102,10 +106,22 @@ void flag_boundary_nodes_P(const IndexType *A_rows, const IndexType *A_cols, int
             }
         }
 
-        if (halo_found && laneId == 0)
+        if (laneId == 0)
         {
-            boundary_flags[aRowId] = 1;
+            if(halo_found)
+            {
+                boundary_flags[aRowId] = 1;
+            }
+            else
+            {
+                nnz_int += nnz;
+            }
         }
+    }
+
+    if(laneId == 0)
+    {
+        atomicAdd(nnz_interior, nnz_int);
     }
 }
 
@@ -1147,7 +1163,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     thrust::copy(halo_offsets.begin(), halo_offsets.end(), halo_offsets_d.begin());
     int last_halo = halo_nodes[halo_nodes.size() - 1];
     //create renumbering of halo indices (contiguously neighbor - by - neighbor, indexing starting with the number of owned rows
-    thrust::exclusive_scan(halo_nodes.begin(), halo_nodes.end(), halo_nodes.begin(), size);
+    thrust_wrapper::exclusive_scan(halo_nodes.begin(), halo_nodes.end(), halo_nodes.begin(), size);
     cudaCheckError();
     A.manager->local_to_global_map.resize(halo_nodes[halo_nodes.size() - 1] - size + last_halo);
     renumber_col_indices<16> <<< num_blocks, 128>>>(A.row_offsets.raw(), A.col_indices.raw(), halo_ranges.raw(), halo_nodes.raw(), halo_offsets_d.raw(), base_index, index_range, num_neighbors, size, A.manager->local_to_global_map.raw());
@@ -1186,7 +1202,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     thrust::copy(halo_offsets.begin(), halo_offsets.end(), halo_offsets_d.begin());
     int last_halo = (halo_nodes.size() > 0) ? halo_nodes[halo_nodes.size() - 1] : 0;
     //create renumbering of halo indices (contiguously neighbor - by - neighbor, indexing starting with the number of owned rows
-    thrust::exclusive_scan(halo_nodes.begin(), halo_nodes.end(), halo_nodes.begin(), size);
+    thrust_wrapper::exclusive_scan(halo_nodes.begin(), halo_nodes.end(), halo_nodes.begin(), size);
     cudaCheckError();
 
     if (halo_nodes.size() > 0)
@@ -1606,6 +1622,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     IVector boundary_flags(A_num_rows + 1, 0);
     IVector interior_flags(A_num_rows + 1, 0);
 
+    int num_nz_interior;
     if (!is_matrix_P)
     {
         for (int i = 0; i < A.manager->neighbors.size(); i++)
@@ -1627,7 +1644,9 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
         if (A_num_rows > 0)
         {
-            flag_boundary_nodes_P<index_type, cta_size> <<< grid_size, cta_size>>>(A.row_offsets.raw(), A.col_indices.raw(), boundary_flags.raw(), A.manager->halo_offsets[0], A_num_rows);
+            IVector nnz_interior(1, 0);
+            flag_boundary_nodes_P<index_type, cta_size> <<< grid_size, cta_size>>>(A.row_offsets.raw(), A.col_indices.raw(), boundary_flags.raw(), A.manager->halo_offsets[0], A_num_rows, nnz_interior.raw());
+            cudaMemcpy(&num_nz_interior, nnz_interior.raw(), sizeof(int), cudaMemcpyDefault);
         }
     }
 
@@ -1643,11 +1662,11 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
     if (boundary_flags.size() > 1)
     {
-        thrust::exclusive_scan(boundary_flags.begin(), boundary_flags.end(), boundary_flags.begin());
+        thrust_wrapper::exclusive_scan(boundary_flags.begin(), boundary_flags.end(), boundary_flags.begin());
         cudaCheckError();
     }
 
-    thrust::exclusive_scan(interior_flags.begin(), interior_flags.end(), interior_flags.begin());
+    thrust_wrapper::exclusive_scan(interior_flags.begin(), interior_flags.end(), interior_flags.begin());
     cudaCheckError();
     int num_interior_rows = interior_flags[size];
     int num_boundary_rows = boundary_flags[size];
@@ -1659,6 +1678,14 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     {
         fill_rows_lists <<< num_blocks, 128>>>(A.manager->interior_rows_list.raw(), A.manager->boundary_rows_list.raw(), interior_flags.raw(), boundary_flags.raw(), size);
         cudaCheckError();
+    }
+
+    // Manually set the view sizes for P
+    if(is_matrix_P)
+    {
+        int num_rows_owned = num_interior_rows + num_boundary_rows;
+        int num_nz_owned = A.row_offsets[num_rows_owned];
+        A.manager->setViewSizes(num_interior_rows, num_nz_interior, num_rows_owned, num_nz_owned, num_rows_owned, num_nz_owned, A.get_num_rows(), A.get_num_nz());
     }
 }
 
@@ -1715,7 +1742,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         // compute halo indices map [<neighbor inner node>] = 0-based halo number
         int size = halo_offsets[i + 1] - halo_offsets[i];
         thrust::replace_copy_if(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin(), pred, 1);
-        thrust::exclusive_scan(halo_indices.begin(), halo_indices.begin() + size + 1, halo_indices.begin());
+        thrust_wrapper::exclusive_scan(halo_indices.begin(), halo_indices.begin() + size + 1, halo_indices.begin());
         cudaCheckError();
         int num_halo = halo_indices[size];
         A.manager->L2H_maps[i].resize(num_halo);
@@ -1904,7 +1931,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i = 0; i < num_neighbors; i++)
     {
         int last = halo_nodes[halo_offsets[i + 1] - 1];
-        thrust::exclusive_scan(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin());
+        thrust_wrapper::exclusive_scan(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin());
         int num_halo = halo_indices[halo_offsets[i + 1] - halo_offsets[i] - 1] + last;
         //A.manager.B2L_maps[i].resize(num_halo);
         boundary_lists[i].resize(num_halo);
@@ -1957,7 +1984,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i = 0; i < num_neighbors; i++)
     {
         int last = halo_nodes[halo_offsets[i + 1] - 1];
-        thrust::exclusive_scan(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin());
+        thrust_wrapper::exclusive_scan(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin());
         int num_halo = halo_indices[halo_offsets[i + 1] - halo_offsets[i] - 1] + last;
         //A.manager.B2L_maps[i].resize(num_halo);
         boundary_lists[i].resize(num_halo);
@@ -2027,7 +2054,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     {
         // compute halo indices map [<neighbor inner node>] = 0-based halo number
         last[i] = halo_nodes[halo_offsets[i + 1] - 1];
-        thrust::exclusive_scan(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin());
+        thrust_wrapper::exclusive_scan(halo_nodes.begin() + halo_offsets[i], halo_nodes.begin() + halo_offsets[i + 1], halo_indices.begin());
         num_halo[i] = halo_indices[halo_offsets[i + 1] - halo_offsets[i] - 1] + last[i];
         // renumber my columns for this particular neighbor
         calc_new_halo_mapping<16> <<< num_blocks, 128>>>(A.row_offsets.raw(), A.col_indices.raw(), A.manager->halo_ranges.raw() + (int64_t) (2 * i), 1, size, A.manager->local_to_global_map.raw(), new_local_to_global_map.raw(), halo_indices.raw(), halo_base, A.manager->global_id());
@@ -2155,7 +2182,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         if (neighbor_offsets_h[i + 1] != neighbor_offsets_h[i])
         {
             last_node = neighbor_nodes[neighbor_offsets_h[i + 1] - 1];
-            thrust::exclusive_scan(neighbor_nodes.begin() + neighbor_offsets_h[i], neighbor_nodes.begin() + neighbor_offsets_h[i + 1], neighbor_nodes.begin() + neighbor_offsets_h[i]);
+            thrust_wrapper::exclusive_scan(neighbor_nodes.begin() + neighbor_offsets_h[i], neighbor_nodes.begin() + neighbor_offsets_h[i + 1], neighbor_nodes.begin() + neighbor_offsets_h[i]);
             num_halo = neighbor_nodes[neighbor_offsets_h[i + 1] - 1] + last_node;
         }
         else
@@ -2276,7 +2303,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
              halo_rings: [0 0 1 1]
              */
             //Count, index and append them to B2L_maps and update B2L_rings
-            thrust::inclusive_scan(halo_rings.begin(), halo_rings.begin() + size + 1, halo_rings.begin());
+            thrust_wrapper::inclusive_scan(halo_rings.begin(), halo_rings.begin() + size + 1, halo_rings.begin());
             B2L_rings[i][ring + 1] = B2L_rings[i][ring] + halo_rings[size];
             B2L_maps[i].resize(B2L_rings[i][ring + 1]);
 
@@ -2340,7 +2367,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             num_blocks = min(4096, (size + 127) / 128);
             find_next_ring <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw() + A.manager->B2L_rings[i][ring - 1], A.row_offsets.raw(), A.col_indices.raw(), size, 0/*base_index*/, /*index_range*/size, halo_rings.raw());
             remove_previous_rings <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), halo_rings.raw(), A.manager->B2L_rings[i][ring]);
-            thrust::inclusive_scan(halo_rings.begin(), halo_rings.begin() + size + 1, halo_rings.begin());
+            thrust_wrapper::inclusive_scan(halo_rings.begin(), halo_rings.begin() + size + 1, halo_rings.begin());
             A.manager->B2L_rings[i][ring + 1] = A.manager->B2L_rings[i][ring] + halo_rings[size];
             A.manager->B2L_maps[i].resize(A.manager->B2L_rings[i][ring + 1]);
 
@@ -2457,7 +2484,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         matrix_halo_sizes.resize(size + 1);
         int num_blocks = min(4096, (size + 127) / 128);
         write_matrix_rowsize <<< num_blocks, 128>>>(B2L_maps[i].raw(), A.row_offsets.raw(), size, matrix_halo_sizes.raw());
-        thrust::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
+        thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
         int nnz_count =  matrix_halo_sizes[size];
         //
         // Resize export halo matrix, and copy over the rows
@@ -2560,7 +2587,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     }
 
     // Step 3: Write the 1-ring global nodes for each neighbor
-    thrust::exclusive_scan(halo_nodes.begin(), halo_nodes.end(), halo_nodes.begin());
+    thrust_wrapper::exclusive_scan(halo_nodes.begin(), halo_nodes.end(), halo_nodes.begin());
     cudaCheckError();
     std::vector<IVector> bdy_lists;
     bdy_lists.resize(num_neighbors);
@@ -2673,7 +2700,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     }
 
     IVector row_sizes(row_offsets.size() - 1);
-    thrust::adjacent_difference(row_offsets.begin() + 1, row_offsets.end(), row_sizes.begin());
+    thrust_wrapper::adjacent_difference(row_offsets.begin() + 1, row_offsets.end(), row_sizes.begin());
     cudaCheckError();
     IVector B2L_maps_offsets(max_B2L_maps_size + 1);
 
@@ -2684,9 +2711,9 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         if (A_b2l_map_size > 0)
         {
             // For each node in the B2L_map for that neighbor, write the row size in B2L_maps_offsets
-            thrust::gather(A.manager->B2L_maps[i].begin(), A.manager->B2L_maps[i].begin() + A_b2l_map_size, row_sizes.begin(), B2L_maps_offsets.begin());
+            thrust_wrapper::gather(A.manager->B2L_maps[i].begin(), A.manager->B2L_maps[i].begin() + A_b2l_map_size, row_sizes.begin(), B2L_maps_offsets.begin());
             // Do exclusive scan, to go from row length to row offsets
-            thrust::exclusive_scan(B2L_maps_offsets.begin(), B2L_maps_offsets.begin() + A_b2l_map_size + 1, B2L_maps_offsets.begin());
+            thrust_wrapper::exclusive_scan(B2L_maps_offsets.begin(), B2L_maps_offsets.begin() + A_b2l_map_size + 1, B2L_maps_offsets.begin());
             B.manager->B2L_maps[i].resize(B2L_maps_offsets[A_b2l_map_size]);
             const int cta_size = 128;
             const int nWarps = cta_size / 32;
@@ -2815,7 +2842,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     cudaCheckError();
     A.row_offsets[A.get_num_rows()] = cur_offset;
     int num_cols = -1;
-    num_cols = thrust::reduce(A.col_indices.begin(), A.col_indices.end(), num_cols, thrust::maximum<int>()) + 1;
+    num_cols = thrust_wrapper::reduce(A.col_indices.begin(), A.col_indices.end(), num_cols, thrust::maximum<int>()) + 1;
     cudaCheckError();
     A.set_num_cols(num_cols);
 }
@@ -2913,7 +2940,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             //matrix_halo_sizes.resize(size+1);
             int num_blocks = min(4096, (size + 127) / 128);
             write_matrix_rowsize <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), P.row_offsets.raw(), size, matrix_halo_sizes.raw());
-            thrust::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
+            thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
             int nnz_count =  matrix_halo_sizes[size];
             // Resize export halo matrix, and copy over the rows
             halo_rows_P_row_offsets[i].resize(size + 1);
@@ -3000,7 +3027,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             //matrix_halo_sizes.resize(size+1);
             int num_blocks = min(4096, (size + 127) / 128);
             write_matrix_rowsize <<< num_blocks, 128>>>(tmp_B2L_maps[i].raw(), RAP.row_offsets.raw(), size, matrix_halo_sizes.raw());
-            thrust::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
+            thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
             int nnz_count =  matrix_halo_sizes[size];
             // Resize export halo matrix, and copy over the rows
             halo_rows_RAP_row_offsets[i].resize(tmp_B2L_maps[i].size() + 1);
@@ -3091,7 +3118,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         matrix_halo_sizes.resize(size + 1);
         int num_blocks = min(4096, (size + 127) / 128);
         write_matrix_rowsize <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), A.row_offsets.raw(), size, matrix_halo_sizes.raw());
-        thrust::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
+        thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
         cudaCheckError();
         int nnz_count =  matrix_halo_sizes[size];
         //
@@ -3134,7 +3161,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         {
             int num_blocks = min(4096, (size + 127) / 128);
             write_matrix_rowsize <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), A.row_offsets.raw(), size, halo_rows_row_offsets[i].raw());
-            thrust::exclusive_scan(halo_rows_row_offsets[i].begin(), halo_rows_row_offsets[i].begin() + size + 1, halo_rows_row_offsets[i].begin());
+            thrust_wrapper::exclusive_scan(halo_rows_row_offsets[i].begin(), halo_rows_row_offsets[i].begin() + size + 1, halo_rows_row_offsets[i].begin());
             // compute global indices
             int nnz_count = halo_rows_row_offsets[i][size];
             halo_rows_col_indices[i].resize(nnz_count);
@@ -3190,7 +3217,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             //send over B2L and L2H maps corresponding to current neighbor, so that it will be able to make sense of indices (local to this partition)
             thrust::copy(B2L_maps[i].begin(), B2L_maps[i].end(), halo_btl[i].B2L_maps[0].begin());
             thrust::copy(halo_lists[i]->begin(), halo_lists[i]->end(), halo_btl[i].L2H_maps[0].begin());
-            int max_index = thrust::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
+            int max_index = thrust_wrapper::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
             max_index = max_index > A.get_num_rows() ? max_index : A.get_num_rows();
             halo_btl[i].set_index_range(max_index);
             thrust::copy(B2L_rings[i].begin(), B2L_rings[i].end(), halo_btl[i].B2L_rings[0].begin());
@@ -3221,7 +3248,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             //Even though in this case matrices are not being sent over, we create the same data structures, so they can be handled the same way
             thrust::copy(B2L_maps[i].begin(), B2L_maps[i].end(), halo_btl[i].L2H_maps[0].begin());
             thrust::copy(halo_lists[i]->begin(), halo_lists[i]->end(), halo_btl[i].B2L_maps[0].begin());
-            int max_index = thrust::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
+            int max_index = thrust_wrapper::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
             max_index = max_index > A.get_num_rows() ? max_index : A.get_num_rows();
             halo_btl[i].set_index_range(max_index);
             halo_btl[i].B2L_rings[0][0] = 0;
@@ -3265,7 +3292,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             halo_btl[i].L2H_maps[0].resize(halo_lists[i]->size());
             thrust::copy(A.manager->B2L_maps[i].begin(), A.manager->B2L_maps[i].end(), halo_btl[i].B2L_maps[0].begin());
             thrust::copy(halo_lists[i]->begin(), halo_lists[i]->end(), halo_btl[i].L2H_maps[0].begin());
-            int max_index = thrust::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
+            int max_index = thrust_wrapper::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
             max_index = max_index > A.get_num_rows() ? max_index : A.get_num_rows();
             halo_btl[i].set_index_range(max_index);
             thrust::copy(A.manager->B2L_rings[i].begin(), A.manager->B2L_rings[i].end(), halo_btl[i].B2L_rings[0].begin());
@@ -3288,7 +3315,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             halo_btl[i].L2H_maps[0].resize(A.manager->B2L_rings[i][rings]);
             thrust::copy(A.manager->B2L_maps[i].begin(), A.manager->B2L_maps[i].end(), halo_btl[i].L2H_maps[0].begin());
             thrust::copy(halo_lists[i]->begin(), halo_lists[i]->end(), halo_btl[i].B2L_maps[0].begin());
-            int max_index = thrust::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
+            int max_index = thrust_wrapper::reduce(halo_lists[i]->begin(), halo_lists[i]->end(), (int)0, thrust::maximum<int>()) + 1;
             max_index = max_index > A.get_num_rows() ? max_index : A.get_num_rows();
             halo_btl[i].set_index_range(max_index);
             halo_btl[i].B2L_rings[0][0] = 0;
@@ -3323,7 +3350,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         thrust::copy(A.manager->L2H_maps[i].begin(), A.manager->L2H_maps[i].end(), halo_btl[i].L2H_maps[0].begin());
         thrust::copy(A.manager->B2L_rings[i].begin(), A.manager->B2L_rings[i].end(), halo_btl[i].B2L_rings[0].begin());
         // compute index range
-        int max_index = thrust::reduce(A.manager->L2H_maps[i].begin(), A.manager->L2H_maps[i].end(), (int)0, thrust::maximum<int>()) + 1;
+        int max_index = thrust_wrapper::reduce(A.manager->L2H_maps[i].begin(), A.manager->L2H_maps[i].end(), (int)0, thrust::maximum<int>()) + 1;
         max_index = max_index > A.get_num_rows() ? max_index : A.get_num_rows();
         halo_btl[i].set_index_range(max_index);
     }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,8 @@
  */
 
 #include <csr_multiply.h>
-#include <csr_multiply_sm20.h>
 #include <csr_multiply_sm35.h>
+#include <csr_multiply_sm70.h>
 #include <util.h>
 #include <device_properties.h>
 #include <amgx_cusparse.h>
@@ -43,16 +43,16 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
 
+    if ( arch >= 70 )
+    {
+        return new CSR_Multiply_Sm70<TConfig_d>();
+    }
     if ( arch >= 35 )
     {
         return new CSR_Multiply_Sm35<TConfig_d>();
     }
-    else if ( arch >= 20 )
-    {
-        return new CSR_Multiply_Sm20<TConfig_d>();
-    }
 
-    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Fermi GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
+    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Kepler GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
 }
 
 // ====================================================================================================================
@@ -64,20 +64,20 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
 
+    if ( arch >= 70 )
+    {
+        CSR_Multiply_Sm70<TConfig_d> *wk = new CSR_Multiply_Sm70<TConfig_d>();
+        wk->set_max_attempts(max_attempts);
+        return wk;
+    }
     if ( arch >= 35 )
     {
         CSR_Multiply_Sm35<TConfig_d> *wk = new CSR_Multiply_Sm35<TConfig_d>();
         wk->set_max_attempts(max_attempts);
         return wk;
     }
-    else if ( arch >= 20 )
-    {
-        CSR_Multiply_Sm20<TConfig_d> *wk = new CSR_Multiply_Sm20<TConfig_d>();
-        wk->set_max_attempts(max_attempts);
-        return wk;
-    }
 
-    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Fermi GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
+    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Kepler GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
 }
 
 // ====================================================================================================================
@@ -321,7 +321,7 @@ CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Impl( boo
 {}
 
 // ====================================================================================================================
-
+#ifndef CUSPARSE_USE_GENERIC_SPGEMM
 #define CUSPARSE_CSRGEMM(type, func) \
 cusparseStatus_t cusparseCsrgemm2(cusparseHandle_t handle,             \
                                  int m,                               \
@@ -364,7 +364,9 @@ CUSPARSE_CSRGEMM(float,           cusparseScsrgemm2)
 CUSPARSE_CSRGEMM(double,          cusparseDcsrgemm2)
 CUSPARSE_CSRGEMM(cuComplex,       cusparseCcsrgemm2)
 CUSPARSE_CSRGEMM(cuDoubleComplex, cusparseZcsrgemm2)
+#endif
 
+#ifndef CUSPARSE_USE_GENERIC_SPGEMM
 #define CUSPARSE_CSRGEMMBUFSZ(type, func) \
 cusparseStatus_t cusparseCsrgemmBufferSize(cusparseHandle_t handle,             \
                                  int m,                               \
@@ -398,25 +400,206 @@ CUSPARSE_CSRGEMMBUFSZ(float,           cusparseScsrgemm2_bufferSizeExt)
 CUSPARSE_CSRGEMMBUFSZ(double,          cusparseDcsrgemm2_bufferSizeExt)
 CUSPARSE_CSRGEMMBUFSZ(cuComplex,       cusparseCcsrgemm2_bufferSizeExt)
 CUSPARSE_CSRGEMMBUFSZ(cuDoubleComplex, cusparseZcsrgemm2_bufferSizeExt)
-
-#define CUSPARSE_GATHER(type, func) \
-cusparseStatus_t    \
-cusparseGthr(cusparseHandle_t    handle,\
-              int                 nnz,\
-              const type*         y,\
-              type*               xVal,\
-              const int*          xInd,\
-              cusparseIndexBase_t idxBase)\
-{                                                       \
-  return func(handle, nnz, y, xVal, xInd, idxBase);     \
-}
-
-CUSPARSE_GATHER(float,           cusparseSgthr)
-CUSPARSE_GATHER(double,          cusparseDgthr)
-CUSPARSE_GATHER(cuComplex,       cusparseCgthr)
-CUSPARSE_GATHER(cuDoubleComplex, cusparseZgthr)
+#endif
 
 // ====================================================================================================================
+
+#ifdef CUSPARSE_USE_GENERIC_SPGEMM
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
+   // CUSPARSE APIs
+    cusparseHandle_t handle = Cusparse::get_instance().get_handle();
+    cusparseSpMatDescr_t matA, matB, matC;
+    void*  dBuffer1    = NULL, *dBuffer2   = NULL;
+    size_t bufferSize1 = 0,    bufferSize2 = 0;
+    cudaDataType matType;
+    if (M == AMGX_matDouble) matType = CUDA_R_64F;
+    else if (M == AMGX_matFloat) matType = CUDA_R_32F;
+    else if (M == AMGX_matDoubleComplex) matType = CUDA_C_64F;
+    else if (M == AMGX_matComplex) matType = CUDA_C_32F;
+    else FatalError("multiply::cusparse_multiply unknown matrix format", AMGX_ERR_INTERNAL);
+
+    cusparseIndexType_t indType;
+    if (I == AMGX_indInt) indType = CUSPARSE_INDEX_32I;
+    //if (I == AMGX_indInt64) indType = CUSPARSE_INDEX_64I; // As of CUDA 11.0, cusparseSpGEMM supports only 32-bit indices CUSPARSE_INDEX_32I
+    else FatalError("multiply::cusparse_multiply unknown index format", AMGX_ERR_INTERNAL);
+
+    cusparseCheckError( cusparseCreateCsr(&matA, A.get_num_rows(), A.get_num_cols(), A.get_num_nz(),
+                                      (void*)A.row_offsets.raw(), (void*)A.col_indices.raw(), (void*)A.values.raw(),
+                                      indType, indType,
+                                      CUSPARSE_INDEX_BASE_ZERO, matType) );
+    cusparseCheckError( cusparseCreateCsr(&matB, B.get_num_rows(), B.get_num_cols(), B.get_num_nz(),
+                                      (void*)B.row_offsets.raw(), (void*)B.col_indices.raw(), (void*)B.values.raw(),
+                                      indType, indType,
+                                      CUSPARSE_INDEX_BASE_ZERO, matType) );
+    cusparseCheckError( cusparseCreateCsr(&matC, A.get_num_rows(), B.get_num_cols(), 0,
+                                      NULL, NULL, NULL,
+                                      indType, indType,
+                                      CUSPARSE_INDEX_BASE_ZERO, matType) );
+
+    typename Matrix_d::value_type alpha = types::util<typename Matrix_d::value_type>::get_one();
+    typename Matrix_d::value_type beta  = types::util<typename Matrix_d::value_type>::get_zero();
+    cusparseOperation_t opA         = CUSPARSE_OPERATION_NON_TRANSPOSE;
+    cusparseOperation_t opB         = CUSPARSE_OPERATION_NON_TRANSPOSE;
+    cudaDataType        computeType = matType;
+
+    // SpGEMM Computation
+    cusparseSpGEMMDescr_t spgemmDesc;
+    cusparseCheckError( cusparseSpGEMM_createDescr(&spgemmDesc) );
+
+    // ask bufferSize1 bytes for external memory
+    cusparseSpGEMM_workEstimation(handle, opA, opB,
+                                  &alpha, matA, matB, &beta, matC,
+                                  computeType, CUSPARSE_SPGEMM_DEFAULT,
+                                  spgemmDesc, &bufferSize1, NULL);
+    amgx::memory::cudaMalloc(&dBuffer1, bufferSize1);
+    // inspect the matrices A and B to understand the memory requiremnent for
+    // the next step
+    cusparseSpGEMM_workEstimation(handle, opA, opB,
+                                  &alpha, matA, matB, &beta, matC,
+                                  computeType, CUSPARSE_SPGEMM_DEFAULT,
+                                  spgemmDesc, &bufferSize1, dBuffer1);
+
+    // ask bufferSize2 bytes for external memory
+    cusparseSpGEMM_compute(handle, opA, opB,
+                           &alpha, matA, matB, &beta, matC,
+                           computeType, CUSPARSE_SPGEMM_DEFAULT,
+                           spgemmDesc, &bufferSize2, NULL);
+    amgx::memory::cudaMalloc(&dBuffer2, bufferSize2);
+
+    // compute the intermediate product of A * B
+    cusparseSpGEMM_compute(handle, opA, opB,
+                           &alpha, matA, matB, &beta, matC,
+                           computeType, CUSPARSE_SPGEMM_DEFAULT,
+                           spgemmDesc, &bufferSize2, dBuffer2);
+    // get matrix C non-zero entries C_num_nnz1
+    int64_t C_num_rows1, C_num_cols1, C_num_nnz1;
+    cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1);
+    // Setup C metadata
+    C.set_initialized(0);
+    C.row_offsets.resize( A.get_num_rows() + 1 );
+    C.col_indices.resize( C_num_nnz1 );
+    C.m_seq_offsets.resize( A.get_num_rows() + 1 );
+    thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    C.set_num_rows( A.get_num_rows() );
+    C.set_num_cols( B.get_num_cols() );
+    C.diag.resize(C.get_num_rows());
+    C.set_block_dimx(A.get_block_dimx());
+    C.set_block_dimy(B.get_block_dimy());
+    C.setColsReorderedByColor(false);
+    C.set_num_nz( C_num_nnz1 );
+    C.values.resize( C_num_nnz1 );
+
+    cusparseCsrSetPointers(matC, C.row_offsets.raw(), C.col_indices.raw(), C.values.raw());
+
+    // copy the final products to the matrix C
+    cusparseSpGEMM_copy(handle, opA, opB,
+                        &alpha, matA, matB, &beta, matC,
+                        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc);
+
+    C.set_initialized(1);
+
+    // destroy matrix/vector descriptors
+    cusparseCheckError( cusparseSpGEMM_destroyDescr(spgemmDesc) );
+    cusparseCheckError( cusparseDestroySpMat(matA) );
+    cusparseCheckError( cusparseDestroySpMat(matB) );
+    cusparseCheckError( cusparseDestroySpMat(matC) );
+    cusparseCheckError( cusparseDestroy(handle) );
+    amgx::memory::cudaFreeAsync(dBuffer1);
+    amgx::memory::cudaFreeAsync(dBuffer2);
+}
+#endif
+
+#ifndef CUSPARSE_USE_GENERIC_SPGEMM
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
+    size_t pBufferSizeInBytes = 0;
+    void *pBuffer = NULL;
+
+    cusparseHandle_t handle = Cusparse::get_instance().get_handle();
+    cusparsePointerMode_t old_pointer_mode;
+    cusparseCheckError(cusparseGetPointerMode(handle, &old_pointer_mode));
+    cusparseSetPointerMode(Cusparse::get_instance().get_handle(), CUSPARSE_POINTER_MODE_HOST);
+
+    // CUSPARSE does not work if the matrix is not sorted. The column indices are not necessarily in order...
+    const_cast<Matrix_d &>(A).sortByRowAndColumn();
+    const_cast<Matrix_d &>(B).sortByRowAndColumn();
+
+    // Note: If we are re-setup this step then most of this could have been cached...
+
+    // Setup the info structure
+    csrgemm2Info_t info = NULL;
+    cusparseCheckError(
+        cusparseCreateCsrgemm2Info(&info));
+
+    typename Matrix_d::value_type alpha = types::util<typename Matrix_d::value_type>::get_one();
+
+    // Determine the buffer size
+    cusparseCheckError(
+        cusparseCsrgemmBufferSize(
+            handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(), &alpha,
+            A.cuMatDescr, A.get_num_nz(), A.row_offsets.raw(), A.col_indices.raw(),
+            B.cuMatDescr, B.get_num_nz(), B.row_offsets.raw(), B.col_indices.raw(),
+            NULL, A.cuMatDescr, 0, A.row_offsets.raw(), A.col_indices.raw(),
+            info, &pBufferSizeInBytes));
+
+    // Allocate the intermediary buffer
+    amgx::memory::cudaMalloc(&pBuffer, pBufferSizeInBytes);
+
+    int nnzC;
+    int *nnzTotalDevHostPtr = &nnzC;
+
+    // Setup C metadata
+    C.set_initialized(0);
+    C.row_offsets.resize( A.get_num_rows() + 1 );
+    C.m_seq_offsets.resize( A.get_num_rows() + 1 );
+    thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    C.set_num_rows( A.get_num_rows() );
+    C.set_num_cols( B.get_num_cols() );
+    C.diag.resize(C.get_num_rows());
+    C.set_block_dimx(A.get_block_dimx());
+    C.set_block_dimy(B.get_block_dimy());
+    C.setColsReorderedByColor(false);
+
+    // Compute the row offsets for C
+    cusparseCheckError(
+        cusparseXcsrgemm2Nnz(
+            handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(),
+            A.cuMatDescr, A.get_num_nz(), A.row_offsets.raw(), A.col_indices.raw(),
+            B.cuMatDescr, B.get_num_nz(), B.row_offsets.raw(), B.col_indices.raw(),
+            A.cuMatDescr, 0, A.row_offsets.raw(), A.col_indices.raw(),
+            C.cuMatDescr, C.row_offsets.raw(), nnzTotalDevHostPtr,
+            info, pBuffer));
+
+    // Note the number of non-zeros in C
+    int baseC;
+    cudaMemcpy(&baseC, C.row_offsets.raw(), sizeof(int), cudaMemcpyDefault);
+    cudaMemcpy(&nnzC, C.row_offsets.raw()+A.get_num_rows(), sizeof(int), cudaMemcpyDefault);
+    nnzC -= baseC;
+
+    C.col_indices.resize(nnzC);
+    C.values.resize(nnzC);
+    C.set_num_nz(nnzC);
+
+    // Call the generic cuSPARSE CSR GEMM routine
+    cusparseCheckError(
+        cusparseCsrgemm2(
+            handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(),
+            &alpha,
+            A.cuMatDescr, A.get_num_nz(), A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
+            B.cuMatDescr, B.get_num_nz(), B.values.raw(), B.row_offsets.raw(), B.col_indices.raw(),
+            NULL,
+            A.cuMatDescr, 0, A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
+            C.cuMatDescr, C.values.raw(), C.row_offsets.raw(), C.col_indices.raw(),
+            info, pBuffer));
+
+    // Finalise
+    C.set_initialized(1);
+    cusparseCheckError(
+        cusparseSetPointerMode(handle, old_pointer_mode));
+    cusparseCheckError(
+        cusparseDestroyCsrgemm2Info(info));
+    amgx::memory::cudaFreeAsync(pBuffer);
+}
+#endif
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
@@ -465,128 +648,44 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
     // We have to fallback to the CUSPARSE path.
     if ( !done )
     {
-        size_t pBufferSizeInBytes = 0;
-        void *pBuffer = NULL;
-
-        cusparseHandle_t handle = Cusparse::get_instance().get_handle();
-        cusparsePointerMode_t old_pointer_mode;
-        cusparseCheckError(cusparseGetPointerMode(handle, &old_pointer_mode));
-        cusparseSetPointerMode(Cusparse::get_instance().get_handle(), CUSPARSE_POINTER_MODE_HOST);
-
-        // CUSPARSE does not work if the matrix is not sorted. The column indices are not necessarily in order...
-        const_cast<Matrix_d &>(A).sortByRowAndColumn();
-        const_cast<Matrix_d &>(B).sortByRowAndColumn();
-
-        // Note: If we are re-setup this step then most of this could have been cached...
-
-        // Setup the info structure
-        csrgemm2Info_t info = NULL;
-        cusparseCheckError(
-            cusparseCreateCsrgemm2Info(&info));
-
-        typename Matrix_d::value_type alpha = types::util<typename Matrix_d::value_type>::get_one();
-
-        // Determine the buffer size
-        cusparseCheckError(
-            cusparseCsrgemmBufferSize(
-                handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(), &alpha,
-                A.cuMatDescr, A.get_num_nz(), A.row_offsets.raw(), A.col_indices.raw(),
-                B.cuMatDescr, B.get_num_nz(), B.row_offsets.raw(), B.col_indices.raw(),
-                NULL, A.cuMatDescr, 0, A.row_offsets.raw(), A.col_indices.raw(),
-                info, &pBufferSizeInBytes));
-
-        // Allocate the intermediary buffer
-        amgx::memory::cudaMalloc(&pBuffer, pBufferSizeInBytes);
-
-        int nnzC;
-        int *nnzTotalDevHostPtr = &nnzC;
-
-        // Setup C metadata
-        C.set_initialized(0);
-        C.row_offsets.resize( A.get_num_rows() + 1 );
-        C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-        thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
-        C.set_num_rows( A.get_num_rows() );
-        C.set_num_cols( B.get_num_cols() );
-        C.diag.resize(C.get_num_rows());
-        C.set_block_dimx(A.get_block_dimx());
-        C.set_block_dimy(B.get_block_dimy());
-        C.setColsReorderedByColor(false);
-
-        // Compute the row offsets for C
-        cusparseCheckError(
-            cusparseXcsrgemm2Nnz(
-                handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(),
-                A.cuMatDescr, A.get_num_nz(), A.row_offsets.raw(), A.col_indices.raw(),
-                B.cuMatDescr, B.get_num_nz(), B.row_offsets.raw(), B.col_indices.raw(),
-                A.cuMatDescr, 0, A.row_offsets.raw(), A.col_indices.raw(),
-                C.cuMatDescr, C.row_offsets.raw(), nnzTotalDevHostPtr,
-                info, pBuffer));
-
-        // Note the number of non-zeros in C
-        int baseC;
-        cudaMemcpy(&baseC, C.row_offsets.raw(), sizeof(int), cudaMemcpyDefault);
-        cudaMemcpy(&nnzC, C.row_offsets.raw()+A.get_num_rows(), sizeof(int), cudaMemcpyDefault);
-        nnzC -= baseC;
-
-        C.col_indices.resize(nnzC);
-        C.values.resize(nnzC);
-        C.set_num_nz(nnzC);
-
-        // Call the generic cuSPARSE CSR GEMM routine
-        cusparseCheckError(
-            cusparseCsrgemm2(
-                handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(),
-                &alpha,
-                A.cuMatDescr, A.get_num_nz(), A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
-                B.cuMatDescr, B.get_num_nz(), B.values.raw(), B.row_offsets.raw(), B.col_indices.raw(),
-                NULL,
-                A.cuMatDescr, 0, A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
-                C.cuMatDescr, C.values.raw(), C.row_offsets.raw(), C.col_indices.raw(),
-                info, pBuffer));
-
-        // Finalise
-        C.set_initialized(1);
-        cusparseCheckError(
-            cusparseSetPointerMode(handle, old_pointer_mode));
-        cusparseCheckError(
-            cusparseDestroyCsrgemm2Info(info));
-        amgx::memory::cudaFreeAsync(pBuffer);
+        this->cusparse_multiply(A,B,C,Aq1,Bq1,Aq2,Bq2);
     }
 
-    // Compute row offsets.
-    this->compute_offsets( C );
-    // Allocate memory to store columns/values.
-    int num_vals = C.row_offsets[C.get_num_rows()];
-    C.col_indices.resize(num_vals);
-    C.values.resize(num_vals);
-    C.set_num_nz(num_vals);
-    C.diag.resize( C.get_num_rows() );
-    C.set_block_dimx(A.get_block_dimx());
-    C.set_block_dimy(B.get_block_dimy());
-    C.setColsReorderedByColor(false);
-    // Like count_non_zeroes, compute_values is responsible for setting its work queue (if it dares :)).
-    done = false;
-
-    if ( this->m_num_threads_per_row_count != this->m_num_threads_per_row_compute )
+    if ( done )
     {
-        // Reset the status.
-        int status = 0;
-        cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
-        // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
-        // properly set but it is responsible for setting the work queue.
-        this->compute_values( A, B, C, this->m_num_threads_per_row_compute, Aq1, Bq1, Aq2, Bq2 );
-        // Read the result from count_non_zeroes.
-        cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
-        done = status == 0;
-    }
+       // Compute row offsets.
+       this->compute_offsets( C );
+       // Allocate memory to store columns/values.
+       int num_vals = C.row_offsets[C.get_num_rows()];
+       C.col_indices.resize(num_vals);
+       C.values.resize(num_vals);
+       C.set_num_nz(num_vals);
+       C.diag.resize( C.get_num_rows() );
+       C.set_block_dimx(A.get_block_dimx());
+       C.set_block_dimy(B.get_block_dimy());
+       C.setColsReorderedByColor(false);
+       // Like count_non_zeroes, compute_values is responsible for setting its work queue (if it dares :)).
+       done = false;
 
-    // Re-run if needed.
-    if ( !done )
-    {
-        this->compute_values( A, B, C, this->m_num_threads_per_row_count, Aq1, Bq1, Aq2, Bq2 );
-    }
+       if ( this->m_num_threads_per_row_count != this->m_num_threads_per_row_compute )
+       {
+           // Reset the status.
+           int status = 0;
+           cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
+           // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
+           // properly set but it is responsible for setting the work queue.
+           this->compute_values( A, B, C, this->m_num_threads_per_row_compute, Aq1, Bq1, Aq2, Bq2 );
+           // Read the result from count_non_zeroes.
+           cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
+           done = status == 0;
+       }
 
+       // Re-run if needed.
+       if ( !done )
+       {
+           this->compute_values( A, B, C, this->m_num_threads_per_row_count, Aq1, Bq1, Aq2, Bq2 );
+       }
+    }
     // Finalize the initialization of the matrix.
     C.set_initialized(1);
 }

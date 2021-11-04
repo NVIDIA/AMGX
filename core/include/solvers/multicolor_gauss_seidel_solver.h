@@ -39,6 +39,15 @@ namespace amgx
 namespace multicolor_gauss_seidel_solver
 {
 
+enum KernelMethod
+{
+    DEFAULT      = 0,   // default, let implementation choose appropriate kernel
+    NAIVE        = 1,   // use the "naive" implementation, thread per row - previously default
+    WARP_PER_ROW = 2,   // each row is processed by a warp
+    T32_PER_ROW  = 3,   // each row is processed by 32 threads (specialization of N_PER_ROW as opposed to fixed WARP_PER_ROW)
+    T4_PER_ROW   = 4    // each row is processed by  4 threads 
+};
+
 template <class T_Config> class MulticolorGaussSeidelSolver;
 
 template<class T_Config>
@@ -64,6 +73,7 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
 
         virtual void smooth_BxB(Matrix<T_Config> &A, VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void smooth_1x1(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
+        virtual void smooth_1x1_naive(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void smooth_3x3(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void smooth_4x4(const Matrix<T_Config> &A, const VVector &b, VVector &x, ViewType separation_flag) = 0;
         virtual void computeDinv_1x1(const Matrix<T_Config> &A) = 0;
@@ -78,8 +88,12 @@ class MulticolorGaussSeidelSolver_Base : public Solver<T_Config>
         MVector Dinv;
         int symFlag;
         int use_bsrxmv;
+        KernelMethod gs_method;
         bool m_reorder_cols_by_color_desired;
         bool m_insert_diagonal_desired;
+
+        cudaStream_t get_aux_stream();
+        cudaEvent_t m_start, m_end;
 
     public:
         // Constructor.
@@ -131,6 +145,7 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_host, t_vecPrec, t_matPre
     private:
         void smooth_BxB(Matrix_h &A, VVector &b, VVector &x, ViewType separation_flag);
         void smooth_1x1(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
+        void smooth_1x1_naive(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_3x3(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_4x4(const Matrix_h &A, const VVector &b, VVector &x, ViewType separation_flag);
         void computeDinv_1x1(const Matrix_h &A);
@@ -161,10 +176,12 @@ class MulticolorGaussSeidelSolver< TemplateConfig<AMGX_device, t_vecPrec, t_matP
         typedef typename Matrix<TConfig_d>::MVector MVector;
         void batch_smooth_1x1(const Matrix_d &A, int batch_sz, const VVector &b, VVector &x);
         void batch_smooth_1x1_fast(const Matrix_d &A, int batch_sz, const VVector &b, VVector &x);
-        MulticolorGaussSeidelSolver(AMG_Config &cfg, const std::string &cfg_scope) : MulticolorGaussSeidelSolver_Base<TConfig_d>(cfg, cfg_scope) {}
+        MulticolorGaussSeidelSolver(AMG_Config &cfg, const std::string &cfg_scope) : MulticolorGaussSeidelSolver_Base<TConfig_d>(cfg, cfg_scope)
+        {}
     private:
         void smooth_BxB(Matrix_d &A, VVector &b, VVector &x, ViewType separation_flag);
         void smooth_1x1(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
+        void smooth_1x1_naive(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_3x3(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
         void smooth_4x4(const Matrix_d &A, const VVector &b, VVector &x, ViewType separation_flag);
         void computeDinv_1x1(const Matrix_d &A);

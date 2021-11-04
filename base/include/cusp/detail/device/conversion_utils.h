@@ -33,6 +33,7 @@
 #include <thrust/unique.h>
 
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust_wrapper.h>
 
 
 namespace cusp
@@ -102,7 +103,7 @@ size_t count_diagonals(const size_t num_rows,
 						    occupied_diagonal_functor<IndexType>(num_rows)), 
 		    values.begin());
 
-    return thrust::reduce(values.begin(), values.end());
+    return thrust_wrapper::reduce(values.begin(), values.end());
 }
 
 template <typename Matrix>
@@ -176,7 +177,7 @@ size_t compute_optimal_entries_per_row(const  Array1d& row_offsets,
     thrust::adjacent_difference( row_offsets.begin()+1, row_offsets.end(), entries_per_row.begin() );
 
     // sort data to bring equal elements together
-    thrust::sort(entries_per_row.begin(), entries_per_row.end());
+    thrust_wrapper::sort(entries_per_row.begin(), entries_per_row.end());
 
     // find the end of each bin of values
     thrust::counting_iterator<IndexType> search_begin(0);

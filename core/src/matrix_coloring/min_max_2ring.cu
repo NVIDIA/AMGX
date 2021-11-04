@@ -460,7 +460,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMatri
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
     cudaCheckError();
 #if 0
     device_vector_alloc<int> error_found( 1, 0 );
@@ -654,9 +654,7 @@ void color_kernel_greedy( const int A_num_rows, const int *A_rows, const int *A_
 
         is_min_vertex = false;
         //reduce used colors bit by bit.
-#if __CUDA_ARCH__ >= 350
 #pragma unroll
-
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
         {
             int tmp_hi = __double2hiint( __longlong_as_double( used_colors ) );
@@ -667,7 +665,6 @@ void color_kernel_greedy( const int A_num_rows, const int *A_rows, const int *A_
             used_colors |= tmp;
         }
 
-#endif
         int my_color = 64 - utils::bfind( ~used_colors );
 
         if (my_color <= 0) { my_color = 1; }
@@ -809,7 +806,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::color_step
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
 }
 
 

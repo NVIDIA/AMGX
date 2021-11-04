@@ -232,9 +232,7 @@ struct used_color_structure_64_bit
     template<int CTA_SIZE, int WARP_SIZE>
     __device__ __forceinline__ void sync_subwarp(const int sublane_id)
     {
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
-
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
         {
             int tmp_hi = __double2hiint( __longlong_as_double( bitfield ) );
@@ -244,20 +242,6 @@ struct used_color_structure_64_bit
             long long tmp = __double_as_longlong(__hiloint2double(tmp_hi, tmp_lo));
             bitfield |= tmp;
         }
-
-#else
-        __shared__ volatile long long s_used_colors[CTA_SIZE + WARP_SIZE / 2];
-#pragma unroll
-
-        for (int i = 1; i <= WARP_SIZE / 2; i *= 2)
-        {
-            s_used_colors[threadIdx.x] = bitfield;
-            long long tmp = s_used_colors[threadIdx.x + i];
-
-            if (sublane_id + i < WARP_SIZE) { bitfield |= tmp; }
-        }
-
-#endif
     }
     __device__ __forceinline__ void aggregate(const used_color_structure_64_bit &b)
     {
@@ -380,9 +364,7 @@ unsigned long long int box_id :
     __device__ __forceinline__ void sync_subwarp(const int sublane_id)
     {
         used_color_structure_64_bit_colorbox<N_COLORBOXES_BITS> tmps;
-#if __CUDA_ARCH__ >= 300
 #pragma unroll
-
         for (int i = WARP_SIZE / 2; i >= 1; i /= 2)
         {
             int tmp_hi = __double2hiint( __longlong_as_double( data.bitfield ) );
@@ -393,21 +375,6 @@ unsigned long long int box_id :
             tmps.data.bitfield = tmp;  //get neighbors bitfield
             aggregate(tmps);
         }
-
-#else
-        __shared__ volatile unsigned long long s_used_colors[CTA_SIZE + WARP_SIZE / 2];
-#pragma unroll
-
-        for (int i = 1; i <= WARP_SIZE / 2; i *= 2)
-        {
-            s_used_colors[threadIdx.x] = data.bitfield;
-            unsigned long long tmp = s_used_colors[threadIdx.x + i];
-            tmps.data.bitfield = tmp; //get neighbors bitfield
-
-            if (sublane_id + i < WARP_SIZE) { aggregate(tmps); }
-        }
-
-#endif
     }
 };
 

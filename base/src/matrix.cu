@@ -34,6 +34,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <thrust/gather.h>
+#include <vector_thrust_allocator.h>
 #include <cusp/detail/format_utils.h>
 #include <permute.h>
 #include <multiply.h>
@@ -245,7 +246,7 @@ void
 Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::apply(const Vector<TConfig> &v, Vector<TConfig> &res, ViewType view)
 {
     Vector<TConfig> &v_ = const_cast<Vector<TConfig>&>(v);
-    multiply(*this, v_, res);
+    multiply(*this, v_, res, view);
 }
 
 

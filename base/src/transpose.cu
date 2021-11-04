@@ -40,6 +40,7 @@
 #endif
 
 #include <thrust/transform.h>
+#include <thrust_wrapper.h>
 
 #include "amgx_types/util.h"
 
@@ -76,10 +77,16 @@ void transpose(const Matrix &A, Matrix &B)
     else
     {
         B.addProps(CSR);
+        B.set_allow_recompute_diag(false);
+
+#ifdef ENABLE_CUSPARSE_TRANSPOSE
+        Cusparse::transpose(A, B);
+#else
         MatrixCusp<typename Matrix::TConfig, cusp::csr_format> wA((Matrix *) &A);
         MatrixCusp<typename Matrix::TConfig, cusp::csr_format> wB(&B);
-        B.set_allow_recompute_diag(false);
         cusp::transpose(wA, wB);
+#endif
+
         B.set_allow_recompute_diag(true);
         cudaCheckError();
         B.computeDiagonal();
@@ -87,7 +94,7 @@ void transpose(const Matrix &A, Matrix &B)
 
         if (types::util<ValueTypeA>::is_complex)
         {
-            thrust::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
+            thrust_wrapper::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
         }
 
         B.set_initialized(1);
@@ -104,13 +111,21 @@ void transpose(const Matrix &A, Matrix &B, int num_rows)
     }
 
     B.addProps(CSR);
+    B.set_allow_recompute_diag(false);
+
+#if ENABLE_CUSPARSE_TRANSPOSE
+    int num_nz = A.row_offsets[num_rows];
+    B.resize(A.get_num_cols(), num_rows, num_nz);
+    Cusparse::transpose(A, B, num_rows, num_nz);
+#else
     MatrixCusp<typename Matrix::TConfig, cusp::csr_format> wA((Matrix *) &A);
     MatrixCusp<typename Matrix::TConfig, cusp::csr_format> wB(&B);
-    B.set_allow_recompute_diag(false);
+
     // operate on wA / wB
     typedef typename Matrix::index_type   IndexType;
     typedef typename Matrix::value_type   ValueType;
     typedef typename Matrix::memory_space MemorySpace;
+
     int num_entries = A.row_offsets[num_rows];
     int num_cols = A.get_num_cols();
     // resize matrix
@@ -132,6 +147,7 @@ void transpose(const Matrix &A, Matrix &B, int num_rows)
         cusp::detail::sort_by_row(wB_row_indices, wB.column_indices, wB.values);
         cusp::detail::indices_to_offsets(wB_row_indices, wB.row_offsets);
     }
+#endif
 
     B.set_allow_recompute_diag(true);
     cudaCheckError();

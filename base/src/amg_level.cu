@@ -131,7 +131,8 @@ void AMG_Level<T_Config>::setup_smoother()
         if (!n &&  this->isClassicalAMGLevel())
         {
             // Skip the solve in gluing path by looking at this flag
-            smoother->level = -999;
+            // XXXX: actually setup is skipped. Check if solve can/need to be skipped too
+            smoother->setGluedSetup(true);
         }
     }
 

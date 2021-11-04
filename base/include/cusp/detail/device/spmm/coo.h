@@ -95,10 +95,10 @@ void coo_spmm_helper(size_t workspace_size,
                                   B_gather_locations.begin());
 
     
-    thrust::gather(A_gather_locations.begin(), A_gather_locations.end(),
+    thrust_wrapper::gather(A_gather_locations.begin(), A_gather_locations.end(),
                    A.row_indices.begin(),
                    I.begin());
-    thrust::gather(B_gather_locations.begin(), B_gather_locations.end(),
+    thrust_wrapper::gather(B_gather_locations.begin(), B_gather_locations.end(),
                    B.column_indices.begin(),
                    J.begin());
 
@@ -164,7 +164,7 @@ void spmm_coo(const Matrix1& A,
 
     // for each element A(i,j) compute the number of nonzero elements in B(j,:)
     cusp::array1d<IndexType,MemorySpace> segment_lengths(A.num_entries);
-    thrust::gather(A.column_indices.begin(), A.column_indices.end(),
+    thrust_wrapper::gather(A.column_indices.begin(), A.column_indices.end(),
                    B_row_lengths.begin(),
                    segment_lengths.begin());
     
@@ -231,7 +231,7 @@ void spmm_coo(const Matrix1& A,
     
         // compute worspace requirements for each row
         cusp::array1d<IndexType,MemorySpace> cummulative_row_workspace(A.num_rows);
-        thrust::gather(A_row_offsets.begin() + 1, A_row_offsets.end(),
+        thrust_wrapper::gather(A_row_offsets.begin() + 1, A_row_offsets.end(),
                        output_ptr.begin(),
                        cummulative_row_workspace.begin());
 

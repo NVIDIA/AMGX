@@ -83,6 +83,8 @@ typename types::PODTypes<typename VectorType::value_type>::type get_norm(const M
             A.getManager()->global_reduce_sum(&nrm);
             nrm = sqrt(nrm);
         }
+        
+        return nrm;
     }
     else if (norm_type == LMAX)
     {

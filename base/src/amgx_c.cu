@@ -795,6 +795,60 @@ inline AMGX_ERROR matrix_vector_multiply(AMGX_matrix_handle mtx,
     return AMGX_OK;
 }
 
+template<AMGX_Mode CASE,
+         template<typename> class MatrixType,
+         template<typename> class VectorType,
+         template<typename> class SolverType>
+inline AMGX_ERROR solver_calculate_residual( AMGX_solver_handle slv,
+        AMGX_matrix_handle mtx,
+        AMGX_vector_handle rhs,
+        AMGX_vector_handle x,
+        Resources *resources,
+        AMGX_vector_handle r)
+{
+    typedef MatrixType<typename TemplateMode<CASE>::Type> MatrixLetterT;
+    typedef CWrapHandle<AMGX_matrix_handle, MatrixLetterT> MatrixW;
+    typedef VectorType<typename TemplateMode<CASE>::Type> VectorLetterT;
+    typedef CWrapHandle<AMGX_vector_handle, VectorLetterT> VectorW;
+    typedef SolverType<typename TemplateMode<CASE>::Type> SolverLetterT;
+    typedef CWrapHandle<AMGX_solver_handle, SolverLetterT> SolverW;
+    SolverW wrapSolver(slv);
+    SolverLetterT &solver = *wrapSolver.wrapped();
+    MatrixW wrapA(mtx);
+    MatrixLetterT &A = *wrapA.wrapped();
+    VectorW wrapRhs(rhs);
+    VectorLetterT &v_rhs = *wrapRhs.wrapped();
+    VectorW wrapX(x);
+    VectorLetterT &v_x = *wrapX.wrapped();
+    VectorW wrapR(r);
+    VectorLetterT &v_r = *wrapR.wrapped();
+
+    if (wrapX.mode() != wrapA.mode())
+    {
+        FatalError("Error: mismatch between vector x mode and matrix mode.\n", AMGX_ERR_BAD_PARAMETERS);
+    }
+
+    if (wrapX.mode() != wrapRhs.mode())
+    {
+        FatalError("Error: mismatch between vector y mode and vector x mode.\n", AMGX_ERR_BAD_PARAMETERS);
+    }
+ 
+    if (wrapX.mode() != wrapR.mode())
+    {
+        FatalError("Error: mismatch between vector r mode and vector x mode.\n", AMGX_ERR_BAD_PARAMETERS);
+    }
+
+    if ((A.getResources() != v_rhs.getResources())
+            || (A.getResources() != v_x.getResources()) 
+            || (A.getResources() != v_r.getResources()))
+    {
+        FatalError("Error: Inconsistency between matrix and vectors resources object, exiting", AMGX_ERR_BAD_PARAMETERS);
+    }
+
+    cudaSetDevice(resources->getDevice(0));
+    solver.getSolverObject()->compute_residual(v_rhs, v_x, v_r);
+    return AMGX_OK;
+}
 
 template<AMGX_Mode CASE,
          template<typename> class MatrixType,

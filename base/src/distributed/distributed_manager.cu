@@ -1247,7 +1247,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     auto global_to_local = loadDistributed_LocalToGlobal<t_colIndex>(num_rows, off_diag_cols);
 
     // set 1, then scan to compute local row indices
-    IVector_h my_indices(num_rows_global);
+    IVector_h my_indices(num_rows_global, 0);
 
     for (int i = 0; i < num_nonzeros; i++)
     {

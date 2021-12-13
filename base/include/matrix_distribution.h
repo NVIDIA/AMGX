@@ -31,13 +31,14 @@
 
 namespace amgx {
 /** Transports parameters for matrix_upload_distributed() call. */
-class MatrixDistribution 
+class MatrixDistribution
 {
 public:
     enum class PartitionInformation {
         None,
         PartitionVec,
-        PartitionOffsets
+        PartitionOffsets,
+        PartitionVecMap
     };
 private:
     int m_allocated_halo_depth;
@@ -45,6 +46,7 @@ private:
     PartitionInformation m_partition_information;
     bool m_has_32bit_col_indices;
     const void *m_partition_data;
+    const void *m_row_map;
 public:
     MatrixDistribution() :
         m_allocated_halo_depth(1),
@@ -62,11 +64,18 @@ public:
     int get32BitColIndices() const { return m_has_32bit_col_indices; }
 
     PartitionInformation getPartitionInformationStyle() const { return m_partition_information; }
-    void setPartitionVec(const int* partition_vector) 
+    void setPartitionVec(const int* partition_vector)
     {
         // Setting a "NULL" partition vector is valid, as the  upload routine will generate one in that case
         m_partition_information = PartitionInformation::PartitionVec;
         m_partition_data = partition_vector;
+    }
+     void setPartitionVecMap(const int* partition_vector, const void* row_map)
+    {
+        // Setting a "NULL" partition vector is valid, as the  upload routine will generate one in that case
+        m_partition_information = PartitionInformation::PartitionVecMap;
+        m_partition_data = partition_vector;
+        m_row_map = row_map;
     }
     void setPartitionOffsets(const void* partition_offsets)
     {
@@ -79,6 +88,7 @@ public:
         }
     }
     const void* getPartitionData() const { return m_partition_data; }
+    const void* getRowMap() const { return m_row_map; }
 };
 
 } // namespace amgx

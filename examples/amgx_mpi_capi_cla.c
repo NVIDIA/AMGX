@@ -495,11 +495,12 @@ int main(int argc, char **argv)
     /* compute global number of rows */
     int nglobal;
     /* upload the matrix with global indices and compute necessary connectivity information */
-    if (partition_vector == NULL) 
+    if (partition_vector == NULL)
     {
         // If no partition vector is given, we assume a partitioning with contiguous blocks (see example above). It is sufficient (and faster/more scalable)
         // to calculate the partition offsets and pass those into the API call instead of creating a full partition vector.
         int64_t* partition_offsets = (int64_t*)malloc((nranks+1) * sizeof(int64_t));
+
         // gather the number of rows on each rank, and perform an exclusive scan to get the offsets.
         int64_t n64 = n;
         partition_offsets[0] = 0; // rows of rank 0 always start at index 0
@@ -508,17 +509,36 @@ int main(int argc, char **argv)
             partition_offsets[i] += partition_offsets[i-1];
         }
         nglobal = partition_offsets[nranks]; // last element always has global number of rows
+        printf("rank %i\n",rank);
+         printf("matrix nglobal %i, n %i, nnx %i, blockx %i, block y %i\n",nglobal, n, nnz, block_dimx, block_dimy);
+        for(int ii=0; ii<n+1; ++ii)
+            printf("rank %irow %i\n", rank, h_row_ptrs[ii]);
 
+        for(int ii=0; ii<nnz; ++ii){
+            int64_t* out = ((int64_t *)h_col_indices);
+            printf("rank %i, col %i\n",rank, out[ii]);
+        }
+        int64_t* map = (int64_t*)malloc((nglobal) * sizeof(int64_t));
+        int* partition_vec = (int*)malloc((nglobal) * sizeof(int));
+        for(int ii=0; ii<nglobal; ++ii){
+            map[ii] =ii;
+            for(int jj = 0; jj<nranks; ++jj){
+                if (ii>=partition_offsets[jj] && ii <partition_offsets[jj+1])
+                    partition_vec[ii] = jj;
+            }
+        }
         AMGX_distribution_handle dist;
         AMGX_distribution_create(&dist, cfg);
-        AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partition_offsets);
+        //AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_OFFSETS, partition_offsets, map);
+        AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_VECTOR_MAP, partition_vec, map);
         AMGX_matrix_upload_distributed(A, nglobal, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag, dist);
         AMGX_distribution_destroy(dist);
         free(partition_offsets);
     }
-    else 
+    else
     {
         MPI_Allreduce(&n, &nglobal, 1, MPI_INT, MPI_SUM, amgx_mpi_comm);
+
         AMGX_matrix_upload_all_global(A, nglobal, n, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag, nrings, nrings, partition_vector);
     }
 

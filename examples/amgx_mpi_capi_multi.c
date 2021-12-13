@@ -329,6 +329,8 @@ int main(int argc, char **argv)
         errAndExit("ERROR: no linear system was specified");
     }
 
+    printf("part sizes %d", partition_vector_size);
+    printf("nrings %d", nrings);
     //free temporary storage
     if (partition_vector != NULL) { free(partition_vector); }
 

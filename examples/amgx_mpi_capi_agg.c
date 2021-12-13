@@ -387,6 +387,9 @@ int main(int argc, char **argv)
         errAndExit("ERROR: no linear system was specified");
     }
 
+    printf("part sizes %d\n", partition_vector_size);
+    printf("nrings %d\n", nrings);
+
     //free temporary storage
     if (partition_vector != NULL) { free(partition_vector); }
 
@@ -501,6 +504,7 @@ int main(int argc, char **argv)
     }
 
     /* set the connectivity information (for the matrix) */
+    printf("num_neighbours %d\n", num_neighbors);
     AMGX_matrix_comm_from_maps_one_ring(A, 1, num_neighbors, neighbors, send_sizes, (const int **)send_maps, recv_sizes, (const int **)recv_maps);
     /* set the connectivity information (for the vector) */
     AMGX_vector_bind(x, A);

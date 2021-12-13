@@ -120,6 +120,7 @@ typedef enum
 {
     AMGX_DIST_PARTITION_VECTOR = 0,
     AMGX_DIST_PARTITION_OFFSETS = 1,
+    AMGX_DIST_PARTITION_VECTOR_MAP = 2,
 } AMGX_DIST_PARTITION_INFO;
 
 /*********************************************************
@@ -262,20 +263,20 @@ AMGX_RC AMGX_API AMGX_distribution_destroy
 (AMGX_distribution_handle dist);
 
 /** Set the partitioning scheme used for the matrix.
- * 
+ *
  * AMGX_DIST_PARTITION_VECTOR:
  *  Pass in a partition vector of type `int` for `partition_data` with the same format as for AMGX_matrix_upload_all_global().
  * AMGX_DIST_PARTITION_OFFSETS:
  *  For a contiguous partitioning, specifying the offsets allows faster matrix upload.
  *  In this case, `partition_data` must be `int` or `int64_t` array, matching the column index data type.
- * 
+ *
  * Use with \see AMGX_matrix_upload_distributed()
 */
 AMGX_RC AMGX_API AMGX_distribution_set_partition_data
-(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data);
+(AMGX_distribution_handle dist, AMGX_DIST_PARTITION_INFO info, const void *partition_data, const void* row_map);
 
 /** Set whether to use 32-bit or 64-bit column indices. Default is 64 bit.
- * 
+ *
  * Determines how the `col_indices_global` argument to AMGX_matrix_upload_distributed() is interpreted.
  */
 AMGX_RC AMGX_API AMGX_distribution_set_32bit_colindices
@@ -579,7 +580,7 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global
  int allocated_halo_depth,
  int num_import_rings,
  const int *partition_vector);
- 
+
 AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
 (AMGX_matrix_handle mtx,
  int n_global,

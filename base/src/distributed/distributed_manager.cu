@@ -1066,6 +1066,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     for (int i = 0; i <= num_ranks; i++)
     {
         this->part_offsets_h[i] = partition_offsets[i];
+        printf("part offsets %i\n",this->part_offsets_h[i]);
     }
     // copy to device
     this->part_offsets = this->part_offsets_h;
@@ -1160,7 +1161,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     int num_ranks,
     int num_rows_global,
     const void *diag,
-    const int *partition)
+    const int *partition,
+    const void *row_map)
 {
     // fetch my rank
     int my_id = this->getComms()->get_global_id();
@@ -1210,7 +1212,12 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         int     pvi = partitionVec[i];
         t_colIndex poi = partition_offsets[pvi];
-        partition_map[poi] = i;
+        if(row_map){
+            printf("i %i, map %i\n", i, ((t_colIndex*)row_map)[i]);
+            partition_map[poi] = ((t_colIndex*)row_map)[i];
+        }
+        else
+            partition_map[poi] = i;
         partition_offsets[pvi]++;
     }
     free(partition_offsets);
@@ -1299,6 +1306,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     int my_id = this->getComms()->get_global_id();
     // sanity check, cheap to perform, and helps prevent harder-to-debug errors later on
     if (!std::is_sorted(partition_offsets, partition_offsets + num_ranks + 1)) {
+        printf("partitiion offsets\n");
+        for(int ii=0; ii<=num_ranks; ++ii)
+            printf("offset %i\n", partition_offsets[ii]);
         FatalError("Partition offsets are not sorted.", AMGX_ERR_BAD_PARAMETERS);
     }
     loadDistributed_SetOffsets(num_ranks, num_rows_global, partition_offsets);
@@ -1377,12 +1387,16 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     using PI = MatrixDistribution::PartitionInformation;
     switch (dist.getPartitionInformationStyle()) {
         case PI::PartitionVec:
-            loadDistributedMatrixPartitionVec(num_rows, num_nonzeros, block_dimx, block_dimy, 
-                row_offsets, col_indices, values, num_ranks, num_rows_global, diag, (const int*) dist.getPartitionData());
+            loadDistributedMatrixPartitionVec(num_rows, num_nonzeros, block_dimx, block_dimy,
+                row_offsets, col_indices, values, num_ranks, num_rows_global, diag, (const int*) dist.getPartitionData(), nullptr);
             break;
         case PI::PartitionOffsets:
-            loadDistributedMatrixPartitionOffsets(num_rows, num_nonzeros, block_dimx, block_dimy, 
+            loadDistributedMatrixPartitionOffsets(num_rows, num_nonzeros, block_dimx, block_dimy,
                 row_offsets, col_indices, values, num_ranks, num_rows_global, diag, (const t_colIndex*) dist.getPartitionData());
+            break;
+            case PI::PartitionVecMap:
+            loadDistributedMatrixPartitionVec(num_rows, num_nonzeros, block_dimx, block_dimy,
+                row_offsets, col_indices, values, num_ranks, num_rows_global, diag, (const int*) dist.getPartitionData(), dist.getRowMap());
             break;
         default:
             FatalError("Unsupported partitioning data format used with loadDistributedMatrix", AMGX_ERR_NOT_IMPLEMENTED);
@@ -2274,9 +2288,9 @@ void DistributedManagerBase<TConfig>::createComms(Resources *rsrc)
         std::string comm_log("Using Normal MPI (Hostbuffer) communicator...\n");
         amgx_distributed_output(comm_log.c_str(), comm_log.length());
     }
-    else 
-    { 
-        FatalError("Bad communicator value", AMGX_ERR_BAD_PARAMETERS); 
+    else
+    {
+        FatalError("Bad communicator value", AMGX_ERR_BAD_PARAMETERS);
     }
 
 #endif
@@ -5600,7 +5614,7 @@ void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPre
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 template <typename t_colIndex>
 void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributedMatrix(
-    int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, 
+    int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets,
     const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag, const MatrixDistribution &dist)
 {
     FatalError("loadDistributedMatrix only implemented on devices", AMGX_ERR_NOT_IMPLEMENTED);

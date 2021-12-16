@@ -1210,14 +1210,14 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     for (int i = 0; i < num_rows_global; i++)
     {
-        int     pvi = partitionVec[i];
+        int pvi = partitionVec[i];
         t_colIndex poi = partition_offsets[pvi];
-        if(row_map){
-            printf("i %i, map %i\n", i, ((t_colIndex*)row_map)[i]);
-            partition_map[poi] = ((t_colIndex*)row_map)[i];
+        t_colIndex globalRow = i;
+        if(row_map) {
+            globalRow = ((t_colIndex*)row_map)[pvi];
         }
-        else
-            partition_map[poi] = i;
+
+        partition_map[poi] = globalRow;
         partition_offsets[pvi]++;
     }
     free(partition_offsets);

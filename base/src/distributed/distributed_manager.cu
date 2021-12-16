@@ -1214,7 +1214,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         t_colIndex poi = partition_offsets[pvi];
         t_colIndex globalRow = i;
         if(row_map) {
-            globalRow = ((t_colIndex*)row_map)[pvi];
+            globalRow = ((t_colIndex*)row_map)[poi];
         }
 
         partition_map[poi] = globalRow;

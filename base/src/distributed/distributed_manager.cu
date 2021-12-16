@@ -1267,11 +1267,19 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         {
             // off-diag
             local_col_indices[i] = global_to_local[ipartition_map[h_col_indices_global[i]]];
+            if(row_map){
+                local_col_indices[i] = h_col_indices_global[i + num_nonzeros];
+            }
         }
         else
         {
             // diag
             local_col_indices[i] = my_indices[ipartition_map[h_col_indices_global[i]]];
+            if(row_map) {
+                if(local_col_indices[i] != h_col_indices_global[i + num_nonzeros]){
+                    printf("LOCAL COL INDEX MISMATCH\n");
+                }
+            }
         }
     }
     free(ipartition_map);

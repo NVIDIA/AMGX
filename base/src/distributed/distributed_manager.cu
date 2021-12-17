@@ -1232,7 +1232,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     free(partition_map);
 
     int h_cidx_allocated = 0;
-    const t_colIndex *h_col_indices_global = (const t_colIndex *)this->getHostPointerForData(col_indices, num_nonzeros * sizeof(t_colIndex), &h_cidx_allocated);
+    const t_colIndex *h_col_indices_global = (const t_colIndex *)this->getHostPointerForData(col_indices, (row_map ? 2 : 1) * num_nonzeros * sizeof(t_colIndex), &h_cidx_allocated);
     // gather all off-diag columns
     I64Vector_h off_diag_cols;
 

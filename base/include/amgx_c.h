@@ -438,6 +438,13 @@ AMGX_RC AMGX_API AMGX_solver_calculate_residual_norm
  AMGX_vector_handle x,
  void *norm_vector);
 
+AMGX_RC AMGX_API AMGX_solver_calculate_residual
+(AMGX_solver_handle solver,
+ AMGX_matrix_handle mtx,
+ AMGX_vector_handle rhs,
+ AMGX_vector_handle x,
+ AMGX_vector_handle r);
+
 /* Utilities */
 AMGX_RC AMGX_API AMGX_write_system
 (const AMGX_matrix_handle mtx,

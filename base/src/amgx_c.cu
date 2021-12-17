@@ -832,14 +832,14 @@ inline AMGX_ERROR solver_calculate_residual( AMGX_solver_handle slv,
     {
         FatalError("Error: mismatch between vector y mode and vector x mode.\n", AMGX_ERR_BAD_PARAMETERS);
     }
- 
+
     if (wrapX.mode() != wrapR.mode())
     {
         FatalError("Error: mismatch between vector r mode and vector x mode.\n", AMGX_ERR_BAD_PARAMETERS);
     }
 
     if ((A.getResources() != v_rhs.getResources())
-            || (A.getResources() != v_x.getResources()) 
+            || (A.getResources() != v_x.getResources())
             || (A.getResources() != v_r.getResources()))
     {
         FatalError("Error: Inconsistency between matrix and vectors resources object, exiting", AMGX_ERR_BAD_PARAMETERS);
@@ -2725,6 +2725,37 @@ extern "C" {
         return getCAPIerror_x(rc);
     }
 
+    AMGX_RC AMGX_API AMGX_solver_calculate_residual(AMGX_solver_handle solver, AMGX_matrix_handle mtx, AMGX_vector_handle rhs, AMGX_vector_handle x, AMGX_vector_handle r)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_CPU_PROFILER( "AMGX_solver_solve " );
+        Resources *resources;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
+        AMGX_ERROR rc = AMGX_OK;
+
+        try
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: { \
+      AMGX_ERROR rcs = solver_calculate_residual<CASE, Matrix, Vector, AMG_Solver>(solver, mtx, rhs, x, resources, r); \
+      AMGX_CHECK_API_ERROR(rcs, resources); break;\
+          }
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources)
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        return getCAPIerror_x(rc);
+    }
 
     AMGX_RC AMGX_API AMGX_solver_destroy(AMGX_solver_handle slv)
     {

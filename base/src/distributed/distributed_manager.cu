@@ -52,6 +52,8 @@
 #include <algorithm>
 #include <iostream> //debug only:
 
+#include <set>
+
 struct is_my_part : public thrust::unary_function<int, bool>
 {
     const int _my_part;
@@ -1080,7 +1082,7 @@ template <typename t_colIndex>
 map<t_colIndex, int> DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols)
 {
     // sort global column indices
-    thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
+    // thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
     // find unique columns and set local <-> global mappings
     // 1) Removed unneeded vector 2) Create map on host first, upload later (less thrust calls)
     I64Vector_h local_to_global_h;
@@ -1235,15 +1237,43 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     const t_colIndex *h_col_indices_global = (const t_colIndex *)this->getHostPointerForData(col_indices, (row_map ? 2 : 1) * num_nonzeros * sizeof(t_colIndex), &h_cidx_allocated);
     // gather all off-diag columns
     I64Vector_h off_diag_cols;
-
-    for (int i = 0; i < num_nonzeros; i++)
-    {
-        if (partitionVec[h_col_indices_global[i]] != my_id)
+    if(row_map) {
+        int num_off_diag_cols = 0;
+        std::set<int> off_diag_set;
+        for(int i = 0; i < num_nonzeros; i++) {
+            if (partitionVec[h_col_indices_global[i]] != my_id)
+            {
+                auto val = h_col_indices_global[i];
+                if(off_diag_set.count(val) == 0) {
+                    off_diag_set.insert(val);
+                    num_off_diag_cols++;
+                }
+            }
+        }
+        off_diag_cols.resize(num_off_diag_cols);
+        for (int i = 0; i < num_nonzeros; i++)
         {
-            off_diag_cols.push_back(ipartition_map[h_col_indices_global[i]]);
+            if (partitionVec[h_col_indices_global[i]] != my_id)
+            {
+                auto val = ipartition_map[h_col_indices_global[i]];
+                if(thrust::find(off_diag_cols.begin(), off_diag_cols.end(), val) ==
+                off_diag_cols.end())
+                {
+                    int idx = h_col_indices_global[i + num_nonzeros] - num_rows;
+                    off_diag_cols[idx] = val;
+                }
+            }
         }
     }
-
+    else {
+        for(int i = 0; i < num_nonzeros; i++) {
+            if(partitionVec[h_col_indices_global[i]] != my_id) {
+                off_diag_cols.push_back(ipartition_map[h_col_indices_global[i]]);
+            }
+        }
+        // sort global column indices
+        thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
+    }
     auto global_to_local = loadDistributed_LocalToGlobal<t_colIndex>(num_rows, off_diag_cols);
 
     // set 1, then scan to compute local row indices
@@ -1267,18 +1297,16 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         {
             // off-diag
             local_col_indices[i] = global_to_local[ipartition_map[h_col_indices_global[i]]];
-            // if(row_map){
-            //     local_col_indices[i] = h_col_indices_global[i + num_nonzeros];
-            // }
         }
         else
         {
             // diag
             local_col_indices[i] = my_indices[ipartition_map[h_col_indices_global[i]]];
-            if(row_map) {
-                if(local_col_indices[i] != h_col_indices_global[i + num_nonzeros]){
-                    printf("LOCAL COL INDEX MISMATCH\n");
-                }
+        }
+        if(row_map) {
+            if(local_col_indices[i] != h_col_indices_global[i + num_nonzeros]) {
+                printf("LOCAL COL INDEX MISMATCH %i %i %i %i\n", local_col_indices[i],
+                       h_col_indices_global[i + num_nonzeros], my_id, partitionVec[h_col_indices_global[i]]);
             }
         }
     }

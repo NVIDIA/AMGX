@@ -1250,18 +1250,13 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                 }
             }
         }
-        off_diag_cols.resize(num_off_diag_cols);
+        off_diag_cols.resize(num_off_diag_cols, -1);
         for (int i = 0; i < num_nonzeros; i++)
         {
             if (partitionVec[h_col_indices_global[i]] != my_id)
             {
-                auto val = ipartition_map[h_col_indices_global[i]];
-                if(thrust::find(off_diag_cols.begin(), off_diag_cols.end(), val) ==
-                off_diag_cols.end())
-                {
-                    int idx = h_col_indices_global[i + num_nonzeros] - num_rows;
-                    off_diag_cols[idx] = val;
-                }
+                int idx = h_col_indices_global[i + num_nonzeros] - num_rows;
+                off_diag_cols[idx] = ipartition_map[h_col_indices_global[i]];
             }
         }
     }

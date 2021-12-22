@@ -1362,6 +1362,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             off_diag_cols.push_back(h_col_indices_global[i]);
         }
     }
+    // sort global column indices
+    thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
     auto global_to_local = loadDistributed_LocalToGlobal<t_colIndex>(num_rows, off_diag_cols);
     // set 1, then scan to compute local row indices
     // "coordinate-shift" columns so they lie in much smaller range of my diagonal indices

@@ -1068,7 +1068,6 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     for (int i = 0; i <= num_ranks; i++)
     {
         this->part_offsets_h[i] = partition_offsets[i];
-        printf("part offsets %i\n",this->part_offsets_h[i]);
     }
     // copy to device
     this->part_offsets = this->part_offsets_h;

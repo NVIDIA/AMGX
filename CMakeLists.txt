@@ -392,12 +392,12 @@ install(TARGETS amgxsh DESTINATION "lib")
 #export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples
-add_subdirectory(examples)
+#add_subdirectory(examples)
 if(EXISTS ${CMAKE_SOURCE_DIR}/eigen_examples)
-  add_subdirectory(eigen_examples)
+  #add_subdirectory(eigen_examples)
 endif(EXISTS ${CMAKE_SOURCE_DIR}/eigen_examples)
 
 # build unit tests
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests)
-   add_subdirectory(tests)
+   #add_subdirectory(tests)
 endif(EXISTS ${CMAKE_SOURCE_DIR}/tests)

@@ -228,4 +228,10 @@ AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
 
+template
+void gaussianEliminationRowMajor<int,float,float>(float **e, float *x, float *b, const int bsize);
+template
+void gaussianEliminationRowMajor<int,double,double>(double **e, double *x, double *b, const int bsize);
+template
+void gaussianEliminationRowMajor<int,float,double>(float **e, double *x, double *b, const int bsize);
 } // namespace amgx

@@ -597,6 +597,18 @@ __inline__ double getAlpha(double &nom, double &denom)
     return alpha;
 }
 
+__inline__ double getAlpha(thrust::device_reference<double> nom, thrust::device_reference<double> denom) {
+    double _nom = nom;
+    double _denom = denom;
+    return getAlpha(_nom, _denom);
+}
+
+__inline__ float getAlpha(thrust::device_reference<float> nom, thrust::device_reference<float> denom) {
+    float _nom = nom;
+    float _denom = denom;
+    return getAlpha(_nom, _denom);
+}
+
 __inline__ cuComplex getAlpha(cuComplex &nom, cuComplex &denom)
 {
     cuComplex alpha;
@@ -635,6 +647,19 @@ __inline__ cuDoubleComplex getAlpha(cuDoubleComplex &nom, cuDoubleComplex &denom
     }
 
     return alpha;
+}
+
+__inline__ cuDoubleComplex getAlpha(thrust::device_reference<cuDoubleComplex> nom,
+                                    thrust::device_reference<cuDoubleComplex> denom) {
+    cuDoubleComplex _nom = nom;
+    cuDoubleComplex _denom = denom;
+    return getAlpha(_nom, _denom);
+}
+
+__inline__ cuComplex getAlpha(thrust::device_reference<cuComplex> nom, thrust::device_reference<cuComplex> denom) {
+    cuComplex _nom = nom;
+    cuComplex _denom = denom;
+    return getAlpha(_nom, _denom);
 }
 
 template< class T_Config>
@@ -2633,7 +2658,13 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
 // Explicit instantiations
 // -------------------------------------------------------------
 
-#define AMGX_CASE_LINE(CASE) template class Aggregation_AMG_Level<TemplateMode<CASE>::Type>;
+//#define AMGX_CASE_LINE(CASE) template class Aggregation_AMG_Level<TemplateMode<CASE>::Type>;
+#define AMGX_CASE_LINE(CASE)                                    \
+    template                                                    \
+    class Aggregation_AMG_Level_Base<TemplateMode<CASE>::Type>; \
+    template                                                    \
+    class Aggregation_AMG_Level<TemplateMode<CASE>::Type>;
+
 AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE

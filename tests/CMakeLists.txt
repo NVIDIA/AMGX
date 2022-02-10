@@ -66,10 +66,11 @@ GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl)
   set(libs_all ${cusparse_library})
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
-  set(libs_all ${cusparse_library} rt dl)
+  set(libs_all ${cusparse_library} rt dl stdc++)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
+set_target_properties(amgx_tests_launcher PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all})
 
 if(${AMGX_PUBLIC_RELEASE} MATCHES "FALSE")

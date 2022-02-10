@@ -27,7 +27,7 @@
 cmake_minimum_required (VERSION 2.8.10)
 
 # the project
-project (AMG)
+project (AMG LANGUAGES C CXX)
 
 
 #disable in-place builds
@@ -204,6 +204,7 @@ ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES cla
 # VS: include object files in target property SOURCES
 # otherwise a workaround for extracting ${obj_all} is necessary below
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
+set(CUDA_HOST_COMPILATION_CPP ON)
 
 # load CUDA.
 FIND_PACKAGE(CUDA)
@@ -362,6 +363,9 @@ if (target_all)
   add_dependencies(amgx  ${target_all})
   add_dependencies(amgxsh ${target_all})
 endif (target_all)
+
+set_target_properties(amgx PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(amgxsh PROPERTIES LINKER_LANGUAGE CXX)
 
 find_library_local_first(cublas_library cublas "The cuBLAS CUDA library")
 find_library_local_first(cusparse_library cusparse "The cusparse CUDA library")

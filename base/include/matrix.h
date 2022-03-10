@@ -256,7 +256,7 @@ class MatrixBase : public AuxData, public Operator<T_Config>
 
             if (cuMatDescr != NULL)
             {
-                cusparseCheckError(cusparseDestroyMatDescr(cuMatDescr));
+                cusparseDestroyMatDescr(cuMatDescr);
                 cuMatDescr = NULL;
             }
 

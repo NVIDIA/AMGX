@@ -775,6 +775,9 @@ estimate_c_hat_size_kernel( const int A_num_rows,
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // A shared location where threads propose a row of B to load.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    s_b_row_ids[threadIdx.x] = 0;
+    __syncthreads();
+
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -836,7 +839,9 @@ estimate_c_hat_size_kernel( const int A_num_rows,
             }
 
             // For each warp, we have up to 32 rows of B to proceed.
-            for ( int k = 0, num_rows = __popc(vote) ; k < num_rows ; k += NUM_LOADED_ROWS )
+
+            int num_rows = __popc(vote);
+            for ( int k = 0; k < num_rows ; k += NUM_LOADED_ROWS )
             {
                 int local_k = k + lane_id_div_num_threads;
                 // Is it an active thread.
@@ -1661,11 +1666,7 @@ compute_interp_weight_kernel( const int A_num_rows,
     // A shared location where threads propose a value.
     __shared__ volatile Value_type s_aki[NUM_WARPS];
     // The hash values stored in shared memory.
-#if __CUDA_ARCH__ >= 700
     __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
-#else
-    __shared__ volatile distance2_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
-#endif
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -1681,7 +1682,7 @@ compute_interp_weight_kernel( const int A_num_rows,
 #else
     distance2_sm35::Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #endif

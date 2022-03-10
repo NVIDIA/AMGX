@@ -25,24 +25,34 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8) 
+cmake_minimum_required (VERSION 3.13) 
 ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0) 
+cmake_minimum_required (VERSION 3.13) 
 ENDIF (WIN32)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
-CUDA_INCLUDE_DIRECTORIES(${THRUST_DIR})
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/include)
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../base/include)
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
-
 #select all sources
 FILE(GLOB_RECURSE SRCS "src/*.cu")
 
-#Generic nvcc flags
+add_library(amgx_template_plugin STATIC ${SRCS})
 
-CUDA_ADD_LIBRARY(amgx_template_plugin STATIC ${SRCS})
-target_link_libraries(amgx_template_plugin amgx_base)
+set(AMGX_INCLUDES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../base/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
+
+target_sources(amgx_libs PRIVATE ${SRCS})
+
+target_include_directories(amgx_libs PUBLIC ${AMGX_INCLUDES})
+
+target_include_directories(amgx_template_plugin PUBLIC ${THRUST_DIR} ${AMGX_INCLUDES})
+
+target_link_libraries(amgx_template_plugin amgx_libs)
+
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+  set_target_properties(amgx_template_plugin PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+endif()
+
 install(TARGETS amgx_template_plugin DESTINATION "lib/sublibs")
 

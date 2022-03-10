@@ -25,20 +25,20 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8) 
+cmake_minimum_required (VERSION 3.13) 
 ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0) 
+cmake_minimum_required (VERSION 3.13) 
 ENDIF (WIN32)
 
-CUDA_INCLUDE_DIRECTORIES(${THRUST_DIR})
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# select all source
+# Add base source
 FILE(GLOB_RECURSE SRCS "src/*.cu")
 
-CUDA_ADD_LIBRARY(amgx_base STATIC ${SRCS} ${CMAKE_SOURCE_DIR}/plugin_config.cu)
+target_sources(amgx_libs PRIVATE ${SRCS} ${CMAKE_SOURCE_DIR}/plugin_config.cu)
+
+target_include_directories(amgx_libs PUBLIC ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 install(FILES
   include/amgx_config.h
   include/amgx_c.h
   DESTINATION include)
+

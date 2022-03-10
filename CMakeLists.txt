@@ -24,11 +24,10 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required (VERSION 2.8.10)
+cmake_minimum_required (VERSION 3.13)
 
 # the project
-project (AMG)
-
+project (AMG LANGUAGES C CXX CUDA)
 
 #disable in-place builds
 if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
@@ -161,39 +160,41 @@ FIND_PACKAGE(MPI)
 
 message ("This is a MPI build:" ${MPI_FOUND})
 
-# enable source level parallel builds in visual studio
-#IF(CMAKE_GENERATOR MATCHES "Visual Studio")
-#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /M2 /MP")
-#ENDIF (CMAKE_GENERATOR MATCHES "Visual Studio")
-
 # Enable NVTX ranges on Linux
 if(NOT WIN32)
   set(NVTXRANGE_FLAG "-DNVTX_RANGES;")
 endif()
 
-#Configuration specific nvcc flags
+# Configuration specific nvcc flags
 GET_FILENAME_COMPONENT(CMAKE_CXX_COMPILER_NAME "${CMAKE_CXX_COMPILER}" NAME)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_NAME MATCHES "clang")
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;-std=c++14;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;-std=c++14;${NVTXRANGE_FLAG}" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G" CACHE STRING "Debug compiler flags")
+  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG" CACHE STRING "Release compiler flags")
+  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
 else()
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG;--Werror cross-execution-space-call;${NVTXRANGE_FLAG}" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE;${NVTXRANGE_FLAG}" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER;${NVTXRANGE_FLAG}" CACHE STRING "RelWithTraces compiler flags")
-	if(WIN32)
-		set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
-	endif()
+  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G" CACHE STRING "Debug compiler flags")
+  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG" CACHE STRING "Release compiler flags")
+  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+  if(WIN32)
+    set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
+  endif()
 endif()
 
-#keep intermediate files
+# Add the build-specific flags to the NVCC flags
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPP_BUILD_NAME)
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}}")
+
+# Add errors for execution space warnings and enable NVTX ranges
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --Werror cross-execution-space-call ${NVTXRANGE_FLAG})
+
+# Keep intermediate files
 if (AMGX_keep_intermediate)
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-Xcompiler=-keep")
 endif(AMGX_keep_intermediate)
 
-#windows/linux specific settings for C
+# Windows/linux specific settings for C
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" CACHE STRING "nvcc flags")
@@ -204,9 +205,6 @@ ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES cla
 # VS: include object files in target property SOURCES
 # otherwise a workaround for extracting ${obj_all} is necessary below
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
-
-# load CUDA.
-FIND_PACKAGE(CUDA)
 
 message("Cuda libraries: " ${CUDA_LIBRARIES})
 
@@ -230,44 +228,69 @@ if(MPI_FOUND)
   endif (DEFINED ENV{VAMPIR_TRACE_PATH})
 endif(MPI_FOUND)
 
-#if CUDA Toolkit is older than 9.0
-if(CUDA_VERSION_MAJOR LESS 9)
-  message(FATAL_ERROR "CUDA versions older than 9.0 are not supported")
-endif()
+#if compiling against CUDA Toolkit 11.x + 
+IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
 
-#if compiling against CUDA Toolkit 9.x
-IF(CUDA_VERSION_MAJOR MATCHES 9)
-  SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
-ENDIF(CUDA_VERSION_MAJOR MATCHES 9)
+  SET(CUDA_ALLOW_ARCH "60;70;80")
+
+  # Use the generic cuSPARSE interfaces available from 10.1 on Linux, cusparseSpGEMM from 11.0
+  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} 
+      -DDISABLE_MIXED_PRECISION 
+      -DCUSPARSE_GENERIC_INTERFACES 
+      -DCUSPARSE_USE_GENERIC_SPGEMM)
 
 #if compiling against CUDA Toolkit 10.x
-IF(CUDA_VERSION_MAJOR MATCHES 10)
-  SET(CUDA_ARCH "35 52 60 70" CACHE STRING "Target Architectures (SM35 SM52 SM60 SM70), multiple are allowed")
+ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 10.0.0)
 
-  IF(CUDA_VERSION_MINOR GREATER 0)
-    # Disable mixed precision for CUDA 10.1+
-    # Use the generic cuSPARSE interfaces available from 10.1 on Linux
-    SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION -DCUSPARSE_GENERIC_INTERFACES)
-  ENDIF(CUDA_VERSION_MINOR GREATER 0)
-ENDIF(CUDA_VERSION_MAJOR MATCHES 10)
+  SET(CUDA_ALLOW_ARCH "35;52;60;70")
 
-#if compiling against CUDA Toolkit 11.x
-IF(CUDA_VERSION_MAJOR MATCHES 11)
-  SET(CUDA_ARCH "60 70 80" CACHE STRING "Target Architectures (SM60 SM70 SM80), multiple are allowed")
+  IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 10.1.0)
 
-  # Disable mixed precision for CUDA 10.1+
-  # Use the generic cuSPARSE interfaces available from 10.1 on Linux, cusparseSpGEMM from 11.0
-  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DDISABLE_MIXED_PRECISION -DCUSPARSE_GENERIC_INTERFACES -DCUSPARSE_USE_GENERIC_SPGEMM)
+      # Disable mixed precision for CUDA 10.1+
+      SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} 
+          -DDISABLE_MIXED_PRECISION 
+          -DCUSPARSE_GENERIC_INTERFACES)
 
-ENDIF(CUDA_VERSION_MAJOR MATCHES 11)
+  ENDIF()
 
-#replace ' ' with ; to match the proper cmake format
-STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})
+#if compiling for older than 10
+ELSE(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 10.0.0)
 
-#set the compiler flags for each NV target
-FOREACH(target ${CUDA_ARCH})
-  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -gencode=arch=compute_${target},code=\\\"sm_${target},compute_${target}\\\")
-ENDFOREACH(target ${CUDA_ARCH})
+    MESSAGE(FATAL_ERROR "CUDA versions older than 10.0 are not supported")
+
+ENDIF()
+
+if(DEFINED CUDA_ARCH)
+    #replace ' ' with ; to match the proper cmake format
+    STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})
+
+    # User passed a CUDA_ARCH so check it matches
+    # Error if incorrect CUDA_ARCH passed
+    FOREACH(ARCH IN LISTS CUDA_ARCH)
+        IF(NOT ${ARCH} IN_LIST CUDA_ALLOW_ARCH)
+            message(STATUS
+                "Chosen CUDA_ARCH ${ARCH} not expected for current CUDA version. " 
+                "Please choose one or more of ${CUDA_ALLOW_ARCH}.")
+        ENDIF()
+    ENDFOREACH()
+ELSE()
+
+    # Set a default
+    SET(CUDA_ARCH "${CUDA_ALLOW_ARCH}" CACHE STRING "Target Architectures (SM60 SM70 SM80), multiple are allowed")
+
+ENDIF()
+
+IF(CMAKE_VERSION VERSION_LESS "3.18.0")
+
+  #set the compiler flags for each NV target
+  FOREACH(target ${CUDA_ARCH})
+      SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--generate-code=arch=compute_${target},code=[compute_${target},sm_${target}]")
+  ENDFOREACH(target ${CUDA_ARCH})
+
+ENDIF()
+
+# Add the CXX flags to the host set of CUDA flags
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 
 # write version
 set(versionFile "ReleaseVersion.txt")
@@ -281,13 +304,11 @@ if(${versionFile} IS_NEWER_THAN ${versionCode})
   file(APPEND ${versionCode} "const char __AMGX_BUILD_ID__ [] = " ${versionString} ";" \n}\n)
 endif(${versionFile} IS_NEWER_THAN ${versionCode})
 
-
 # plugin management
 set(pluginConf "PluginConfig.txt")                     # plugin configuration
 set(pluginCode "${CMAKE_SOURCE_DIR}/plugin_config.cu") # plugin code
 file(STRINGS ${pluginConf} pluginList)                 # plugin list
 set(libList base core ${pluginList})                   # lib list
-
 
 # create initialization and finalization for plugins
 if(${pluginConf} IS_NEWER_THAN ${pluginCode})
@@ -330,50 +351,45 @@ if (MKL_ROOT_DIR)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
+add_library(amgx_libs OBJECT "")
+
 #create a list of all sources in amgx
-set(src_all)                              # collect all sources from libs
-set(target_all)                           # collect all targets from libs
-set(tests_all)
 foreach( lib ${libList} )
   add_subdirectory(${lib})
-  get_target_property(src amgx_${lib} SOURCES)
-  set(src_all ${src_all} ${src})
-  set(target_all ${target_all} amgx_${lib})
   FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/${lib}/tests/*.cu")
-  set(tests_all ${tests_all} ${TESTS})
 endforeach(lib)
 
-# create a list of all objects in amgx
-set(obj_all)
-set(cpp_all)
-foreach( src ${src_all} )
-  if(${src} MATCHES ${CMAKE_BINARY_DIR})
-    set(obj_all ${obj_all} ${src})
-  else(${src} MATCHES ${CMAKE_BINARY_DIR})
-    set(cpp_all ${cpp_all} ${src})
-  endif(${src} MATCHES ${CMAKE_BINARY_DIR})
-endforeach(src)
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+  set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+endif()
+
+target_compile_options(amgx_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
 # build amgx
-set_source_files_properties(${obj_all} PROPERTIES GENERATED TRUE)
-CUDA_ADD_LIBRARY(amgx   STATIC ${obj_all} )  # static lib
-CUDA_ADD_LIBRARY(amgxsh SHARED ${obj_all} )  # shared lib
-if (target_all)
-  add_dependencies(amgx  ${target_all})
-  add_dependencies(amgxsh ${target_all})
-endif (target_all)
+add_library(amgx STATIC $<TARGET_OBJECTS:amgx_libs>)  # static lib
+target_link_libraries(amgx amgx_libs)
 
-find_library_local_first(cublas_library cublas "The cuBLAS CUDA library")
-find_library_local_first(cusparse_library cusparse "The cusparse CUDA library")
-find_library_local_first(cusolver_library cusolver "The cusolver CUDA library")
+add_library(amgxsh SHARED $<TARGET_OBJECTS:amgx_libs>)  # shared lib
+target_link_libraries(amgxsh amgx_libs)
+
+set_target_properties(amgx PROPERTIES LINKER_LANGUAGE CUDA)
+set_target_properties(amgxsh PROPERTIES LINKER_LANGUAGE CUDA)
+
+target_compile_options(amgx PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+
+find_library(CUSPARSE_LIB cusparse PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUSOLVER_LIB cusolver PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUDART_LIB cudart PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUBLAS_LIB cublas PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
 IF (WIN32)
-  target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library})
-  target_link_libraries( amgxsh ${cublas_library} ${cusparse_library} ${cusolver_library})
+  target_link_libraries( amgx ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
+  target_link_libraries( amgxsh ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
 ELSE (WIN32)
-  find_library_local_first(nvtx nvToolsExt "nvtx CUDA library")
-  target_link_libraries( amgx ${cublas_library} ${cusparse_library} ${cusolver_library} ${nvtx} m pthread)
-  target_link_libraries( amgxsh ${cublas_library} ${cusparse_library} ${cusolver_library} ${nvtx} m pthread)
+  find_library(NVTX_LIB nvToolsExt PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+  target_link_libraries( amgx ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
+  target_link_libraries( amgxsh ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)
@@ -392,10 +408,15 @@ if (MKL_ROOT_DIR)
   target_link_libraries(amgxsh ${mkl_libs})
 endif(MKL_ROOT_DIR)
 
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+    set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+    set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+endif()
+
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")
 
-export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
+#export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples
 add_subdirectory(examples)

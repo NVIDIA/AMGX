@@ -318,28 +318,45 @@ int main(int argc, char **argv)
         }
     }
 
+    int nrepeats = 1;
+    int tidx = findParamIndex(argv, argc, "-r");
+    if(tidx != -1)
+    {
+      nrepeats = atoi(argv[tidx+1]);
+      printf("Running for %d repeats\n", nrepeats);
+    }
+
+
+
     /* set the connectivity information (for the vector) */
     AMGX_vector_bind(x, A);
     AMGX_vector_bind(b, A);
     /* upload the vector (and the connectivity information) */
     AMGX_vector_upload(x, n, 1, h_x);
     AMGX_vector_upload(b, n, 1, h_b);
-    /* solver setup */
-    //MPI barrier for stability (should be removed in practice to maximize performance)
-    MPI_Barrier(amgx_mpi_comm);
-    AMGX_solver_setup(solver, A);
-    /* solver solve */
-    //MPI barrier for stability (should be removed in practice to maximize performance)
-    MPI_Barrier(amgx_mpi_comm);
-    AMGX_solver_solve(solver, b, x);
-    /* example of how to change parameters between non-linear iterations */
-    //AMGX_config_add_parameters(&cfg, "config_version=2, default:tolerance=1e-12");
-    //AMGX_solver_solve(solver, b, x);
-    /* example of how to replace coefficients between non-linear iterations */
-    //AMGX_matrix_replace_coefficients(A, n, nnz, values, diag);
-    //AMGX_solver_setup(solver, A);
-    //AMGX_solver_solve(solver, b, x);
-    AMGX_solver_get_status(solver, &status);
+    for(int r = 0; r < nrepeats; ++r)
+    {
+      /* upload the vector (and the connectivity information) */
+      AMGX_vector_upload(x, n, 1, h_x);
+      AMGX_vector_upload(b, n, 1, h_b);
+      /* solver setup */
+      //MPI barrier for stability (should be removed in practice to maximize performance)
+      MPI_Barrier(amgx_mpi_comm);
+      AMGX_solver_setup(solver, A);
+      /* solver solve */
+      //MPI barrier for stability (should be removed in practice to maximize performance)
+      MPI_Barrier(amgx_mpi_comm);
+      AMGX_solver_solve(solver, b, x);
+      /* example of how to change parameters between non-linear iterations */
+      //AMGX_config_add_parameters(&cfg, "config_version=2, default:tolerance=1e-12");
+      //AMGX_solver_solve(solver, b, x);
+      /* example of how to replace coefficients between non-linear iterations */
+      //AMGX_matrix_replace_coefficients(A, n, nnz, values, diag);
+      //AMGX_solver_setup(solver, A);
+      //AMGX_solver_solve(solver, b, x);
+      AMGX_solver_get_status(solver, &status);
+    }
+
     /* example of how to get (the local part of) the solution */
     //int sizeof_v_val;
     //sizeof_v_val = ((NVAMG_GET_MODE_VAL(NVAMG_VecPrecision, mode) == NVAMG_vecDouble))? sizeof(double): sizeof(float);
@@ -354,12 +371,12 @@ int main(int argc, char **argv)
     AMGX_resources_destroy(rsrc);
     /* destroy config (need to use AMGX_SAFE_CALL after this point) */
     AMGX_SAFE_CALL(AMGX_config_destroy(cfg))
-    /* shutdown and exit */
-    AMGX_SAFE_CALL(AMGX_finalize_plugins())
-    AMGX_SAFE_CALL(AMGX_finalize())
-    /* close the library (if it was dynamically loaded) */
+      /* shutdown and exit */
+      AMGX_SAFE_CALL(AMGX_finalize_plugins())
+      AMGX_SAFE_CALL(AMGX_finalize())
+      /* close the library (if it was dynamically loaded) */
 #ifdef AMGX_DYNAMIC_LOADING
-    amgx_libclose(lib_handle);
+      amgx_libclose(lib_handle);
 #endif
     MPI_Finalize();
     CUDA_SAFE_CALL(cudaDeviceReset());

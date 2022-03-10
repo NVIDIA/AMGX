@@ -273,7 +273,6 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, int *status )
 {
-
     bool active = key != -1;
     Key_type winning_key;
     int active_mask;
@@ -359,7 +358,6 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count, const Key_type *keys, const int *pos )
 {
-
     int lane_id = utils::lane_id();
 #pragma unroll 4
 
@@ -390,7 +388,6 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load_index( int count, const Key_type *keys, const int *pos, Index &index, bool print_debug )
 {
-
 #pragma unroll 4
 
     for ( int offset = utils::lane_id() ; offset < count ; offset += WARP_SIZE  )
@@ -423,7 +420,6 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( int count, Key_type *keys )
 {
-
     int lane_id = utils::lane_id();
     int lane_mask_lt = utils::lane_mask_lt();
     int warp_offset = 0;
@@ -487,7 +483,6 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store_with_positions( Key_type *keys, int *pos )
 {
-
     int lane_id = utils::lane_id();
     int lane_mask_lt = utils::lane_mask_lt();
     int warp_offset = 0;
@@ -636,7 +631,6 @@ class Hash_map
         bool m_any_gmem;
 
     public:
-
         __device__ __forceinline__
         Hash_map( Key_type *smem_keys, Key_type *gmem_keys, T *smem_vals, T *gmem_vals, int gmem_size ) :
             m_smem_keys(smem_keys),
@@ -665,9 +659,6 @@ class Hash_map
         __device__ __forceinline__ bool update( Key_type key, T value );
 };
 
-
-
-
 // ====================================================================================================================
 
 template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
@@ -683,7 +674,6 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear()
         m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
         m_smem_vals[i_step * WARP_SIZE + lane_id] =  amgx::types::util<T>::get_zero();
     }
-
 
     if ( !m_any_gmem )
     {
@@ -707,7 +697,6 @@ template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int W
 __device__ __forceinline__
 void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, T val, int *status )
 {
-
     const short lane_id = utils::lane_id();
     bool active = key != -1;
     Key_type winning_key = -1;
@@ -790,7 +779,6 @@ template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int W
 __device__ __forceinline__
 void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count, const Key_type *keys, const int *pos )
 {
-
     int lane_id = utils::lane_id();
 #pragma unroll 4
 
@@ -822,7 +810,6 @@ template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int W
 __device__ __forceinline__
 void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( int count, T *vals )
 {
-
     int lane_id = utils::lane_id();
     int lane_mask_lt = utils::lane_mask_lt();
     int warp_offset = 0;

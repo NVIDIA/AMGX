@@ -991,7 +991,7 @@ compute_values_kernel( const int A_num_rows,
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The hash values stored in shared memory.
-    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE]; 
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -1149,7 +1149,7 @@ compute_values_kernel( const int A_num_rows,
     // The hash keys stored in shared memory.
     __shared__ /*volatile*/ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The hash values stored in shared memory.
-    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE]; 
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -1736,7 +1736,6 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
     const int GRID_SIZE = 1024;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-    // std::cerr << "CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity" << std::endl;
     // Reset the work queue.
     int work_offset = GRID_SIZE * NUM_WARPS;
     CUDA_SAFE_CALL( cudaMemcpy( this->m_work_queue, &work_offset, sizeof(int), cudaMemcpyHostToDevice ) );
@@ -1849,7 +1848,6 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B )
 {
     const int GRID_SIZE = 1024;
-
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Reset work queue.

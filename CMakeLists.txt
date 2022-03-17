@@ -45,6 +45,11 @@ IF(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are Debug Release Profile RelWithTraces" FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
+find_library(CUSPARSE_LIB cusparse PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUSOLVER_LIB cusolver PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUDART_LIB cudart PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUBLAS_LIB cublas PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+
 # update/define the compilation flags.
 IF(WIN32)
   set(CMAKE_C_FLAGS                "/DWIN32 /D_WINDOWS /W3 /bigobj" CACHE STRING "" FORCE)
@@ -129,7 +134,6 @@ endif(DEFINED ENV{CRAY_MPICH2_DIR})
 
 
 # Thrust:
-set (THRUST_DIR "${PROJECT_SOURCE_DIR}/../../thrust")
 if (DEFINED ENV{THRUST_ROOT})
   set (THRUST_DIR $ENV{THRUST_ROOT})
 endif(DEFINED ENV{THRUST_ROOT})
@@ -378,18 +382,13 @@ set_target_properties(amgxsh PROPERTIES LINKER_LANGUAGE CUDA)
 target_compile_options(amgx PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
-find_library(CUSPARSE_LIB cusparse PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-find_library(CUSOLVER_LIB cusolver PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-find_library(CUDART_LIB cudart PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-find_library(CUBLAS_LIB cublas PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-
 IF (WIN32)
-  target_link_libraries( amgx ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
-  target_link_libraries( amgxsh ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
+  target_link_libraries( amgx ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
+  target_link_libraries( amgxsh ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
 ELSE (WIN32)
   find_library(NVTX_LIB nvToolsExt PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-  target_link_libraries( amgx ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
-  target_link_libraries( amgxsh ${cublas} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
+  target_link_libraries( amgx ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
+  target_link_libraries( amgxsh ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)

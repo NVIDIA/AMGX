@@ -42,10 +42,6 @@ add_library(amgx_tests_libs OBJECT ${tests_all})
 
 target_include_directories(amgx_tests_libs PRIVATE ${AMGX_INCLUDES}) 
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  set_target_properties(amgx_tests_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-endif()
-
 add_library(amgx_tests_library STATIC $<TARGET_OBJECTS:amgx_tests_libs>)
 
 add_dependencies(amgx_tests_library amgx)
@@ -54,11 +50,19 @@ target_link_libraries(amgx_tests_library amgx)
 
 add_executable(amgx_tests_launcher src/utest.cu $<TARGET_OBJECTS:amgx_tests_libs>)
 
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+  set_target_properties(amgx_tests_launcher PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+  set_target_properties(amgx_tests_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+  set_target_properties(amgx_tests_library PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+
+  target_compile_options(amgx_tests_launcher PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+  target_compile_options(amgx_tests_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+  target_compile_options(amgx_tests_library PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+endif()
+
 target_include_directories(amgx_tests_launcher PRIVATE ${AMGX_INCLUDES}) 
 
 # create executables for host and device, scalar and block version
-
-find_library(CUBLAS_LIB cublas PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl)

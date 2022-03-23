@@ -30,11 +30,11 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../base/include" "${CMAKE_CUDA_
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all CUDA::cusparse CUDA::cublas)
-  set(dyn_libs amgxsh CUDA::cusparse CUDA::cublas)
+  set(libs_all CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh CUDA::cudart CUDA::cublas)
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all CUDA::cusparse CUDA::cublas rt dl)
-  set(dyn_libs amgxsh rt dl CUDA::cusparse CUDA::cublas)
+  set(libs_all rt dl CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh rt dl CUDA::cudart CUDA::cublas)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(eigensolver eigensolver.c)

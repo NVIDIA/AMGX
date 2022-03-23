@@ -24,18 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.18)
 
 # the project
 project (AMG LANGUAGES C CXX CUDA)
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
 #disable in-place builds
 if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
   MESSAGE(FATAL_ERROR "Error:  In-place builds are not supported. Please create a separate build directory")
 endif(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-
-# set the path to extra modules.
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/cuda" ${CMAKE_MODULE_PATH})
 
 # declare the supported configurations
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Profile;RelWithTraces" CACHE STRING "Avaialble Configuration Types" FORCE)
@@ -45,10 +44,7 @@ IF(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are Debug Release Profile RelWithTraces" FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
-find_library(CUSPARSE_LIB cusparse PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-find_library(CUSOLVER_LIB cusolver PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-find_library(CUDART_LIB cudart PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-find_library(CUBLAS_LIB cublas PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_package(CUDAToolkit 10.0 REQUIRED)
 
 # update/define the compilation flags.
 IF(WIN32)
@@ -210,8 +206,6 @@ ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES cla
 # otherwise a workaround for extracting ${obj_all} is necessary below
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
 
-message("Cuda libraries: " ${CUDA_LIBRARIES})
-
 if(MPI_FOUND)
   set(VAMPIR_TRACE_INCLUDE_PATH "${MPI_INCLUDE_PATH}/vampirtrace")
   set(VAMPIR_TRACE_LIB_PATH "${MPI_INCLUDE_PATH}/../lib")
@@ -256,21 +250,13 @@ ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 10.0.0)
           -DCUSPARSE_GENERIC_INTERFACES)
 
   ENDIF()
-
-#if compiling for older than 10
-ELSE(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 10.0.0)
-
-    MESSAGE(FATAL_ERROR "CUDA versions older than 10.0 are not supported")
-
 ENDIF()
 
 if(DEFINED CUDA_ARCH)
-    #replace ' ' with ; to match the proper cmake format
-    STRING(REGEX REPLACE " " ";" CUDA_ARCH ${CUDA_ARCH})
-
     # User passed a CUDA_ARCH so check it matches
     # Error if incorrect CUDA_ARCH passed
     FOREACH(ARCH IN LISTS CUDA_ARCH)
+        message(STATUS "Checking if arch " ${ARCH} " is supported...")
         IF(NOT ${ARCH} IN_LIST CUDA_ALLOW_ARCH)
             message(STATUS
                 "Chosen CUDA_ARCH ${ARCH} not expected for current CUDA version. " 
@@ -281,15 +267,6 @@ ELSE()
 
     # Set a default
     SET(CUDA_ARCH "${CUDA_ALLOW_ARCH}" CACHE STRING "Target Architectures (SM60 SM70 SM80), multiple are allowed")
-
-ENDIF()
-
-IF(CMAKE_VERSION VERSION_LESS "3.18.0")
-
-  #set the compiler flags for each NV target
-  FOREACH(target ${CUDA_ARCH})
-      SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--generate-code=arch=compute_${target},code=[compute_${target},sm_${target}]")
-  ENDFOREACH(target ${CUDA_ARCH})
 
 ENDIF()
 
@@ -363,9 +340,8 @@ foreach( lib ${libList} )
   FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/${lib}/tests/*.cu")
 endforeach(lib)
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-endif()
+# set arch for main libs target
+set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 target_compile_options(amgx_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
@@ -383,12 +359,11 @@ target_compile_options(amgx PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS
 target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
 IF (WIN32)
-  target_link_libraries( amgx ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
-  target_link_libraries( amgxsh ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB})
+  target_link_libraries( amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
+  target_link_libraries( amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
 ELSE (WIN32)
-  find_library(NVTX_LIB nvToolsExt PATHS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-  target_link_libraries( amgx ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
-  target_link_libraries( amgxsh ${CUBLAS_LIB} ${CUSPARSE_LIB} ${CUSOLVER_LIB} ${NVTX_LIB} m pthread)
+  target_link_libraries( amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+  target_link_libraries( amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)
@@ -407,10 +382,9 @@ if (MKL_ROOT_DIR)
   target_link_libraries(amgxsh ${mkl_libs})
 endif(MKL_ROOT_DIR)
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-    set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-    set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-endif()
+# set arch for main libs
+set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")

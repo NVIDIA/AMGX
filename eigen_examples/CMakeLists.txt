@@ -24,21 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 3.13)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 3.13)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 3.18)
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../base/include" "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all ${CUSPARSE_LIB} ${CUSOLVER_LIB})
-  set(dyn_libs amgxsh ${CUDART_LIB} ${CUBLAS_LIB})
+  set(libs_all CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh CUDA::cudart CUDA::cublas)
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all ${CUSPARSE_LIB} ${CUSOLVER_LIB} rt dl)
-  set(dyn_libs amgxsh rt dl ${CUDART_LIB} ${CUBLAS_LIB})
+  set(libs_all rt dl CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh rt dl CUDA::cudart CUDA::cublas)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(eigensolver eigensolver.c)

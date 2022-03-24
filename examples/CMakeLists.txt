@@ -24,21 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 3.13)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 3.13)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 3.18)
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../base/include" "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all ${CUSPARSE_LIB} ${CUSOLVER_LIB})
-  set(dyn_libs amgxsh cudart.lib ${CUBLAS_LIB})
+  set(libs_all CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh CUDA::cudart_static CUDA::cublas)
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all ${CUSPARSE_LIB} ${CUSOLVER_LIB} rt dl)
-  set(dyn_libs amgxsh rt dl ${CUDART_LIB} ${CUBLAS_LIB})
+  set(libs_all CUDA::cusparse CUDA::cusolver rt dl)
+  set(dyn_libs amgxsh rt dl CUDA::cudart_static CUDA::cublas)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(amgx_capi amgx_capi.c)
@@ -62,9 +58,7 @@ target_link_libraries(generate_poisson amgx ${libs_all} )
 set_target_properties(generate_poisson PROPERTIES LINK_FLAGS "")
 target_include_directories(generate_poisson PUBLIC ${AMGX_INCLUDES})
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  set_target_properties(generate_poisson PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-endif()
+set_target_properties(generate_poisson PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 add_executable(generate_poisson7_dist_renum generate_poisson7_dist_renum.cu)
 target_compile_options(generate_poisson7_dist_renum PUBLIC "-Xcompiler=-I$ENV{METIS_INSTALL_PATH}/include")
@@ -72,9 +66,7 @@ target_link_libraries(generate_poisson7_dist_renum amgx ${libs_all} )
 set_target_properties(generate_poisson7_dist_renum PROPERTIES LINK_FLAGS "")
 target_include_directories(generate_poisson7_dist_renum PUBLIC ${AMGX_INCLUDES})
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  set_target_properties(generate_poisson7_dist_renum PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-endif()
+set_target_properties(generate_poisson7_dist_renum PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 if(MPI_FOUND)
     ADD_EXECUTABLE(amgx_mpi_capi amgx_mpi_capi.c )
@@ -140,12 +132,10 @@ if(MPI_FOUND)
     target_include_directories(amgx_mpi_capi_cla PUBLIC ${AMGX_INCLUDES})
     target_include_directories(amgx_mpi_poisson7 PUBLIC ${AMGX_INCLUDES})
 
-    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-      set_target_properties(amgx_mpi_capi PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-      set_target_properties(amgx_mpi_capi_agg PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-      set_target_properties(amgx_mpi_capi_cla PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-      set_target_properties(amgx_mpi_poisson7 PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-    endif()
+    set_target_properties(amgx_mpi_capi PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+    set_target_properties(amgx_mpi_capi_agg PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+    set_target_properties(amgx_mpi_capi_cla PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+    set_target_properties(amgx_mpi_poisson7 PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 endif(MPI_FOUND)
 

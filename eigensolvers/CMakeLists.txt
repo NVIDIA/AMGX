@@ -24,11 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 3.13)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 3.13)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 3.18)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
@@ -50,10 +46,9 @@ target_include_directories(amgx_eigensolvers PUBLIC
 
 find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
-target_link_libraries(amgx_eigensolvers amgxsh ${CUDART_LIBRARY} ${CUBLAS_LIB})
+target_link_libraries(amgx_eigensolvers amgxsh CUDA::cudart CUDA::cublas)
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
-  set_target_properties(amgx_eigensolvers PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-endif()
+# set arch for eigensolvers lib target
+set_target_properties(amgx_eigensolvers PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 install(TARGETS amgx_eigensolvers DESTINATION "lib/sublibs")

@@ -162,29 +162,30 @@ message ("This is a MPI build:" ${MPI_FOUND})
 
 # Enable NVTX ranges on Linux
 if(NOT WIN32)
-  set(NVTXRANGE_FLAG "-DNVTX_RANGES;")
+  set(NVTXRANGE_FLAG -DNVTX_RANGES)
 endif()
 
 # Configuration specific nvcc flags
 GET_FILENAME_COMPONENT(CMAKE_CXX_COMPILER_NAME "${CMAKE_CXX_COMPILER}" NAME)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_NAME MATCHES "clang")
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG -g -G)
+  set(CUDA_NVCC_FLAGS_RELEASE -O3 -DNDEBUG)
+  set(CUDA_NVCC_FLAGS_PROFILE -O3 -DPROFILE)
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES -O3 -DNDEBUG -DAMGX_USE_CPU_PROFILER)
 else()
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG -g -G)
+  set(CUDA_NVCC_FLAGS_RELEASE -O3 -DNDEBUG)
+  set(CUDA_NVCC_FLAGS_PROFILE -O3 -DPROFILE)
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES -O3 -DNDEBUG -DAMGX_USE_CPU_PROFILER)
   if(WIN32)
-    set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
+    set(CUDA_NVCC_FLAGS_RELEASE ${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX)
   endif()
 endif()
 
 # Add the build-specific flags to the NVCC flags
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPP_BUILD_NAME)
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}}")
+
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}})
 
 # Add errors for execution space warnings and enable NVTX ranges
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --Werror cross-execution-space-call ${NVTXRANGE_FLAG})
@@ -197,9 +198,9 @@ endif(AMGX_keep_intermediate)
 # Windows/linux specific settings for C
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" CACHE STRING "nvcc flags")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS})
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Xcompiler=-rdynamic;-Xcompiler=-fPIC;-Xcompiler=-fvisibility=default" CACHE STRING "nvcc flags")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "-rdynamic -fPIC -fvisibility=default")
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 # VS: include object files in target property SOURCES
@@ -216,7 +217,7 @@ if(MPI_FOUND)
     set(VAMPIR_TRACE_INCLUDE_PATH "${VAMPIR_TRACE_PATH}/include/vampirtrace")
   endif (DEFINED ENV{VAMPIR_TRACE_PATH})
   set(CMAKE_CXX_FLAGS_RELWITHTRACES "${CMAKE_CXX_FLAGS_RELWITHTRACES} -DAMGX_WITH_MPI;-DAMGX_USE_VAMPIR_TRACE;-DVTRACE;-I${VAMPIR_TRACE_INCLUDE_PATH}")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "${CUDA_NVCC_FLAGS_RELWITHTRACES} -DAMGX_WITH_MPI;-DAMGX_USE_VAMPIR_TRACE;-DVTRACE;-I${VAMPIR_TRACE_INCLUDE_PATH}")
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES ${CUDA_NVCC_FLAGS_RELWITHTRACES} -DAMGX_WITH_MPI -DAMGX_USE_VAMPIR_TRACE -DVTRACE -I${VAMPIR_TRACE_INCLUDE_PATH})
   set(CMAKE_EXE_LINKER_FLAGS_RELWITHTRACES "-L${VAMPIR_TRACE_LIB_PATH} -lvt-mpi -L${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64 -lcupti ${CMAKE_EXE_LINKER_FLAGS_RELWITHTRACES}")
   set(CMAKE_SHARED_LINKER_FLAGS_RELWITHTRACES "-L${VAMPIR_TRACE_LIB_PATH} -lvt-mpi -L${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64 -lcupti ${CMAKE_SHARED_LINKER_FLAGS_RELWITHTRACES}")
   if (DEFINED ENV{VAMPIR_TRACE_PATH})
@@ -271,7 +272,7 @@ ELSE()
 ENDIF()
 
 # Add the CXX flags to the host set of CUDA flags
-SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "${CMAKE_CXX_FLAGS}")
 
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used
@@ -280,13 +281,13 @@ SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 
 #include magma
 if (MAGMA_ROOT_DIR)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_MAGMA")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DAMGX_USE_MAGMA)
   CUDA_INCLUDE_DIRECTORIES(${MAGMA_ROOT_DIR}/include)
   set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a)
 endif(MAGMA_ROOT_DIR)
 #include lapack (MKL)
 if (MKL_ROOT_DIR)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_LAPACK")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DAMGX_USE_LAPACK)
   CUDA_INCLUDE_DIRECTORIES(${MKL_ROOT_DIR}/include)
   #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)

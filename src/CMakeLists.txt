@@ -100,14 +100,14 @@ target_include_directories(amgx_tests_launcher PRIVATE ${AMGX_INCLUDES})
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl)
-  set(libs_all ${CUSPARSE_LIB} ${CUBLAS_LIB})
-ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
-  set(libs_all ${CUSPARSE_LIB} ${CUBLAS_LIB} rt dl)
-ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
+    set(libs_all CUDA::cusparse CUDA::cublas)
+ELSE()
+    set(libs_all CUDA::cusparse CUDA::cublas rt dl)
+ENDIF()
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
 
-target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all})
+target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all} OpenMP::OpenMP_CXX)
 
 if(${AMGX_PUBLIC_RELEASE} MATCHES "FALSE")
   install(TARGETS amgx_tests_launcher DESTINATION "lib/tests")

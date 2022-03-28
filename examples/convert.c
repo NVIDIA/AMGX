@@ -48,7 +48,6 @@ int main(int argc, char *argv[])
     }
 
     AMGX_SAFE_CALL(AMGX_initialize());
-    AMGX_SAFE_CALL(AMGX_initialize_plugins());
     AMGX_SAFE_CALL(AMGX_config_create(&cfg, "config_version=2, matrix_writer=binary"));
     AMGX_resources_create_simple(&rsrc, cfg);
     AMGX_matrix_create(&A, rsrc, mode);
@@ -70,6 +69,5 @@ int main(int argc, char *argv[])
     AMGX_write_system(A, b, x, arg.c_str());
     AMGX_resources_destroy(rsrc);
     AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
-    AMGX_SAFE_CALL(AMGX_finalize_plugins());
     AMGX_SAFE_CALL(AMGX_finalize());
 }

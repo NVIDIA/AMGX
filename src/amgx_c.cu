@@ -2330,14 +2330,6 @@ extern "C" {
         //return getCAPIerror(amgx::initialize());
     }
 
-    AMGX_RC AMGX_API AMGX_initialize_plugins()
-    {
-        nvtxRange nvrf(__func__);
-
-        AMGX_CPU_PROFILER( "AMGX_initialize_plugins " );
-        return getCAPIerror_x(amgx::initializePlugins());
-    }
-
     AMGX_RC AMGX_API AMGX_finalize()
     {
         nvtxRange nvrf(__func__);
@@ -2354,22 +2346,6 @@ extern "C" {
         //AMGX_CHECK_API_ERROR(rc, NULL);
         //return AMGX_RC_OK;
         return getCAPIerror_x(rc);
-    }
-
-    AMGX_RC AMGX_API AMGX_finalize_plugins()
-    {
-        AMGX_CPU_PROFILER( "AMGX_finalize_plugins " );
-        AMGX_ERROR rc = AMGX_OK;
-
-        try
-        {
-            amgx::finalizePlugins();
-        }
-
-        AMGX_CATCHES(rc)
-        AMGX_CHECK_API_ERROR(rc, NULL);
-        return AMGX_RC_OK;
-        //return getCAPIerror(rc);
     }
 
     AMGX_RC AMGX_API AMGX_config_create(AMGX_config_handle *cfg_h, const char *options)

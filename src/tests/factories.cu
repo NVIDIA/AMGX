@@ -257,7 +257,6 @@ AMGX_ERROR  test_initialize()
 
 void run()
 {
-    AMGX_finalize_plugins();
     AMGX_finalize();
     UnitTest::amgx_intialized = false;
     AMGX_ERROR errorCode;
@@ -274,7 +273,6 @@ void run()
     errorCode = test_finalize();
     UNITTEST_ASSERT_EQUAL(errorCode, AMGX_ERR_CORE);
     AMGX_initialize();
-    AMGX_initialize_plugins();
     UnitTest::amgx_intialized = true;
 }
 

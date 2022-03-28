@@ -296,23 +296,19 @@ void run()
     }
 
     SignalHandler::hook();
-    AMGX_finalize_plugins();
     AMGX_finalize();
     UnitTest::amgx_intialized = false;
 
     for (int i = 0; i < test_cases.size(); i++)
     {
         AMGX_initialize();
-        AMGX_initialize_plugins();
         UnitTest::amgx_intialized = true;
         test_main(test_cases[i]);
-        AMGX_finalize_plugins();
         AMGX_finalize();
         UnitTest::amgx_intialized = false;
     }
 
     AMGX_initialize();
-    AMGX_initialize_plugins();
     UnitTest::amgx_intialized = true;
 }
 

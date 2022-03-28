@@ -459,7 +459,6 @@ std::vector<double> test_main(TestCase &test_case, bool generate_rhs = 0)
 void run()
 {
     SignalHandler::hook();
-    AMGX_finalize_plugins();
     AMGX_finalize();
     UnitTest::amgx_intialized = false;
     std::vector<TestCase> test_cases;
@@ -499,7 +498,6 @@ void run()
     for (int i = 0; i < test_cases.size(); i++)
     {
         AMGX_initialize();
-        AMGX_initialize_plugins();
 
         if (i % 2 == 0)
         {
@@ -524,12 +522,10 @@ void run()
             }
         }
 
-        AMGX_finalize_plugins();
         AMGX_finalize();
     }
 
     AMGX_initialize();
-    AMGX_initialize_plugins();
     UnitTest::amgx_intialized = true;
 }
 

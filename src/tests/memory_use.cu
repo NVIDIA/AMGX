@@ -96,7 +96,6 @@ void check_memory_usage(const char *msg, size_t &mem_before, TestCase &test_case
 void launch_test_case(TestCase &test_case)
 {
     SignalHandler::hook();
-    AMGX_finalize_plugins();
     AMGX_finalize();
     UnitTest::amgx_intialized = false;
     // Empty kernel call to initialize cuda context
@@ -129,7 +128,6 @@ void launch_test_case(TestCase &test_case)
 #endif
     UNITTEST_ASSERT_TRUE_DESC(msg.str().c_str(), (used_mem_after - used_mem_before) <= test_case.max_mem_leak);
     UNITTEST_ASSERT_EQUAL(AMGX_initialize(), AMGX_OK);
-    UNITTEST_ASSERT_EQUAL(AMGX_initialize_plugins(), AMGX_OK);
     UnitTest::amgx_intialized = true;
 }
 
@@ -137,7 +135,6 @@ void mem_test_main(TestCase &test_case, size_t &mem_before)
 {
     check_memory_usage("before initialize", mem_before, test_case);
     UNITTEST_ASSERT_EQUAL(AMGX_initialize(), AMGX_OK);
-    UNITTEST_ASSERT_EQUAL(AMGX_initialize_plugins(), AMGX_OK);
     UnitTest::amgx_intialized = true;
     check_memory_usage("after initialize", mem_before, test_case);
     // --------------------------------------
@@ -379,7 +376,6 @@ void mem_test_main(TestCase &test_case, size_t &mem_before)
     UNITTEST_ASSERT_EQUAL(AMGX_resources_destroy( rsrc ), AMGX_OK);
     check_memory_usage("after resources destroy", mem_before, test_case);
     check_memory_usage("before finalize", mem_before, test_case);
-    UNITTEST_ASSERT_EQUAL(AMGX_finalize_plugins(), AMGX_OK);
     UNITTEST_ASSERT_EQUAL(AMGX_finalize(), AMGX_OK);
     check_memory_usage("after finalize", mem_before, test_case);
     //cudaDeviceReset();

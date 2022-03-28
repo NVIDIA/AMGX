@@ -66,8 +66,6 @@ template <class T_Config> class Solver;
 
 AMGX_ERROR initialize();
 void finalize();
-AMGX_ERROR initializePlugins();
-void finalizePlugins();
 
 class AMG_Config;
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec> class AMG;

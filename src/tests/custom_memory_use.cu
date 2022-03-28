@@ -196,7 +196,6 @@ void mem_test_main(TestCase &test_case, double &mem_before)
     int mat_it = 0;
     check_memory_usage("before initialize", mem_before, test_case, mat_it);
     AMGX_initialize();
-    AMGX_initialize_plugins();
     check_memory_usage("after initialize", mem_before, test_case, mat_it);
     AMGX_config_handle rsrc_cfg = NULL;
     UNITTEST_ASSERT_EQUAL(AMGX_config_create(&rsrc_cfg, ""), AMGX_OK);
@@ -394,7 +393,6 @@ void mem_test_main(TestCase &test_case, double &mem_before)
     AMGX_resources_destroy(rsrc);
     check_memory_usage("after resources free", mem_before, test_case, mat_it);
     check_memory_usage("before finalize", mem_before, test_case, mat_it);
-    AMGX_finalize_plugins();
     AMGX_finalize();
     check_memory_usage("after finalize", mem_before, test_case, mat_it);
 }
@@ -433,7 +431,6 @@ void run()
     temp_case.max_mem_leak = 0;
     test_cases.push_back(temp_case);
     SignalHandler::hook();
-    AMGX_finalize_plugins();
     AMGX_finalize();
     UnitTest::amgx_intialized = false;
     // Empty kernel call to initialize cuda context
@@ -463,7 +460,6 @@ void run()
     }
 
     AMGX_initialize();
-    AMGX_initialize_plugins();
     UnitTest::amgx_intialized = true;
 }
 

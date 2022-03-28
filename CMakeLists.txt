@@ -273,46 +273,6 @@ ENDIF()
 # Add the CXX flags to the host set of CUDA flags
 SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 
-# write version
-set(versionFile "ReleaseVersion.txt")
-set(versionCode "core/src/version.cu")
-if(${versionFile} IS_NEWER_THAN ${versionCode})
-  file(STRINGS ${versionFile} versionString)
-  file(WRITE ${versionCode} "#include <version.h>\n")
-  file(APPEND ${versionCode} "namespace amgx{\n")
-  file(APPEND ${versionCode} "const char __AMGX_BUILD_DATE__ [] = __DATE__;\n")
-  file(APPEND ${versionCode} "const char __AMGX_BUILD_TIME__ [] = __TIME__;\n")
-  file(APPEND ${versionCode} "const char __AMGX_BUILD_ID__ [] = " ${versionString} ";" \n}\n)
-endif(${versionFile} IS_NEWER_THAN ${versionCode})
-
-# plugin management
-set(pluginConf "PluginConfig.txt")                     # plugin configuration
-set(pluginCode "${CMAKE_SOURCE_DIR}/plugin_config.cu") # plugin code
-file(STRINGS ${pluginConf} pluginList)                 # plugin list
-set(libList base core ${pluginList})                   # lib list
-
-# create initialization and finalization for plugins
-if(${pluginConf} IS_NEWER_THAN ${pluginCode})
-  file(WRITE ${pluginCode} "#include <error.h>\n")
-  file(APPEND ${pluginCode} "#include <misc.h>\n")
-  file(APPEND ${pluginCode} "namespace amgx {\n")
-  foreach( plugin ${pluginList} )
-    file(APPEND ${pluginCode} "namespace ${plugin} { extern AMGX_ERROR initialize(); extern void finalize(); }\n")
-  endforeach(plugin)
-  file(APPEND ${pluginCode} "\nAMGX_ERROR initializePlugins() {\n")
-  foreach( plugin ${pluginList} )
-    file(APPEND ${pluginCode} "    if (AMGX_OK != ${plugin}::initialize()) return AMGX_ERR_PLUGIN;\n")
-  endforeach(plugin)
-  file(APPEND ${pluginCode} "  return AMGX_OK;\n")
-  file(APPEND ${pluginCode} "}\n")
-  file(APPEND ${pluginCode} "\nvoid finalizePlugins() {\n")
-  foreach( plugin ${pluginList} )
-    file(APPEND ${pluginCode} "  ${plugin}::finalize();\n")
-  endforeach(plugin)
-  file(APPEND ${pluginCode} "}\n")
-  file(APPEND ${pluginCode} "} // namespace amgx\n")
-endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
-
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used
 # to compile CUDA are generated at configure time. This means that the scripts are generated based
@@ -332,13 +292,12 @@ if (MKL_ROOT_DIR)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
+
 add_library(amgx_libs OBJECT "")
 
-#create a list of all sources in amgx
-foreach( lib ${libList} )
-  add_subdirectory(${lib})
-  FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/${lib}/tests/*.cu")
-endforeach(lib)
+add_subdirectory("src")
+
+FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/src/tests/*.cu")
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
@@ -393,11 +352,4 @@ install(TARGETS amgxsh DESTINATION "lib")
 
 # build examples
 add_subdirectory(examples)
-if(EXISTS ${CMAKE_SOURCE_DIR}/eigen_examples)
-  add_subdirectory(eigen_examples)
-endif(EXISTS ${CMAKE_SOURCE_DIR}/eigen_examples)
 
-# build unit tests
-if(EXISTS ${CMAKE_SOURCE_DIR}/tests)
-   add_subdirectory(tests)
-endif(EXISTS ${CMAKE_SOURCE_DIR}/tests)

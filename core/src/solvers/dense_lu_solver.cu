@@ -781,6 +781,7 @@ solver_setup(bool reuse_matrix_structure)
 
     if(A->is_matrix_distributed() && m_enable_exact_solve)
     {
+#ifdef AMGX_WITH_MPI
         int rank = A->manager->global_id();
         int nranks = A->manager->get_num_partitions();
         MPI_Comm comm = A->manager->getComms()->get_mpi_comm();
@@ -892,6 +893,7 @@ solver_setup(bool reuse_matrix_structure)
 
         cudaStreamSynchronize(stream);
         cudaCheckError();
+#endif
     }
     else
     {
@@ -930,62 +932,45 @@ solve_iteration(Vector_d &rhs,
 
     if(A->is_matrix_distributed() && m_enable_exact_solve)
     {
+#ifdef AMGX_WITH_MPI
         int offset, num_rows;
         A->getOffsetAndSizeForView(OWNED, &offset, &num_rows);
 
-        cusolverStatus_t status;
+        int rank = A->manager->global_id();
+        int nranks = A->manager->get_num_partitions();
+        MPI_Comm comm = A->manager->getComms()->get_mpi_comm();
 
-        if (A->is_matrix_distributed())
-        {
-            int rank = A->manager->global_id();
-            int nranks = A->manager->get_num_partitions();
-            MPI_Comm comm = A->manager->getComms()->get_mpi_comm();
+        // Make host copy of the RHS
+        MVector_h rhs_local_h(num_rows);
+        thrust::copy(rhs.begin(), rhs.begin() + num_rows, rhs_local_h.begin());
 
-            // Make host copy of the RHS
-            MVector_h rhs_local_h(num_rows);
-            thrust::copy(rhs.begin(), rhs.begin() + num_rows, rhs_local_h.begin());
+        // Gather the local RHS from all ranks to global vectors on all ranks
+        MVector_h rhs_global_h(m_num_rows);
+        A->manager->getComms()->all_gather_v(rhs_local_h, num_rows, rhs_global_h, row_all, row_displs);
 
-            // Gather the local RHS from all ranks to global vectors on all ranks
-            MVector_h rhs_global_h(m_num_rows);
-            A->manager->getComms()->all_gather_v(rhs_local_h, num_rows, rhs_global_h, row_all, row_displs);
+        //Solve L*X = RHS
+        MVector_d x_global(m_num_rows);
+        thrust::copy(rhs_global_h.begin(), rhs_global_h.end(), x_global.begin());
+        cusolverStatus_t status = 
+            cusolverDnXgetrs(m_cuds_handle,
+                             CUBLAS_OP_N,
+                             m_num_rows,
+                             1,
+                             m_dense_A,
+                             m_lda,
+                             m_ipiv,
+                             x_global.raw(),
+                             m_num_rows,
+                             m_cuds_info);
 
-            //Solve L*X = RHS
-            MVector_d x_global(m_num_rows);
-            thrust::copy(rhs_global_h.begin(), rhs_global_h.end(), x_global.begin());
-            status = cusolverDnXgetrs(m_cuds_handle,
-                                      CUBLAS_OP_N,
-                                      m_num_rows,
-                                      1,
-                                      m_dense_A,
-                                      m_lda,
-                                      m_ipiv,
-                                      x_global.raw(),
-                                      m_num_rows,
-                                      m_cuds_info);
-
-            // Copy the local portion of the solution back into x
-            thrust::copy(x_global.begin() + row_displs[rank], x_global.begin() + row_displs[rank] + num_rows, x.begin());
-        }
-        else
-        {
-            //Solve L*X = RHS
-            thrust::copy(rhs.begin(), rhs.begin() + num_rows, x.begin());
-            status = cusolverDnXgetrs(m_cuds_handle,
-                                      CUBLAS_OP_N,
-                                      m_num_rows,
-                                      1,
-                                      m_dense_A,
-                                      m_lda,
-                                      m_ipiv,
-                                      (Matrix_data *)(x.raw()),
-                                      m_num_rows,
-                                      m_cuds_info);
-        }
+        // Copy the local portion of the solution back into x
+        thrust::copy(x_global.begin() + row_displs[rank], x_global.begin() + row_displs[rank] + num_rows, x.begin());
 
         if (status != CUSOLVER_STATUS_SUCCESS)
         {
             FatalError("cuSolver trsv failed to solve Lx=rhs", AMGX_ERR_INTERNAL);
         }
+#endif
     }
     else
     {

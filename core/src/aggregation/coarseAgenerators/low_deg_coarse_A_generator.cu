@@ -195,7 +195,7 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
         // Store the results.
         if ( COUNT_ONLY )
         {
-            int count = set.compute_size_with_duplicates();
+            int count = set.compute_size();
 
             if ( lane_id == 0 )
             {
@@ -240,9 +240,9 @@ void fill_A_kernel_1x1( const int  R_num_rows,
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The hash values stored in shared memory.
-    __shared__ volatile Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE]; 
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -254,7 +254,7 @@ void fill_A_kernel_1x1( const int  R_num_rows,
     // Create local storage for the set.
     Hash_map<int, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE  ],
             &g_keys[r_row_id * gmem_size ],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[r_row_id * gmem_size ], gmem_size );
     // Loop over rows of A.
     for ( ; r_row_id < R_num_rows ; r_row_id = get_work( wk_work_queue, warp_id ) )
@@ -335,7 +335,7 @@ void fill_A_kernel_1x1( const int  R_num_rows,
                         a_agg_id = -1;
                     }
 
-                    map.insert_with_duplicates( a_agg_id, a_value, NULL );  // It won't insert. Only update.
+                    map.insert( a_agg_id, a_value, NULL );  // It won't insert. Only update.
                 }
             }
         }
@@ -391,7 +391,7 @@ void fill_A_kernel_4x4( const int  R_num_rows, // same as num_aggregates.
 {
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -569,7 +569,7 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
     const int T_WARP = FORCE_DETERMINISM ? 1 : WARP_SIZE / NxN;
     const int NUM_ITEMS_PER_WARP = T_WARP == 0 ? 1 : T_WARP;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -743,7 +743,7 @@ void fill_A_kernel_NxN_large( const int  R_num_rows, // same as num_aggregates.
     // Number of items per warp. Let's be chill here and take 1 per warp for large blocks
     const int NUM_ITEMS_PER_WARP = 1;
     // The hash keys stored in shared memory.
-    __shared__ volatile int s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );

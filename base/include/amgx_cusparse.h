@@ -333,7 +333,8 @@ class Cusparse
                                   int blockDim,
                                   const float *x,
                                   const float *beta,
-                                  float *y);
+                                  float *y,
+                                  const cudaStream_t& stream);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -346,7 +347,8 @@ class Cusparse
                                   int blockDim,
                                   const double *x,
                                   const double *beta,
-                                  double *y);
+                                  double *y,
+                                  const cudaStream_t& stream);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -359,7 +361,8 @@ class Cusparse
                                   int blockDim,
                                   const double *x,
                                   const double *beta,
-                                  double *y);
+                                  double *y,
+                                  const cudaStream_t& stream);
 
         // overloaded C++ wrappers for cusparse?bsrxmv
         // bsrxmv
@@ -425,7 +428,8 @@ class Cusparse
                                   int blockDim,
                                   const cuComplex *x,
                                   const cuComplex *beta,
-                                  cuComplex *y);
+                                  cuComplex *y,
+                                  const cudaStream_t& stream);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -438,7 +442,8 @@ class Cusparse
                                   int blockDim,
                                   const cuDoubleComplex *x,
                                   const cuDoubleComplex *beta,
-                                  cuDoubleComplex *y);
+                                  cuDoubleComplex *y,
+                                  const cudaStream_t& stream);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -451,7 +456,8 @@ class Cusparse
                                   int blockDim,
                                   const cuDoubleComplex *x,
                                   const cuDoubleComplex *beta,
-                                  cuDoubleComplex *y);
+                                  cuDoubleComplex *y,
+                                  const cudaStream_t& stream);
 
         // overloaded C++ wrappers for cusparse?bsrxmv
         // bsrxmv

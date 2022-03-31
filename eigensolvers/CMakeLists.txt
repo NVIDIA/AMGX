@@ -24,26 +24,31 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0)
-ENDIF (WIN32)
-
-FIND_PACKAGE(CUDA)
+cmake_minimum_required (VERSION 3.18)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
-
-CUDA_INCLUDE_DIRECTORIES(${THRUST_DIR})
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/include)
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../base/include)
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
 
 # Select all sources
 FILE(GLOB_RECURSE SRCS "src/*.cu")
 
-# Generic nvcc flags
+target_sources(amgx_libs PRIVATE ${SRCS})
 
-CUDA_ADD_LIBRARY(amgx_eigensolvers STATIC ${SRCS})
-target_link_libraries(amgx_eigensolvers amgx_base amgx_core)
+add_library(amgx_eigensolvers STATIC ${SRCS})
+
+set(AMGX_INCLUDES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../base/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
+
+target_include_directories(amgx_eigensolvers PUBLIC 
+    ${THRUST_DIR}
+    ${AMGX_INCLUDES})
+
+find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+
+target_link_libraries(amgx_eigensolvers amgxsh CUDA::cudart CUDA::cublas)
+
+# set arch for eigensolvers lib target
+set_target_properties(amgx_eigensolvers PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+
 install(TARGETS amgx_eigensolvers DESTINATION "lib/sublibs")

@@ -25,54 +25,57 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8) 
+cmake_minimum_required (VERSION 3.13) 
 ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0) 
+cmake_minimum_required (VERSION 3.13) 
 ENDIF (WIN32)
 
-FIND_PACKAGE(CUDA)
-
-CUDA_INCLUDE_DIRECTORIES(${THRUST_DIR}) 
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/tests/include)
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/core/include)
-CUDA_INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/base/include)
+set(AMGX_INCLUDES 
+    ${THRUST_DIR} 
+    ${CMAKE_SOURCE_DIR}/tests/include 
+    ${CMAKE_SOURCE_DIR}/core/include 
+    ${CMAKE_SOURCE_DIR}/base/include)
 
 set(tests_all ${tests_all} src/testframework.cu src/test_utils.cu src/unit_test.cu)
 
-CUDA_ADD_LIBRARY(amgx_tests_library STATIC ${tests_all})
+add_library(amgx_tests_libs OBJECT ${tests_all})
+
+target_include_directories(amgx_tests_libs PRIVATE ${AMGX_INCLUDES}) 
+
+add_library(amgx_tests_library STATIC $<TARGET_OBJECTS:amgx_tests_libs>)
+
 add_dependencies(amgx_tests_library amgx)
+
 target_link_libraries(amgx_tests_library amgx)
 
-# workaround
-get_target_property(src_tmp amgx_tests_library SOURCES)
-set(tests_all ${tests_all} ${src_tmp})
+add_executable(amgx_tests_launcher src/utest.cu $<TARGET_OBJECTS:amgx_tests_libs>)
 
-set(tests_obj_all)
-foreach( src ${tests_all} )
-  if(${src} MATCHES ${CMAKE_BINARY_DIR})
-    set(tests_obj_all ${tests_obj_all} ${src})
-  endif(${src} MATCHES ${CMAKE_BINARY_DIR})
-endforeach(src)
-SET_SOURCE_FILES_PROPERTIES(${tests_obj_all} PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE)
-#file(WRITE "tests_obj_all.txt" "${tests_obj_all}") # debug, write out all objects for amgx
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.18.0")
+  set_target_properties(amgx_tests_launcher PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+  set_target_properties(amgx_tests_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+  set_target_properties(amgx_tests_library PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
-#CUDA_ADD_EXECUTABLE(amgx_tests_launcher ${tests_all} src/testframework.cu src/test_utils.cu src/unit_test.cu src/utest.cu)
-CUDA_ADD_EXECUTABLE(amgx_tests_launcher src/utest.cu ${tests_obj_all})
+  target_compile_options(amgx_tests_launcher PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+  target_compile_options(amgx_tests_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+  target_compile_options(amgx_tests_library PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+endif()
+
+target_include_directories(amgx_tests_launcher PRIVATE ${AMGX_INCLUDES}) 
 
 # create executables for host and device, scalar and block version
-# set(libs_all ${cusparse_library})
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl)
-  set(libs_all ${cusparse_library})
+  set(libs_all ${CUSPARSE_LIB} ${CUBLAS_LIB})
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl)
-  set(libs_all ${cusparse_library} rt dl stdc++)
+  set(libs_all ${CUSPARSE_LIB} ${CUBLAS_LIB} rt dl)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl)
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
-set_target_properties(amgx_tests_launcher PROPERTIES LINKER_LANGUAGE CXX)
+
 target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all})
 
 if(${AMGX_PUBLIC_RELEASE} MATCHES "FALSE")
   install(TARGETS amgx_tests_launcher DESTINATION "lib/tests")
 endif(${AMGX_PUBLIC_RELEASE} MATCHES "FALSE")
+

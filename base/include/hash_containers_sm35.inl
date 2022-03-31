@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@ class Hash_set
         // The size of the table (occupancy).
         int m_smem_count, m_gmem_count;
         // The keys stored in the hash table.
-        volatile Key_type *m_smem_keys, *m_gmem_keys;
+        Key_type *m_smem_keys, *m_gmem_keys;
         // The size of the global memory buffer.
         const int m_gmem_size;
         // Is it ok?
@@ -57,22 +57,19 @@ class Hash_set
 
     public:
         // Constructor.
-        __device__ __forceinline__ Hash_set( volatile Key_type *smem_keys, volatile Key_type *gmem_keys, int gmem_size ) :
+        __device__ __forceinline__ Hash_set( Key_type *smem_keys, Key_type *gmem_keys, int gmem_size ) :
             m_smem_count(0),
             m_gmem_count(1),
             m_smem_keys (smem_keys),
             m_gmem_keys (gmem_keys),
             m_gmem_size (gmem_size),
             m_fail      (false)
-
         {}
 
         // Clear the table.
         __device__ __forceinline__ void clear( bool skip_gmem = false );
         // Compute the size of the table. Only thread with lane_id==0 gives the correct result (no broadcast of the value).
         __device__ __forceinline__ int compute_size();
-        // Compute the size of the table. Only thread with lane_id==0 gives the correct result (no broadcast of the value).
-        __device__ __forceinline__ int compute_size_with_duplicates();
         // Does the set contain those values?
         __device__ __forceinline__ bool contains( Key_type key ) const;
         // Find an index.
@@ -148,45 +145,6 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::compute_size()
 
 template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE>
 __device__ __forceinline__
-int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::compute_size_with_duplicates()
-{
-    int lane_id = utils::lane_id();
-    // Count the number of keys in SMEM.
-    int sum = 0;
-    const int NUM_STEPS = SMEM_SIZE / WARP_SIZE;
-#pragma unroll
-
-    for ( int i_step = 0 ; i_step < NUM_STEPS ; ++i_step )
-    {
-        const int offset = i_step * WARP_SIZE + lane_id;
-        Key_type key = m_smem_keys[offset];
-        sum += __popc( utils::ballot( key != -1 ) );
-    }
-
-    // Is there any key in GMEM. If not, just quit.
-    m_gmem_count = utils::any(m_gmem_count > 0);
-
-    if ( !m_gmem_count )
-    {
-        return sum;
-    }
-
-    // Count the number of keys in GMEM.
-#pragma unroll 4
-
-    for ( int offset = lane_id ; offset < m_gmem_size ; offset += WARP_SIZE )
-    {
-        Key_type key = m_gmem_keys[offset];
-        sum += __popc( utils::ballot( key != -1, utils::activemask() ) );
-    }
-
-    return sum;
-}
-
-// ====================================================================================================================
-
-template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE>
-__device__ __forceinline__
 bool Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::contains( Key_type key ) const
 {
     bool done = key == -1, found = false;
@@ -218,7 +176,6 @@ bool Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::contains( Key_type
         }
     }
 
-    const int num_bits = utils::bfind( m_gmem_size );
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -229,7 +186,7 @@ bool Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::contains( Key_type
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1);
 
         if ( !done )
         {
@@ -283,7 +240,6 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::find_index( Key_typ
         }
     }
 
-    const int num_bits = utils::bfind( m_gmem_size );
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -294,7 +250,7 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::find_index( Key_typ
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1);
 
         if ( !done )
         {
@@ -317,83 +273,71 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, int *status )
 {
-    bool done = key == -1;
-#pragma unroll
+    bool active = key != -1;
+    Key_type winning_key;
+    int active_mask;
 
+#pragma unroll
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
+        active_mask = utils::ballot( active );
+
+        if ( active_mask == 0 )
         {
             return;
         }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
-
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_smem_keys[hash];
+            unsigned ukey = reinterpret_cast<unsigned &>( key );
+            int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1); 
 
-            if ( stored_key == key )
+            winning_key = utils::atomic_CAS(&m_smem_keys[hash], -1, key); 
+
+            if ( winning_key == -1 )
             {
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_smem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_smem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
+                winning_key = key;
                 m_smem_count++;
-                done = true;
+            }
+
+
+            if ( key == winning_key )
+            {
+                active = false;
             }
         }
     }
-
-    const int num_bits = utils::bfind( m_gmem_size );
 #pragma unroll
-
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
+        active_mask = utils::ballot( active );
+
+        if ( active_mask == 0 )
         {
             return;
         }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
-
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_gmem_keys[hash];
+            unsigned ukey = reinterpret_cast<unsigned &>( key );
+            int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1); 
 
-            if ( stored_key == key )
+            winning_key = utils::atomic_CAS(&m_gmem_keys[hash], -1, key); 
+
+            if ( winning_key == -1 )
             {
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_gmem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
+                winning_key = key;
                 m_gmem_count++;
-                done = true;
+            }
+
+            if ( key == winning_key )
+            {
+                active = false;
             }
         }
     }
 
-    if ( utils::all(done) )
+    if ( utils::ballot( active ) == 0 )
     {
         return;
     }
@@ -422,7 +366,7 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count, c
         Key_type key = keys[offset];
         int idx = pos [offset];
         // Where to store the item.
-        volatile Key_type *ptr = m_smem_keys;
+        Key_type *ptr = m_smem_keys;
 
         if ( idx >= SMEM_SIZE )
         {
@@ -451,7 +395,7 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load_index( int co
         Key_type key = keys[offset];
         int idx = pos [offset];
         // Store the item.
-        volatile Key_type *ptr = m_smem_keys;
+        Key_type *ptr = m_smem_keys;
 
         if ( idx >= SMEM_SIZE )
         {
@@ -676,11 +620,9 @@ class Hash_map
 {
     protected:
         // The keys stored in the map.
-        volatile Key_type *m_smem_keys, *m_gmem_keys;
-        // Vote buffer for values.
-        volatile Word *m_smem_vote;
-        // Registers to store values.
-        T m_regs_vals[4];
+        Key_type *m_smem_keys, *m_gmem_keys;
+        // Shared memory values
+        T *m_smem_vals = NULL;
         // The values stored in the map.
         T *m_gmem_vals;
         // The size of the global memory buffer.
@@ -689,12 +631,11 @@ class Hash_map
         bool m_any_gmem;
 
     public:
-        // Constructor.
         __device__ __forceinline__
-        Hash_map( volatile Key_type *smem_keys, volatile Key_type *gmem_keys, volatile Word *smem_vote, T *gmem_vals, int gmem_size ) :
+        Hash_map( Key_type *smem_keys, Key_type *gmem_keys, T *smem_vals, T *gmem_vals, int gmem_size ) :
             m_smem_keys(smem_keys),
             m_gmem_keys(gmem_keys),
-            m_smem_vote(smem_vote),
+            m_smem_vals(smem_vals),
             m_gmem_vals(gmem_vals),
             m_gmem_size(gmem_size),
             m_any_gmem (true)
@@ -702,12 +643,8 @@ class Hash_map
 
         // Clear the table. It doesn't clear GMEM values.
         __device__ __forceinline__ void clear();
-        // Clear the table. It also clears GMEM values (set them to 0).
-        __device__ __forceinline__ void clear_all();
         // Insert a key/value inside the hash table.
-        __device__ __forceinline__ void insert( Key_type key, T a_value, T b_value, int *status );
-        // Insert a key/value inside the hash table.
-        __device__ __forceinline__ void insert_with_duplicates( Key_type key, T val, int *status );
+        __device__ __forceinline__ void insert( Key_type key, T val, int *status );
         // Load a set.
         __device__ __forceinline__ void load( int count, const Key_type *keys, const int *pos );
         // Store the map.
@@ -720,25 +657,6 @@ class Hash_map
         __device__ __forceinline__ void store_keys_scale_values( int count, Key_type *keys, T alpha, T *vals );
         // Update a value in the table but do not insert if it doesn't exist.
         __device__ __forceinline__ bool update( Key_type key, T value );
-
-    protected:
-        // Get the selected item in the register buffer.
-        __device__ __forceinline__ int get_selected( int hash ) const
-        {
-            return static_cast<int>(m_smem_vote[hash % WARP_SIZE].b8[hash / WARP_SIZE]);
-        }
-
-        // Is it the selected item in the register buffer.
-        __device__ __forceinline__ bool is_selected( int hash, int lane_id ) const
-        {
-            return m_smem_vote[hash % WARP_SIZE].b8[hash / WARP_SIZE] == reinterpret_cast<char &>(lane_id);
-        }
-
-        // Push my ID in the register buffer.
-        __device__ __forceinline__ void try_selection( int hash, int lane_id )
-        {
-            m_smem_vote[hash % WARP_SIZE].b8[hash / WARP_SIZE] = reinterpret_cast<char &>(lane_id);
-        }
 };
 
 // ====================================================================================================================
@@ -754,13 +672,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear()
     for ( int i_step = 0 ; i_step < NUM_STEPS ; ++i_step )
     {
         m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
-    }
-
-#pragma unroll
-
-    for ( int i_regs = 0 ; i_regs < 4 ; ++i_regs )
-    {
-        m_regs_vals[i_regs] = amgx::types::util<T>::get_zero();
+        m_smem_vals[i_step * WARP_SIZE + lane_id] =  amgx::types::util<T>::get_zero();
     }
 
     if ( !m_any_gmem )
@@ -773,43 +685,6 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear()
     for ( int offset = lane_id ; offset < m_gmem_size ; offset += WARP_SIZE )
     {
         m_gmem_keys[offset] = -1;
-    }
-
-    m_any_gmem = false;
-}
-
-// ====================================================================================================================
-
-template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
-__device__ __forceinline__
-void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear_all()
-{
-    int lane_id = utils::lane_id();
-    const int NUM_STEPS = SMEM_SIZE / WARP_SIZE;
-#pragma unroll
-
-    for ( int i_step = 0 ; i_step < NUM_STEPS ; ++i_step )
-    {
-        m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
-    }
-
-#pragma unroll
-
-    for ( int i_regs = 0 ; i_regs < 4 ; ++i_regs )
-    {
-        m_regs_vals[i_regs] = amgx::types::util<T>::get_zero();
-    }
-
-    if ( !m_any_gmem )
-    {
-        return;
-    }
-
-#pragma unroll 4
-
-    for ( int offset = lane_id ; offset < m_gmem_size ; offset += WARP_SIZE )
-    {
-        m_gmem_keys[offset] =   -1;
         m_gmem_vals[offset] = amgx::types::util<T>::get_zero();
     }
 
@@ -820,105 +695,73 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear_all()
 
 template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
-void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, T a_value, T b_value, int *status )
+void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, T val, int *status )
 {
-    const int lane_id = utils::lane_id();
-    bool done = key == -1;
-    m_smem_vote[lane_id].b32 = 0x20202020;
-#pragma unroll
+    const short lane_id = utils::lane_id();
+    bool active = key != -1;
+    Key_type winning_key = -1;
+    int active_mask;
 
+#pragma unroll
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( i_hash > 0 && utils::all(done) )
+
+        active_mask = utils::ballot( active );
+
+        if ( active_mask == 0 )
         {
-            break;
+            return;
         }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
 
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_smem_keys[hash];
+            unsigned ukey  = reinterpret_cast<unsigned &>( key );
+            int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
 
-            if ( stored_key == key )
+            winning_key = utils::atomic_CAS(&m_smem_keys[hash], -1, key);
+            winning_key = (winning_key == -1) ? key : winning_key;
+
+            if (key == winning_key)  
             {
-                this->try_selection( hash, lane_id );
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_smem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_smem_keys[hash] )
-            {
-                this->try_selection( hash, lane_id );
-                done = true;
+                utils::atomic_add(&m_smem_vals[hash], val); 
+                active = false;
             }
         }
     }
 
-    Word my_vote;
-    my_vote.b32 = m_smem_vote[lane_id].b32;
-#pragma unroll
-
-    for ( int i_regs = 0 ; i_regs < 4 ; ++i_regs )
-    {
-        int my_src = my_vote.b8[i_regs];
-        T other_val = utils::shfl( b_value, my_src );
-
-        if ( my_src != WARP_SIZE )
-        {
-            m_regs_vals[i_regs] = m_regs_vals[i_regs] + a_value * other_val;
-        }
-    }
-
-    const int num_bits = utils::bfind( m_gmem_size );
-#pragma unroll
+    #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
+        active_mask = utils::ballot( active );
+
+        if ( active_mask == 0 )
         {
             return;
         }
 
         m_any_gmem = true;
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
 
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_gmem_keys[hash];
+            unsigned ukey = reinterpret_cast<unsigned &>( key );
+            int hash      = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] )  & (m_gmem_size - 1); 
 
-            if ( stored_key == key )
+
+            winning_key = utils::atomic_CAS(&m_gmem_keys[hash], -1, key);
+            winning_key = (winning_key == -1) ? key : winning_key;
+
+
+            if (key == winning_key) 
             {
-                m_gmem_vals[hash] = m_gmem_vals[hash] + a_value * b_value;
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_gmem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
-                m_gmem_vals[hash] = a_value * b_value;
-                done = true;
+                utils::atomic_add(&m_gmem_vals[hash], val);
+                active = false;
             }
         }
     }
 
-    if ( status == NULL || utils::all(done) )
+    if (status == NULL )
     {
         return;
     }
@@ -929,141 +772,6 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_typ
     }
 }
 
-// ====================================================================================================================
-
-template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
-__device__ __forceinline__
-void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert_with_duplicates( Key_type key, T val, int *status )
-{
-    const int lane_id = utils::lane_id();
-    bool done = key == -1;
-    m_smem_vote[lane_id].b32 = 0x20202020;
-#pragma unroll
-
-    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
-    {
-        if ( utils::all(done) )
-        {
-            break;
-        }
-
-        bool candidate = false;
-        bool maybe_in_conflict = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
-
-        if ( !done )
-        {
-            Key_type stored_key = m_smem_keys[hash];
-
-            if ( stored_key == key )
-            {
-                this->try_selection( hash, lane_id );
-                maybe_in_conflict = true;
-                done = true; // Is it really done???
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_smem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_smem_keys[hash] )
-            {
-                this->try_selection( hash, lane_id );
-                maybe_in_conflict = true;
-                done = true;
-            }
-        }
-
-        // Fix conflicts.
-        bool in_conflict = maybe_in_conflict && !this->is_selected(hash, lane_id);
-
-        while ( utils::any( in_conflict ) )
-        {
-            int winner = in_conflict ? this->get_selected(hash) : WARP_SIZE;
-            T other_val = utils::shfl( val, winner );
-
-            if ( in_conflict )
-            {
-                this->try_selection(hash, lane_id);
-            }
-
-            if ( in_conflict && this->is_selected(hash, lane_id) )
-            {
-                val = val + other_val;
-                in_conflict = false;
-            }
-        }
-    }
-
-    Word my_vote;
-    my_vote.b32 = m_smem_vote[lane_id].b32;
-#pragma unroll
-
-    for ( int i_regs = 0 ; i_regs < 4 ; ++i_regs )
-    {
-        int my_src = my_vote.b8[i_regs];
-        T other_val = utils::shfl( val, my_src );
-
-        if ( my_src != WARP_SIZE )
-        {
-            m_regs_vals[i_regs] = m_regs_vals[i_regs] + other_val;
-        }
-    }
-
-    const int num_bits = utils::bfind( m_gmem_size );
-#pragma unroll
-
-    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
-    {
-        if ( utils::all(done) )
-        {
-            return;
-        }
-
-        m_any_gmem = true;
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
-
-        if ( !done )
-        {
-            Key_type stored_key = m_gmem_keys[hash];
-
-            if ( stored_key == key )
-            {
-                utils::atomic_add( &m_gmem_vals[hash], val );
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_gmem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
-                utils::atomic_add( &m_gmem_vals[hash], val );
-                done = true;
-            }
-        }
-    }
-
-    if ( status == NULL || utils::all(done) )
-    {
-        return;
-    }
-
-    if ( lane_id == 0 )
-    {
-        status[0] = 1;
-    }
-}
 
 // ====================================================================================================================
 
@@ -1079,7 +787,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count
         Key_type key = keys[offset];
         int idx = pos [offset];
         // Where to store the item.
-        volatile Key_type *ptr = m_smem_keys;
+        Key_type *ptr = m_smem_keys;
 
         if ( idx >= SMEM_SIZE )
         {
@@ -1123,7 +831,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( int coun
 
         if ( key != -1 )
         {
-            vals[dst_offset] = m_regs_vals[i_step];
+            vals[dst_offset] = m_smem_vals[offset];
         }
 
         warp_offset += __popc( poll );
@@ -1185,7 +893,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( int coun
         if ( key != -1 )
         {
             keys[dst_offset] = key;
-            vals[dst_offset] = m_regs_vals[i_step];
+            vals[dst_offset] = m_smem_vals[offset];
         }
 
         warp_offset += __popc( poll );
@@ -1248,7 +956,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store_map_keys_
         if ( key != -1 )
         {
             keys[dst_offset] = map[key];
-            vals[dst_offset] = alpha * m_regs_vals[i_step];
+            vals[dst_offset] = alpha * m_smem_vals[offset];
         }
 
         warp_offset += __popc( poll );
@@ -1309,7 +1017,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store_keys_scal
         if ( key != -1 )
         {
             keys[dst_offset] = key;
-            vals[dst_offset] = alpha * m_regs_vals[i_step];
+            vals[dst_offset] = alpha * m_smem_vals[offset];
         }
 
         warp_offset += __popc( poll );
@@ -1354,14 +1062,13 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 {
     const int lane_id = utils::lane_id();
     bool done = key == -1, found = false;
-    m_smem_vote[lane_id].b32 = 0x20202020;
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
         if ( i_hash > 0 && utils::all(done) )
         {
-            break;
+            return found;
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
@@ -1373,7 +1080,7 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 
             if ( stored_key == key )
             {
-                this->try_selection( hash, lane_id );
+                utils::atomic_add(&m_smem_vals[hash], val);
                 found = true;
             }
 
@@ -1381,22 +1088,6 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
         }
     }
 
-    Word my_vote;
-    my_vote.b32 = m_smem_vote[lane_id].b32;
-#pragma unroll
-
-    for ( int i_regs = 0 ; i_regs < 4 ; ++i_regs )
-    {
-        int my_src = my_vote.b8[i_regs];
-        T other_val = utils::shfl( val, my_src );
-
-        if ( my_src != WARP_SIZE )
-        {
-            m_regs_vals[i_regs] += other_val;
-        }
-    }
-
-    const int num_bits = utils::bfind( m_gmem_size );
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -1407,7 +1098,7 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1);
 
         if ( !done )
         {
@@ -1415,7 +1106,7 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 
             if ( stored_key == key )
             {
-                m_gmem_vals[hash] += val;
+                utils::atomic_add(&m_gmem_vals[hash], val);
                 found = true;
             }
 
@@ -1427,4 +1118,3 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-

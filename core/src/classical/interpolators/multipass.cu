@@ -506,7 +506,7 @@ compute_c_hat_kernel( int A_num_rows,
     // Shared memory to vote.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
-    __shared__ volatile KeyType s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ KeyType s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -819,17 +819,13 @@ compute_interp_weight_kernel( const int A_num_rows,
 {
     const int NUM_WARPS = CTA_SIZE / 32;
     // The hash keys stored in shared memory.
-    __shared__ volatile KeyType s_keys[NUM_WARPS * SMEM_SIZE];
+    __shared__ KeyType s_keys[NUM_WARPS * SMEM_SIZE];
     // A shared location where threads propose a row of B to load.
     __shared__ volatile int s_b_row_ids[CTA_SIZE];
     // A shared location where threads store a value of B to load.
     __shared__ volatile Value_type s_b_values[CTA_SIZE];
     // The hash values stored in shared memory.
-#if __CUDA_ARCH__ >= 700
-    __shared__ volatile multipass_sm70::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
-#else
-    __shared__ volatile multipass_sm35::Word s_vote[NUM_WARPS * SMEM_SIZE / 4];
-#endif
+    __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id();
     const int lane_id = utils::lane_id();
@@ -839,13 +835,13 @@ compute_interp_weight_kernel( const int A_num_rows,
 #if __CUDA_ARCH__ >= 700
     multipass_sm70::Hash_map<KeyType, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #else
     multipass_sm35::Hash_map<KeyType, Value_type, SMEM_SIZE, 4, WARP_SIZE> map( &s_keys[warp_id * SMEM_SIZE],
             &g_keys[a_row_id * gmem_size],
-            &s_vote[warp_id * SMEM_SIZE / 4],
+            &s_vals[warp_id * SMEM_SIZE],
             &g_vals[a_row_id * gmem_size],
             gmem_size );
 #endif

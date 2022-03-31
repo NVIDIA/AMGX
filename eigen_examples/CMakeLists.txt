@@ -24,28 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-IF (WIN32)
-cmake_minimum_required (VERSION 2.8.8)
-ELSE (WIN32)
-cmake_minimum_required (VERSION 2.8.0)
-ENDIF (WIN32)
+cmake_minimum_required (VERSION 3.18)
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../base/include" "${CUDA_TOOLKIT_ROOT_DIR}/include")
-if(WIN32)
-  if(MSVC)
-    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib/x64")
-  endif(MSVC)
-else(WIN32)
-  link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-endif(WIN32)
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../base/include" "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all ${cusparse_library} ${cusolver_library})
-  set(dyn_libs amgxsh cudart.lib)
+  set(libs_all CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh CUDA::cudart CUDA::cublas)
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(libs_all ${cusparse_library} ${cusolver_library} rt dl)
-  set(dyn_libs amgxsh rt dl cudart)
+  set(libs_all rt dl CUDA::cusparse CUDA::cusolver)
+  set(dyn_libs amgxsh rt dl CUDA::cudart CUDA::cublas)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(eigensolver eigensolver.c)
@@ -63,6 +52,7 @@ ENDIF(WIN32)
 
 if(MPI_FOUND)
   ADD_EXECUTABLE(eigensolver_mpi eigensolver_mpi.c)
+
   IF(WIN32)
       IF(MSVC)
         set_source_files_properties( eigensolver_mpi.c PROPERTIES LANGUAGE CXX)
@@ -74,7 +64,7 @@ if(MPI_FOUND)
       SET_SOURCE_FILES_PROPERTIES( eigensolver_mpi.c PROPERTIES COMPILE_FLAGS -std=c99 )
       set_target_properties ( eigensolver_mpi PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( eigensolver_mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(eigensolver_mpi cudart amgxsh ${omp_lib} ${MPI_C_LIBRARIES})
+      target_link_libraries(eigensolver_mpi amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
     ENDIF(WIN32) 
     
     if(MPI_COMPILE_FLAGS)

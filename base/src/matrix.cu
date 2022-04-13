@@ -772,9 +772,11 @@ MatrixBase<T_Config>::setupMatrix(Solver<T_Config> *outer_solver, AMG_Config &cf
 
     if (m_separation_interior > m_separation_exterior) { FatalError("Interior separation cannot be wider than the exterior separation", AMGX_ERR_CONFIGURATION); }
 
-    int min_rows_latency_hiding = cfg.getParameter<int>("min_rows_latency_hiding", "default");
-
-    if (min_rows_latency_hiding < 0 || this->get_num_rows() < min_rows_latency_hiding) { m_separation_interior = m_separation_exterior; }
+    // If latency hiding is disabled, the interior is overwritten
+    if(!isLatencyHidingEnabled(cfg))
+    {
+        m_separation_interior = m_separation_exterior;
+    }
 
     bool is_coloring_needed  = outer_solver->isColoringNeeded();
 
@@ -817,6 +819,33 @@ MatrixBase<T_Config>::setupMatrix(Solver<T_Config> *outer_solver, AMG_Config &cf
 
     this->set_initialized(1);
     m_is_matrix_setup = true;
+}
+
+template<class T_Config>
+bool MatrixBase<T_Config>::isLatencyHidingEnabled(AMG_Config &cfg)
+{
+    const int min_rows_latency_hiding =
+        cfg.getParameter<int>("min_rows_latency_hiding", "default");
+
+    // Test all partitions to check if they all fall below the threshold
+    if (!is_matrix_singleGPU() && min_rows_latency_hiding >= 0)
+    {
+        const auto& nrows_per_part = manager->getNumRowsPerPart();
+
+        // Look at all partitions to check whether the number of rows falls
+        // below the user defined minimum
+        for(auto& nrpp : nrows_per_part)
+        {
+            // If any partitions still have a large enough set of rows, 
+            // continue latency hiding
+            if(nrpp >= min_rows_latency_hiding)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 template<class T_Config>
@@ -1043,7 +1072,6 @@ Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::computeDiag
 
     this->setView(oldView);
 }
-
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::computeDiagonal()

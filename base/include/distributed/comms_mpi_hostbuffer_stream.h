@@ -298,7 +298,7 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void recv_vec_wait_all(T &b);
 
         template <class T, class T2>
-        void all_gather_templated(T &my_data, T2 &gathered_data, int num_parts);
+        void all_gather_templated(const T &my_data, T2 &gathered_data, int num_parts);
 
         template <class T, class T2>
         void all_gather_v_templated(T &my_data, int num_elems, T2 &gathered_data, int num_parts);
@@ -501,7 +501,8 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         void get_hostname(std::string &my_hostname);
         void exchange_hostnames(std::string &my_hostname, std::vector<std::string> &hostnames, int num_parts );
 
-        void all_gather(IndexType_h &my_data, HIVector &gathered_data, int num_parts);
+        void all_gather(const IndexType_h &my_data, HIVector &gathered_data, int num_parts);
+        void all_gather(const int64_t &my_data, HI64Vector &gathered_data, int num_parts);
         void all_gather_v(HIVector &my_data, HIVector &gathered_data, int num_parts);
         void all_reduce_max(IndexType_h &my_data, IndexType_h &result_data);
 

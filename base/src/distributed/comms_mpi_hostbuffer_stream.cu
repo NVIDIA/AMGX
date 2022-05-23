@@ -1516,7 +1516,7 @@ void CommsMPIHostBufferStream<T_Config>::exchange_hostnames(std::string &my_host
 }
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::all_gather(const IndexType_h &my_data, HIVector &gathered_data, int num_parts) { all_gather_templated(my_data, gathered_data, num_parts); }
+void CommsMPIHostBufferStream<T_Config>::all_gather(const int &my_data, HIVector &gathered_data, int num_parts) { all_gather_templated(my_data, gathered_data, num_parts); }
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::all_gather(const int64_t &my_data, HI64Vector &gathered_data, int num_parts) { all_gather_templated(my_data, gathered_data, num_parts); }

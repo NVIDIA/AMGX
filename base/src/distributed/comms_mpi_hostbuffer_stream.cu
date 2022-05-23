@@ -1516,7 +1516,10 @@ void CommsMPIHostBufferStream<T_Config>::exchange_hostnames(std::string &my_host
 }
 
 template <class T_Config>
-void CommsMPIHostBufferStream<T_Config>::all_gather(IndexType_h &my_data, HIVector &gathered_data, int num_parts) { all_gather_templated(my_data, gathered_data, num_parts); }
+void CommsMPIHostBufferStream<T_Config>::all_gather(const int &my_data, HIVector &gathered_data, int num_parts) { all_gather_templated(my_data, gathered_data, num_parts); }
+
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::all_gather(const int64_t &my_data, HI64Vector &gathered_data, int num_parts) { all_gather_templated(my_data, gathered_data, num_parts); }
 
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::all_gather_v(HIVector &my_data, HIVector &gathered_data, int num_parts) { all_gather_v_templated(my_data[0], my_data.size(), gathered_data, num_parts); }
@@ -1534,7 +1537,7 @@ void CommsMPIHostBufferStream<T_Config>::all_reduce_max(IndexType_h &my_data, In
 
 template <class T_Config>
 template <class T, class T2>
-void CommsMPIHostBufferStream<T_Config>::all_gather_templated(T &my_data, T2 &gathered_data, int num_parts)
+void CommsMPIHostBufferStream<T_Config>::all_gather_templated(const T &my_data, T2 &gathered_data, int num_parts)
 {
 #ifdef AMGX_WITH_MPI
     gathered_data.resize(num_parts);

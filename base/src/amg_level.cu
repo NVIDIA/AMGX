@@ -93,12 +93,11 @@ void AMG_Level<T_Config>::setup()
 
     if (separation_interior & INTERIOR == 0) { FatalError("Interior separation must include interior nodes", AMGX_ERR_CONFIGURATION); }
 
-    m_min_rows_latency_hiding = amg->m_cfg->AMG_Config::getParameter<int>("min_rows_latency_hiding", "default");
     this->getA().setExteriorView(separation_exterior);
     int offset, size;
     this->getA().getOffsetAndSizeForView(separation_exterior, &offset, &size);
 
-    if (m_min_rows_latency_hiding < 0 || size < m_min_rows_latency_hiding)
+    if (!this->getA().isLatencyHidingEnabled(*this->amg->m_cfg))
     {
         this->getA().setInteriorView(separation_exterior);
     }

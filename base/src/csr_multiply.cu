@@ -503,7 +503,6 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     cusparseCheckError( cusparseDestroySpMat(matA) );
     cusparseCheckError( cusparseDestroySpMat(matB) );
     cusparseCheckError( cusparseDestroySpMat(matC) );
-    cusparseCheckError( cusparseDestroy(handle) );
     amgx::memory::cudaFreeAsync(dBuffer1);
     amgx::memory::cudaFreeAsync(dBuffer2);
 }

@@ -346,6 +346,11 @@ endif(MKL_ROOT_DIR)
 set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
+install(FILES
+  include/amgx_config.h
+  include/amgx_c.h
+  DESTINATION include)
+
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")
 

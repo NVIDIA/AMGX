@@ -845,6 +845,8 @@ class MatrixBase : public AuxData, public Operator<T_Config>
         inline Resources *getResources() const { return m_resources; }
         inline void setResources(Resources *resources) { m_resources = resources; }
 
+        bool isLatencyHidingEnabled(AMG_Config& cfg);
+
         IVector m_larger_color_offsets; //size: num_rows
         IVector m_smaller_color_offsets; //size: num_rows,
         IVector m_values_permutation_vector;

@@ -218,7 +218,6 @@ class AMG_Level
         Matrix<TConfig> *A;
         Matrix<TConfig> *Aoriginal;
         VVector bc, xc, r;
-        int m_min_rows_latency_hiding;
 
         AMG_Class *amg;
         AMG_Level<TConfig_h> *next_h;

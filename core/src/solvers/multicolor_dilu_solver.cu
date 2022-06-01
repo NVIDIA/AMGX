@@ -36,7 +36,6 @@
 #include <util.h>
 #include <texture.h>
 #include <ld_functions.h>
-#include <logger.h>
 #include <matrix_io.h>
 #include <thrust/logical.h>
 #include <profile.h>

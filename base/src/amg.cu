@@ -32,7 +32,6 @@
 #include <basic_types.h>
 #include <types.h>
 #include <norm.h>
-#include <logger.h>
 
 #include <iostream>
 #include <iomanip>
@@ -161,12 +160,6 @@ AMG<t_vecPrec, t_matPrec, t_indPrec>::~AMG()
         csr_workspace = NULL;
     }
 }
-
-template<class T_Config> void logDeviceType()
-{
-    AMGXLOG("Devicetype", T_Config::MemSpaceInfo::getName())
-}
-
 
 /**********************************************************
  * Setups the AMG system
@@ -1106,8 +1099,6 @@ class AMG_Setup
             }
 
             MemoryInfo::updateMaxMemoryUsage();
-            logDeviceType<TConfig0>( );
-            logDeviceType<TConfig1>( );
         }
 };
 
@@ -1267,7 +1258,6 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
     float total_size = 0;
     ss << "AMG Grid:\n";
     ss << "         Number of Levels: " << this->num_levels << endl;
-    AMGXLOG("Number of Levels", this->num_levels)
     ss << std::setw(15) << "LVL" << std::setw(13) << "ROWS" << std::setw(18) << "NNZ"
        << std::setw(10) << "SPRSTY" << std::setw(15) << "Mem (GB)" << std::endl;
     ss << "         --------------------------------------------------------------\n";

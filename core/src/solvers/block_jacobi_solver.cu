@@ -37,8 +37,6 @@
 #include <amgx_cusparse.h>
 #include <ostream>
 
-#include <logger.h>
-
 #include <amgx_types/util.h>
 
 using namespace std;

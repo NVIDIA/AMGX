@@ -36,7 +36,6 @@
 #include <util.h>
 #include <types.h>
 #include <misc.h>
-#include <logger.h>
 #include <hash_workspace.h>
 #include <matrix_io.h>
 #include <device_properties.h>

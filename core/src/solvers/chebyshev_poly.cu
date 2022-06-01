@@ -38,8 +38,6 @@
 
 #include <thrust/extrema.h>
 
-#include <logger.h>
-
 #undef DEBUG_CHEBYSHEV_OUTPUT
 
 using namespace std;

@@ -33,7 +33,6 @@
 #include <basic_types.h>
 #include <util.h>
 #include <ld_functions.h>
-#include <logger.h>
 #include <thrust/logical.h>
 #include <profile.h>
 #include <sm_utils.inl>

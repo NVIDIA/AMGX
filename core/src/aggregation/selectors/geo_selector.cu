@@ -48,8 +48,6 @@
 #include<thrust/unique.h> //unique
 #include<cusp/detail/format_utils.h> //offsets_to_indices
 
-#include <logger.h>
-
 #define epsilon 1e-10
 namespace amgx
 {

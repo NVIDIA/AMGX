@@ -44,8 +44,6 @@
 #include <determinism_checker.h>
 #include <curand.h>
 
-#include <logger.h>
-
 namespace amgx
 {
 namespace aggregation

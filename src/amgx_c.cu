@@ -2330,6 +2330,13 @@ extern "C" {
         //return getCAPIerror(amgx::initialize());
     }
 
+    AMGX_RC AMGX_API AMGX_initialize_plugins()
+    {
+        std::string deprecated("The AMGX_initialize_plugins API call is deprecated and can be safely removed.\n");
+        amgx_output(deprecated.c_str(), deprecated.length());
+        return AMGX_RC_OK;
+    }
+
     AMGX_RC AMGX_API AMGX_finalize()
     {
         nvtxRange nvrf(__func__);
@@ -2346,6 +2353,13 @@ extern "C" {
         //AMGX_CHECK_API_ERROR(rc, NULL);
         //return AMGX_RC_OK;
         return getCAPIerror_x(rc);
+    }
+
+    AMGX_RC AMGX_API AMGX_finalize_plugins()
+    {
+        std::string deprecated("The AMGX_finalize_plugins API call is deprecated and can be safely removed.\n");
+        amgx_output(deprecated.c_str(), deprecated.length());
+        return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_API AMGX_config_create(AMGX_config_handle *cfg_h, const char *options)

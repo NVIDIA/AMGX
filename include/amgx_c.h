@@ -187,7 +187,13 @@ AMGX_RC AMGX_API AMGX_get_error_string
 /* Init & Shutdown */
 AMGX_RC AMGX_API AMGX_initialize();
 
+[[deprecated("The plugin feature has been removed, so this call can be safely deleted.")]]
+AMGX_RC AMGX_API AMGX_initialize_plugins();
+
 AMGX_RC AMGX_API AMGX_finalize();
+
+[[deprecated("The plugin feature has been removed, so this call can be safely deleted.")]]
+AMGX_RC AMGX_API AMGX_finalize_plugins();
 
 void AMGX_API AMGX_abort
 (AMGX_resources_handle rsrc,

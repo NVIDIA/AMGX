@@ -31,7 +31,6 @@
 #include <error.h>
 #include <fstream>
 #include <types.h>
-#include <logger.h>
 #include <util.h>
 #include <misc.h>
 #include <sstream>
@@ -1215,11 +1214,8 @@ void AMG_Config::printAMGConfig()
     }
 
     config_ss << endl;
-    AMGXLOG("AMG Configuration", config_ss.str())
-    AMGXLOG("Device", deviceProp.name)
     amgx_output(ss.str().c_str(), ss.str().length());
     amgx_output(config_ss.str().c_str(), config_ss.str().length());
-    //MPI_Barrier( MPI_COMM_WORLD);
 }
 
 AMGX_ERROR AMG_Config::checkString(std::string &str)

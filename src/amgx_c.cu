@@ -2333,7 +2333,12 @@ extern "C" {
     AMGX_RC AMGX_API AMGX_initialize_plugins()
     {
         std::string deprecated("The AMGX_initialize_plugins API call is deprecated and can be safely removed.\n");
+
+#ifdef AMGX_WITH_MPI
+        amgx_distributed_output(deprecated.c_str(), deprecated.length());
+#else
         amgx_output(deprecated.c_str(), deprecated.length());
+#endif
         return AMGX_RC_OK;
     }
 
@@ -2358,7 +2363,11 @@ extern "C" {
     AMGX_RC AMGX_API AMGX_finalize_plugins()
     {
         std::string deprecated("The AMGX_finalize_plugins API call is deprecated and can be safely removed.\n");
+#ifdef AMGX_WITH_MPI
+        amgx_distributed_output(deprecated.c_str(), deprecated.length());
+#else
         amgx_output(deprecated.c_str(), deprecated.length());
+#endif
         return AMGX_RC_OK;
     }
 

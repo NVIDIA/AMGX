@@ -38,8 +38,6 @@
 
 #include <thrust/partition.h>
 
-#include <logger.h>
-
 using namespace std;
 namespace amgx
 {

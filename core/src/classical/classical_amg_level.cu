@@ -455,7 +455,7 @@ void Classical_AMG_Level_Base<T_Config>::computeProlongationOperator()
         Truncate<TConfig>::truncateByMaxElements(P, this->max_elmts);
     }
 
-    if (this->m_min_rows_latency_hiding < 0 || P.get_num_rows() < this->m_min_rows_latency_hiding)
+    if (!P.isLatencyHidingEnabled(*this->amg->m_cfg))
     {
         // This will cause bsrmv_with_mask to not do latency hiding
         P.setInteriorView(OWNED);
@@ -477,7 +477,7 @@ void Classical_AMG_Level_Base<T_Config>::computeRestrictionOperator()
     P.setView(OWNED);
     transpose(P, R, P.get_num_rows());
 
-    if (this->m_min_rows_latency_hiding < 0 || R.get_num_rows() < this->m_min_rows_latency_hiding)
+    if (!R.isLatencyHidingEnabled(*this->amg->m_cfg))
     {
         // This will cause bsrmv_with_mask_restriction to not do latency hiding
         R.setInteriorView(OWNED);

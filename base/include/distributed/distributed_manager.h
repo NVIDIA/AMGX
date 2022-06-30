@@ -884,6 +884,7 @@ template <typename TConfig> class DistributedManagerBase
             halo_ranges_h = a.halo_ranges;
             part_offsets = a.part_offsets;
             part_offsets_h = a.part_offsets_h;
+            num_rows_per_part = a.num_rows_per_part;
 
             for (int i = 0; i < B2L_maps.size(); i++)
             {
@@ -931,6 +932,7 @@ template <typename TConfig> class DistributedManagerBase
             halo_ranges_h.swap(a.halo_ranges_h);
             part_offsets.swap(a.part_offsets);
             part_offsets_h.swap(a.part_offsets_h);
+            num_rows_per_part.swap(a.num_rows_per_part);
             temp = _num_interior_nodes;
             _num_interior_nodes = a.num_interior_nodes();
             temp = _num_boundary_nodes;
@@ -1668,21 +1670,21 @@ template <typename TConfig> class DistributedManagerBase
         }
     protected:
         int64_t _base_index;                //LEVEL 0 - the index of the first node owned by this partition
-        INDEX_TYPE _index_range;               //LEVEL 0 - the number of fine nodes owned by this partition
-        INDEX_TYPE _global_id;                 //LEVEL 0 - ID of this node (partition)
-        INDEX_TYPE _num_partitions;            //LEVEL 0 - Number of partitions (partition)
-        INDEX_TYPE _num_halo_rows;             //LEVEL 0 -  total number of rows in the halo section of the matrix
-        INDEX_TYPE _num_halo_rings;            //LEVEL 0 -  number of halo rings
+        INDEX_TYPE _index_range = 0;               //LEVEL 0 - the number of fine nodes owned by this partition
+        INDEX_TYPE _global_id = 0;                 //LEVEL 0 - ID of this node (partition)
+        INDEX_TYPE _num_partitions = 0;            //LEVEL 0 - Number of partitions (partition)
+        INDEX_TYPE _num_halo_rows = 0;             //LEVEL 0 -  total number of rows in the halo section of the matrix
+        INDEX_TYPE _num_halo_rings = 0;            //LEVEL 0 -  number of halo rings
 
         bool m_is_root_partition;
         bool m_is_glued;
         bool m_is_fine_level_glued;
-        INDEX_TYPE m_my_destination_part;
-        INDEX_TYPE m_num_parts_to_consolidate;
-        INDEX_TYPE m_cons_interior_offset;
-        INDEX_TYPE m_cons_interior_size;
-        INDEX_TYPE m_cons_bndry_offset;
-        INDEX_TYPE m_cons_bndry_size;
+        INDEX_TYPE m_my_destination_part = 0;
+        INDEX_TYPE m_num_parts_to_consolidate = 0;
+        INDEX_TYPE m_cons_interior_offset = 0;
+        INDEX_TYPE m_cons_interior_size = 0;
+        INDEX_TYPE m_cons_bndry_offset = 0;
+        INDEX_TYPE m_cons_bndry_size = 0;
         std::vector<VecInt_t> m_consolidationArrayOffsets;
         Vector<ivec_value_type_h> m_destination_partitions;
 
@@ -1697,20 +1699,22 @@ template <typename TConfig> class DistributedManagerBase
         INDEX_TYPE m_my_fine_level_destination_part;
 
         //cached sizes for different views of the matrix (set in Matrix::set_initialized(1))
-        INDEX_TYPE _num_rows_interior;
-        INDEX_TYPE _num_nz_interior;
-        INDEX_TYPE _num_rows_owned;
-        INDEX_TYPE _num_nz_owned;
-        INDEX_TYPE _num_rows_full;
-        INDEX_TYPE _num_nz_full;
-        INDEX_TYPE _num_rows_all;
-        INDEX_TYPE _num_nz_all;
+        INDEX_TYPE _num_rows_interior = 0;
+        INDEX_TYPE _num_nz_interior = 0;
+        INDEX_TYPE _num_rows_owned = 0;
+        INDEX_TYPE _num_nz_owned = 0;
+        INDEX_TYPE _num_rows_full = 0;
+        INDEX_TYPE _num_nz_full = 0;
+        INDEX_TYPE _num_rows_all = 0;
+        INDEX_TYPE _num_nz_all = 0;
         bool m_fixed_view_size;
 
         //Containers for Level 0 API:
         std::vector<IVector >_B2L_maps;
         std::vector<IVector >_L2H_maps;
         std::vector<std::vector<VecInt_t> > _B2L_rings;
+
+        I64Vector_h num_rows_per_part {};
 
     public:
 
@@ -1755,7 +1759,33 @@ template <typename TConfig> class DistributedManagerBase
         inline cudaStream_t& get_bdy_stream() { return m_bdy_stream; }
         inline cudaEvent_t& get_comm_event() { return comm_event; }
 
-        int64_t num_rows_global;
+        int64_t num_rows_global = 0;
+
+        const I64Vector_h& getNumRowsPerPart()
+        {
+            if(_comms == nullptr)
+            {
+                FatalError("Calling getNumRowsPerPart with no communicator", AMGX_ERR_INTERNAL);
+            }
+
+            if(_num_rows_owned <= 0)
+            {
+                FatalError("_num_rows_owned <= 0 when determining num rows per part", AMGX_ERR_INTERNAL);
+            }
+
+            if(_num_partitions <= 0)
+            {
+                _num_partitions = _comms->get_num_partitions();
+            }
+
+            // If necessary, populate the number of rows per partition
+            if(num_rows_per_part.size() == 0)
+            {
+                _comms->all_gather(_num_rows_owned, num_rows_per_part, _num_partitions); 
+            }
+
+            return num_rows_per_part;
+        }
 
         const IVector &getRowsListForView(ViewType type)
         {

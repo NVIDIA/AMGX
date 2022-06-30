@@ -406,6 +406,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_ind
     }
 
     remapReadColumns(A, partitionVec);
+
     return AMGX_OK;
 }
 

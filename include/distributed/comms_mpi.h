@@ -70,8 +70,6 @@ class CommsMPI : public DistributedComms<T_Config>
 
         CommsMPI() : DistributedComms<T_Config>() {};
 
-        virtual DistributedComms<T_Config> *CloneSubComm(HIVector &coarse_part_to_fine_part, bool is_root_partition) = 0;
-
         virtual ~CommsMPI()
         {
         }

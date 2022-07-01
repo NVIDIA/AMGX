@@ -926,20 +926,9 @@ inline AMGX_RC matrix_replace_coefficients(AMGX_matrix_handle mtx,
     cudaSetDevice(A.getResources()->getDevice(0));
     typedef typename MatPrecisionMap<AMGX_GET_MODE_VAL(AMGX_MatPrecision, CASE)>::Type ValueType;
 
-    if (A.manager != NULL &&
-            (A.manager->isFineLevelConsolidated() && A.manager->getFineLevelComms()->halo_coloring != LAST ||
-             !A.manager->isFineLevelConsolidated() && A.manager->getComms()->halo_coloring != LAST)
-       )
+    if (A.manager != NULL && !A.is_matrix_singleGPU())
     {
-        AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources);
-    }
-    else if (A.manager != NULL && (A.manager->isFineLevelConsolidated() || A.manager->isFineLevelGlued()))
-    {
-        A.manager->replaceMatrixCoefficientsWithCons(n, nnz, (const ValueType *)data, (const ValueType *)diag_data);
-    }
-    else if (A.manager != NULL && !A.is_matrix_singleGPU())
-    {
-        A.manager->replaceMatrixCoefficientsNoCons(n, nnz, (const ValueType *)data, (const ValueType *)diag_data);
+        A.manager->replaceMatrixCoefficients(n, nnz, (const ValueType *)data, (const ValueType *)diag_data);
     }
     else
     {
@@ -1173,7 +1162,7 @@ inline AMGX_RC vector_download_impl(const AMGX_vector_handle vec,
         int block_dimy = v.get_block_dimy();
         v.getManager()->getView(OWNED, n, nnz);
 
-        if (v.is_transformed() || v.getManager()->isFineLevelGlued())
+        if (v.is_transformed())
         {
             v.getManager()->revertAndDownloadVector(v, data, n, block_dimy);
         }
@@ -1202,19 +1191,7 @@ inline AMGX_RC vector_get_size(AMGX_vector_handle vec,
     typedef typename VecPrecisionMap<AMGX_GET_MODE_VAL(AMGX_VecPrecision, CASE)>::Type ValueTypeB;
     VectorW wrapV(vec);
     VectorLetterT &v = *wrapV.wrapped();
-
-    //if (!wrapV.is_valid())
-    //  AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
-
-    if (v.getManager() != NULL && (v.getManager()->isFineLevelConsolidated() || v.getManager()->isFineLevelGlued() ) )
-    {
-        *n = v.get_unconsolidated_size() / v.get_block_dimy();
-    }
-    else
-    {
-        *n = v.size() / v.get_block_dimy();
-    }
-
+    *n = v.size() / v.get_block_dimy();
     *block_dim = v.get_block_dimy();
     return AMGX_RC_OK;
 }
@@ -3064,14 +3041,7 @@ extern "C" {
         MatrixLetterT* mtx_ptr = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx); \
         if (mtx_ptr->manager != NULL) \
         {  \
-            if (mtx_ptr->manager->isFineLevelGlued())  \
-            {   \
-                *n = mtx_ptr->manager->halo_offsets_before_glue[0]; \
-            }   \
-            else  \
-            {   \
-                *n = mtx_ptr->get_num_rows();                      \
-            }   \
+            *n = mtx_ptr->get_num_rows();                      \
         }   \
         else  \
         {   \

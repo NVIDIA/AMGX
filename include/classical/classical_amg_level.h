@@ -103,8 +103,6 @@ class Classical_AMG_Level_Base : public AMG_Level<T_Config>
         virtual void computeAOperator_1x1() = 0;
         virtual void computeAOperator_1x1_distributed() = 0;
         void prepareNextLevelMatrix(const Matrix<TConfig> &A, Matrix<TConfig> &Ac) {};
-        void consolidateVector(VVector &x);
-        void unconsolidateVector(VVector &x);
         void prolongateAndApplyCorrectionRescale(VVector &ec, VVector &bf, VVector &xf, VVector &ef, VVector &Aef)
         { FatalError( "prolongateAndApplyCorrectionRescale is not available with classical AMG. Try setting scale_corection to 0", AMGX_ERR_BAD_PARAMETERS); };
 

@@ -335,17 +335,8 @@ inline void registerParameters()
     //Register Determinism and Exception Handling Parameters
     AMG_Config::registerParameter<int>("determinism_flag", "a flag that forces the various aggregators and matrix coloring algorithms to be deterministic (0:non-deterministic, 1:deterministic) <0>", 0, bool_flag_values);
     AMG_Config::registerParameter<int>("exception_handling", "a flag that forces internal exception processing instead of returning error codes(1:internal, 0:external)", 0, bool_flag_values);
-    //Register System Parameters (fine level consolidation)
-    AMG_Config::registerParameter<int>("fine_level_consolidation", "flag that controls whether or not fine level is consolidated", 0, bool_flag_values);
-    AMG_Config::registerParameter<int>("use_cuda_ipc_consolidation", "flag that controls whether or not to use cudaIpc for fine level consolidation", 0, bool_flag_values);
-    //Register System Parameters (amg  level consolidation)
-    AMG_Config::registerParameter<int>("amg_consolidation_flag", "flag that controls whether or not to use amg level consolidation", 0);
-    // matrix_consolidation_lower_threshold and matrix_consolidation_upper_threshold are obsolete
-    AMG_Config::registerParameter<int>("matrix_consolidation_lower_threshold", "Average number of rows at which matrices from different processes must be merged", 0);
-    AMG_Config::registerParameter<int>("matrix_consolidation_upper_threshold", "Average number of rows that merged matrices from different processes should have", 1000);
     //Register System Parameters (memory pools)
     AMG_Config::registerParameter<size_t>("device_mem_pool_size", "size of the device memory pool in bytes", 256 * 1024 * 1024);
-    AMG_Config::registerParameter<size_t>("device_consolidation_pool_size", "size of the device memory pool for root partition in bytes", 256 * 1024 * 1024);
     AMG_Config::registerParameter<size_t>("device_mem_pool_max_alloc_size", "maximum size of a single allocation in the device memory pool in bytes", 20 * 1024 * 1024);
     AMG_Config::registerParameter<size_t>("device_alloc_scaling_factor", "over allocation for large buffers (in %% -- a value of X will lead to 100+X%% allocations)", 10);
     AMG_Config::registerParameter<size_t>("device_alloc_scaling_threshold", "buffers smaller than that threshold will NOT be scaled", 16 * 1024);

@@ -38,7 +38,6 @@
 #include <cycles/convergence_analysis.h>
 #include <sstream>
 #include <util.h>
-#include <distributed/glue.h>
 
 #include <amgx_types/util.h>
 
@@ -154,65 +153,33 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
             axmb(A, x, b, r, offset, size);
             level->Profile.toc("ComputeResidual");
             //apply restriction
-            // in classical the current level is consolidated while in aggregation this is the next one.
-            // Hence, in classical, given a level L, if we want to consolidate L+1 vectors (ie coarse vectors of L) we have to look at L+1 flags.
-            bool consolidation_flag = false;
-            bool isRootPartition_flag = false;
-
-            if (level->isClassicalAMGLevel() && !A.is_matrix_singleGPU())  // In classical consolidation we want to use A.is_matrix_distributed(), this might be an issue when n=1
-            {
-                consolidation_flag = level->getNextLevel(MemorySpace())->isConsolidationLevel();
-                isRootPartition_flag = level->getNextLevel(MemorySpace())->getA().manager->isRootPartition();
-            }
-            else if (!level->isClassicalAMGLevel() && !A.is_matrix_singleGPU())
-            {
-                consolidation_flag = level->isConsolidationLevel();
-                isRootPartition_flag = A.manager->isRootPartition();
-            }
-
             level->Profile.tic("restrictRes");
             level->restrictResidual(r, bc);
             level->Profile.toc("restrictRes");
 
-            // we have to be very carreful with !A.is_matrix_singleGPU() by A.is_matrix_distributed().
-            // In classical consolidation we want to use A.is_matrix_distributed() in order to consolidateVector / unconsolidateVector
-            if (!A.is_matrix_singleGPU()  && consolidation_flag)
+            //mark the next level guess for initialization
+            level->setNextInitCycle( );
+            static const AMGX_VecPrecision vecPrec = T_Config::vecPrec;
+            static const AMGX_MatPrecision matPrec = T_Config::matPrec;
+            static const AMGX_IndPrecision indPrec = T_Config::indPrec;
+
+            //WARNING: coarse solver might be called inside generateNextCycles routine
+            if ( level->isNextCoarsest( ))
             {
-                level->consolidateVector(bc);
-                level->consolidateVector(xc);
+                //if the next level is the coarsest then don't dispatch an entire cycle, instead just launch a single Vfixed cycle.
+                //std::cout << "launching coarsest" << std::endl;
+                level->generateNextCycles( amg, bc, xc, V_CycleDispatcher<vecPrec, matPrec, indPrec>( ) );
             }
-
-            // This should work
-            if ( !( !A.is_matrix_singleGPU() && consolidation_flag && !isRootPartition_flag))
+            else
             {
-                //mark the next level guess for initialization
-                level->setNextInitCycle( );
-                static const AMGX_VecPrecision vecPrec = T_Config::vecPrec;
-                static const AMGX_MatPrecision matPrec = T_Config::matPrec;
-                static const AMGX_IndPrecision indPrec = T_Config::indPrec;
-
-                //WARNING: coarse solver might be called inside generateNextCycles routine
-                if ( level->isNextCoarsest( ))
-                {
-                    //if the next level is the coarsest then don't dispatch an entire cycle, instead just launch a single Vfixed cycle.
-                    //std::cout << "launching coarsest" << std::endl;
-                    level->generateNextCycles( amg, bc, xc, V_CycleDispatcher<vecPrec, matPrec, indPrec>( ) );
-                }
-                else
-                {
-                    //solve the next level using the cycle that was passed in
-                    level->generateNextCycles( amg, bc, xc, CycleDispatcher<vecPrec, matPrec, indPrec>( ) );
-                }
-            }
-
-            if (!A.is_matrix_singleGPU() && consolidation_flag)
-            {
-                level->unconsolidateVector(xc);
+                //solve the next level using the cycle that was passed in
+                level->generateNextCycles( amg, bc, xc, CycleDispatcher<vecPrec, matPrec, indPrec>( ) );
             }
 
             //prolongate correction
             level->prolongateAndApplyCorrection(xc, bc, x, r);
             level->Profile.toc("proCorr");
+
             //post smooth
             *smoothing_direction = 1;
             level->Profile.tic("Smoother");

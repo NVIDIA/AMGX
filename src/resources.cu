@@ -82,7 +82,6 @@ Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false), m_tmng(n
     m_cfg->getParameter<std::string>("solver", solver_value, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_size", m_pool_size, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_size_limit", m_pool_size_limit, "default", solver_scope);
-    m_cfg->getParameter<size_t>("device_consolidation_pool_size", m_root_pool_size, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_max_alloc_size", m_max_alloc_size, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_alloc_scaling_factor", m_scaling_factor, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_alloc_scaling_threshold", m_scaling_threshold, "default", solver_scope);
@@ -114,7 +113,6 @@ Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const i
     m_cfg->getParameter<std::string>("solver", solver_value, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_size", m_pool_size, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_size_limit", m_pool_size_limit, "default", solver_scope);
-    m_cfg->getParameter<size_t>("device_consolidation_pool_size", m_root_pool_size, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_max_alloc_size", m_max_alloc_size, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_alloc_scaling_factor", m_scaling_factor, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_alloc_scaling_threshold", m_scaling_threshold, "default", solver_scope);

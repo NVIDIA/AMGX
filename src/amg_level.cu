@@ -49,7 +49,7 @@ AMG_Level<T_Config>::~AMG_Level()
 }
 
 template <class T_Config>
-AMG_Level<T_Config>::AMG_Level(AMG_Class *amg, ThreadManager *tmng) : smoother(0), amg(amg), next_h(0), next_d(0), init(false), tag(0), is_setup(0), m_amg_level_name("AMGLevelNameNotSet"), m_is_reuse_level(false), m_is_consolidation_level(false), m_next_level_size(0)
+AMG_Level<T_Config>::AMG_Level(AMG_Class *amg, ThreadManager *tmng) : smoother(0), amg(amg), next_h(0), next_d(0), init(false), tag(0), is_setup(0), m_amg_level_name("AMGLevelNameNotSet"), m_is_reuse_level(false), m_next_level_size(0)
 {
     Aoriginal = new Matrix<TConfig>();
     A = Aoriginal;
@@ -75,11 +75,7 @@ void AMG_Level<T_Config>::transfer_from(AMG_Level<T_Config1> *ref_lvl)
     this->m_next_level_size = ref_lvl->m_next_level_size;
     this->init = ref_lvl->init;
     this->m_amg_level_name = ref_lvl->m_amg_level_name;
-    this->m_is_consolidation_level = ref_lvl->m_is_consolidation_level;
     this->m_is_reuse_level = ref_lvl->m_is_reuse_level;
-    this->m_is_root_partition = ref_lvl->m_is_root_partition;
-    this->m_destination_part = ref_lvl->m_destination_part;
-    this->m_num_parts_to_consolidate = ref_lvl->m_num_parts_to_consolidate;
     this->transfer_level(ref_lvl);
 }
 
@@ -119,23 +115,6 @@ void AMG_Level<T_Config>::setup_smoother()
       delete this->smoother;*/
     smoother->tag = this->tag * 100 + 0;
     ThreadManager *tmng = smoother->get_thread_manager();
-#ifdef AMGX_WITH_MPI
-
-    if ( this->getA().is_matrix_distributed() && this->getA().manager != NULL)
-    {
-        int offset, n;
-        this->getA().getOffsetAndSizeForView(FULL, &offset, &n);
-
-        //if ( this->getA().manager->isGlued() && !this->getA().manager->isRootPartition() )  {
-        if (!n &&  this->isClassicalAMGLevel())
-        {
-            // Skip the solve in gluing path by looking at this flag
-            // XXXX: actually setup is skipped. Check if solve can/need to be skipped too
-            smoother->setGluedSetup(true);
-        }
-    }
-
-#endif
 
     // deferred execution: just push work to queue
     if (tmng == NULL)

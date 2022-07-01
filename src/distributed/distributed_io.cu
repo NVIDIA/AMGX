@@ -225,11 +225,6 @@ void DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
         FatalError("Only integer number of partitions per rank is supported", AMGX_ERR_IO);
     }
 
-    if (read_partitions != partitions)
-    {
-        msg << "Found " << read_partitions << " performing consolidation\n";
-    }
-
     int partsPerRank = read_partitions / partitions;
     partSize.resize(partitions);
     thrust::fill(partSize.begin(), partSize.end(), 0);
@@ -511,15 +506,6 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     return AMGX_OK;
 }
 
-template <class Mat>
-void getConsolidationFlags( const Mat *A, int *consolidate_flag, int *cuda_ipc_flag)
-{
-    AMG_Config *rsrc_cfg = A->getResources()->getResourcesConfig();
-    std::string scope;
-    rsrc_cfg->getParameter<int>("fine_level_consolidation", *consolidate_flag, "default", scope);
-    rsrc_cfg->getParameter<int>("use_cuda_ipc_consolidation", *cuda_ipc_flag, "default", scope);
-}
-
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::distributedRead(const char *fnamec, Matrix<TConfig_d> &A, Vector<TConfig_d> &b, Vector<TConfig_d> &x, int allocated_halo_depth, int part, int partitions, IVector_h &partSize, IVector_h &partitionVec, unsigned int props)
 {
@@ -559,23 +545,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     //Matrix<TConfig_d>* Ad = new Matrix<TConfig_d>();
     //Ad->setResources(A.getResources());
     Matrix<TConfig_d> *Ad;
-    int consolidate_flag, cuda_ipc_flag;
-    getConsolidationFlags( &A, &consolidate_flag, &cuda_ipc_flag);
-
-    if (consolidate_flag != 0 && partitions > 1 && A.get_allow_boundary_separation())
-    {
-        Ad = new Matrix<TConfig_d>;
-        Ad->setResources(resources);
-    }
-    else
-    {
-        Ad = &A;
-    }
-
-    if (isClassical && consolidate_flag)
-    {
-        FatalError("Fine level consolidation not supported in CLASSICAL", AMGX_ERR_BAD_PARAMETERS);
-    }
+    Ad = &A;
 
     // Reset distributed manager
     if (A.manager != NULL )
@@ -631,73 +601,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 A.manager->cacheMapsOneRing((int const **) btl_maps, (const int *)btl_sizes, (int const **)lth_maps, (const int *)lth_sizes);
                 A.setManagerExternal();
                 A.manager->createComms(A.getResources());
-                A.manager->setAConsolidationFlags(A);
-
-                if (A.manager->isFineLevelConsolidated())
-                {
-                    A.addProps(CSR);
-                    A.setColsReorderedByColor(false);
-                    A.delProps(COO);
-                    A.delProps(DIAG);
-                    A.setColsReorderedByColor(false);
-
-                    if (Ah.hasProps(DIAG))
-                    {
-                        A.addProps(DIAG);
-                    }
-
-                    int nnz = Ah.get_num_nz();
-                    typedef typename MatPrecisionMap<t_matPrec>::Type ValueType;
-                    int *row_ptrs = NULL, *col_indices = NULL;
-                    void *values, *diag_data = NULL;
-                    // Use local column indicies now
-                    col_indices = Ad->col_indices.raw();
-                    //row_ptrs = Ad->row_offsets.raw();
-                    // values = Ad->values.raw();
-                    //col_indices = Ad->col_indices.raw();
-                    // row offsets are still global and not reordered
-                    row_ptrs = Ah.row_offsets.raw();
-                    values = Ah.values.raw();
-                    // Do pinning of some buffers since fine level consolidation crashes when only one GPU is used
-                    int sizeof_m_val = sizeof(ValueType);
-                    cudaHostRegister(values, nnz * block_size * sizeof_m_val, cudaHostRegisterMapped);
-                    cudaCheckError();
-
-                    if (Ah.hasProps(DIAG))
-                    {
-                        //diag_data = (Ad->values.raw() + nnz*block_size);
-                        diag_data = (Ah.values.raw() + nnz * block_size);
-                        cudaHostRegister((void *)diag_data, num_rows * block_size * sizeof_m_val, cudaHostRegisterMapped);
-                        cudaCheckError();
-                    }
-
-                    /*
-                    cudaHostRegister(col_indices,nnz*sizeof(int),cudaHostRegisterMapped);
-                    cudaCheckError();
-                    */
-                    cudaHostRegister(row_ptrs, (num_rows + 1)*sizeof(int), cudaHostRegisterMapped);
-                    cudaCheckError();
-                    cudaSetDevice(A.getResources()->getDevice(0));
-                    A.manager->consolidateAndUploadAll(num_rows, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag_data, A);
-                    A.set_initialized(1);
-                    cudaSetDevice(A.getResources()->getDevice(0));
-
-                    if (diag_data != NULL)
-                    {
-                        cudaHostUnregister(diag_data);
-                    }
-
-                    cudaHostUnregister(values);
-                    cudaHostUnregister(row_ptrs);
-                    //cudaHostUnregister(col_indices);
-                    cudaCheckError();
-                    delete Ad;
-                }
-                else
-                {
-                    A.manager->createComms(A.getResources());
-                    A.manager->updateMapsReorder();
-                } // End consolidation check
+                A.manager->updateMapsReorder();
 
                 free_maps_one_ring<int>(num_neighbors, neighbors, btl_sizes, btl_maps, lth_sizes, lth_maps);
                 A.set_is_matrix_read_partitioned(true);

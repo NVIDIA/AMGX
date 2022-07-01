@@ -96,11 +96,6 @@ class CommsMPIDirect : public CommsMPIHostBufferStream<T_Config>
             return new CommsMPIDirect<TConfig>(*this);
         }
 
-        DistributedComms<T_Config> *CloneSubComm(HIVector &coarse_part_to_fine_part, bool is_root_partition)
-        {
-            return NULL;
-        }
-
     public:
         void exchange_matrix_halo(Matrix_Array &halo_rows, DistributedManager_Array &halo_btl, const Matrix<TConfig> &m);
 

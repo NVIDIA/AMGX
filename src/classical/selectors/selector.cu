@@ -39,7 +39,6 @@ namespace amgx
 using namespace std;
 namespace classical
 {
-
 struct is_non_neg
 {
     __host__ __device__
@@ -120,52 +119,22 @@ void resolve_boundary(const IndexType *offsets, const IndexType *column_indices,
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-namespace selector_sm35
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm35.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( int *queue, int warp_id )
-{
-    int offset = -1;
-
-    if ( utils::lane_id() == 0 )
-    {
-        offset = atomicAdd( queue, 1 );
-    }
-
-    return utils::shfl( offset, 0 );
-}
-
-}
-
-namespace selector_sm70
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( int *queue, int warp_id )
-{
-    int offset = -1;
-
-    if ( utils::lane_id() == 0 )
-    {
-        offset = atomicAdd( queue, 1 );
-    }
-
-    return utils::shfl( offset, 0 );
-}
-
-}
-
 namespace selector
 {
-
 #include <sm_utils.inl>
+#include <hash_containers_detail.inl> // Included inside the namespace to solve name colisions.
+
+__device__ __forceinline__ int get_work( int *queue, int warp_id )
+{
+    int offset = -1;
+
+    if ( utils::lane_id() == 0 )
+    {
+        offset = atomicAdd( queue, 1 );
+    }
+
+    return utils::shfl( offset, 0 );
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -296,7 +265,7 @@ estimate_c_hat_size_kernel( const int A_num_rows,
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // A shared location where threads propose a row of B to load.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -438,17 +407,10 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 700
-    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#else
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#endif
+    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
+
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 700
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
-#endif
+    for ( ; a_row_id < A_num_rows ; a_row_id = get_work( wk_work_queue, warp_id ) )
     {
         // Skip fine rows.
         int coarse_fine_id = cf_map[a_row_id];
@@ -602,17 +564,9 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 700
-    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#else
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#endif
+    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 700
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
-#endif
+    for ( ; a_row_id < A_num_rows ; a_row_id = get_work( wk_work_queue, warp_id ) )
     {
         // Skip fine rows.
         int coarse_fine_id = cf_map[a_row_id];

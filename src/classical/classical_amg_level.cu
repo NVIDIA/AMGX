@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -192,15 +192,14 @@ template <class T_Config>
 Interpolator<T_Config> *chooseAggressiveInterpolator(AMG_Config *m_cfg, std::string std_scope)
 {
     // temporary config and pointer to main config
-    AMG_Config cfg;
-    std::string cfg_string("");
-    cfg_string += "default:";
+    AMG_Config cfg(*m_cfg);
+    std::string cfg_string("default:");
     // Set the interpolator
     cfg_string += "interpolator=";
     cfg_string += m_cfg->AMG_Config::getParameter<std::string>("aggressive_interpolator", std_scope);
     cfg.parseParameterString(cfg_string.c_str());
     // now allocate the selector and interpolator
-    return InterpolatorFactory<T_Config>::allocate(cfg, "default" /*std_scope*/);
+    return InterpolatorFactory<T_Config>::allocate(cfg, "default");
 }
 
 template <class T_Config>
@@ -440,7 +439,7 @@ void Classical_AMG_Level_Base<T_Config>::computeProlongationOperator()
     typedef Vector<typename TConfig::template setVecPrec<AMGX_vecBool>::Type> BVector;
     typedef Vector<typename TConfig::template setVecPrec<AMGX_vecFloat>::Type> FVector;
     //generate the interpolation matrix
-    interpolator->generateInterpolationMatrix(A, this->m_cf_map, this->m_s_con, this->m_scratch, P, AMG_Level<TConfig>::amg);
+    interpolator->generateInterpolationMatrix(A, this->m_cf_map, this->m_s_con, this->m_scratch, P);
     this->m_cf_map.clear();
     this->m_cf_map.shrink_to_fit();
     this->m_scratch.clear();

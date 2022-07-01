@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,15 +50,14 @@ class Distance1_InterpolatorBase : public Interpolator<T_Config>
                                          IntVector &cf_map,
                                          BVector &s_con,
                                          IntVector &scratch,
-                                         Matrix<T_Config> &P,
-                                         void *amg);
+                                         Matrix<T_Config> &P);
+
     protected:
         virtual void generateInterpolationMatrix_1x1(   Matrix<T_Config> &A,
                 IntVector &cf_map,
                 BVector &s_con,
                 IntVector &scratch,
-                Matrix<T_Config> &P,
-                void *amg) = 0;
+                Matrix<T_Config> &P) = 0;
 };
 
 // specialization for host
@@ -73,14 +72,14 @@ class Distance1_Interpolator< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_
         typedef typename Matrix<TConfig_h>::MVector VVector;
         typedef Matrix<TConfig_h> Matrix_h;
         typedef typename Matrix_h::IVector IVector;
+
     public:
     private:
         void generateInterpolationMatrix_1x1(   Matrix_h &A,
                                                 IntVector &cf_map,
                                                 BVector &s_con,
                                                 IntVector &scratch,
-                                                Matrix_h &P,
-                                                void *amg);
+                                                Matrix_h &P);
 };
 
 // specialization for device
@@ -95,14 +94,15 @@ class Distance1_Interpolator< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, 
         typedef typename Matrix<TConfig_d>::MVector VVector;
         typedef Matrix<TConfig_d> Matrix_d;
         typedef typename Matrix_d::IVector IVector;
+
     public:
     private:
         void generateInterpolationMatrix_1x1(   Matrix_d &A,
                                                 IntVector &cf_map,
                                                 BVector &s_con,
                                                 IntVector &scratch,
-                                                Matrix_d &P,
-                                                void *amg);
+                                                Matrix_d &P);
+
         void setSetsGPU(const Matrix_d &A, const BVector &s_con,
                         const IntVector &cf_map,
                         IntVector &set_fields);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,15 +58,16 @@ class Multipass_InterpolatorBase : public Interpolator<T_Config>
                                           IntVector &cf_map,
                                           BVector &s_con,
                                           IntVector &scratch,
-                                          Matrix<T_Config> &P,
-                                          void *amg );
+                                          Matrix<T_Config> &P);
     protected:
+
+        int m_use_opt_kernels = 0;
+
         virtual void generateInterpolationMatrix_1x1( Matrix<T_Config> &A,
                 IntVector &cf_map,
                 BVector &s_con,
                 IntVector &scratch,
-                Matrix<T_Config> &P,
-                void *amg ) = 0;
+                Matrix<T_Config> &P) = 0;
 };
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -95,8 +96,7 @@ class Multipass_Interpolator< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_
                                               IntVector &cf_map,
                                               BVector &s_con,
                                               IntVector &scratch,
-                                              Matrix_h &P,
-                                              void *amg );
+                                              Matrix_h &P);
 };
 
 // specialization for device
@@ -127,8 +127,7 @@ class Multipass_Interpolator< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, 
                                               IntVector &cf_map,
                                               BVector &s_con,
                                               IntVector &scratch,
-                                              Matrix_d &P,
-                                              void *amg );
+                                              Matrix_d &P);
 
 
 };

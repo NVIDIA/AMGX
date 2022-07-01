@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,18 +30,18 @@
 #include <thrust/scan.h>
 #include <util.h>
 #include <csr_multiply.h>
-#include <csr_multiply_sm70.h>
+#include <csr_multiply_detail.h>
 #include <device_properties.h>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace csr_multiply_sm70
+namespace csr_multiply_detail
 {
 
 #include <amgx_types/util.h>
 
 #include <sm_utils.inl>
-#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
+#include <hash_containers_detail.inl> // Included inside the namespace to solve name colisions.
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1118,7 +1118,243 @@ compute_values_kernel( const int A_num_rows,
 
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template <int GROUP_SIZE, int CTA_SIZE, int HASH_SIZE>
+__global__ 
+void count_non_zeroes_kernel_opt( const int A_num_rows,
+                       const int *__restrict A_rows,
+                       const int *__restrict A_cols,
+                       const int *__restrict B_rows,
+                       const int *__restrict B_cols,
+                       int *__restrict C_row_counts)
+{
+    // Defines for hash container
+    constexpr int SLOT_VACANT = -1;
+
+    // Group indices
+    constexpr int ngroups = CTA_SIZE / GROUP_SIZE;
+    const int group_id = threadIdx.x / GROUP_SIZE;
+    const int lane_id = threadIdx.x % GROUP_SIZE;
+
+    // One row of A per group
+    const int a_row_id = blockIdx.x * ngroups + group_id;
+
+    // Block-level hash container storage
+    __shared__ int key_s[ngroups*HASH_SIZE];
+    __shared__ int counts[ngroups];
+
+    // Initialise the keys and values.
+#pragma unroll
+    for(int i = threadIdx.x; i < ngroups*HASH_SIZE; i += CTA_SIZE)
+    {
+        key_s[i] = SLOT_VACANT; // Inserted keys will be in range [0,N]
+    }
+
+    for(int i = 0; i < ngroups; ++i)
+    {
+        counts[i] = 0;
+    }
+
+    //__syncwarp();
+    __syncthreads();
+
+    int* key_group_s = &key_s[group_id*HASH_SIZE];
+
+    if(a_row_id < A_num_rows)
+    {
+        // Distributed columns of row of A over threads in group.
+        for (int a_col_it = A_rows[a_row_id] + lane_id; a_col_it < A_rows[a_row_id + 1]; a_col_it += GROUP_SIZE)
+        {
+            int a_col_id = A_cols[a_col_it];
+
+            // Outer product of element of A and row of B.
+            for (int b_col_it = B_rows[a_col_id]; b_col_it < B_rows[a_col_id + 1] ; ++b_col_it)
+            {
+                int b_col_id = B_cols[b_col_it];
+
+                int hash = b_col_id % HASH_SIZE;
+
+                // By construction this algorithm should guarantee 
+                // all keys can be inserted
+                while(true)
+                {
+                    // If the slot is vacant, then attempt acquire
+                    int key = key_group_s[hash];
+
+                    // Check if the key was already b_col_id, or was already set 
+                    // Insert the product
+                    if(key == b_col_id)
+                    {
+                        break;
+                    }
+
+                    if(key == SLOT_VACANT)
+                    {
+                        int new_key = atomicCAS(&key_group_s[hash], SLOT_VACANT, b_col_id);
+
+                        if(new_key == SLOT_VACANT || new_key == b_col_id)
+                        {
+                            break;
+                        }
+                    }
+
+                    // We did not secure a slot, so linear probe to next slot
+                    hash = (hash + 1) % HASH_SIZE;
+                }
+            }
+        }
+    }
+
+    //__syncwarp();
+    __syncthreads();
+
+    // Store the results.
+    if(a_row_id < A_num_rows)
+    {
+#pragma unroll
+        for(int i = lane_id; i < HASH_SIZE; i += GROUP_SIZE)
+        {
+            if(key_group_s[i] != SLOT_VACANT)
+            {
+                atomicAdd(&counts[group_id], 1);
+            }
+        }
+    }
+
+    __syncthreads();
+
+    if(a_row_id < A_num_rows && lane_id == 0)
+    {
+        C_row_counts[a_row_id] = counts[group_id];
+    }
+}
+
+template <int GROUP_SIZE, int CTA_SIZE, int HASH_SIZE, class ValueType>
+__global__ 
+void compute_values_kernel_opt( const int A_num_rows,
+                       const int *__restrict A_rows,
+                       const int *__restrict A_cols,
+                       const ValueType *__restrict A_vals,
+                       const int *__restrict B_rows,
+                       const int *__restrict B_cols,
+                       const ValueType *__restrict B_vals,
+                       const int *__restrict C_rows,
+                       int *__restrict C_cols,
+                       ValueType *__restrict C_vals)
+{
+    // Defines for hash container
+    constexpr int SLOT_VACANT = -1;
+
+    // Group indices
+    constexpr int ngroups = CTA_SIZE / GROUP_SIZE;
+    const int group_id = threadIdx.x / GROUP_SIZE;
+    const int lane_id = threadIdx.x % GROUP_SIZE;
+
+    // One row of A per group
+    const int a_row_id = blockIdx.x * ngroups + group_id;
+
+    // Dynamic sized shared memory
+    extern __shared__ int s[];
+
+    // Block-level hash container storage
+    int* key_s = s;
+    ValueType* data_s = (ValueType*)&key_s[ngroups*HASH_SIZE];
+    int* col_ind_s = (int*)&data_s[ngroups*HASH_SIZE];
+
+    // Group-level hash containers
+    int* key_group_s = &key_s[group_id*HASH_SIZE];
+    ValueType* data_group_s = &data_s[group_id*HASH_SIZE];
+
+    // Initialise the keys and values.
+#pragma unroll
+    for(int i = threadIdx.x; i < ngroups*HASH_SIZE; i += CTA_SIZE)
+    {
+        key_s[i] = SLOT_VACANT; // Inserted keys will be in range [0,N]
+        data_s[i] = amgx::types::util<ValueType>::get_zero(); // We will sum into values
+    }
+
+    if(lane_id == 0)
+    {
+        col_ind_s[group_id] = 0;
+    }
+
+    //__syncwarp();
+    __syncthreads();
+
+    if(a_row_id < A_num_rows)
+    {
+        // Distributed columns of row of A over threads in group.
+        for (int a_col_it = A_rows[a_row_id] + lane_id; a_col_it < A_rows[a_row_id + 1]; a_col_it += GROUP_SIZE)
+        {
+            int a_col_id = A_cols[a_col_it];
+
+            // Outer product of element of A and row of B.
+            for (int b_col_it = B_rows[a_col_id]; b_col_it < B_rows[a_col_id + 1] ; ++b_col_it)
+            {
+                ValueType val = A_vals[a_col_it]*B_vals[b_col_it];
+
+                // Short circuit if zero
+                if(amgx::types::util<ValueType>::is_zero(val)) continue;
+
+                int b_col_id = B_cols[b_col_it];
+
+                int hash = b_col_id % HASH_SIZE;
+
+                // By construction this algorithm should guarantee 
+                // all keys can be inserted
+                while(true)
+                {
+                    // If the slot is vacant, then attempt acquire
+                    int key = key_group_s[hash];
+                    if(key == SLOT_VACANT)
+                    {
+                        int new_key = atomicCAS(&key_group_s[hash], SLOT_VACANT, b_col_id);
+                        if(new_key == SLOT_VACANT || new_key == b_col_id)
+                        {
+                            key = b_col_id;
+                        }
+                    }
+
+                    // Check if the key was already b_col_id, or was already set 
+                    // Insert the product
+                    if(key == b_col_id)
+                    {
+                        utils::atomic_add(&data_group_s[hash], val);
+                        break;
+                    }
+
+                    // We did not secure a slot, so linear probe to next slot
+                    hash = (hash + 1) % HASH_SIZE;
+                }
+            }
+        }
+    }
+
+    //__syncwarp();
+    __syncthreads();
+
+    // Store the results.
+    int c_row_id  = a_row_id;
+    int c_col_it  = C_rows[c_row_id];
+    int c_col_end = C_rows[c_row_id + 1];
+
+    if(a_row_id < A_num_rows)
+    {
+#pragma unroll
+        for(int i = lane_id; i < HASH_SIZE; i += GROUP_SIZE)
+        {
+            if(key_group_s[i] != SLOT_VACANT)
+            {
+                // Short circuit if zero
+                if(amgx::types::util<ValueType>::is_zero(data_group_s[i])) continue;
+
+                int ind = atomicAdd(&col_ind_s[group_id], 1);
+
+                C_cols[c_col_it + ind] = key_group_s[i];
+                C_vals[c_col_it + ind] = data_group_s[i];
+            }
+        }
+    }
+}
 
 template< int NUM_THREADS_PER_ROW, typename Value_type, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE >
 __global__ __launch_bounds__( CTA_SIZE, 6 )
@@ -1377,7 +1613,7 @@ compute_values_RAP_ext_kernel( const int RAP_int_num_rows,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-} // namespace csr_multiply_sm70
+} // namespace csr_multiply_detail
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1391,14 +1627,14 @@ enum { WARP_SIZE = 32, SMEM_SIZE = 128 };
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Sm70( bool allocate_values, int grid_size, int max_warp_count, int gmem_size ) :
+CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Detail( bool allocate_values, int grid_size, int max_warp_count, int gmem_size ) :
     Base(allocate_values, grid_size, max_warp_count, gmem_size)
 {}
 
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
 {
     const int GRID_SIZE = 1024;
     const int CTA_SIZE  = 256;
@@ -1412,7 +1648,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
     switch ( this->m_num_threads_per_row_count )
     {
         case 2:
-            csr_multiply_sm70::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1431,7 +1667,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         case 4:
-            csr_multiply_sm70::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1450,7 +1686,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         case 8:
-            csr_multiply_sm70::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1469,7 +1705,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         case 16:
-            csr_multiply_sm70::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1488,7 +1724,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
             break;
 
         default:
-            csr_multiply_sm70::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1513,7 +1749,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes(
 
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids)
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids)
 
 {
     const int GRID_SIZE = 1024;
@@ -1569,7 +1805,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
         {
             int num_blocks = min(4096, (size + 127) / 128);
             //write the position in RAP_ext_row_ids
-            csr_multiply_sm70::flag_halo_rows <<< num_blocks, 128>>>(
+            csr_multiply_detail::flag_halo_rows <<< num_blocks, 128>>>(
                 RAP_ext_row_ids[i].raw(),
                 size,
                 flagArray[i].raw(),
@@ -1578,7 +1814,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
         }
     }
 
-    csr_multiply_sm70::count_non_zeroes_RAP_ext_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
+    csr_multiply_detail::count_non_zeroes_RAP_ext_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, true> <<< GRID_SIZE, CTA_SIZE>>>(
         RAP_size,
         RAP_int.row_offsets.raw(),
         RAP_int.col_indices.raw(),
@@ -1608,7 +1844,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
     switch ( num_threads_per_row_count )
     {
         case 2:
-            csr_multiply_sm70::count_non_zeroes_ilu1_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_ilu1_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1622,7 +1858,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         case 4:
-            csr_multiply_sm70::count_non_zeroes_ilu1_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_ilu1_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1636,7 +1872,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         case 8:
-            csr_multiply_sm70::count_non_zeroes_ilu1_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_ilu1_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1650,7 +1886,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         case 16:
-            csr_multiply_sm70::count_non_zeroes_ilu1_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_ilu1_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1664,7 +1900,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
             break;
 
         default:
-            csr_multiply_sm70::count_non_zeroes_ilu1_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_ilu1_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, COUNT_ONLY, Diag_traits> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1683,7 +1919,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_ilu1( const Matrix_d &A, Matrix_d &B )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_ilu1( const Matrix_d &A, Matrix_d &B )
 {
     const int GRID_SIZE = 1024;
 
@@ -1695,7 +1931,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 
     // Count the number of non zeroes.
     if ( A.hasProps(DIAG) )
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_sm70::With_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_detail::With_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1704,7 +1940,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
             this->m_work_queue,
             this->m_status );
     else
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_sm70::Without_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, true, csr_multiply_detail::Without_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1720,7 +1956,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( Matrix_d &C )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( Matrix_d &C )
 {
     thrust::device_ptr<int> offsets_begin(C.row_offsets.raw());
     thrust::device_ptr<int> offsets_end  (C.row_offsets.raw() + C.get_num_rows() + 1);
@@ -1731,11 +1967,12 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( 
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity( const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity( const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
 {
     const int GRID_SIZE = 1024;
     const int CTA_SIZE  = 256;
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
+
     // Reset the work queue.
     int work_offset = GRID_SIZE * NUM_WARPS;
     CUDA_SAFE_CALL( cudaMemcpy( this->m_work_queue, &work_offset, sizeof(int), cudaMemcpyHostToDevice ) );
@@ -1744,7 +1981,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
     switch ( this->m_num_threads_per_row_count )
     {
         case 2:
-            csr_multiply_sm70::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel< 2, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1763,7 +2000,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         case 4:
-            csr_multiply_sm70::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel< 4, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1782,7 +2019,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         case 8:
-            csr_multiply_sm70::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1801,7 +2038,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         case 16:
-            csr_multiply_sm70::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel<16, CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1820,7 +2057,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
             break;
 
         default:
-            csr_multiply_sm70::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::count_non_zeroes_kernel<CTA_SIZE, SMEM_SIZE, WARP_SIZE, false> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1845,7 +2082,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity(
 // ====================================================================================================================
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B )
 {
     const int GRID_SIZE = 1024;
     const int CTA_SIZE  = 256;
@@ -1856,7 +2093,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
 
     // Count the number of non zeroes.
     if ( A.hasProps(DIAG) )
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_sm70::With_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_detail::With_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1865,7 +2102,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
             this->m_work_queue,
             NULL );
     else
-        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_sm70::Without_external_diag, Matrix_d>(
+        count_non_zeroes_ilu1_dispatch<CTA_SIZE, false, csr_multiply_detail::Without_external_diag, Matrix_d>(
             A,
             B,
             this->m_num_threads_per_row_count,
@@ -1880,8 +2117,264 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsity_
 
 // ====================================================================================================================
 
+template <int CTA_SIZE>
+__global__ 
+void calc_max_nnz_per_row_of_C( 
+                       const int A_num_rows,
+                       const int *__restrict A_rows,
+                       const int *__restrict A_cols,
+                       const int *__restrict B_rows,
+                       int *__restrict C_row_max)
+{
+    int a_row_id = blockIdx.x*blockDim.x + threadIdx.x;
+
+    int expected_max_row_nnz = 0;
+
+    if(a_row_id < A_num_rows)
+    {
+        for (int a_col_it = A_rows[a_row_id]; a_col_it < A_rows[a_row_id + 1]; ++a_col_it)
+        {
+            int a_col_id = A_cols[a_col_it];
+            expected_max_row_nnz += B_rows[a_col_id+1]-B_rows[a_col_id];
+        }
+    }
+
+    using BR = cub::BlockReduce<int, CTA_SIZE>;
+
+    __shared__ typename BR::TempStorage max_s;
+    int max_nnz_block = BR(max_s).Reduce(expected_max_row_nnz, cub::Max());
+
+    if(threadIdx.x == 0)
+    {
+        C_row_max[blockIdx.x] = max_nnz_block;
+    }
+}
+
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2  )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_opt(
+        const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads)
+{
+    constexpr int cta_size = 128;
+
+    // At least for large matrices it may be optimal to determine the maximum
+    // expected hash size by investigation of the matrices
+
+    int grid_size = A.get_num_rows() / cta_size + 1;
+
+    IVector C_row_max_block(grid_size);
+    calc_max_nnz_per_row_of_C<cta_size><<<grid_size, cta_size>>>(
+                    A.get_num_rows(),
+                    A.row_offsets.raw(),
+                    A.col_indices.raw(),
+                    B.row_offsets.raw(),
+                    C_row_max_block.raw());
+
+    int max_nnz = thrust::reduce(
+        thrust::device,
+        C_row_max_block.raw(), 
+        C_row_max_block.raw() + C_row_max_block.size(), 
+        0, thrust::maximum<int>());
+
+#define CNZ_OPT(nthreads_per_group, hash_size) \
+    csr_multiply_detail::count_non_zeroes_kernel_opt<nthreads_per_group, cta_size, hash_size> \
+        <<<grid_size, cta_size>>>( \
+        A.get_num_rows(), \
+        A.row_offsets.raw(), \
+        A.col_indices.raw(), \
+        B.row_offsets.raw(), \
+        B.col_indices.raw(), \
+        C.row_offsets.raw());
+
+    // Operation is group per row, where group size is determined by num_threads
+    switch ( num_threads )
+    {
+        // 16 threads per group
+        case 16:
+            {
+                int ngroups = cta_size / 16;
+                int grid_size = A.get_num_rows() / ngroups + 1;
+
+                if(max_nnz < 256)
+                { 
+                    CNZ_OPT(16, 256); 
+                } 
+                else if(max_nnz < 512) 
+                { 
+                    CNZ_OPT(16, 512); 
+                } 
+                else  
+                { 
+                    CNZ_OPT(16, 1024); 
+                }
+            }
+            break;
+
+        // 32 threads per group
+        case 32:
+            {
+                int ngroups = cta_size / 32;
+                int grid_size = A.get_num_rows() / ngroups + 1;
+
+                if(max_nnz < 256)
+                { 
+                    CNZ_OPT(32, 256); 
+                } 
+                else if(max_nnz < 512) 
+                { 
+                    CNZ_OPT(32, 512); 
+                } 
+                else  
+                { 
+                    CNZ_OPT(32, 1024); 
+                }
+            }
+            break;
+
+        default:
+            FatalError("count_non_zeros_opt only implemented for group size = 8, 16, 32\n", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+
+    cudaCheckError();
+}
+
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads )
+{
+    constexpr int cta_size = 128;
+
+    // Find the max available shared mem on this device
+    cudaDeviceProp deviceProps = getDeviceProperties();
+    size_t max_shmem_size = deviceProps.sharedMemPerMultiprocessor;
+
+    typedef typename IndPrecisionMap<I>::Type Index_type;
+
+    // Dispach optimised version of compute_values_kernel passing number of 
+    // threads per group (which will process a row) and size of hash per group
+#define CVK_OPT(nthreads_per_group, hash_size) \
+    { \
+        constexpr int ngroups = cta_size / nthreads_per_group; \
+        constexpr int shmem_size = \
+        (sizeof(Value_type)+sizeof(Index_type))*ngroups*hash_size + nthreads_per_group; \
+        \
+        if(shmem_size > max_shmem_size) \
+        { \
+            printf("shmem_size=%d bytes, max_shmem_size=%d bytes\n", shmem_size, max_shmem_size); \
+            FatalError("In compute_values_opt the requested hash size is larger than max.\n", \
+                       AMGX_ERR_NOT_IMPLEMENTED); \
+        } \
+        printf("ngroups %d shmem_size %d hash_size %d grid_size %d\n", \
+               ngroups, shmem_size, hash_size, grid_size); \
+        \
+        cudaFuncSetAttribute(csr_multiply_detail::compute_values_kernel_opt \
+                             <nthreads_per_group, cta_size, hash_size, Value_type>, \
+                             cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size); \
+        \
+        csr_multiply_detail::compute_values_kernel_opt \
+        <nthreads_per_group, cta_size, hash_size> \
+        <<<grid_size, cta_size, shmem_size>>>( \
+                                              A.get_num_rows(), \
+                                              A.row_offsets.raw(), \
+                                              A.col_indices.raw(), \
+                                              A.values.raw(), \
+                                              B.row_offsets.raw(), \
+                                              B.col_indices.raw(), \
+                                              B.values.raw(), \
+                                              C.row_offsets.raw(), \
+                                              C.col_indices.raw(), \
+                                              C.values.raw()); \
+    }
+
+    // Select the appropriate hash size based on the number of non-zeroes in C
+    // and then dispatch the appropriate compute_values_kernel_opt
+#define CVK_OPT_SMALL_HASH_SELECT(nthreads_per_group)           \
+    switch(C_rounded_avg)                                       \
+    {                                                           \
+        case 2: CVK_OPT(nthreads_per_group, 32); break;          \
+        case 4: CVK_OPT(nthreads_per_group, 32); break;          \
+        case 8: CVK_OPT(nthreads_per_group, 32); break;          \
+        case 16: CVK_OPT(nthreads_per_group, 32); break;        \
+        case 32: CVK_OPT(nthreads_per_group, 32); break;        \
+        case 64: CVK_OPT(nthreads_per_group, 64); break;        \
+        case 128: CVK_OPT(nthreads_per_group, 128); break;      \
+        case 256: CVK_OPT(nthreads_per_group, 256); break;      \
+    }
+
+    int C_nrows = C.get_num_rows();
+    int C_nnz = C.get_num_nz();
+
+    int C_avg_nnz_per_row = C_nnz / C_nrows;
+
+    // The aim is to minimise the hash size while reducing the impact of the linear
+    // probing. It might actually be more optimal to just use as large tables as 
+    // possible, reducing the linear probing cost and maximising the C write cost?
+    float C_avg_nnz_log2 = log2(static_cast<float>(C_avg_nnz_per_row));
+    float C_avg_nnz_log2_ceil = ceil(C_avg_nnz_log2);
+    int C_rounded_avg = static_cast<int>(2.0*pow(2.0, C_avg_nnz_log2_ceil));
+
+    printf("num_threads %d\n", num_threads);
+    printf("C_nrows %d C_nnz %d\n", C_nrows, C_nnz);
+    printf("C_rounded_avg %d\n", C_rounded_avg);
+
+    // Operation is group per row, where group size is determined by num_threads
+    switch ( num_threads )
+    {
+        // 16 threads per group
+        case 16:
+            {
+                int ngroups = cta_size / 16;
+                int grid_size = A.get_num_rows() / ngroups + 1;
+
+                if(C_rounded_avg < 512)
+                {
+                    CVK_OPT_SMALL_HASH_SELECT(8);
+                }
+                else if(C_rounded_avg < 1024)
+                {
+                    CVK_OPT(16, 512);
+                }
+                else
+                {
+                    FatalError("In compute_values_opt the requested hash size is too large.\n", AMGX_ERR_NOT_IMPLEMENTED);
+                }
+            }
+            break;
+
+        // Warp per group
+        case 32:
+            {
+                int ngroups = cta_size / 32;
+                int grid_size = A.get_num_rows() / ngroups + 1;
+
+                if(C_rounded_avg < 512)
+                {
+                    CVK_OPT_SMALL_HASH_SELECT(32);
+                }
+                else if(C_rounded_avg < 1024)
+                {
+                    CVK_OPT(32, 512);
+                }
+                else if(C_rounded_avg < 2048)
+                {
+                    CVK_OPT(32, 1024);
+                }
+                else
+                {
+                    FatalError("In compute_values_opt the requested hash size is too large.\n", AMGX_ERR_NOT_IMPLEMENTED);
+                }
+            }
+            break;
+
+        default:
+            FatalError("compute_values_opt only implemented for group size = 8, 16, 32\n", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+
+    cudaDeviceSynchronize();
+
+    cudaCheckError();
+}
+
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2  )
 {
     const int GRID_SIZE = 1024;
     const int CTA_SIZE  = 128;
@@ -1902,7 +2395,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
     switch ( num_threads )
     {
         case 2:
-            csr_multiply_sm70::compute_values_kernel< 2, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::compute_values_kernel< 2, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1925,7 +2418,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         case 4:
-            csr_multiply_sm70::compute_values_kernel< 4, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::compute_values_kernel< 4, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1948,7 +2441,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         case 8:
-            csr_multiply_sm70::compute_values_kernel< 8, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::compute_values_kernel< 8, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1971,7 +2464,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         case 16:
-            csr_multiply_sm70::compute_values_kernel<16, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::compute_values_kernel<16, Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -1994,7 +2487,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
             break;
 
         default:
-            csr_multiply_sm70::compute_values_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+            csr_multiply_detail::compute_values_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
@@ -2022,7 +2515,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values( c
 
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads)
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads)
 {
     const int GRID_SIZE = 1024;
     const int CTA_SIZE  = 128;
@@ -2084,7 +2577,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
         {
             int num_blocks = min(4096, (size + 127) / 128);
             //write the position in RAP_ext_row_ids
-            csr_multiply_sm70::flag_halo_rows <<< num_blocks, 128>>>(
+            csr_multiply_detail::flag_halo_rows <<< num_blocks, 128>>>(
                 RAP_ext_row_ids[i].raw(),
                 size,
                 flagArray[i].raw(),
@@ -2095,7 +2588,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
     cudaCheckError();
     //CUDA_SAFE_CALL( cudaGetLastError() );
-    csr_multiply_sm70::compute_values_RAP_ext_kernel< Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
+    csr_multiply_detail::compute_values_RAP_ext_kernel< Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>(
         RAP_size,
         RAP_int.row_offsets.raw(),
         RAP_int.col_indices.raw(),
@@ -2119,7 +2612,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class CSR_Multiply_Sm70<TemplateMode<CASE>::Type>;
+#define AMGX_CASE_LINE(CASE) template class CSR_Multiply_Detail<TemplateMode<CASE>::Type>;
 AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE

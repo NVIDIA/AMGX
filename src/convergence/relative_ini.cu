@@ -50,6 +50,7 @@ bool RelativeIniConvergence<TConfig>::convergence_update_and_check(const PODVec_
 
     for (int i = 0; i < nrm.size(); i++)
     {
+        printf("residual %.15e\n", nrm[i] / nrm_ini[i]);
         bool conv = (nrm[i] / nrm_ini[i] <= this->m_tolerance);
         res_converged = res_converged && conv ;
         bool conv_abs = (nrm[i] <= std::max(nrm_ini[i] * Epsilon_conv<ValueTypeB>::value(), (PODValueTypeB)(1e-20)));

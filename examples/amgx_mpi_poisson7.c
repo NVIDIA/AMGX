@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -324,14 +324,11 @@ int main(int argc, char **argv)
       printf("Running for %d repeats\n", nrepeats);
     }
 
-
-
     /* set the connectivity information (for the vector) */
     AMGX_vector_bind(x, A);
     AMGX_vector_bind(b, A);
+
     /* upload the vector (and the connectivity information) */
-    AMGX_vector_upload(x, n, 1, h_x);
-    AMGX_vector_upload(b, n, 1, h_b);
     for(int r = 0; r < nrepeats; ++r)
     {
       /* upload the vector (and the connectivity information) */

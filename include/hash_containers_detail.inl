@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +27,6 @@
 
 #include <hash_index.inl>
 
-#include <amgx_types/util.h>
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static __constant__ unsigned c_hash_keys[] =
@@ -51,7 +49,7 @@ class Hash_set
         // The size of the table (occupancy).
         int m_smem_count, m_gmem_count;
         // The keys stored in the hash table.
-        volatile Key_type *m_smem_keys, *m_gmem_keys;
+        Key_type *m_smem_keys, *m_gmem_keys;
         // The size of the global memory buffer.
         const int m_gmem_size;
         // Is it ok?
@@ -59,7 +57,7 @@ class Hash_set
 
     public:
         // Constructor.
-        __device__ __forceinline__ Hash_set( volatile Key_type *smem_keys, volatile Key_type *gmem_keys, int gmem_size ) :
+        __device__ __forceinline__ Hash_set( Key_type *smem_keys, Key_type *gmem_keys, int gmem_size ) :
             m_smem_count(0),
             m_gmem_count(1),
             m_smem_keys (smem_keys),
@@ -72,17 +70,16 @@ class Hash_set
         __device__ __forceinline__ void clear( bool skip_gmem = false );
         // Compute the size of the table. Only thread with lane_id==0 gives the correct result (no broadcast of the value).
         __device__ __forceinline__ int compute_size();
-        // Compute the size of the table. Only thread with lane_id==0 gives the correct result (no broadcast of the value).
-        __device__ __forceinline__ int compute_size_with_duplicates();
         // Does the set contain those values?
         __device__ __forceinline__ bool contains( Key_type key ) const;
         // Find an index.
         __device__ __forceinline__ int find_index( Key_type key, const Index &index, bool print_debug ) const;
         // Has the process failed.
         __device__ __forceinline__ bool has_failed() const { return m_fail; }
-        // Insert a key/value inside the hash table.
+        // Insert a key inside the set. If status is NULL, ignore failure.
         __device__ __forceinline__ void insert( Key_type key, int *status );
-        // Load the elements of a set.
+        __device__ __forceinline__ void insert_opt( Key_type key, int *status );
+        // Load a set.
         __device__ __forceinline__ void load( int count, const Key_type *keys, const int *pos );
         // Load a set and use it as an index.
         __device__ __forceinline__ void load_index( int count, const Key_type *keys, const int *pos, Index &index, bool print_debug );
@@ -96,7 +93,7 @@ class Hash_set
 
 // ====================================================================================================================
 
-template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
+template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE>
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear( bool skip_gmem )
 {
@@ -129,20 +126,17 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear( bool skip_g
 
 // ====================================================================================================================
 
-template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
+template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE>
 __device__ __forceinline__
 int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::compute_size()
 {
     m_smem_count += m_gmem_count;
-    const int lane_id = utils::lane_id();
-    m_smem_keys[lane_id] = m_smem_count;
 #pragma unroll
 
     for ( int offset = WARP_SIZE / 2 ; offset > 0 ; offset >>= 1 )
-        if ( lane_id < offset )
-        {
-            m_smem_keys[lane_id] = m_smem_count += m_smem_keys[lane_id + offset];
-        }
+    {
+        m_smem_count += utils::shfl_xor( m_smem_count, offset );
+    }
 
     m_gmem_count = utils::any( m_gmem_count > 0 );
     return m_smem_count;
@@ -150,46 +144,7 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::compute_size()
 
 // ====================================================================================================================
 
-template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
-__device__ __forceinline__
-int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::compute_size_with_duplicates()
-{
-    int lane_id = utils::lane_id();
-    // Count the number of keys in SMEM.
-    int sum = 0;
-    const int NUM_STEPS = SMEM_SIZE / WARP_SIZE;
-#pragma unroll
-
-    for ( int i_step = 0 ; i_step < NUM_STEPS ; ++i_step )
-    {
-        const int offset = i_step * WARP_SIZE + lane_id;
-        Key_type key = m_smem_keys[offset];
-        sum += __popc( utils::ballot( key != -1 ) );
-    }
-
-    // Is there any key in GMEM. If not, just quit.
-    m_gmem_count = utils::any(m_gmem_count > 0);
-
-    if ( !m_gmem_count )
-    {
-        return sum;
-    }
-
-    // Count the number of keys in GMEM.
-#pragma unroll 4
-
-    for ( int offset = lane_id ; offset < m_gmem_size ; offset += WARP_SIZE )
-    {
-        Key_type key = m_gmem_keys[offset];
-        sum += __popc( utils::ballot( key != -1, utils::activemask() ) );
-    }
-
-    return sum;
-}
-
-// ====================================================================================================================
-
-template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
+template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE>
 __device__ __forceinline__
 bool Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::contains( Key_type key ) const
 {
@@ -222,7 +177,6 @@ bool Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::contains( Key_type
         }
     }
 
-    const int num_bits = utils::bfind( m_gmem_size ); // TODO: move it outside ::insert.
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -233,7 +187,7 @@ bool Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::contains( Key_type
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1);
 
         if ( !done )
         {
@@ -261,7 +215,7 @@ __device__ __forceinline__
 int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::find_index( Key_type key, const Index &index, bool print_debug ) const
 {
     int idx = -1;
-    bool done = key == -1, found = false;
+    bool done = key == -1;
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -287,7 +241,6 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::find_index( Key_typ
         }
     }
 
-    const int num_bits = utils::bfind( m_gmem_size ); // TODO: move it outside ::insert.
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -298,7 +251,7 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::find_index( Key_typ
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1);
 
         if ( !done )
         {
@@ -307,11 +260,6 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::find_index( Key_typ
             if ( stored_key == key )
             {
                 idx = index.find_gmem(hash);
-                found = true;
-            }
-
-            if ( found || stored_key == -1 )
-            {
                 done = true;
             }
         }
@@ -326,86 +274,76 @@ template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
 void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, int *status )
 {
-    bool done = key == -1;
-#pragma unroll
+    bool active = key != -1;
+    Key_type winning_key;
+    int active_mask;
 
+#pragma unroll
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
+        active_mask = utils::ballot( active );
+
+        if ( active_mask == 0 )
         {
             return;
         }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
-
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_smem_keys[hash];
+            unsigned ukey = reinterpret_cast<unsigned &>( key );
+            int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1); 
 
-            if ( stored_key == key )
+            winning_key = utils::atomic_CAS(&m_smem_keys[hash], -1, key); 
+
+            if ( winning_key == -1 )
             {
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_smem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_smem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
+                winning_key = key;
                 m_smem_count++;
-                done = true;
+            }
+
+
+            if ( key == winning_key )
+            {
+                active = false;
             }
         }
     }
-
-    const int num_bits = utils::bfind( m_gmem_size ); // TODO: move it outside ::insert.
 #pragma unroll
-
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
+        active_mask = utils::ballot( active );
+
+        if ( active_mask == 0 )
         {
             return;
         }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
-
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_gmem_keys[hash];
+            unsigned ukey = reinterpret_cast<unsigned &>( key );
+            int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1); 
 
-            if ( stored_key == key )
+            winning_key = utils::atomic_CAS(&m_gmem_keys[hash], -1, key); 
+
+            if ( winning_key == -1 )
             {
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_gmem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
+                winning_key = key;
                 m_gmem_count++;
-                done = true;
+            }
+
+            if ( key == winning_key )
+            {
+                active = false;
             }
         }
     }
 
-    if ( utils::all(done) )
+    if ( utils::ballot( active ) == 0 )
     {
         return;
     }
+
+    assert( status != NULL );
 
     if ( utils::lane_id() == 0 )
     {
@@ -413,6 +351,79 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type k
     }
 
     m_fail = true;
+}
+
+
+
+template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
+__device__ __forceinline__
+void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert_opt( Key_type key, int *status )
+{
+    if(key == -1)
+    {
+        return;
+    }
+
+#pragma unroll
+    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
+    {
+        bool candidate = false;
+        unsigned ukey = reinterpret_cast<unsigned &>( key );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
+
+        Key_type stored_key = m_smem_keys[hash];
+
+        if ( stored_key == key )
+        {
+            return;
+        }
+
+        candidate = stored_key == -1;
+
+        if ( candidate )
+        {
+            m_smem_keys[hash] = key;
+        }
+
+        if ( candidate && key == m_smem_keys[hash] ) // More than one candidate may have written to that slot.
+        {
+            m_smem_count++;
+            return;
+        }
+    }
+
+    const int num_bits = utils::bfind( m_gmem_size );
+#pragma unroll
+
+    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
+    {
+        bool candidate = false;
+        unsigned ukey = reinterpret_cast<unsigned &>( key );
+        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+
+        Key_type stored_key = m_gmem_keys[hash];
+
+        if ( stored_key == key )
+        {
+            return;
+        }
+
+        candidate = stored_key == -1;
+
+        if ( candidate )
+        {
+            m_gmem_keys[hash] = key;
+        }
+
+        if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
+        {
+            m_gmem_count++;
+            return;
+        }
+    }
+
+    m_fail = true;
+    *status = 1;
 }
 
 // ====================================================================================================================
@@ -429,7 +440,7 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count, c
         Key_type key = keys[offset];
         int idx = pos [offset];
         // Where to store the item.
-        volatile int *ptr = m_smem_keys;
+        Key_type *ptr = m_smem_keys;
 
         if ( idx >= SMEM_SIZE )
         {
@@ -457,18 +468,19 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load_index( int co
     {
         Key_type key = keys[offset];
         int idx = pos [offset];
+        // Store the item.
+        Key_type *ptr = m_smem_keys;
+
+        if ( idx >= SMEM_SIZE )
+        {
+            ptr = m_gmem_keys;
+            m_gmem_count = 1;
+            idx -= SMEM_SIZE;
+            index.set_gmem_index( idx, offset );
+        }
 
         // Store the item.
-        if ( idx < SMEM_SIZE )
-        {
-            m_smem_keys[idx] = key;
-        }
-        else
-        {
-            m_gmem_keys[idx - SMEM_SIZE] = key;
-            index.set_gmem_index( idx - SMEM_SIZE, offset );
-            m_gmem_count = 1;
-        }
+        ptr[idx] = key;
     }
 
     // Build the local index.
@@ -609,7 +621,7 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store_with_position
 
 template< typename Key_type, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
 __device__ __forceinline__
-int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( Key_type *keys)
+int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( Key_type *keys )
 {
     int lane_id = utils::lane_id();
     int lane_mask_lt = utils::lane_mask_lt();
@@ -671,26 +683,30 @@ int Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store( Key_type *ke
 }
 
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+union Word { char b8[4]; int b32; };
+
+// ====================================================================================================================
 
 template< typename Key_type, typename T, int SMEM_SIZE = 128, int NUM_HASH_FCTS = 4, int WARP_SIZE = 32 >
 class Hash_map
 {
     protected:
         // The keys stored in the map.
-        volatile Key_type *m_smem_keys, *m_gmem_keys;
+        Key_type *m_smem_keys, *m_gmem_keys;
+        // Shared memory values
+        T *m_smem_vals = NULL;
         // The values stored in the map.
-        T *m_smem_vals, *m_gmem_vals;
+        T *m_gmem_vals;
         // The size of the global memory buffer.
         const int m_gmem_size;
         // Is there any value in GMEM.
         bool m_any_gmem;
 
     public:
-        // Constructor.
         __device__ __forceinline__
-        Hash_map( volatile Key_type *smem_keys, volatile Key_type *gmem_keys, T *smem_vals, T *gmem_vals, int gmem_size ) :
+        Hash_map( Key_type *smem_keys, Key_type *gmem_keys, T *smem_vals, T *gmem_vals, int gmem_size ) :
             m_smem_keys(smem_keys),
             m_gmem_keys(gmem_keys),
             m_smem_vals(smem_vals),
@@ -701,12 +717,8 @@ class Hash_map
 
         // Clear the table. It doesn't clear GMEM values.
         __device__ __forceinline__ void clear();
-        // Clear the table. It also clears GMEM values (set them to 0).
-        __device__ __forceinline__ void clear_all();
         // Insert a key/value inside the hash table.
         __device__ __forceinline__ void insert( Key_type key, T val, int *status );
-        // Insert a key/value inside the hash table.
-        __device__ __forceinline__ void insert_with_duplicates( Key_type key, T val, int *status );
         // Load a set.
         __device__ __forceinline__ void load( int count, const Key_type *keys, const int *pos );
         // Store the map.
@@ -717,8 +729,8 @@ class Hash_map
         __device__ __forceinline__ void store_map_keys_scale_values( int count, const int *map, Key_type *keys, T alpha, T *vals );
         // Store the map.
         __device__ __forceinline__ void store_keys_scale_values( int count, Key_type *keys, T alpha, T *vals );
-        // Update a value if it is in the table. Do nothing otherwise.
-        __device__ __forceinline__ bool update( Key_type key, T val );
+        // Update a value in the table but do not insert if it doesn't exist.
+        __device__ __forceinline__ bool update( Key_type key, T value );
 };
 
 // ====================================================================================================================
@@ -734,37 +746,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear()
     for ( int i_step = 0 ; i_step < NUM_STEPS ; ++i_step )
     {
         m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
-    }
-
-    if ( !m_any_gmem )
-    {
-        return;
-    }
-
-#pragma unroll 4
-
-    for ( int offset = lane_id ; offset < m_gmem_size ; offset += WARP_SIZE )
-    {
-        m_gmem_keys[offset] = -1;
-    }
-
-    m_any_gmem = false;
-}
-
-// ====================================================================================================================
-
-template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
-__device__ __forceinline__
-void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear_all()
-{
-    int lane_id = utils::lane_id();
-    const int NUM_STEPS = SMEM_SIZE / WARP_SIZE;
-#pragma unroll
-
-    for ( int i_step = 0 ; i_step < NUM_STEPS ; ++i_step )
-    {
-        m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
-        m_smem_vals[i_step * WARP_SIZE + lane_id] = amgx::types::util<T>::get_zero();
+        m_smem_vals[i_step * WARP_SIZE + lane_id] =  amgx::types::util<T>::get_zero();
     }
 
     if ( !m_any_gmem )
@@ -789,88 +771,71 @@ template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int W
 __device__ __forceinline__
 void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_type key, T val, int *status )
 {
-    const int lane_id = utils::lane_id();
-    bool done = key == -1;
-#pragma unroll
+    const short lane_id = utils::lane_id();
+    bool active = key != -1;
+    Key_type winning_key = -1;
+    int active_mask;
 
+#pragma unroll
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
-        {
-            break;
-        }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
+        active_mask = utils::ballot( active );
 
-        if ( !done )
-        {
-            Key_type stored_key = m_smem_keys[hash];
-
-            if ( stored_key == key )
-            {
-                m_smem_vals[hash] = m_smem_vals[hash] + val;
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_smem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_smem_keys[hash] )
-            {
-                m_smem_vals[hash] = val;
-                done = true;
-            }
-        }
-    }
-
-    const int num_bits = utils::bfind( m_gmem_size ); // TODO: move it outside ::insert.
-#pragma unroll
-
-    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
-    {
-        if ( utils::all(done) )
+        if ( active_mask == 0 )
         {
             return;
         }
 
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
 
-        if ( !done )
+        if ( active )
         {
-            Key_type stored_key = m_gmem_keys[hash];
+            unsigned ukey  = reinterpret_cast<unsigned &>( key );
+            int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
 
-            if ( stored_key == key )
+            winning_key = utils::atomic_CAS(&m_smem_keys[hash], -1, key);
+            winning_key = (winning_key == -1) ? key : winning_key;
+
+            if (key == winning_key)  
             {
-                m_gmem_vals[hash] = m_gmem_vals[hash] + val;
-                done = true;
+                utils::atomic_add(&m_smem_vals[hash], val); 
+                active = false;
             }
+        }
+    }
 
-            candidate = stored_key == -1;
+    #pragma unroll
 
-            if ( candidate )
-            {
-                m_gmem_keys[hash] = key;
-            }
+    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
+    {
+        active_mask = utils::ballot( active );
 
-            if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
-                m_gmem_vals[hash] = val;
-                done = true;
-            }
+        if ( active_mask == 0 )
+        {
+            return;
         }
 
         m_any_gmem = true;
+
+        if ( active )
+        {
+            unsigned ukey = reinterpret_cast<unsigned &>( key );
+            int hash      = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] )  & (m_gmem_size - 1); 
+
+
+            winning_key = utils::atomic_CAS(&m_gmem_keys[hash], -1, key);
+            winning_key = (winning_key == -1) ? key : winning_key;
+
+
+            if (key == winning_key) 
+            {
+                utils::atomic_add(&m_gmem_vals[hash], val);
+                active = false;
+            }
+        }
     }
 
-    if ( status == NULL || utils::all(done) )
+    if (status == NULL )
     {
         return;
     }
@@ -881,102 +846,6 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert( Key_typ
     }
 }
 
-// ====================================================================================================================
-
-template< typename Key_type, typename T, int SMEM_SIZE, int NUM_HASH_FCTS, int WARP_SIZE >
-__device__ __forceinline__
-void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::insert_with_duplicates( Key_type key, T val, int *status )
-{
-    const int lane_id = utils::lane_id();
-    bool done = key == -1;
-#pragma unroll
-
-    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
-    {
-        if ( utils::all(done) )
-        {
-            break;
-        }
-
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (SMEM_SIZE - 1);
-
-        if ( !done )
-        {
-            Key_type stored_key = m_smem_keys[hash];
-
-            if ( stored_key == key )
-            {
-                utils::atomic_add( &m_smem_vals[hash], val );
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_smem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_smem_keys[hash] )
-            {
-                utils::atomic_add( &m_smem_vals[hash], val );
-                done = true;
-            }
-        }
-    }
-
-    const int num_bits = utils::bfind( m_gmem_size ); // TODO: move it outside ::insert.
-#pragma unroll
-
-    for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
-    {
-        if ( utils::all(done) )
-        {
-            return;
-        }
-
-        m_any_gmem = true;
-        bool candidate = false;
-        unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
-
-        if ( !done )
-        {
-            Key_type stored_key = m_gmem_keys[hash];
-
-            if ( stored_key == key )
-            {
-                utils::atomic_add( &m_gmem_vals[hash], val );
-                done = true;
-            }
-
-            candidate = stored_key == -1;
-
-            if ( candidate )
-            {
-                m_gmem_keys[hash] = key;
-            }
-
-            if ( candidate && key == m_gmem_keys[hash] ) // More than one candidate may have written to that slot.
-            {
-                utils::atomic_add( &m_gmem_vals[hash], val );
-                done = true;
-            }
-        }
-    }
-
-    if ( status == NULL || utils::all(done) )
-    {
-        return;
-    }
-
-    if ( lane_id == 0 )
-    {
-        status[0] = 1;
-    }
-}
 
 // ====================================================================================================================
 
@@ -992,20 +861,18 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count
         Key_type key = keys[offset];
         int idx = pos [offset];
         // Where to store the item.
-        volatile Key_type *key_ptr = m_smem_keys;
-        volatile T *val_ptr = m_smem_vals;
+        Key_type *ptr = m_smem_keys;
 
         if ( idx >= SMEM_SIZE )
         {
-            key_ptr = m_gmem_keys;
-            val_ptr = m_gmem_vals;
+            ptr = m_gmem_keys;
             m_any_gmem = 1;
             idx -= SMEM_SIZE;
+            m_gmem_vals[idx] = amgx::types::util<T>::get_zero();
         }
 
         // Store the item.
-        key_ptr[idx] = key;
-        amgx::types::util<T>::volcast( amgx::types::util<T>::get_zero(), val_ptr + idx);
+        ptr[idx] = key;
     }
 
     m_any_gmem = utils::any( m_any_gmem );
@@ -1259,8 +1126,6 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::store_keys_scal
     }
 }
 
-// ====================================================================================================================
-
 
 
 // ====================================================================================================================
@@ -1275,9 +1140,9 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
     {
-        if ( utils::all(done) )
+        if ( i_hash > 0 && utils::all(done) )
         {
-            break;
+            return found;
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
@@ -1289,7 +1154,7 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 
             if ( stored_key == key )
             {
-                m_smem_vals[hash] = m_smem_vals[hash] + val;
+                utils::atomic_add(&m_smem_vals[hash], val);
                 found = true;
             }
 
@@ -1297,7 +1162,6 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
         }
     }
 
-    const int num_bits = utils::bfind( m_gmem_size ); // TODO: move it outside ::insert.
 #pragma unroll
 
     for ( int i_hash = 0 ; i_hash < NUM_HASH_FCTS ; ++i_hash )
@@ -1308,7 +1172,7 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
         }
 
         unsigned ukey = reinterpret_cast<unsigned &>( key );
-        int hash = utils::bfe( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash], num_bits );
+        int hash = ( (ukey ^ c_hash_keys[i_hash]) + c_hash_keys[NUM_HASH_FCTS + i_hash] ) & (m_gmem_size - 1);
 
         if ( !done )
         {
@@ -1316,7 +1180,7 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 
             if ( stored_key == key )
             {
-                m_gmem_vals[hash] = m_gmem_vals[hash] + val;
+                utils::atomic_add(&m_gmem_vals[hash], val);
                 found = true;
             }
 
@@ -1328,4 +1192,3 @@ bool Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::update( Key_typ
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-

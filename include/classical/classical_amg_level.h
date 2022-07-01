@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,6 +72,7 @@ class Classical_AMG_Level_Base : public AMG_Level<T_Config>
         typedef TConfig1 T_Config1;
 
         typedef typename Matrix<TConfig_h>::IVector IVector_h;
+        typedef typename Matrix<TConfig_h>::MVector  MVector_h;
 
         friend class Classical_AMG_Level_Base<TConfig1>;
 

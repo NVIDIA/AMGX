@@ -155,11 +155,7 @@ typedef AMGX_RC (*t_AMGX_get_error_string)
 /* Init & Shutdown */
 typedef AMGX_RC (*t_AMGX_initialize)();
 
-typedef AMGX_RC (*t_AMGX_initialize_plugins)();
-
 typedef AMGX_RC (*t_AMGX_finalize)();
-
-typedef AMGX_RC (*t_AMGX_finalize_plugins)();
 
 typedef void (*t_AMGX_abort)
 (AMGX_resources_handle rsc,
@@ -576,9 +572,7 @@ t_AMGX_get_build_info_strings             AMGX_get_build_info_strings;
 t_AMGX_get_error_string                   AMGX_get_error_string;
 /* Init & Shutdown */
 t_AMGX_initialize                         AMGX_initialize;
-t_AMGX_initialize_plugins                 AMGX_initialize_plugins;
 t_AMGX_finalize                           AMGX_finalize;
-t_AMGX_finalize_plugins                   AMGX_finalize_plugins;
 t_AMGX_abort                              AMGX_abort;
 /* System */
 t_AMGX_pin_memory                         AMGX_pin_memory;
@@ -657,9 +651,7 @@ int amgx_liblink_all(void *lib_handle)
     AMGX_get_error_string                    = (t_AMGX_get_error_string)amgx_liblink(lib_handle, "AMGX_get_error_string");
     /* Init & Shutdown */
     AMGX_initialize                          = (t_AMGX_initialize)amgx_liblink(lib_handle, "AMGX_initialize");
-    AMGX_initialize_plugins                  = (t_AMGX_initialize_plugins)amgx_liblink(lib_handle, "AMGX_initialize_plugins");
     AMGX_finalize                            = (t_AMGX_finalize)amgx_liblink(lib_handle, "AMGX_finalize");
-    AMGX_finalize_plugins                    = (t_AMGX_finalize_plugins)amgx_liblink(lib_handle, "AMGX_finalize_plugins");
     AMGX_abort                               = (t_AMGX_abort)amgx_liblink(lib_handle, "AMGX_abort");
     /* System */
     AMGX_pin_memory                          = (t_AMGX_pin_memory)amgx_liblink(lib_handle, "AMGX_pin_memory");
@@ -732,9 +724,7 @@ int amgx_liblink_all(void *lib_handle)
         AMGX_get_error_string == NULL ||
         /* Init & Shutdown */
         AMGX_initialize == NULL ||
-        AMGX_initialize_plugins == NULL ||
         AMGX_finalize == NULL ||
-        AMGX_finalize_plugins == NULL ||
         AMGX_abort == NULL ||
         /* System */
         AMGX_pin_memory == NULL ||

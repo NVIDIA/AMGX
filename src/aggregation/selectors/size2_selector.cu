@@ -42,8 +42,6 @@
 #include <thrust/unique.h> //unique
 #include <cusp/detail/format_utils.h> //offsets_to_indices
 
-#include <logger.h>
-
 #define EXPERIMENTAL_ITERATIVE_MATCHING
 
 namespace amgx

@@ -32,7 +32,6 @@
 #include <basic_types.h>
 #include <types.h>
 #include <norm.h>
-#include <logger.h>
 #include <matrix_distribution.h>
 
 #include <iostream>

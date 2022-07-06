@@ -333,7 +333,8 @@ class DistributedComms
         virtual void get_hostname(std::string &my_hostname) = 0;
         virtual void exchange_hostnames(std::string &my_hostname, std::vector<std::string> &hostnames, int num_parts ) = 0;
 
-        virtual void all_gather(IndexType_h &my_data, HIVector &gathered_data, int num_parts) = 0;
+        virtual void all_gather(const IndexType_h &my_data, HIVector &gathered_data, int num_parts) = 0;
+        virtual void all_gather(const int64_t &my_data, HI64Vector &gathered_data, int num_parts) = 0;
         virtual void all_gather_v(HIVector &my_data, HIVector &gathered_data, int num_parts) = 0;
 
         virtual void all_reduce_max(IndexType_h &my_data, IndexType_h &result_data) = 0;

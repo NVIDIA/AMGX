@@ -242,7 +242,7 @@ void Energymin_AMG_Level_Base<T_Config>
     R.setView(OWNED);
     transpose(R, P, R.get_num_rows());
 
-    if (this->m_min_rows_latency_hiding < 0 || P.get_num_rows() < this->m_min_rows_latency_hiding)
+    if (!P.isLatencyHidingEnabled(*this->amg->m_cfg))
     {
         // This will cause bsrmv to not do latency hiding
         P.setInteriorView(OWNED);

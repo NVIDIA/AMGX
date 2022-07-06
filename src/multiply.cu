@@ -44,7 +44,6 @@
 #pragma warning (pop)
 #endif
 
-#include <logger.h>
 #include <sm_utils.inl>
 
 #include <amgx_types/math.h>

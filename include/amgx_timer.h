@@ -47,7 +47,6 @@
 #include <cstring>
 #include <cassert>
 
-#include <logger.h>
 #include <algorithm>
 #include <chrono>
 
@@ -537,14 +536,6 @@ class TimerMap
             else
             {
                 return 0.0;
-            }
-        }
-
-        void spoolTimers()
-        {
-            for (std::map<std::string, Timer *>::iterator iter = m_timers.begin(); iter != m_timers.end(); ++iter)
-            {
-                AMGXLOG(iter->first.c_str(), iter->second->get_accumulated_time());
             }
         }
 };

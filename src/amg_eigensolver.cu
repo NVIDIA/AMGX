@@ -31,7 +31,6 @@
 #include <basic_types.h>
 #include <misc.h>
 #include <assert.h>
-#include <logger.h>
 #include <util.h>
 #include <profile.h>
 

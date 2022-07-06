@@ -938,9 +938,6 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         ss << std::endl;
         amgx_output(ss.str().c_str(), static_cast<int>(ss.str().length()));
         ss.str(std::string());
-        AMGXLOG("Initial Residual", m_nrm_ini[0]);
-        AMGXLOG("Final Residual", last_nrm[0]);
-        AMGXLOG("Avg. Conv. Rate", ((m_nrm_ini[0] > eps) ? pow(last_nrm[0] / m_nrm_ini[0],  types::util<PODValueB>::get_one() / m_num_iters) : m_nrm_ini[0]));
         // what should we use as comparison of block norm?
     }
 
@@ -965,11 +962,6 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
     if (m_verbosity_level > 2 && m_obtain_timings)
     {
         print_timings();
-        AMGXLOG("Total Iterations", m_num_iters)
-        AMGXLOG("Total Time", m_solve_time + m_setup_time)
-        AMGXLOG("Setup", m_setup_time)
-        AMGXLOG("Solve", m_solve_time)
-        AMGXLOG("Max Mem. Usage", MemoryInfo::getMaxMemoryUsage());
     }
 
     return

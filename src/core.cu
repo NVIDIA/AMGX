@@ -124,7 +124,6 @@
 #include <scalers/binormalization.h>
 #include <scalers/nbinormalization.h>
 
-#include <logger.h>
 #include <amgx_timer.h>
 #include <version.h>
 
@@ -718,7 +717,6 @@ AMGX_ERROR initialize()
     info << "Compiled with CUDA Runtime " << runtime_version_maj << "." << runtime_version_min << ", using CUDA driver " << driver_version_maj << "." << driver_version_min << "\n";
     std::stringstream cuda_rt_version;
     cuda_rt_version << runtime_version_maj << "." << runtime_version_min;
-    AMGXLOG("RUNTIME_VERSION", cuda_rt_version.str().c_str());
 #ifdef AMGX_WITH_MPI
     int mpi_initialized = 0;
     MPI_Initialized(&mpi_initialized); // We want to make sure MPI_Init has been called.
@@ -754,7 +752,6 @@ void finalize()
 {
     // just in case
     free_resources();
-    getTimers().spoolTimers();
     AMGX_CPU_PROFILER( "finalize " );
     unregisterClasses<TConfigGeneric>();
     AMG_Config::unregisterParameters( );
@@ -765,7 +762,6 @@ void finalize()
 
     freeDefaultMPIErrHandler();
 #endif
-    SAVELOG
 }
 
 } // namespace amgx

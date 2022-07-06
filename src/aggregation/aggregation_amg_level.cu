@@ -58,6 +58,7 @@
 #include <thrust/binary_search.h>
 #include <thrust/unique.h>
 #include <thrust/inner_product.h>
+#include <thrust/iterator/constant_iterator.h>
 
 namespace amgx
 {

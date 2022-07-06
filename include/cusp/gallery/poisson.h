@@ -70,8 +70,8 @@ void poisson5pt(      MatrixType& matrix, size_t m, size_t n)
 
     typedef typename MatrixType::index_type IndexType;
     typedef typename MatrixType::value_type ValueType; 
-    typedef thrust::tuple<IndexType,IndexType>    StencilIndex;
-    typedef thrust::tuple<StencilIndex,ValueType> StencilPoint;
+    typedef amgx::thrust::tuple<IndexType,IndexType>    StencilIndex;
+    typedef amgx::thrust::tuple<StencilIndex,ValueType> StencilPoint;
 
     cusp::array1d<StencilPoint, cusp::host_memory> stencil;
     stencil.push_back(StencilPoint(StencilIndex(  0, -1), -1));
@@ -90,8 +90,8 @@ void poisson9pt(      MatrixType& matrix, size_t m, size_t n)
 
     typedef typename MatrixType::index_type IndexType;
     typedef typename MatrixType::value_type ValueType; 
-    typedef thrust::tuple<IndexType,IndexType>    StencilIndex;
-    typedef thrust::tuple<StencilIndex,ValueType> StencilPoint;
+    typedef amgx::thrust::tuple<IndexType,IndexType>    StencilIndex;
+    typedef amgx::thrust::tuple<StencilIndex,ValueType> StencilPoint;
 
     cusp::array1d<StencilPoint, cusp::host_memory> stencil;
     stencil.push_back(StencilPoint(StencilIndex( -1, -1), -1));
@@ -114,8 +114,8 @@ void poisson7pt(      MatrixType& matrix, size_t m, size_t n, size_t k)
 
     typedef typename MatrixType::index_type IndexType;
     typedef typename MatrixType::value_type ValueType; 
-    typedef thrust::tuple<IndexType,IndexType,IndexType>    StencilIndex;
-    typedef thrust::tuple<StencilIndex,ValueType> 	    StencilPoint;
+    typedef amgx::thrust::tuple<IndexType,IndexType,IndexType>    StencilIndex;
+    typedef amgx::thrust::tuple<StencilIndex,ValueType> 	    StencilPoint;
 
     cusp::array1d<StencilPoint, cusp::host_memory> stencil;
     stencil.push_back(StencilPoint(StencilIndex( 0,  0, -1), -1));
@@ -136,8 +136,8 @@ void poisson27pt(      MatrixType& matrix, size_t m, size_t n, size_t l)
 
     typedef typename MatrixType::index_type IndexType;
     typedef typename MatrixType::value_type ValueType; 
-    typedef thrust::tuple<IndexType,IndexType,IndexType>    StencilIndex;
-    typedef thrust::tuple<StencilIndex,ValueType> 	    StencilPoint;
+    typedef amgx::thrust::tuple<IndexType,IndexType,IndexType>    StencilIndex;
+    typedef amgx::thrust::tuple<StencilIndex,ValueType> 	    StencilPoint;
 
     cusp::array1d<StencilPoint, cusp::host_memory> stencil;
     for( IndexType k = -1; k <= 1; k++ )

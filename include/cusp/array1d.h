@@ -51,11 +51,11 @@ namespace cusp
  * \TODO example
  */
 template <typename T, typename MemorySpace>
-class array1d : public thrust::detail::vector_base<T, typename cusp::default_memory_allocator<T, MemorySpace>::type>
+class array1d : public amgx::thrust::detail::vector_base<T, typename cusp::default_memory_allocator<T, MemorySpace>::type>
 {
     private:
         typedef typename cusp::default_memory_allocator<T, MemorySpace>::type Alloc;
-        typedef typename thrust::detail::vector_base<T,Alloc> Parent;
+        typedef typename amgx::thrust::detail::vector_base<T,Alloc> Parent;
 
     public:
         typedef MemorySpace memory_space;
@@ -95,7 +95,7 @@ class array1d : public thrust::detail::vector_base<T, typename cusp::default_mem
           : Parent(n, value) {}
 
         template<typename Array>
-          array1d(const Array& a, typename thrust::detail::enable_if<!thrust::detail::is_convertible<Array,size_type>::value>::type * = 0)
+          array1d(const Array& a, typename amgx::thrust::detail::enable_if<!amgx::thrust::detail::is_convertible<Array,size_type>::value>::type * = 0)
           : Parent(a.begin(), a.end()) {}
 
         template<typename InputIterator>
@@ -129,15 +129,15 @@ class array1d_view
     // what about const_iterator and const_reference?
     typedef RandomAccessIterator                                             iterator;
     typedef cusp::array1d_format                                             format;
-    typedef typename thrust::iterator_reference<RandomAccessIterator>::type  reference;
-    typedef typename thrust::iterator_difference<RandomAccessIterator>::type difference_type;
-    typedef typename thrust::iterator_value<RandomAccessIterator>::type      value_type;
+    typedef typename amgx::thrust::iterator_reference<RandomAccessIterator>::type  reference;
+    typedef typename amgx::thrust::iterator_difference<RandomAccessIterator>::type difference_type;
+    typedef typename amgx::thrust::iterator_value<RandomAccessIterator>::type      value_type;
 #if THRUST_VERSION >= 100600
-    typedef typename thrust::iterator_system<RandomAccessIterator>::type     memory_space;
+    typedef typename amgx::thrust::iterator_system<RandomAccessIterator>::type     memory_space;
 #else
-    typedef typename thrust::iterator_space<RandomAccessIterator>::type      memory_space;
+    typedef typename amgx::thrust::iterator_space<RandomAccessIterator>::type      memory_space;
 #endif
-    typedef typename thrust::iterator_pointer<RandomAccessIterator>::type    pointer;
+    typedef typename amgx::thrust::iterator_pointer<RandomAccessIterator>::type    pointer;
         
     /*! equivalent container type
      */

@@ -77,8 +77,8 @@ struct is_valid_ell_index
     __host__ __device__
   bool operator()(const Tuple& t) const
   {
-    const IndexType i = thrust::get<0>(t);
-    const IndexType j = thrust::get<1>(t);
+    const IndexType i = amgx::thrust::get<0>(t);
+    const IndexType j = amgx::thrust::get<1>(t);
 
     return i < num_rows && j != IndexType(-1);
   }
@@ -97,9 +97,9 @@ struct is_valid_coo_index
     __host__ __device__
   bool operator()(const Tuple& t) const
   {
-    const IndexType i = thrust::get<0>(t);
-    const IndexType j = thrust::get<1>(t);
-    const ValueType value = thrust::get<2>(t);
+    const IndexType i = amgx::thrust::get<0>(t);
+    const IndexType j = amgx::thrust::get<1>(t);
+    const ValueType value = amgx::thrust::get<2>(t);
 
     return ( i > IndexType(-1) && i < num_rows ) && 
 	   ( j > IndexType(-1) && j < num_cols ) && 
@@ -108,7 +108,7 @@ struct is_valid_coo_index
 };
 
 template <typename T>
-struct transpose_index_functor : public thrust::unary_function<T,T>
+struct transpose_index_functor : public amgx::thrust::unary_function<T,T>
 {
   const T num_entries_per_row;
   const T pitch;
@@ -137,15 +137,15 @@ struct occupied_diagonal_functor
     __host__ __device__
   IndexType operator()(const Tuple& t) const
   {
-    const IndexType i = thrust::get<0>(t);
-    const IndexType j = thrust::get<1>(t);
+    const IndexType i = amgx::thrust::get<0>(t);
+    const IndexType j = amgx::thrust::get<1>(t);
 
     return num_rows-i+j;
   }
 };
 
 template <typename IndexType>
-struct diagonal_index_functor : public thrust::unary_function<IndexType,IndexType>
+struct diagonal_index_functor : public amgx::thrust::unary_function<IndexType,IndexType>
 {
   const IndexType pitch;
 
@@ -156,29 +156,29 @@ struct diagonal_index_functor : public thrust::unary_function<IndexType,IndexTyp
     __host__ __device__
   IndexType operator()(const Tuple& t) const
   {
-    const IndexType row  = thrust::get<0>(t);
-    const IndexType diag = thrust::get<1>(t);
+    const IndexType row  = amgx::thrust::get<0>(t);
+    const IndexType diag = amgx::thrust::get<1>(t);
 
     return (diag * pitch) + row;
   }
 };
 
 template <typename T>
-struct sum_tuple_functor : public thrust::unary_function<T,T>
+struct sum_tuple_functor : public amgx::thrust::unary_function<T,T>
 {
   template <typename Tuple>
     __host__ __device__
   T operator()(const Tuple& t) const
   {
-    const T offset  = thrust::get<0>(t);
-    const T modulus = thrust::get<1>(t);
+    const T offset  = amgx::thrust::get<0>(t);
+    const T modulus = amgx::thrust::get<1>(t);
 
     return offset + modulus;
   }
 };
 
 template <typename T>
-struct multiply_value : public thrust::unary_function<T,T>
+struct multiply_value : public amgx::thrust::unary_function<T,T>
 {
   const T value;
 
@@ -193,7 +193,7 @@ struct multiply_value : public thrust::unary_function<T,T>
 };
 
 template <typename T>
-struct divide_value : public thrust::unary_function<T,T>
+struct divide_value : public amgx::thrust::unary_function<T,T>
 {
   const T value;
 
@@ -208,7 +208,7 @@ struct divide_value : public thrust::unary_function<T,T>
 };
 
 template <typename T>
-struct modulus_value : public thrust::unary_function<T,T>
+struct modulus_value : public amgx::thrust::unary_function<T,T>
 {
   const T value;
 
@@ -277,26 +277,26 @@ void ell_to_coo(const Matrix1& src, Matrix2& dst)
    const IndexType num_entries_per_row = src.column_indices.num_cols;
 
    // define types used to programatically generate row_indices
-   typedef typename thrust::counting_iterator<IndexType> IndexIterator;
-   typedef typename thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
+   typedef typename amgx::thrust::counting_iterator<IndexType> IndexIterator;
+   typedef typename amgx::thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
 
    RowIndexIterator row_indices_begin(IndexIterator(0), modulus_value<IndexType>(pitch));
 
    // compute true number of nonzeros in ELL
    const IndexType num_entries = 
-     thrust::count_if
-      (thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())),
-       thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())) + src.column_indices.values.size(),
+     amgx::thrust::count_if
+      (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())),
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())) + src.column_indices.values.size(),
        is_valid_ell_index<IndexType>(src.num_rows));
 
    // allocate output storage
    dst.resize(src.num_rows, src.num_cols, num_entries);
 
    // copy valid entries to COO format
-   thrust::copy_if
-     (thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))),
-      thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))) + src.column_indices.values.size(),
-      thrust::make_zip_iterator(thrust::make_tuple(dst.row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
+   amgx::thrust::copy_if
+     (amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))),
+      amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))) + src.column_indices.values.size(),
+      amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(dst.row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
       is_valid_ell_index<IndexType>(src.num_rows));
 }
 
@@ -316,42 +316,42 @@ void dia_to_coo(const Matrix1& src, Matrix2& dst)
    const size_t num_diagonals = src.diagonal_offsets.size();
 
    // define types used to programatically generate row_indices
-   typedef typename thrust::counting_iterator<IndexType> IndexIterator;
-   typedef typename thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
+   typedef typename amgx::thrust::counting_iterator<IndexType> IndexIterator;
+   typedef typename amgx::thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
 
    RowIndexIterator row_indices_begin(IndexIterator(0), modulus_value<IndexType>(pitch));
 
    // define types used to programatically generate column_indices
-   typedef typename thrust::device_vector<IndexType>::const_iterator ConstElementIterator;
-   typedef typename thrust::transform_iterator<divide_value<IndexType>, IndexIterator> DivideIterator;
-   typedef typename thrust::permutation_iterator<ConstElementIterator,DivideIterator> OffsetsPermIterator;
-   typedef typename thrust::tuple<OffsetsPermIterator, RowIndexIterator> IteratorTuple;
-   typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
-   typedef typename thrust::transform_iterator<sum_tuple_functor<IndexType>, ZipIterator> ColumnIndexIterator;
+   typedef typename amgx::thrust::device_vector<IndexType>::const_iterator ConstElementIterator;
+   typedef typename amgx::thrust::transform_iterator<divide_value<IndexType>, IndexIterator> DivideIterator;
+   typedef typename amgx::thrust::permutation_iterator<ConstElementIterator,DivideIterator> OffsetsPermIterator;
+   typedef typename amgx::thrust::tuple<OffsetsPermIterator, RowIndexIterator> IteratorTuple;
+   typedef typename amgx::thrust::zip_iterator<IteratorTuple> ZipIterator;
+   typedef typename amgx::thrust::transform_iterator<sum_tuple_functor<IndexType>, ZipIterator> ColumnIndexIterator;
 
    DivideIterator gather_indices_begin(IndexIterator(0), divide_value<IndexType>(pitch));
    OffsetsPermIterator offsets_begin(src.diagonal_offsets.begin(), gather_indices_begin);
-   ZipIterator offset_modulus_tuple(thrust::make_tuple(offsets_begin, row_indices_begin));
+   ZipIterator offset_modulus_tuple(amgx::thrust::make_tuple(offsets_begin, row_indices_begin));
    ColumnIndexIterator column_indices_begin(offset_modulus_tuple, sum_tuple_functor<IndexType>());
 
    // copy valid entries to COO format
-   //thrust::copy_if
-   //  (thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
-   //   thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
-   //   thrust::make_zip_iterator(thrust::make_tuple(dst.row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
+   //amgx::thrust::copy_if
+   //  (amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
+   //   amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
+   //   amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(dst.row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
    //   is_valid_coo_index<IndexType,ValueType>(src.num_rows,src.num_cols));
    {
      // TODO remove this when copy_if can accept more parameters
      cusp::array1d<IndexType, cusp::device_memory> temp0(num_entries);
      cusp::array1d<IndexType, cusp::device_memory> temp1(num_entries);
      cusp::array1d<ValueType, cusp::device_memory> temp2(num_entries);
-     thrust::copy(thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
-                  thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
-                  thrust::make_zip_iterator(thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())));
-     thrust::copy_if
-       (thrust::make_zip_iterator(thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())),
-        thrust::make_zip_iterator(thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())) + num_entries,
-        thrust::make_zip_iterator(thrust::make_tuple(dst.row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
+     amgx::thrust::copy(amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
+                  amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
+                  amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())));
+     amgx::thrust::copy_if
+       (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())),
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())) + num_entries,
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(dst.row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
         is_valid_coo_index<IndexType,ValueType>(src.num_rows,src.num_cols));
    }
 }
@@ -370,12 +370,12 @@ void hyb_to_coo(const Matrix1& src, Matrix2& dst)
    dst.resize(src.num_rows, src.num_cols, temp.num_entries + src.coo.num_entries);
 
    // merge coo matrices together
-   thrust::copy(temp.row_indices.begin(),    temp.row_indices.end(),    dst.row_indices.begin());
-   thrust::copy(temp.column_indices.begin(), temp.column_indices.end(), dst.column_indices.begin());
-   thrust::copy(temp.values.begin(),         temp.values.end(),         dst.values.begin());
-   thrust::copy(src.coo.row_indices.begin(),    src.coo.row_indices.end(),    dst.row_indices.begin()    + temp.num_entries);
-   thrust::copy(src.coo.column_indices.begin(), src.coo.column_indices.end(), dst.column_indices.begin() + temp.num_entries);
-   thrust::copy(src.coo.values.begin(),         src.coo.values.end(),         dst.values.begin()         + temp.num_entries);
+   amgx::thrust::copy(temp.row_indices.begin(),    temp.row_indices.end(),    dst.row_indices.begin());
+   amgx::thrust::copy(temp.column_indices.begin(), temp.column_indices.end(), dst.column_indices.begin());
+   amgx::thrust::copy(temp.values.begin(),         temp.values.end(),         dst.values.begin());
+   amgx::thrust::copy(src.coo.row_indices.begin(),    src.coo.row_indices.end(),    dst.row_indices.begin()    + temp.num_entries);
+   amgx::thrust::copy(src.coo.column_indices.begin(), src.coo.column_indices.end(), dst.column_indices.begin() + temp.num_entries);
+   amgx::thrust::copy(src.coo.values.begin(),         src.coo.values.end(),         dst.values.begin()         + temp.num_entries);
 
    if (temp.num_entries > 0 && src.coo.num_entries > 0)
      cusp::detail::sort_by_row_and_column(dst.row_indices, dst.column_indices, dst.values); 
@@ -405,16 +405,16 @@ void ell_to_csr(const Matrix1& src, Matrix2& dst)
    const IndexType num_entries_per_row = src.column_indices.num_cols;
 
    // define types used to programatically generate row_indices
-   typedef typename thrust::counting_iterator<IndexType> IndexIterator;
-   typedef typename thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
+   typedef typename amgx::thrust::counting_iterator<IndexType> IndexIterator;
+   typedef typename amgx::thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
 
    RowIndexIterator row_indices_begin(IndexIterator(0), modulus_value<IndexType>(pitch));
 
    // compute true number of nonzeros in ELL
    const IndexType num_entries = 
-     thrust::count_if
-      (thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())),
-       thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())) + src.column_indices.values.size(),
+     amgx::thrust::count_if
+      (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())),
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin())) + src.column_indices.values.size(),
        is_valid_ell_index<IndexType>(src.num_rows));
 
    // allocate output storage
@@ -424,10 +424,10 @@ void ell_to_csr(const Matrix1& src, Matrix2& dst)
    cusp::array1d<IndexType, cusp::device_memory> row_indices(num_entries);
 
    // copy valid entries to mixed COO/CSR format
-   thrust::copy_if
-     (thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))),
-      thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))) + src.column_indices.values.size(),
-      thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
+   amgx::thrust::copy_if
+     (amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))),
+      amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, src.column_indices.values.begin(), src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_entries_per_row))) + src.column_indices.values.size(),
+      amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
       is_valid_ell_index<IndexType>(src.num_rows));
 
    // convert COO row_indices to CSR row_offsets
@@ -450,22 +450,22 @@ void dia_to_csr(const Matrix1& src, Matrix2& dst)
    const size_t num_diagonals = src.diagonal_offsets.size();
 
    // define types used to programatically generate row_indices
-   typedef typename thrust::counting_iterator<IndexType> IndexIterator;
-   typedef typename thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
+   typedef typename amgx::thrust::counting_iterator<IndexType> IndexIterator;
+   typedef typename amgx::thrust::transform_iterator<modulus_value<IndexType>, IndexIterator> RowIndexIterator;
 
    RowIndexIterator row_indices_begin(IndexIterator(0), modulus_value<IndexType>(pitch));
 
    // define types used to programatically generate column_indices
-   typedef typename thrust::device_vector<IndexType>::const_iterator ConstElementIterator;
-   typedef typename thrust::transform_iterator<divide_value<IndexType>, IndexIterator> DivideIterator;
-   typedef typename thrust::permutation_iterator<ConstElementIterator,DivideIterator> OffsetsPermIterator;
-   typedef typename thrust::tuple<OffsetsPermIterator, RowIndexIterator> IteratorTuple;
-   typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
-   typedef typename thrust::transform_iterator<sum_tuple_functor<IndexType>, ZipIterator> ColumnIndexIterator;
+   typedef typename amgx::thrust::device_vector<IndexType>::const_iterator ConstElementIterator;
+   typedef typename amgx::thrust::transform_iterator<divide_value<IndexType>, IndexIterator> DivideIterator;
+   typedef typename amgx::thrust::permutation_iterator<ConstElementIterator,DivideIterator> OffsetsPermIterator;
+   typedef typename amgx::thrust::tuple<OffsetsPermIterator, RowIndexIterator> IteratorTuple;
+   typedef typename amgx::thrust::zip_iterator<IteratorTuple> ZipIterator;
+   typedef typename amgx::thrust::transform_iterator<sum_tuple_functor<IndexType>, ZipIterator> ColumnIndexIterator;
 
    DivideIterator gather_indices_begin(IndexIterator(0), divide_value<IndexType>(pitch));
    OffsetsPermIterator offsets_begin(src.diagonal_offsets.begin(), gather_indices_begin);
-   ZipIterator offset_modulus_tuple(thrust::make_tuple(offsets_begin, row_indices_begin));
+   ZipIterator offset_modulus_tuple(amgx::thrust::make_tuple(offsets_begin, row_indices_begin));
    ColumnIndexIterator column_indices_begin(offset_modulus_tuple, sum_tuple_functor<IndexType>());
 
    cusp::array1d<IndexType, cusp::device_memory> row_indices(src.num_entries);
@@ -476,19 +476,19 @@ void dia_to_csr(const Matrix1& src, Matrix2& dst)
      cusp::array1d<IndexType, cusp::device_memory> temp0(num_entries);
      cusp::array1d<IndexType, cusp::device_memory> temp1(num_entries);
      cusp::array1d<ValueType, cusp::device_memory> temp2(num_entries);
-     thrust::copy(thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
-                  thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
-                  thrust::make_zip_iterator(thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())));
-     thrust::copy_if
-       (thrust::make_zip_iterator(thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())),
-        thrust::make_zip_iterator(thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())) + num_entries,
-        thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
+     amgx::thrust::copy(amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
+                  amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
+                  amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())));
+     amgx::thrust::copy_if
+       (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())),
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp0.begin(), temp1.begin(), temp2.begin())) + num_entries,
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
         is_valid_coo_index<IndexType,ValueType>(src.num_rows,src.num_cols));
    }
-   //thrust::copy_if
-   //  (thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
-   //   thrust::make_permutation_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), thrust::make_transform_iterator(thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
-   //   thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
+   //amgx::thrust::copy_if
+   //  (amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))),
+   //   amgx::thrust::make_permutation_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices_begin, column_indices_begin, src.values.values.begin())), amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<IndexType>(0), transpose_index_functor<IndexType>(pitch, num_diagonals))) + num_entries,
+   //   amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), dst.column_indices.begin(), dst.values.begin())),
    //   is_valid_coo_index<IndexType,ValueType>(src.num_rows,src.num_cols));
 
     cusp::detail::indices_to_offsets( row_indices, dst.row_offsets );
@@ -507,29 +507,29 @@ void coo_to_dia(const Matrix1& src, Matrix2& dst,
 
     // compute number of occupied diagonals and enumerate them
     cusp::array1d<IndexType,cusp::device_memory> diag_map(src.num_entries);
-    thrust::transform(thrust::make_zip_iterator( thrust::make_tuple( src.row_indices.begin(), src.column_indices.begin() ) ), 
-		      thrust::make_zip_iterator( thrust::make_tuple( src.row_indices.end()  , src.column_indices.end() ) )  ,
+    amgx::thrust::transform(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.begin(), src.column_indices.begin() ) ),
+		      amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.end()  , src.column_indices.end() ) )  ,
 		      diag_map.begin(),
 		      occupied_diagonal_functor<IndexType>(src.num_rows)); 
 
     // place ones in diagonals array locations with occupied diagonals
     cusp::array1d<IndexType,cusp::device_memory> diagonals(src.num_rows+src.num_cols,IndexType(0));
-    thrust::scatter(thrust::constant_iterator<IndexType>(1), 
-		    thrust::constant_iterator<IndexType>(1)+src.num_entries, 
+    amgx::thrust::scatter(amgx::thrust::constant_iterator<IndexType>(1),
+		    amgx::thrust::constant_iterator<IndexType>(1)+src.num_entries,
 		    diag_map.begin(),
 		    diagonals.begin());
 
-    const IndexType num_diagonals = thrust::reduce(diagonals.begin(), diagonals.end());
+    const IndexType num_diagonals = amgx::thrust::reduce(diagonals.begin(), diagonals.end());
 
     // allocate DIA structure
     dst.resize(src.num_rows, src.num_cols, src.num_entries, num_diagonals, alignment);
 
     // fill in values array
-    thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
+    amgx::thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
 
     // fill in diagonal_offsets array
-    thrust::copy_if(thrust::counting_iterator<IndexType>(0), 
-		    thrust::counting_iterator<IndexType>(src.num_rows+src.num_cols),
+    amgx::thrust::copy_if(amgx::thrust::counting_iterator<IndexType>(0),
+		    amgx::thrust::counting_iterator<IndexType>(src.num_rows+src.num_cols),
 		    diagonals.begin(),
 		    dst.diagonal_offsets.begin(), 
 		    is_positive<IndexType>()); 
@@ -537,19 +537,19 @@ void coo_to_dia(const Matrix1& src, Matrix2& dst,
     // replace shifted diagonals with index of diagonal in offsets array
     cusp::array1d<IndexType,cusp::host_memory> diagonal_offsets( dst.diagonal_offsets );
     for( IndexType num_diag = 0; num_diag < num_diagonals; num_diag++ )
-	thrust::replace(diag_map.begin(), diag_map.end(), diagonal_offsets[num_diag], num_diag);
+	amgx::thrust::replace(diag_map.begin(), diag_map.end(), diagonal_offsets[num_diag], num_diag);
 
     // copy values to dst
-    thrust::scatter(src.values.begin(), src.values.end(),
-		    thrust::make_transform_iterator(
-				thrust::make_zip_iterator( thrust::make_tuple( src.row_indices.begin(), diag_map.begin() ) ), 
+    amgx::thrust::scatter(src.values.begin(), src.values.end(),
+		    amgx::thrust::make_transform_iterator(
+				amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.begin(), diag_map.begin() ) ),
 				diagonal_index_functor<IndexType>(dst.values.pitch)), 
                     dst.values.values.begin());
 
 
-    typedef typename cusp::array1d_view< thrust::constant_iterator<IndexType> > ConstantView;
-    ConstantView constant_view(thrust::constant_iterator<IndexType>(dst.num_rows),
-			       thrust::constant_iterator<IndexType>(dst.num_rows)+num_diagonals);
+    typedef typename cusp::array1d_view< amgx::thrust::constant_iterator<IndexType> > ConstantView;
+    ConstantView constant_view(amgx::thrust::constant_iterator<IndexType>(dst.num_rows),
+			       amgx::thrust::constant_iterator<IndexType>(dst.num_rows)+num_diagonals);
     cusp::blas::axpy(constant_view,
 		     dst.diagonal_offsets,
 		     IndexType(-1));
@@ -567,29 +567,29 @@ void csr_to_dia(const Matrix1& src, Matrix2& dst,
     cusp::detail::offsets_to_indices(src.row_offsets, row_indices);
 
     cusp::array1d<IndexType,cusp::device_memory> diag_map(src.num_entries);
-    thrust::transform(thrust::make_zip_iterator( thrust::make_tuple( row_indices.begin(), src.column_indices.begin() ) ), 
-		      thrust::make_zip_iterator( thrust::make_tuple( row_indices.end()  , src.column_indices.end() ) )  ,
+    amgx::thrust::transform(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), src.column_indices.begin() ) ),
+		      amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.end()  , src.column_indices.end() ) )  ,
 		      diag_map.begin(),
 		      occupied_diagonal_functor<IndexType>(src.num_rows)); 
 
     // place ones in diagonals array locations with occupied diagonals
     cusp::array1d<IndexType,cusp::device_memory> diagonals(src.num_rows+src.num_cols,IndexType(0));
-    thrust::scatter(thrust::constant_iterator<IndexType>(1), 
-		    thrust::constant_iterator<IndexType>(1)+src.num_entries, 
+    amgx::thrust::scatter(amgx::thrust::constant_iterator<IndexType>(1),
+		    amgx::thrust::constant_iterator<IndexType>(1)+src.num_entries,
 		    diag_map.begin(),
 		    diagonals.begin());
 
-    const IndexType num_diagonals = thrust::reduce(diagonals.begin(), diagonals.end());
+    const IndexType num_diagonals = amgx::thrust::reduce(diagonals.begin(), diagonals.end());
 
     // allocate DIA structure
     dst.resize(src.num_rows, src.num_cols, src.num_entries, num_diagonals, alignment);
 
     // fill in values array
-    thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
+    amgx::thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
 
     // fill in diagonal_offsets array
-    thrust::copy_if(thrust::counting_iterator<IndexType>(0), 
-		    thrust::counting_iterator<IndexType>(src.num_rows+src.num_cols),
+    amgx::thrust::copy_if(amgx::thrust::counting_iterator<IndexType>(0),
+		    amgx::thrust::counting_iterator<IndexType>(src.num_rows+src.num_cols),
 		    diagonals.begin(),
 		    dst.diagonal_offsets.begin(), 
 		    is_positive<IndexType>()); 
@@ -597,20 +597,20 @@ void csr_to_dia(const Matrix1& src, Matrix2& dst,
     // replace shifted diagonals with index of diagonal in offsets array
     cusp::array1d<IndexType,cusp::host_memory> diagonal_offsets( dst.diagonal_offsets );
     for( IndexType num_diag = 0; num_diag < num_diagonals; num_diag++ )
-	thrust::replace(diag_map.begin(), diag_map.end(), diagonal_offsets[num_diag], num_diag);
+	amgx::thrust::replace(diag_map.begin(), diag_map.end(), diagonal_offsets[num_diag], num_diag);
 
     // copy values to dst
-    thrust::scatter(src.values.begin(), src.values.end(),
-		    thrust::make_transform_iterator(
-				thrust::make_zip_iterator( thrust::make_tuple( row_indices.begin(), diag_map.begin() ) ), 
+    amgx::thrust::scatter(src.values.begin(), src.values.end(),
+		    amgx::thrust::make_transform_iterator(
+				amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), diag_map.begin() ) ),
 				diagonal_index_functor<IndexType>(dst.values.pitch)), 
                     dst.values.values.begin());
 
     // shift diagonal_offsets by num_rows 
 
-    typedef typename cusp::array1d_view< thrust::constant_iterator<IndexType> > ConstantView;
-    ConstantView constant_view(thrust::constant_iterator<IndexType>(dst.num_rows),
-			       thrust::constant_iterator<IndexType>(dst.num_rows)+num_diagonals);
+    typedef typename cusp::array1d_view< amgx::thrust::constant_iterator<IndexType> > ConstantView;
+    ConstantView constant_view(amgx::thrust::constant_iterator<IndexType>(dst.num_rows),
+			       amgx::thrust::constant_iterator<IndexType>(dst.num_rows)+num_diagonals);
     cusp::blas::axpy(constant_view,
 		     dst.diagonal_offsets,
 		     IndexType(-1));
@@ -640,8 +640,8 @@ void coo_to_ell(const Matrix1& src, Matrix2& dst,
   // first enumerate the entries within each row, e.g. [0, 1, 2, 0, 1, 2, 3, ...]
   cusp::array1d<IndexType, cusp::device_memory> permutation(src.num_entries);
 
-  thrust::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
-                                thrust::constant_iterator<IndexType>(1),
+  amgx::thrust::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
+                                amgx::thrust::constant_iterator<IndexType>(1),
                                 permutation.begin(),
                                 IndexType(0));
  
@@ -652,14 +652,14 @@ void coo_to_ell(const Matrix1& src, Matrix2& dst,
                     IndexType(1));
 
   // fill output with padding
-  thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
-  thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
+  amgx::thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
+  amgx::thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
 
   // scatter COO entries to ELL
-  thrust::scatter(src.column_indices.begin(), src.column_indices.end(),
+  amgx::thrust::scatter(src.column_indices.begin(), src.column_indices.end(),
                   permutation.begin(),
                   dst.column_indices.values.begin());
-  thrust::scatter(src.values.begin(), src.values.end(),
+  amgx::thrust::scatter(src.values.begin(), src.values.end(),
                   permutation.begin(),
                   dst.values.values.begin());
 }
@@ -681,8 +681,8 @@ void csr_to_ell(const Matrix1& src, Matrix2& dst,
   // compute permutation from CSR index to ELL index
   // first enumerate the entries within each row, e.g. [0, 1, 2, 0, 1, 2, 3, ...]
   cusp::array1d<IndexType, cusp::device_memory> permutation(src.num_entries);
-  thrust::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
-                                thrust::constant_iterator<IndexType>(1),
+  amgx::thrust::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
+                                amgx::thrust::constant_iterator<IndexType>(1),
                                 permutation.begin(),
                                 IndexType(0));
   
@@ -693,14 +693,14 @@ void csr_to_ell(const Matrix1& src, Matrix2& dst,
                     IndexType(1));
 
   // fill output with padding
-  thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
-  thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
+  amgx::thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
+  amgx::thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
 
   // scatter CSR entries to ELL
-  thrust::scatter(src.column_indices.begin(), src.column_indices.end(),
+  amgx::thrust::scatter(src.column_indices.begin(), src.column_indices.end(),
                   permutation.begin(),
                   dst.column_indices.values.begin());
-  thrust::scatter(src.values.begin(), src.values.end(),
+  amgx::thrust::scatter(src.values.begin(), src.values.end(),
                   permutation.begin(),
                   dst.values.values.begin());
 }
@@ -718,27 +718,27 @@ void coo_to_hyb(const Matrix1& src, Matrix2& dst,
   typedef typename Matrix2::value_type ValueType;
 
   cusp::array1d<IndexType, cusp::device_memory> indices(src.num_entries);
-  thrust::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
-                                thrust::constant_iterator<IndexType>(1),
+  amgx::thrust::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
+                                amgx::thrust::constant_iterator<IndexType>(1),
                                 indices.begin(),
                                 IndexType(0));
 
-  size_t num_coo_entries = thrust::count_if(indices.begin(), indices.end(), greater_than_or_equal_to<size_t>(num_entries_per_row));
+  size_t num_coo_entries = amgx::thrust::count_if(indices.begin(), indices.end(), greater_than_or_equal_to<size_t>(num_entries_per_row));
   size_t num_ell_entries = src.num_entries - num_coo_entries;
 
   // allocate output storage
   dst.resize(src.num_rows, src.num_cols, num_ell_entries, num_coo_entries, num_entries_per_row, alignment);
 
   // fill output with padding
-  thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
-  thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
+  amgx::thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
+  amgx::thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
 
   // write tail of each row to COO portion
-  thrust::copy_if
-      (thrust::make_zip_iterator( thrust::make_tuple( src.row_indices.begin(), src.column_indices.begin(), src.values.begin() ) ),
-       thrust::make_zip_iterator( thrust::make_tuple( src.row_indices.end()  , src.column_indices.end()  , src.values.end()   ) ),
+  amgx::thrust::copy_if
+      (amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.begin(), src.column_indices.begin(), src.values.begin() ) ),
+       amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.end()  , src.column_indices.end()  , src.values.end()   ) ),
        indices.begin(),
-       thrust::make_zip_iterator( thrust::make_tuple( dst.coo.row_indices.begin(), dst.coo.column_indices.begin(), dst.coo.values.begin() ) ),
+       amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( dst.coo.row_indices.begin(), dst.coo.column_indices.begin(), dst.coo.values.begin() ) ),
        greater_than_or_equal_to<size_t>(num_entries_per_row) );
 
   assert(dst.ell.column_indices.pitch == dst.ell.values.pitch);
@@ -752,22 +752,22 @@ void coo_to_hyb(const Matrix1& src, Matrix2& dst,
                     IndexType(1));
 
   // scatter COO entries to ELL
-  thrust::scatter_if(src.column_indices.begin(), src.column_indices.end(),
+  amgx::thrust::scatter_if(src.column_indices.begin(), src.column_indices.end(),
                      indices.begin(),
                      indices.begin(),
                      dst.ell.column_indices.values.begin(),
                      less_than<size_t>(dst.ell.column_indices.values.size()));
-  thrust::scatter_if(src.values.begin(), src.values.end(),
+  amgx::thrust::scatter_if(src.values.begin(), src.values.end(),
                      indices.begin(),
                      indices.begin(),
                      dst.ell.values.values.begin(),
                      less_than<size_t>(dst.ell.values.values.size()));
 //// fused version appears to be slightly slower                     
-//  thrust::scatter_if(thrust::make_zip_iterator(thrust::make_tuple(src.column_indices.begin(), src.values.begin())),
-//                     thrust::make_zip_iterator(thrust::make_tuple(src.column_indices.end(),   src.values.end())),
+//  amgx::thrust::scatter_if(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(src.column_indices.begin(), src.values.begin())),
+//                     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(src.column_indices.end(),   src.values.end())),
 //                     indices.begin(),
 //                     indices.begin(),
-//                     thrust::make_zip_iterator(thrust::make_tuple(dst.ell.column_indices.values.begin(), dst.ell.values.values.begin())),
+//                     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(dst.ell.column_indices.values.begin(), dst.ell.values.values.begin())),
 //                     less_than<size_t>(dst.ell.column_indices.values.size()));
 }
 
@@ -785,25 +785,25 @@ void csr_to_hyb(const Matrix1& src, Matrix2& dst,
   // TODO call coo_to_hyb with a coo_matrix_view
 
   cusp::array1d<IndexType, cusp::device_memory> indices(src.num_entries);
-  thrust::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
-                                thrust::constant_iterator<IndexType>(1),
+  amgx::thrust::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
+                                amgx::thrust::constant_iterator<IndexType>(1),
                                 indices.begin(),
                                 IndexType(0));
 
-  size_t num_coo_entries = thrust::count_if(indices.begin(), indices.end(), greater_than_or_equal_to<size_t>(num_entries_per_row));
+  size_t num_coo_entries = amgx::thrust::count_if(indices.begin(), indices.end(), greater_than_or_equal_to<size_t>(num_entries_per_row));
   size_t num_ell_entries = src.num_entries - num_coo_entries;
 
   // allocate output storage
   dst.resize(src.num_rows, src.num_cols, num_ell_entries, num_coo_entries, num_entries_per_row, alignment);
 
   // fill output with padding
-  thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
-  thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
+  amgx::thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
+  amgx::thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
 
-  thrust::copy_if(thrust::make_zip_iterator( thrust::make_tuple( row_indices.begin(), src.column_indices.begin(), src.values.begin() ) ),
-  		  thrust::make_zip_iterator( thrust::make_tuple( row_indices.end()  , src.column_indices.end()  , src.values.end()   ) ),
+  amgx::thrust::copy_if(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), src.column_indices.begin(), src.values.begin() ) ),
+		  amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.end()  , src.column_indices.end()  , src.values.end()   ) ),
                   indices.begin(),
-  		  thrust::make_zip_iterator( thrust::make_tuple( dst.coo.row_indices.begin(), dst.coo.column_indices.begin(), dst.coo.values.begin() ) ),
+		  amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( dst.coo.row_indices.begin(), dst.coo.column_indices.begin(), dst.coo.values.begin() ) ),
 		  greater_than_or_equal_to<size_t>(num_entries_per_row) );
 
   // next, scale by pitch and add row index
@@ -813,12 +813,12 @@ void csr_to_hyb(const Matrix1& src, Matrix2& dst,
                     IndexType(1));
 
   // scatter CSR entries to ELL
-  thrust::scatter_if(src.column_indices.begin(), src.column_indices.end(),
+  amgx::thrust::scatter_if(src.column_indices.begin(), src.column_indices.end(),
                      indices.begin(),
                      indices.begin(),
                      dst.ell.column_indices.values.begin(),
 		     less_than<size_t>(dst.ell.column_indices.values.size()));
-  thrust::scatter_if(src.values.begin(), src.values.end(),
+  amgx::thrust::scatter_if(src.values.begin(), src.values.end(),
                      indices.begin(),
                      indices.begin(),
                      dst.ell.values.values.begin(),

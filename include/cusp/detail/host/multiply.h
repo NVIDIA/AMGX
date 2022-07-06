@@ -131,7 +131,7 @@ void multiply(const Matrix&  A,
     typedef typename Vector2::value_type ValueType;
 
     cusp::detail::host::spmv_ell(A.ell, B, C);
-    cusp::detail::host::spmv_coo(A.coo, B, C, thrust::identity<ValueType>(), thrust::multiplies<ValueType>(), thrust::plus<ValueType>());
+    cusp::detail::host::spmv_coo(A.coo, B, C, amgx::thrust::identity<ValueType>(), amgx::thrust::multiplies<ValueType>(), amgx::thrust::plus<ValueType>());
 }
 
 ////////////////////////////////////////

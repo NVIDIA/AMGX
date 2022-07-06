@@ -143,9 +143,9 @@ void __spmv_csr_vector(const Matrix&    A,
 
     spmv_csr_vector_kernel<IndexType, ValueType, VECTORS_PER_BLOCK, THREADS_PER_VECTOR, UseCache> <<<NUM_BLOCKS, THREADS_PER_BLOCK>>> 
         (A.num_rows,
-         thrust::raw_pointer_cast(&A.row_offsets[0]),
-         thrust::raw_pointer_cast(&A.column_indices[0]),
-         thrust::raw_pointer_cast(&A.values[0]),
+         amgx::thrust::raw_pointer_cast(&A.row_offsets[0]),
+         amgx::thrust::raw_pointer_cast(&A.column_indices[0]),
+         amgx::thrust::raw_pointer_cast(&A.values[0]),
          x, y);
 
     if (UseCache)

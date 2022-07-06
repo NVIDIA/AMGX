@@ -42,7 +42,7 @@ size_t count_diagonals(const Matrix& csr, cusp::csr_format)
 {
     typedef typename Matrix::index_type IndexType;
 
-    cusp::array1d<bool,cusp::host_memory> occupied_diagonals(csr.num_rows + csr.num_cols, false);
+    cusp::array1d<bool,amgx::thrust::host_system_tag> occupied_diagonals(csr.num_rows + csr.num_cols, false);
 
     for(size_t i = 0; i < csr.num_rows; i++)
     {
@@ -53,7 +53,7 @@ size_t count_diagonals(const Matrix& csr, cusp::csr_format)
         }
     }
 
-    return thrust::count(occupied_diagonals.begin(), occupied_diagonals.end(), true);
+    return amgx::thrust::count(occupied_diagonals.begin(), occupied_diagonals.end(), true);
 }
 
 template <typename Matrix>

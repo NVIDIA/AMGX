@@ -171,7 +171,6 @@ endif()
 
 # Add the build-specific flags to the NVCC flags
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPP_BUILD_NAME)
-
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}})
 
 # Add errors for execution space warnings and enable NVTX ranges
@@ -260,15 +259,19 @@ if (MKL_ROOT_DIR)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
+# set up thrust
+find_package(Thrust 1.17.0 REQUIRED)
+thrust_create_target(Thrust)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
 
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
 
-FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/src/tests/*.cu")
-
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+
+target_link_libraries(amgx_libs Thrust)
 
 target_compile_options(amgx_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
@@ -303,6 +306,7 @@ if (MAGMA_ROOT_DIR)
   target_link_libraries(amgx   ${magma_libs})
   target_link_libraries(amgxsh ${magma_libs})
 endif(MAGMA_ROOT_DIR)
+
 #link lapack (MKL)
 if (MKL_ROOT_DIR)
   target_link_libraries(amgx   ${mkl_libs} )
@@ -310,6 +314,7 @@ if (MKL_ROOT_DIR)
 endif(MKL_ROOT_DIR)
 
 # set arch for main libs
+
 set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 

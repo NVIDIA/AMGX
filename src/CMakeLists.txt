@@ -70,7 +70,7 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCGF_CLASSICAL_W_JACOBI.json"
     DESTINATION "lib/configs")
 
-set(AMGX_INCLUDES ${THRUST_DIR} ../include)
+set(AMGX_INCLUDES ../include)
 
 set(tests_all ${tests_all} testframework.cu test_utils.cu unit_test.cu)
 

@@ -1006,13 +1006,11 @@ void Classical_AMG_Level_Base<T_Config>::unconsolidateVector(VVector &x)
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class Classical_AMG_Level_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Classical_AMG_Level_Base<TConfigGeneric_d>;
+template class Classical_AMG_Level_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Classical_AMG_Level<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Classical_AMG_Level<TConfigGeneric_d>;
+template class Classical_AMG_Level<TConfigGeneric_h>;
 
 } // namespace classical
 

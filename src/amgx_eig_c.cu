@@ -51,119 +51,61 @@ AMGX_RC getResourcesFromEigenSolverHandle(AMGX_eigensolver_handle slv, Resources
 
     try
     {
-        AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(slv);
-
-        switch (mode)
-        {
-#define AMGX_CASE_LINE(CASE) case CASE: { \
-        *resources = get_mode_object_from<CASE, AMG_EigenSolver, AMGX_eigensolver_handle>(slv)->getResources();\
-        } \
-        break;
-                AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-            default:
-                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
-        }
+        auto& slv_wrp = *((CWrapHandle<AMGX_eigensolver_handle, AMG_EigenSolver<TConfigGeneric>>*)slv)->wrapped();
+        *resources = slv_wrp.getResources();
     }
-
     AMGX_CATCHES(rc)
     AMGX_CHECK_API_ERROR(rc, NULL)
     return AMGX_RC_OK;
 }
 
-template<AMGX_Mode CASE,
-         template<typename> class SolverType,
-         template<typename> class MatrixType>
 inline AMGX_ERROR eigensolve_setup(AMGX_eigensolver_handle slv,
                                    AMGX_matrix_handle mtx,
                                    Resources *resources)
 {
-    typedef SolverType<typename TemplateMode<CASE>::Type> SolverLetterT;
-    typedef CWrapHandle<AMGX_eigensolver_handle, SolverLetterT> SolverW;
-    typedef MatrixType<typename TemplateMode<CASE>::Type> MatrixLetterT;
-    typedef CWrapHandle<AMGX_matrix_handle, MatrixLetterT> MatrixW;
-    MatrixW wrapA(mtx);
-    MatrixLetterT &A = *wrapA.wrapped();
-    SolverW wrapSolver(slv);
-    SolverLetterT &solver = *wrapSolver.wrapped();
+    auto& solver = *((CWrapHandle<AMGX_eigensolver_handle, AMG_EigenSolver<TConfigGeneric>>*)slv)->wrapped();
+    auto& A_wrp = ((CWrapHandle<AMGX_matrix_handle, Matrix<TConfigGeneric>>*)mtx)->wrapped();
 
-    if (wrapA.mode() != wrapSolver.mode() )
-    {
-        FatalError("Error: mismatch between Matrix mode and Solver Mode.\n", AMGX_ERR_BAD_PARAMETERS);
-    }
-
-    if (A.getResources() != solver.getResources())
+    if (A_wrp->getResources() != solver.getResources())
     {
         FatalError("Error: matrix and solver use different resources object, exiting", AMGX_ERR_BAD_PARAMETERS);
     }
 
-    //cudaSetDevice(solver.getResources()->getDevice(0));
-    return solver.setup_capi_no_throw(wrapA.wrapped());
+    return solver.setup_capi_no_throw(A_wrp);
 }
 
 
-template<AMGX_Mode CASE,
-         template<typename> class SolverType,
-         template<typename> class VectorType>
 inline AMGX_ERROR eigensolve_setup_pagerank(AMGX_eigensolver_handle slv,
         AMGX_vector_handle a,
         Resources *resources)
 {
-    typedef SolverType<typename TemplateMode<CASE>::Type> SolverLetterT;
-    typedef CWrapHandle<AMGX_eigensolver_handle, SolverLetterT> SolverW;
-    typedef VectorType<typename TemplateMode<CASE>::Type> VectorLetterT;
-    typedef CWrapHandle<AMGX_vector_handle, VectorLetterT> VectorW;
-    VectorW wrapA(a);
-    VectorLetterT &vec = *wrapA.wrapped();
-    SolverW wrapSolver(slv);
-    SolverLetterT &solver = *wrapSolver.wrapped();
+    auto& solver = ((CWrapHandle<AMGX_eigensolver_handle, AMG_EigenSolver<TConfigGeneric>>*)slv)->wrapped();
+    auto& vec_wrp = ((CWrapHandle<AMGX_vector_handle, Vector<TConfigGeneric>>*)a)->wrapped();
 
-    if (wrapA.mode() != wrapSolver.mode() )
-    {
-        FatalError("Error: mismatch between Matrix mode and Solver Mode.\n", AMGX_ERR_BAD_PARAMETERS);
-    }
-
-    if (vec.getResources() != solver.getResources())
+    if (vec_wrp->getResources() != solver->getResources())
     {
         FatalError("Error: matrix and solver use different resources object, exiting", AMGX_ERR_BAD_PARAMETERS);
     }
 
-    //cudaSetDevice(solver.getResources()->getDevice(0));
-    return solver.pagerank_setup_no_throw(vec);
+    return solver->pagerank_setup_no_throw(*vec_wrp);
 }
 
 
 
-template<AMGX_Mode CASE,
-         template<typename> class SolverType,
-         template<typename> class VectorType>
 inline AMGX_ERROR eigensolve_solve(AMGX_eigensolver_handle slv,
                                    AMGX_vector_handle sol,
                                    Resources *resources)
 {
-    typedef SolverType<typename TemplateMode<CASE>::Type> SolverLetterT;
-    typedef CWrapHandle<AMGX_eigensolver_handle, SolverLetterT> SolverW;
-    typedef VectorType<typename TemplateMode<CASE>::Type> VectorLetterT;
-    typedef CWrapHandle<AMGX_vector_handle, VectorLetterT> VectorW;
-    SolverW wrapSolver(slv);
-    SolverLetterT &solver = *wrapSolver.wrapped();
-    VectorW wrapSol(sol);
-    VectorLetterT &x = *wrapSol.wrapped();
+    auto& slv_wrp = ((CWrapHandle<AMGX_eigensolver_handle, AMG_EigenSolver<TConfigGeneric>>*)slv)->wrapped();
+    auto& x_wrp = ((CWrapHandle<AMGX_vector_handle, Vector<TConfigGeneric>>*)sol)->wrapped();
 
-    if (wrapSol.mode() != wrapSolver.mode())
-    {
-        FatalError("Error: mismatch between X mode and Solver Mode.\n", AMGX_ERR_BAD_PARAMETERS);
-    }
-
-    if (x.getResources() != solver.getResources())
+    if (x_wrp->getResources() != slv_wrp->getResources())
     {
         FatalError("Error: Inconsistency between solver and sol resources object, exiting", AMGX_ERR_BAD_PARAMETERS);
     }
 
     AMGX_STATUS solve_status;
-    AMGX_ERROR ret = solver.solve_no_throw(x, solve_status);
+    AMGX_ERROR ret = slv_wrp->solve_no_throw(*x_wrp, solve_status);
     return ret;
 }
 
@@ -177,47 +119,37 @@ extern "C" {
     typedef CWrapHandle<AMGX_config_handle, AMG_Configuration> ConfigW;
     typedef CWrapHandle<AMGX_resources_handle, Resources> ResourceW;
 
-    AMGX_RC AMGX_eigensolver_create(AMGX_eigensolver_handle *ret, AMGX_resources_handle rsc, AMGX_Mode mode, const AMGX_config_handle config_eigensolver)
+    AMGX_RC AMGX_eigensolver_create(AMGX_eigensolver_handle *slv, AMGX_resources_handle rsc, const AMGX_config_handle config_eigensolver)
     {
         AMGX_ERROR rc = AMGX_OK;
-        AMGX_RC rc_solver;
         Resources *resources = NULL;
 
         try
         {
-            ///amgx::CWrapper<AMGX_resources_handle> *c_resources= (amgx::CWrapper<AMGX_resources_handle>*)rsc;
-            ResourceW c_r(rsc);
-            ConfigW cfg(config_eigensolver);
+            auto* config = ((CWrapHandle<AMGX_config_handle, AMG_Configuration>*)config_eigensolver)->wrapped().get();
 
-            ///if (!c_resources)
-            if (!c_r.wrapped())
+            auto& resrcs = ((CWrapHandle<AMGX_resources_handle, Resources>*)rsc)->wrapped();
+
+            if (!resrcs)
             {
                 AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);    //return AMGX_RC_BAD_PARAMETERS;
             }
 
-            resources = c_r.wrapped().get();/// (Resources*)(c_resources->hdl);
-            cudaSetDevice(resources->getDevice(0));//because solver cnstr allocates resources on the device
+            resources = resrcs.get();
+            cudaSetDevice(resources->getDevice(0)); //because solver cnstr allocates resources on the device
 
-            switch (mode)
-            {
-#define AMGX_CASE_LINE(CASE) case CASE: {       \
-             auto* solver = create_managed_mode_object<CASE, AMG_EigenSolver, AMGX_eigensolver_handle>(ret, mode, resources, cfg.wrapped().get()); \
-             solver->set_last_solve_status(AMGX_ST_ERROR); \
-             rc_solver = solver->is_valid() ? AMGX_RC_OK : AMGX_RC_UNKNOWN; \
-           }            \
-      break;
-                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+            using Solver = AMG_EigenSolver<TConfigGeneric>;
+            using SolveHandle = CWrapHandle<AMGX_eigensolver_handle, Solver>;
+            auto* solver = get_mem_manager<SolveHandle>().
+                template allocate<SolveHandle>(new Solver(resources, config)).get();
 
-                default:
-                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources)
-            }
+            solver->set_last_solve_status(AMGX_ST_ERROR);
+
+            *slv = (AMGX_eigensolver_handle)solver;
         }
-
         AMGX_CATCHES(rc)
         AMGX_CHECK_API_ERROR(rc, resources);
-        return rc_solver;
+        return AMGX_RC_OK;
     }
 
     AMGX_RC AMGX_eigensolver_setup(AMGX_eigensolver_handle eigensolver, AMGX_matrix_handle mtx)
@@ -228,24 +160,8 @@ extern "C" {
 
         try
         {
-            AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
-
-            switch (mode)
-            {
-#define AMGX_CASE_LINE(CASE) case CASE: { \
-      typedef TemplateMode<CASE>::Type TConfig; \
-      eigensolve_setup<CASE, AMG_EigenSolver, Matrix>(eigensolver, mtx, resources); \
-      break;\
+            eigensolve_setup(eigensolver, mtx, resources);
         }
-                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-                default:
-                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources) \
-            }
-        }
-
         AMGX_CATCHES(rc)
         return getCAPIerror_x(rc);
     }
@@ -259,24 +175,8 @@ extern "C" {
 
         try
         {
-            AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
-
-            switch (mode)
-            {
-#define AMGX_CASE_LINE(CASE) case CASE: { \
-      typedef TemplateMode<CASE>::Type TConfig; \
-      eigensolve_setup_pagerank<CASE, AMG_EigenSolver, Vector>(eigensolver, a, resources); \
-      break;\
+            eigensolve_setup_pagerank(eigensolver, a, resources);
         }
-                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-                default:
-                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources) \
-            }
-        }
-
         AMGX_CATCHES(rc)
         return getCAPIerror_x(rc);
     }
@@ -290,23 +190,9 @@ extern "C" {
 
         try
         {
-            AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
-
-            switch (mode)
-            {
-#define AMGX_CASE_LINE(CASE) case CASE: { \
-        AMGX_ERROR rcs = eigensolve_solve<CASE, AMG_EigenSolver, Vector>(eigensolver, x, resources); \
-        AMGX_CHECK_API_ERROR(rcs, resources); break;\
-      }
-                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-                default:
-                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources)
-            }
+            AMGX_ERROR rcs = eigensolve_solve(eigensolver, x, resources);
+            AMGX_CHECK_API_ERROR(rcs, resources);
         }
-
         AMGX_CATCHES(rc)
         return getCAPIerror_x(rc);
     }
@@ -319,25 +205,10 @@ extern "C" {
 
         try
         {
-            AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(slv);
-
-            switch (mode)
-            {
-                    //cudaSetDevice(get_mode_object_from<CASE,EigenSolver,AMGX_eigensolver_handle>(slv)->getResources()->getDevice(0));
-#define AMGX_CASE_LINE(CASE) case CASE: { \
-      \
-      remove_managed_object<CASE, AMG_EigenSolver, AMGX_eigensolver_handle>(slv); \
-      } \
-      break;
-                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-                default:
-                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources)
-            }
+            using SolverHandle = CWrapHandle<AMGX_eigensolver_handle, AMG_EigenSolver<TConfigGeneric>>;
+            auto* solver = (SolverHandle*)slv;
+            get_mem_manager<SolverHandle>().template free<SolverHandle>(solver);
         }
-
         AMGX_CATCHES(rc)
         AMGX_CHECK_API_ERROR(rc, resources)
         return AMGX_RC_OK;

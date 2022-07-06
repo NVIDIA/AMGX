@@ -243,9 +243,7 @@ void CommsMPIDirect<T_Config>::exchange_matrix_halo(Matrix_Array &halo_rows, Dis
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class CommsMPIDirect<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CommsMPIDirect<TConfigGeneric_d>;
+template class CommsMPIDirect<TConfigGeneric_h>;
 
 } // namespace amgx

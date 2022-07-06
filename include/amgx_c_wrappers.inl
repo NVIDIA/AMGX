@@ -351,14 +351,13 @@ std::map < Handler, int > &get_mode_bookkeeper(void)
 template <typename Envelope, typename Letter>
 struct CWrapHandle
 {
-        CWrapHandle() : mode_(AMGX_unset), hdl_(0)
+        CWrapHandle() : hdl_(0)
         {
         }
 #if defined ( _MSC_VER ) && _MSC_VER <= 1700
 //MSVC c++11 workaround 
 //replace variadic templates with list of up to 5 args
-        explicit CWrapHandle(Letter & /*not used*/) :
-            mode_(AMGX_unset)
+        explicit CWrapHandle(Letter & /*not used*/)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter);
@@ -366,8 +365,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2, typename T3, typename T4, typename T5>
-        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4, T5 &arg5) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4, T5 &arg5)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2, arg3, arg4, arg5));
@@ -375,8 +373,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2, typename T3, typename T4>
-        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2, arg3, arg4));
@@ -384,8 +381,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2, typename T3>
-        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2, arg3));
@@ -393,8 +389,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2>
-        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter & /*not used*/, T1 &arg1, T2 &arg2)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2));
@@ -402,8 +397,7 @@ struct CWrapHandle
         }
 
         template<typename T1>
-        CWrapHandle(Letter & /*not used*/, T1 &arg1) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter & /*not used*/, T1 &arg1)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1));
@@ -411,8 +405,7 @@ struct CWrapHandle
         }
 
 
-        explicit CWrapHandle(Letter * /*not used*/) :
-            mode_(AMGX_unset)
+        explicit CWrapHandle(Letter * /*not used*/)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter);
@@ -420,8 +413,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2, typename T3, typename T4, typename T5>
-        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4, T5 &arg5) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4, T5 &arg5)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2, arg3, arg4, arg5));
@@ -429,8 +421,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2, typename T3, typename T4>
-        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3, T4 &arg4)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2, arg3, arg4));
@@ -438,8 +429,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2, typename T3>
-        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2, T3 &arg3)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2, arg3));
@@ -447,8 +437,7 @@ struct CWrapHandle
         }
 
         template<typename T1, typename T2>
-        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter * /*not used*/, T1 &arg1, T2 &arg2)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1, arg2));
@@ -456,8 +445,7 @@ struct CWrapHandle
         }
 
         template<typename T1>
-        CWrapHandle(Letter * /*not used*/, T1 &arg1) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter * /*not used*/, T1 &arg1)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(arg1));
@@ -470,8 +458,7 @@ struct CWrapHandle
         //since that one does something else)
         //
         template<typename...Args>
-        explicit CWrapHandle(Letter & /*not used*/, Args...args) :
-            mode_(AMGX_unset)
+        explicit CWrapHandle(Letter & /*not used*/, Args...args)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(args...));
@@ -487,8 +474,7 @@ struct CWrapHandle
         //(pass (Letter*)NULL at invocation, NOT nullptr!!!)
         //
         template<typename...Args>
-        explicit CWrapHandle(Letter * /*not used*/, Args...args) :
-            mode_(AMGX_unset)
+        explicit CWrapHandle(Letter * /*not used*/, Args...args)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(new Letter(args...));
@@ -496,8 +482,7 @@ struct CWrapHandle
         }
 #endif
 
-        CWrapHandle(Letter *ptr) :
-            mode_(AMGX_unset)
+        CWrapHandle(Letter *ptr)
         {
             //Letters should be allocated directly on the heap:
             handled_ptr_.reset(ptr);
@@ -506,8 +491,7 @@ struct CWrapHandle
 
         //construct out of previously allocated into the pool
         //
-        explicit CWrapHandle(Envelope env):
-            mode_(AMGX_unset),
+        explicit CWrapHandle(Envelope env) :
             hdl_(env)
         {
             CWrapHandle *convert = (CWrapHandle *)env;
@@ -530,34 +514,11 @@ struct CWrapHandle
             //Nope: Letters should be allocated directly on the heap:
             handled_ptr_ = convert->handled_ptr_;
             last_solve_status_ = convert->last_solve_status_;//PROBLEM: it's copy, it should be reference!
-            mode_ = convert->mode_;
-
-            if ((mode_ != AMGX_unset) && (!is_valid()))
-            {
-                FatalError("Invalid C wrapper.\n", AMGX_ERR_BAD_PARAMETERS);
-            }
         }
 
         ~CWrapHandle(void)
         {
             handled_ptr_.reset();//it should be done by its own destructor
-        }
-
-        bool is_valid() const
-        {
-            bool valid = false;
-
-            switch (mode_)
-            {
-#define AMGX_CASE_LINE(CASE) case CASE: valid= true; break;
-                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORINTVEC_BUILDS(AMGX_CASE_LINE)
-                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-            }
-
-            valid = valid && hdl_;
-            return valid;
         }
 
         AMGX_STATUS last_solve_status(void) const
@@ -582,17 +543,6 @@ struct CWrapHandle
             return convert->last_solve_status_;
         }
 
-        AMGX_Mode mode(void) const
-        {
-            return mode_;
-        }
-
-        void set_mode(AMGX_Mode mode)
-        {
-            mode_ = mode;
-            get_mode_bookkeeper<Envelope>()[hdl_] = mode_;
-        }
-
         Envelope hdl(void) const
         {
             return hdl_;
@@ -615,7 +565,6 @@ struct CWrapHandle
         }
 
     private:
-        AMGX_Mode mode_;
         Envelope hdl_;
         std::shared_ptr<Letter> handled_ptr_;
         AMGX_STATUS last_solve_status_;
@@ -623,6 +572,7 @@ struct CWrapHandle
 
 namespace  //unnamed
 {
+#if 0
 template<AMGX_Mode CASE,
          template<typename> class Letter,
          typename Envelope>
@@ -633,7 +583,9 @@ inline auto get_mode_object_from(Envelope envl) -> Letter<typename TemplateMode<
     LetterW letter(envl);
     return letter.wrapped().get();
 }
+#endif
 
+#if 0
 template<typename Envelope>
 inline AMGX_Mode get_mode_from(const Envelope &envl)
 {
@@ -649,134 +601,10 @@ inline AMGX_Mode get_mode_from(const Envelope &envl)
     AMGX_Mode mode = static_cast<AMGX_Mode>(itFound->second);
     return mode;
 }
+#endif
 
 #if defined ( _MSC_VER ) && _MSC_VER <= 1700
 //MSVC c++11 workaround 
-
-//factory method for objects depending on AMGX_Mode
-template<AMGX_Mode CASE,
-         template<typename> class Letter,
-         typename Envelope>
-inline auto create_managed_mode_object(Envelope *envl,
-                                       AMGX_Mode mode)  -> CWrapHandle<Envelope, Letter<typename TemplateMode<CASE>::Type>> *
-{
-    typedef Letter<typename TemplateMode<CASE>::Type> LetterT;
-    typedef CWrapHandle<Envelope, LetterT> LetterW;
-    LetterW *wrapper =
-        get_mem_manager<LetterW>().allocate((LetterT *)NULL).get();
-    wrapper->set_mode(mode);
-    *envl = (Envelope)wrapper;
-    return wrapper;
-}
-
-template<AMGX_Mode CASE,
-         template<typename> class Letter,
-         typename Envelope,
-         typename T1,
-         typename T2,
-         typename T3,
-         typename T4,
-         typename T5>
-inline auto create_managed_mode_object(Envelope *envl,
-                                       AMGX_Mode mode,
-                                       const T1 &t1,
-                                       const T2 &t2,
-                                       const T3 &t3,
-                                       const T4 &t4,
-                                       const T5 &t5)
--> CWrapHandle<Envelope, Letter<typename TemplateMode<CASE>::Type>> *
-{
-    typedef Letter<typename TemplateMode<CASE>::Type> LetterT;
-    typedef CWrapHandle<Envelope, LetterT> LetterW;
-    LetterW *wrapper =
-        get_mem_manager<LetterW>().allocate((LetterT *)NULL, t1, t2, t3, t4, t5).get();
-    wrapper->set_mode(mode);
-    *envl = (Envelope)wrapper;
-    return wrapper;
-}
-
-template<AMGX_Mode CASE,
-         template<typename> class Letter,
-         typename Envelope,
-         typename T1,
-         typename T2,
-         typename T3,
-         typename T4>
-inline auto create_managed_mode_object(Envelope *envl,
-                                       AMGX_Mode mode,
-                                       const T1 &t1,
-                                       const T2 &t2,
-                                       const T3 &t3,
-                                       const T4 &t4)
--> CWrapHandle<Envelope, Letter<typename TemplateMode<CASE>::Type>> *
-{
-    typedef Letter<typename TemplateMode<CASE>::Type> LetterT;
-    typedef CWrapHandle<Envelope, LetterT> LetterW;
-    LetterW *wrapper =
-        get_mem_manager<LetterW>().allocate((LetterT *)NULL, t1, t2, t3, t4).get();
-    wrapper->set_mode(mode);
-    *envl = (Envelope)wrapper;
-    return wrapper;
-}
-
-template<AMGX_Mode CASE,
-         template<typename> class Letter,
-         typename Envelope,
-         typename T1,
-         typename T2,
-         typename T3>
-inline auto create_managed_mode_object(Envelope *envl,
-                                       AMGX_Mode mode,
-                                       const T1 &t1,
-                                       const T2 &t2,
-                                       const T3 &t3)
--> CWrapHandle<Envelope, Letter<typename TemplateMode<CASE>::Type>> *
-{
-    typedef Letter<typename TemplateMode<CASE>::Type> LetterT;
-    typedef CWrapHandle<Envelope, LetterT> LetterW;
-    LetterW *wrapper =
-        get_mem_manager<LetterW>().allocate((LetterT *)NULL, t1, t2, t3).get();
-    wrapper->set_mode(mode);
-    *envl = (Envelope)wrapper;
-    return wrapper;
-}
-
-template<AMGX_Mode CASE,
-         template<typename> class Letter,
-         typename Envelope,
-         typename T1,
-         typename T2>
-inline auto create_managed_mode_object(Envelope *envl,
-                                       AMGX_Mode mode,
-                                       const T1 &t1,
-                                       const T2 &t2)  -> CWrapHandle<Envelope, Letter<typename TemplateMode<CASE>::Type>> *
-{
-    typedef Letter<typename TemplateMode<CASE>::Type> LetterT;
-    typedef CWrapHandle<Envelope, LetterT> LetterW;
-    LetterW *wrapper =
-        get_mem_manager<LetterW>().allocate((LetterT *)NULL, t1, t2).get();
-    wrapper->set_mode(mode);
-    *envl = (Envelope)wrapper;
-    return wrapper;
-}
-
-template<AMGX_Mode CASE,
-         template<typename> class Letter,
-         typename Envelope,
-         typename T1>
-inline auto create_managed_mode_object(Envelope *envl,
-                                       AMGX_Mode mode,
-                                       const T1 &t1)
--> CWrapHandle<Envelope, Letter<typename TemplateMode<CASE>::Type>> *
-{
-    typedef Letter<typename TemplateMode<CASE>::Type> LetterT;
-    typedef CWrapHandle<Envelope, LetterT> LetterW;
-    LetterW *wrapper =
-        get_mem_manager<LetterW>().allocate((LetterT *)NULL, t1).get();
-    wrapper->set_mode(mode);
-    *envl = (Envelope)wrapper;
-    return wrapper;
-}
 
 template<typename Letter,
          typename Envelope>
@@ -965,6 +793,7 @@ inline bool remove_managed_matrix(AMGX_matrix_handle envl)
 #else
 // other compilers
 
+#if 0
 //factory method for objects depending on AMGX_Mode
 //
 template<AMGX_Mode CASE,
@@ -983,6 +812,7 @@ inline auto create_managed_mode_object(Envelope *envl,
     *envl = (Envelope)wrapper;
     return wrapper;
 }
+#endif
 
 template<typename Letter,
          typename Envelope,
@@ -1020,6 +850,7 @@ inline bool remove_managed_object(Envelope envl)
     return flag;
 }
 
+#if 0
 //deallocator for mode objects (other than Matrix, which requires more)
 //
 template<AMGX_Mode CASE,
@@ -1046,6 +877,7 @@ inline bool remove_managed_object(Envelope envl)
     ///letter->wrapped().reset();//nope...letter has been destructed
     return flag;
 }
+#endif
 #endif
 
 #if defined ( _MSC_VER ) && _MSC_VER <= 1700
@@ -1086,6 +918,7 @@ inline bool remove_managed_matrix(AMGX_matrix_handle envl)
 }
 #else
 
+#if 0
 //deallocator for mode objects like Matrix, which requires more...
 //
 template<AMGX_Mode CASE>
@@ -1119,6 +952,7 @@ inline bool remove_managed_matrix(AMGX_matrix_handle envl)
     ///letter->wrapped().reset();//nope...letter has been destructed
     return flag;
 }
+#endif
 
 #endif
 

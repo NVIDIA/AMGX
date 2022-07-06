@@ -330,9 +330,8 @@ void SerialGreedySelector<T_Config>::setAggregates(Matrix<T_Config> &A,
 // ---------------------------
 //  Explict instantiations
 // ---------------------------
-#define AMGX_CASE_LINE(CASE) template class SerialGreedySelector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class SerialGreedySelector<TConfigGeneric_d>;
+template class SerialGreedySelector<TConfigGeneric_h>;
 
 }
 }

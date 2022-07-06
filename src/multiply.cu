@@ -1160,29 +1160,19 @@ class Multiply_3x3
 // -------------------------------
 // Explict instantiations
 // -------------------------------
-#define AMGX_CASE_LINE(CASE) template void multiplyMM(const Matrix<TemplateMode<CASE>::Type>&, const Matrix<TemplateMode<CASE>::Type>&, Matrix<TemplateMode<CASE>::Type>&);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void multiplyMM(const Matrix<TConfigGeneric_d>&, const Matrix<TConfigGeneric_d>&, Matrix<TConfigGeneric_d>&);
+template void multiplyMM(const Matrix<TConfigGeneric_h>&, const Matrix<TConfigGeneric_h>&, Matrix<TConfigGeneric_h>&);
 
-#define AMGX_CASE_LINE(CASE) template void multiply(Matrix<TemplateMode<CASE>::Type> &, Vector<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type> &, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void multiply(Matrix<TConfigGeneric_d> &, Vector<TConfigGeneric_d>&, Vector<TConfigGeneric_d> &, ViewType);
+template void multiply(Matrix<TConfigGeneric_h> &, Vector<TConfigGeneric_h>&, Vector<TConfigGeneric_h> &, ViewType);
 
-#define AMGX_CASE_LINE(CASE) template void multiply_masked(Matrix<TemplateMode<CASE>::Type> &, Vector<TemplateMode<CASE>::Type> &, Vector<TemplateMode<CASE>::Type> &, typename Matrix<TemplateMode<CASE>::Type>::IVector &, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void multiply_masked(Matrix<TConfigGeneric_d> &, Vector<TConfigGeneric_d> &, Vector<TConfigGeneric_d> &, typename Matrix<TConfigGeneric_d>::IVector &, ViewType);
+template void multiply_masked(Matrix<TConfigGeneric_h> &, Vector<TConfigGeneric_h> &, Vector<TConfigGeneric_h> &, typename Matrix<TConfigGeneric_h>::IVector &, ViewType);
 
-#define AMGX_CASE_LINE(CASE) template void multiply_with_mask(Matrix<TemplateMode<CASE>::Type> &, Vector<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>  &);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void multiply_with_mask(Matrix<TConfigGeneric_d> &, Vector<TConfigGeneric_d>&, Vector<TConfigGeneric_d>  &);
+template void multiply_with_mask(Matrix<TConfigGeneric_h> &, Vector<TConfigGeneric_h>&, Vector<TConfigGeneric_h>  &);
 
-#define AMGX_CASE_LINE(CASE) template void multiply_with_mask_restriction(Matrix<TemplateMode<CASE>::Type> &, Vector<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>  &, Matrix<TemplateMode<CASE>::Type> & );
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void multiply_with_mask_restriction(Matrix<TConfigGeneric_d> &, Vector<TConfigGeneric_d>&, Vector<TConfigGeneric_d>  &, Matrix<TConfigGeneric_d> & );
+template void multiply_with_mask_restriction(Matrix<TConfigGeneric_h> &, Vector<TConfigGeneric_h>&, Vector<TConfigGeneric_h>  &, Matrix<TConfigGeneric_h> & );
 
 } // namespace amgx

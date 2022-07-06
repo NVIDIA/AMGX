@@ -236,12 +236,10 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 // -------------------------
 //    Explict instantiations
 // -------------------------
-#define AMGX_CASE_LINE(CASE) template class AdaptiveSelectorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class AdaptiveSelector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class AdaptiveSelectorBase<TConfigGeneric_d>;
+template class AdaptiveSelectorBase<TConfigGeneric_h>;
+template class AdaptiveSelector<TConfigGeneric_d>;
+template class AdaptiveSelector<TConfigGeneric_h>;
 
 }
 }

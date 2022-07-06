@@ -113,22 +113,26 @@ multivector_column_norms(const Vector<TConfig> &v,
     }
 }
 
-#define AMGX_CASE_LINE(CASE) \
-    template void distributed_gemm_TN(typename TemplateMode<CASE>::Type::VecPrec alpha, \
-                                      const Vector<TemplateMode<CASE>::Type>& lhs, \
-                                      const Vector<TemplateMode<CASE>::Type>& rhs,\
-                                      typename TemplateMode<CASE>::Type::VecPrec beta,\
-                                      Vector<TemplateMode<CASE>::Type>& res,\
-                                      const Operator<TemplateMode<CASE>::Type>& A);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void distributed_gemm_TN(typename TConfigGeneric_d::VecPrec alpha,
+        const Vector<TConfigGeneric_d>& lhs,
+        const Vector<TConfigGeneric_d>& rhs,
+        typename TConfigGeneric_d::VecPrec beta,
+        Vector<TConfigGeneric_d>& res,
+        const Operator<TConfigGeneric_d>& A);
+template void distributed_gemm_TN(typename TConfigGeneric_h::VecPrec alpha,
+        const Vector<TConfigGeneric_h>& lhs,
+        const Vector<TConfigGeneric_h>& rhs,
+        typename TConfigGeneric_h::VecPrec beta,
+        Vector<TConfigGeneric_h>& res,
+        const Operator<TConfigGeneric_h>& A);
 
-#define AMGX_CASE_LINE(CASE) \
-template void multivector_column_norms(const Vector<TemplateMode<CASE>::Type>&,\
-                         Vector<typename TemplateMode<CASE>::Type::template setMemSpace<AMGX_host>::Type>&,\
-                                       const Operator<TemplateMode<CASE>::Type>&);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+
+template void multivector_column_norms(const Vector<TConfigGeneric_d>&,
+        Vector<typename TConfigGeneric_d::template setMemSpace<AMGX_host>::Type>&,
+        const Operator<TConfigGeneric_d>&);
+template void multivector_column_norms(const Vector<TConfigGeneric_h>&,
+        Vector<typename TConfigGeneric_h::template setMemSpace<AMGX_host>::Type>&,
+        const Operator<TConfigGeneric_h>&);
 
 
 }

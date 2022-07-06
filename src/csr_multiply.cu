@@ -913,14 +913,10 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparsity_ilu1( co
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class CSR_Multiply<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CSR_Multiply<TConfigGeneric_d>;
+template class CSR_Multiply<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class CSR_Multiply_Impl<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CSR_Multiply_Impl<TConfigGeneric_d>;
+template class CSR_Multiply_Impl<TConfigGeneric_h>;
 
 } // namespace amgx

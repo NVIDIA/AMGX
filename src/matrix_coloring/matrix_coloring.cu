@@ -428,14 +428,11 @@ MatrixColoring<TConfig> *MatrixColoringFactory<TConfig>::allocate(AMG_Config &cf
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class MatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MatrixColoring<TConfigGeneric_d>;
+template class MatrixColoring<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class MatrixColoringFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MatrixColoringFactory<TConfigGeneric_d>;
+template class MatrixColoringFactory<TConfigGeneric_h>;
+
 }
 

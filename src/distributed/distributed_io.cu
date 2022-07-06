@@ -784,8 +784,6 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class DistributedRead<TemplateMode<CASE>::Type >;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class DistributedRead<TConfigGeneric_d>;
+template class DistributedRead<TConfigGeneric_h>;
 }

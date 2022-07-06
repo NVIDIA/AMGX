@@ -225,9 +225,9 @@ template <typename TConfig> class DistributedManagerBase
         typedef typename TConfig::MatPrec  mat_value_type;
         typedef typename TConfig::IndPrec  index_type;
 
-        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig::mode)>::Type vvec_value_type;
-        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_VecPrecision, TConfig::mode)>::Type vvec_value_type_v;
-        typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_VecPrecision, TConfig::mode)>::Type vvec_value_type_vh;
+        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type vvec_value_type;
+        typedef typename TConfig::template setVecPrec<AMGX_VecPrec>::Type vvec_value_type_v;
+        typedef typename TConfig_h::template setVecPrec<AMGX_VecPrec>::Type vvec_value_type_vh;
         typedef typename TConfig::template setVecPrec<AMGX_vecInt>::Type ivec_value_type;
         typedef typename TConfig_h::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_h;
         typedef typename TConfig_d::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_d;

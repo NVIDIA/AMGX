@@ -96,9 +96,7 @@ void PagerankOperator<TConfig>::apply(const Vector<TConfig> &v, Vector<TConfig> 
 #endif
 }
 
-#define AMGX_CASE_LINE(CASE) template class PagerankOperator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class PagerankOperator<TConfigGeneric_d>;
+template class PagerankOperator<TConfigGeneric_h>;
 
 }

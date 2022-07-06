@@ -139,17 +139,12 @@ std::vector<std::string> getAllSolvers()
 {
     std::vector<std::string> vec;
     std::set<std::string> solvers_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        SolverFactory<TemplateMode<CASE>::Type>::Iterator iter = SolverFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!SolverFactory<TemplateMode<CASE>::Type>::isIteratorLast(iter))\
-        {\
-          solvers_set.insert(iter->first);\
-          ++iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    SolverFactory<TConfigGeneric>::Iterator iter = SolverFactory<TConfigGeneric>::getIterator();
+    while(!SolverFactory<TConfigGeneric>::isIteratorLast(iter))
+    {
+        solvers_set.insert(iter->first);
+        ++iter;
+    }
     vec.assign(solvers_set.begin(), solvers_set.end());
     return vec;
 }
@@ -158,17 +153,12 @@ std::vector<std::string> getAllInterpolators()
 {
     std::vector<std::string> vec;
     std::set<std::string> interpolator_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        InterpolatorFactory<TemplateMode<CASE>::Type>::Iterator iter = InterpolatorFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!InterpolatorFactory<TemplateMode<CASE>::Type>::isIteratorLast(iter))\
-        {\
-          interpolator_set.insert(iter->first);\
-          ++iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    InterpolatorFactory<TConfigGeneric>::Iterator iter = InterpolatorFactory<TConfigGeneric>::getIterator();
+    while(!InterpolatorFactory<TConfigGeneric>::isIteratorLast(iter))
+    {
+        interpolator_set.insert(iter->first);
+        ++iter;
+    }
     vec.assign(interpolator_set.begin(), interpolator_set.end());
     return vec;
 }
@@ -177,17 +167,12 @@ std::vector<std::string> getAllConvergence()
 {
     std::vector<std::string> vec;
     std::set<std::string> convergence_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        ConvergenceFactory<TemplateMode<CASE>::Type>::Iterator iter = ConvergenceFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!ConvergenceFactory<TemplateMode<CASE>::Type>::isIteratorLast(iter))\
-        {\
-          convergence_set.insert(iter->first);\
-          ++iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    ConvergenceFactory<TConfigGeneric>::Iterator iter = ConvergenceFactory<TConfigGeneric>::getIterator();
+    while(!ConvergenceFactory<TConfigGeneric>::isIteratorLast(iter))
+    {
+        convergence_set.insert(iter->first);
+        ++iter;
+    }
     vec.assign(convergence_set.begin(), convergence_set.end());
     return vec;
 }
@@ -197,17 +182,12 @@ std::vector<std::string> getAllMatrixColoring()
 {
     std::vector<std::string> vec;
     std::set<std::string> coloring_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        MatrixColoringFactory<TemplateMode<CASE>::Type>::Iterator iter = MatrixColoringFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!MatrixColoringFactory<TemplateMode<CASE>::Type>::isIteratorLast(iter))\
-        {\
-          coloring_set.insert(iter->first);\
-          ++iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    MatrixColoringFactory<TConfigGeneric>::Iterator iter = MatrixColoringFactory<TConfigGeneric>::getIterator();
+    while(!MatrixColoringFactory<TConfigGeneric>::isIteratorLast(iter))
+    {
+        coloring_set.insert(iter->first);
+        ++iter;
+    }
     vec.assign(coloring_set.begin(), coloring_set.end());
     return vec;
 }
@@ -216,17 +196,12 @@ std::vector<std::string> getAllCycles()
 {
     std::vector<std::string> vec;
     std::set<std::string> cycles_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        CycleFactory<TemplateMode<CASE>::Type>::Iterator cycle_iter = CycleFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!CycleFactory<TemplateMode<CASE>::Type>::isIteratorLast(cycle_iter))\
-        {\
-          cycles_set.insert(cycle_iter->first);\
-          ++cycle_iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    CycleFactory<TConfigGeneric>::Iterator cycle_iter = CycleFactory<TConfigGeneric>::getIterator();
+    while(!CycleFactory<TConfigGeneric>::isIteratorLast(cycle_iter))
+    {
+        cycles_set.insert(cycle_iter->first);
+        ++cycle_iter;
+    }
     vec.assign(cycles_set.begin(), cycles_set.end());
     return vec;
 }
@@ -235,17 +210,12 @@ std::vector<std::string> getAllCoarseGenerators()
 {
     std::vector<std::string> vec;
     std::set<std::string> coarse_gen_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        aggregation::CoarseAGeneratorFactory<TemplateMode<CASE>::Type>::Iterator coarse_gen_iter = aggregation::CoarseAGeneratorFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!aggregation::CoarseAGeneratorFactory<TemplateMode<CASE>::Type>::isIteratorLast(coarse_gen_iter))\
-        {\
-          coarse_gen_set.insert(coarse_gen_iter->first);\
-          ++coarse_gen_iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    aggregation::CoarseAGeneratorFactory<TConfigGeneric>::Iterator coarse_gen_iter = aggregation::CoarseAGeneratorFactory<TConfigGeneric>::getIterator();
+    while(!aggregation::CoarseAGeneratorFactory<TConfigGeneric>::isIteratorLast(coarse_gen_iter))
+    {
+        coarse_gen_set.insert(coarse_gen_iter->first);
+        ++coarse_gen_iter;
+    }
     vec.assign(coarse_gen_set.begin(), coarse_gen_set.end());
     return vec;
 }
@@ -254,57 +224,40 @@ std::vector<std::string> getClassicalSelectors()
 {
     std::vector<std::string> vec;
     std::set<std::string> selectors_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        classical::SelectorFactory<TemplateMode<CASE>::Type>::Iterator selector_iter = classical::SelectorFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!classical::SelectorFactory<TemplateMode<CASE>::Type>::isIteratorLast(selector_iter))\
-        {\
-          selectors_set.insert(selector_iter->first);\
-          ++selector_iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    classical::SelectorFactory<TConfigGeneric>::Iterator selector_iter = classical::SelectorFactory<TConfigGeneric>::getIterator();
+    while(!classical::SelectorFactory<TConfigGeneric>::isIteratorLast(selector_iter))
+    {
+        selectors_set.insert(selector_iter->first);
+        ++selector_iter;
+    }
     vec.assign(selectors_set.begin(), selectors_set.end());
     return vec;
 }
 
-#if 1
 std::vector<std::string> getAllScalers()
 {
     std::vector<std::string> vec;
     std::set<std::string> scalers_set;
-#define AMGX_CASE_LINE(CASE) \
-    {\
-      ScalerFactory<TemplateMode<CASE>::Type>::Iterator scaler_iter = ScalerFactory<TemplateMode<CASE>::Type>::getIterator();\
-      while(!ScalerFactory<TemplateMode<CASE>::Type>::isIteratorLast(scaler_iter))\
-      {\
-        scalers_set.insert(scaler_iter->first);\
-        ++scaler_iter;\
-      }\
+    ScalerFactory<TConfigGeneric>::Iterator scaler_iter = ScalerFactory<TConfigGeneric>::getIterator();
+    while(!ScalerFactory<TConfigGeneric>::isIteratorLast(scaler_iter))
+    {
+        scalers_set.insert(scaler_iter->first);
+        ++scaler_iter;
     }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
     vec.assign(scalers_set.begin(), scalers_set.end());
     return vec;
 }
-#endif
 
 std::vector<std::string> getAggregationSelectors()
 {
     std::vector<std::string> vec;
     std::set<std::string> selectors_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        aggregation::SelectorFactory<TemplateMode<CASE>::Type>::Iterator selector_iter = aggregation::SelectorFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!aggregation::SelectorFactory<TemplateMode<CASE>::Type>::isIteratorLast(selector_iter))\
-        {\
-          selectors_set.insert(selector_iter->first);\
-          ++selector_iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    aggregation::SelectorFactory<TConfigGeneric>::Iterator selector_iter = aggregation::SelectorFactory<TConfigGeneric>::getIterator();
+    while(!aggregation::SelectorFactory<TConfigGeneric>::isIteratorLast(selector_iter))
+    {
+        selectors_set.insert(selector_iter->first);
+        ++selector_iter;
+    }
     vec.assign(selectors_set.begin(), selectors_set.end());
     return vec;
 }
@@ -313,17 +266,12 @@ std::vector<std::string> getAllStrength()
 {
     std::vector<std::string> vec;
     std::set<std::string> strength_set;
-#define AMGX_CASE_LINE(CASE) \
-      {\
-        StrengthFactory<TemplateMode<CASE>::Type>::Iterator strength_iter = StrengthFactory<TemplateMode<CASE>::Type>::getIterator();\
-        while(!StrengthFactory<TemplateMode<CASE>::Type>::isIteratorLast(strength_iter))\
-        {\
-          strength_set.insert(strength_iter->first);\
-          ++strength_iter;\
-        }\
-      }
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    StrengthFactory<TConfigGeneric>::Iterator strength_iter = StrengthFactory<TConfigGeneric>::getIterator();
+    while(!StrengthFactory<TConfigGeneric>::isIteratorLast(strength_iter))
+    {
+        strength_set.insert(strength_iter->first);
+        ++strength_iter;
+    }
     vec.assign(strength_set.begin(), strength_set.end());
     return vec;
 }
@@ -707,7 +655,7 @@ struct registerClasses<T_Config, false>
     };
 };
 
-template<class T_Config>
+    template<class T_Config>
 inline void unregisterClasses()
 {
     //Unregister Data Formats
@@ -787,12 +735,8 @@ AMGX_ERROR initialize()
 
     try
     {
-#define AMGX_CASE_LINE(CASE) registerClasses<TemplateMode<CASE>::Type, false>::register_it();
-        AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) registerClasses<TemplateMode<CASE>::Type, true>::register_it();
-        AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+        registerClasses<TConfigGeneric, false>::register_it();
+        registerClasses<TConfigGeneric, true>::register_it();
         registerParameters();
     }
     catch (amgx_exception e)
@@ -812,17 +756,14 @@ void finalize()
     free_resources();
     getTimers().spoolTimers();
     AMGX_CPU_PROFILER( "finalize " );
-#define AMGX_CASE_LINE(CASE) unregisterClasses<TemplateMode<CASE>::Type>();
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    unregisterClasses<TConfigGeneric>();
     AMG_Config::unregisterParameters( );
+
 #ifdef AMGX_WITH_MPI
     int mpi_initialized = 0;
     MPI_Initialized(&mpi_initialized); // We want to make sure MPI_Init has been called.
 
     freeDefaultMPIErrHandler();
-
 #endif
     SAVELOG
 }

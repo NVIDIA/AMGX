@@ -97,21 +97,6 @@ template <> struct IndPrecisionMap<AMGX_indInt>     { typedef int Type;       st
 template <> struct IndPrecisionMap<AMGX_indInt64>     { typedef int64_t Type;       static const AMGX_IndPrecision id = AMGX_indInt64;    static const char *getName() { return "int64_t"; }};
 
 
-template <AMGX_Mode> struct ModeString;
-template <> struct ModeString<AMGX_mode_hDDI>  { static const char *getName() { return "hDDI"; }};
-template <> struct ModeString<AMGX_mode_hDFI>  { static const char *getName() { return "hDFI"; }};
-template <> struct ModeString<AMGX_mode_hFFI>  { static const char *getName() { return "hFFI"; }};
-template <> struct ModeString<AMGX_mode_dDDI>  { static const char *getName() { return "dDDI"; }};
-template <> struct ModeString<AMGX_mode_dDFI>  { static const char *getName() { return "dDFI"; }};
-template <> struct ModeString<AMGX_mode_dFFI>  { static const char *getName() { return "dFFI"; }};
-template <> struct ModeString<AMGX_mode_hZZI>  { static const char *getName() { return "hZZI"; }};
-template <> struct ModeString<AMGX_mode_hZCI>  { static const char *getName() { return "hZCI"; }};
-template <> struct ModeString<AMGX_mode_hCCI>  { static const char *getName() { return "hCCI"; }};
-template <> struct ModeString<AMGX_mode_dZZI>  { static const char *getName() { return "dZZI"; }};
-template <> struct ModeString<AMGX_mode_dZCI>  { static const char *getName() { return "dZCI"; }};
-template <> struct ModeString<AMGX_mode_dCCI>  { static const char *getName() { return "dCCI"; }};
-
-
 template <AMGX_MemorySpace t_memSpace, AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 struct TemplateConfig
 {
@@ -119,8 +104,6 @@ struct TemplateConfig
     static const AMGX_VecPrecision vecPrec = t_vecPrec;
     static const AMGX_MatPrecision matPrec = t_matPrec;
     static const AMGX_IndPrecision indPrec = t_indPrec;
-
-    static const AMGX_Mode mode = (AMGX_Mode)AMGX_ASSEMBLE_MODE(t_memSpace, t_vecPrec, t_matPrec, t_indPrec);
 
     typedef MemorySpaceMap<memSpace> MemSpaceInfo;
     typedef VecPrecisionMap<vecPrec> VecPrecInfo;
@@ -138,52 +121,11 @@ struct TemplateConfig
     template<AMGX_VecPrecision t_newVecPrec> struct setVecPrec  { typedef TemplateConfig<t_memSpace, t_newVecPrec, t_matPrec, t_indPrec> Type; };
     template<AMGX_MatPrecision t_newMatPrec> struct setMatPrec  { typedef TemplateConfig<t_memSpace, t_vecPrec, t_newMatPrec, t_indPrec> Type; };
     template<AMGX_IndPrecision t_newIndPrec> struct setIndPrec  { typedef TemplateConfig<t_memSpace, t_vecPrec, t_matPrec, t_newIndPrec> Type; };
-
-    static bool is_built()
-    {
-        bool built = false;
-
-        switch ((AMGX_Mode)mode)
-        {
-#define AMGX_CASE_LINE(CASE) case CASE: built= true; break;
-                AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-        }
-
-        return built;
-    }
-
-    static void print()
-    {
-        printf("TemplateConfig: mode %8d = 0x%-8X, built %3s, MemSpace %8s, VecPrec %8s, MatPrec %8s, IndPrec %8s\n",
-               mode, mode, is_built() ? "Yes" : "No",
-               MemSpaceInfo::getName(),
-               VecPrecInfo::getName(),
-               MatPrecInfo::getName(),
-               IndPrecInfo::getName());
-    }
-
-    static void sprint(char *buf)
-    {
-        sprintf(buf, "mode %8d = 0x%-8X, built %3s, MemSpace %8s, VecPrec %8s, MatPrec %8s, IndPrec %8s",
-                mode, mode, is_built() ? "Yes" : "No",
-                MemSpaceInfo::getName(),
-                VecPrecInfo::getName(),
-                MatPrecInfo::getName(),
-                IndPrecInfo::getName());
-    }
 };
 
-template <int t_mode>
-struct TemplateMode
-{
-    typedef TemplateConfig <
-    AMGX_GET_MODE_VAL(AMGX_MemorySpace,  t_mode),
-                      AMGX_GET_MODE_VAL(AMGX_VecPrecision, t_mode),
-                      AMGX_GET_MODE_VAL(AMGX_MatPrecision, t_mode),
-                      AMGX_GET_MODE_VAL(AMGX_IndPrecision, t_mode)
-                      > Type;
-};
+typedef TemplateConfig<AMGX_device, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfigGeneric_d;
+typedef TemplateConfig<AMGX_host, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfigGeneric_h;
+typedef TemplateConfig<AMGX_MemSpace, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfigGeneric;
 
 }//namespace amgx
 

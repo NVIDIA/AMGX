@@ -785,13 +785,11 @@ Serial_Greedy_BFS_MatrixColoring_Base<T_Config>::Serial_Greedy_BFS_MatrixColorin
     m_coloring_try_remove_last_color_ = cfg.AMG_Config::getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
 }
 
-#define AMGX_CASE_LINE(CASE) template class Serial_Greedy_BFS_MatrixColoring_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Serial_Greedy_BFS_MatrixColoring_Base<TConfigGeneric_d>;
+template class Serial_Greedy_BFS_MatrixColoring_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Serial_Greedy_BFS_MatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Serial_Greedy_BFS_MatrixColoring<TConfigGeneric_d>;
+template class Serial_Greedy_BFS_MatrixColoring<TConfigGeneric_h>;
 
 } // end namespace amgx
 

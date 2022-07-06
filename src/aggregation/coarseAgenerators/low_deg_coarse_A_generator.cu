@@ -1436,10 +1436,8 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_host, V, M, I> >::computeAOperator( c
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class LowDegCoarseAGenerator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class LowDegCoarseAGenerator<TConfigGeneric_d>;
+template class LowDegCoarseAGenerator<TConfigGeneric_h>;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

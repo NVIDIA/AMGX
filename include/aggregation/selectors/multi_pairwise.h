@@ -51,7 +51,7 @@ class MultiPairwiseSelectorBase: public Selector<T_Config>
         typedef typename Matrix<TConfig>::MVector MVector;
 
         //typedefs for the weight matrix and vectors
-        typedef TemplateMode<AMGX_mode_dFFI>::Type TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
+        typedef TemplateConfig<AMGX_device, AMGX_vecFloat, AMGX_matFloat, AMGX_indInt> TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
         typedef typename TConfig_dFFI::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_dFFI;
         typedef Vector<ivec_value_type_dFFI> IVector_dFFI;
         typedef Vector<TConfig_dFFI> VVector_dFFI;
@@ -110,7 +110,7 @@ class MultiPairwiseSelector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
         typedef typename Matrix_h::MVector MVector;
 
         //typedefs for the weight matrix and vectors
-        typedef TemplateMode<AMGX_mode_dFFI>::Type TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
+        typedef TemplateConfig<AMGX_device, AMGX_vecFloat, AMGX_matFloat, AMGX_indInt> TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
         typedef typename TConfig_dFFI::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_dFFI;
         typedef Vector<ivec_value_type_dFFI> IVector_dFFI;
         typedef Vector<TConfig_dFFI> VVector_dFFI;
@@ -144,7 +144,7 @@ class MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         typedef typename Matrix_d::MVector MVector;
 
         //typedefs for the weight matrix and vectors
-        typedef TemplateMode<AMGX_mode_dFFI>::Type TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
+        typedef TemplateConfig<AMGX_device, AMGX_vecFloat, AMGX_matFloat, AMGX_indInt> TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
         typedef typename TConfig_dFFI::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_dFFI;
         typedef Vector<ivec_value_type_dFFI> IVector_dFFI;
         typedef Vector<TConfig_dFFI> VVector_dFFI;

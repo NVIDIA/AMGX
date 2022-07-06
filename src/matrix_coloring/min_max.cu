@@ -536,13 +536,11 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indP
 }
 
 
-#define AMGX_CASE_LINE(CASE) template class MinMaxMatrixColoringBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MinMaxMatrixColoringBase<TConfigGeneric_d>;
+template class MinMaxMatrixColoringBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class MinMaxMatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MinMaxMatrixColoring<TConfigGeneric_d>;
+template class MinMaxMatrixColoring<TConfigGeneric_h>;
 
 
 } // end namespace amgx

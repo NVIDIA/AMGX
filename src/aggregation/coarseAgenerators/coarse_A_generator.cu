@@ -145,15 +145,12 @@ CoarseAGenerator<T_Config> *CoarseAGeneratorFactory<T_Config>::allocate(AMG_Conf
 // ---------------------------------
 // Explict instantiations
 // ---------------------------------
-#define AMGX_CASE_LINE(CASE) template class CoarseAGenerator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
 
-#define AMGX_CASE_LINE(CASE) template class CoarseAGeneratorFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CoarseAGenerator<TConfigGeneric_d>;
+template class CoarseAGenerator<TConfigGeneric_h>;
+
+template class CoarseAGeneratorFactory<TConfigGeneric_d>;
+template class CoarseAGeneratorFactory<TConfigGeneric_h>;
 
 }
 }

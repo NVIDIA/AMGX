@@ -758,10 +758,9 @@ AMGX_ERROR MatrixIO<T_Config>::readGeometry( AuxData* obj, int n,int dimension )
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class MatrixIO<TemplateMode<CASE>::Type >;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MatrixIO<TConfigGeneric_d>;
+template class MatrixIO<TConfigGeneric_h>;
+
 //AMGX_FORCOMPLEX_BUILDS_DEVICE(AMGX_CASE_LINE)
 //  template class MatrixIO<Matrix_d>;
 //  template class MatrixIO<Matrix_h>;

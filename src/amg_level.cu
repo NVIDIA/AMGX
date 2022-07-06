@@ -254,13 +254,10 @@ AMG_LevelFactory<TConfig>::getFactories( )
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class AMG_LevelFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class AMG_LevelFactory<TConfigGeneric_d>;
+template class AMG_LevelFactory<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class AMG_Level<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class AMG_Level<TConfigGeneric_d>;
+template class AMG_Level<TConfigGeneric_h>;
+
 } // namespace amgx

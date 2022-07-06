@@ -72,9 +72,7 @@ void SolveOperator<TConfig>::setup()
     m_solver->setup(*m_A, false);
 }
 
-#define AMGX_CASE_LINE(CASE) template class SolveOperator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class SolveOperator<TConfigGeneric_d>;
+template class SolveOperator<TConfigGeneric_h>;
 
 }

@@ -257,28 +257,19 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
  * Explict instantiations
  ***************************************/
 
-#define AMGX_CASE_LINE(CASE) template class FixedCycle<TemplateMode<CASE>::Type, V_CycleDispatcher>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class FixedCycle<TConfigGeneric_d, V_CycleDispatcher>;
+template class FixedCycle<TConfigGeneric_h, V_CycleDispatcher>;
 
-#define AMGX_CASE_LINE(CASE) template class FixedCycle<TemplateMode<CASE>::Type, W_CycleDispatcher>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class FixedCycle<TConfigGeneric_d, W_CycleDispatcher>;
+template class FixedCycle<TConfigGeneric_h, W_CycleDispatcher>;
 
-#define AMGX_CASE_LINE(CASE) template class FixedCycle<TemplateMode<CASE>::Type, F_CycleDispatcher>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class FixedCycle<TConfigGeneric_d, F_CycleDispatcher>;
+template class FixedCycle<TConfigGeneric_h, F_CycleDispatcher>;
 
-#define AMGX_CASE_LINE(CASE) template class FixedCycle<TemplateMode<CASE>::Type, CG_CycleDispatcher>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class FixedCycle<TConfigGeneric_d, CG_CycleDispatcher>;
+template class FixedCycle<TConfigGeneric_h, CG_CycleDispatcher>;
 
-#define AMGX_CASE_LINE(CASE) template class FixedCycle<TemplateMode<CASE>::Type, CG_Flex_CycleDispatcher>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class FixedCycle<TConfigGeneric_d, CG_Flex_CycleDispatcher>;
+template class FixedCycle<TConfigGeneric_h, CG_Flex_CycleDispatcher>;
+
 } // namespace amgx

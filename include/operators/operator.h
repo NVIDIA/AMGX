@@ -33,7 +33,7 @@
 namespace amgx
 {
 
-template <typename T_Config>
+template <class T_Config>
 class Operator
 {
     public:

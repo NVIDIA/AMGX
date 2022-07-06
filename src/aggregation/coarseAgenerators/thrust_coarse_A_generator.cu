@@ -275,12 +275,10 @@ void ThrustCoarseAGeneratorBase<T_Config>::computeAOperator(const Matrix<T_Confi
 // ---------------------------
 // Explict instantiations
 // ---------------------------
-#define AMGX_CASE_LINE(CASE) template class ThrustCoarseAGeneratorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class ThrustCoarseAGenerator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class ThrustCoarseAGeneratorBase<TConfigGeneric_d>;
+template class ThrustCoarseAGeneratorBase<TConfigGeneric_h>;
+template class ThrustCoarseAGenerator<TConfigGeneric_d>;
+template class ThrustCoarseAGenerator<TConfigGeneric_h>;
 
 }
 }

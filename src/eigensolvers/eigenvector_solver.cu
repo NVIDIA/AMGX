@@ -126,15 +126,11 @@ EigenVectorSolver<TConfig> *EigenVectorSolverFactory<TConfig>::create_inverse_it
 }
 
 // Explicit template instantiation.
-#define AMGX_CASE_LINE(CASE) template class EigenVectorSolver<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class EigenVectorSolver<TConfigGeneric_d>;
+template class EigenVectorSolver<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class EigenVectorSolverFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class EigenVectorSolverFactory<TConfigGeneric_d>;
+template class EigenVectorSolverFactory<TConfigGeneric_h>;
 
 
 }

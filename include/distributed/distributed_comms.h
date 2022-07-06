@@ -45,7 +45,7 @@ namespace amgx
 template <class T_Config> class Operator;
 template <class T_Config> class Matrix;
 
-template<class T_Config>
+template <class T_Config>
 class DistributedComms
 {
     public:
@@ -53,7 +53,7 @@ class DistributedComms
         typedef typename TConfig::template setMemSpace<AMGX_host>::Type TConfig_h;
         typedef typename TConfig::MatPrec ValueTypeA;
         typedef typename TConfig::VecPrec ValueTypeB;
-        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig::mode)>::Type mvec_value_type;
+        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type mvec_value_type;
         typedef Vector<mvec_value_type> MVector;
         typedef std::vector<MVector> MVector_Array;
 
@@ -94,7 +94,7 @@ class DistributedComms
         typedef Matrix<TConfig> Matrix_hd;
         typedef std::vector<Matrix_hd> Matrix_Array;
 
-        typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig_h::mode)>::Type hmvec_value_type;
+        typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type hmvec_value_type;
         typedef Vector<hmvec_value_type> HMVector;
 
         typedef typename TConfig_h::template setVecPrec<AMGX_vecDouble>::Type hdvec_value_type;

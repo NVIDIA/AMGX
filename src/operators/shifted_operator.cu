@@ -48,9 +48,7 @@ void ShiftedOperator<TConfig>::apply(const Vector<TConfig> &v, Vector<TConfig> &
     axpy(v, res, m_shift, offset, size);
 }
 
-#define AMGX_CASE_LINE(CASE) template class ShiftedOperator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class ShiftedOperator<TConfigGeneric_d>;
+template class ShiftedOperator<TConfigGeneric_h>;
 
 }

@@ -311,15 +311,10 @@ Selector<T_Config> *SelectorFactory<T_Config>::allocate(AMG_Config &cfg, const s
 //****************************************
 // Explict instantiations
 // **************************************
-#define AMGX_CASE_LINE(CASE) template class Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template class SelectorFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Selector<TConfigGeneric_d>;
+template class Selector<TConfigGeneric_h>;
+template class SelectorFactory<TConfigGeneric_d>;
+template class SelectorFactory<TConfigGeneric_h>;
 
 }
 

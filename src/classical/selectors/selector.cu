@@ -1286,15 +1286,12 @@ Selector<TConfig> *SelectorFactory<TConfig>::allocate(AMG_Config &cfg, const std
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Selector<TConfigGeneric_d>;
+template class Selector<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class SelectorFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class SelectorFactory<TConfigGeneric_d>;
+template class SelectorFactory<TConfigGeneric_h>;
+
 } // namespace classical
 
 } // namespace amgx

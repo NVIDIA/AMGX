@@ -860,12 +860,10 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
 }
 
 
-#define AMGX_CASE_LINE(CASE) template class Greedy_Min_Max_2Ring_Matrix_Coloring_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Greedy_Min_Max_2Ring_Matrix_Coloring_Base<TConfigGeneric_d>;
+template class Greedy_Min_Max_2Ring_Matrix_Coloring_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Greedy_Min_Max_2Ring_Matrix_Coloring<TConfigGeneric_d>;
+template class Greedy_Min_Max_2Ring_Matrix_Coloring<TConfigGeneric_h>;
 
 } // end namespace amgx

@@ -2633,10 +2633,11 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
 // Explicit instantiations
 // -------------------------------------------------------------
 
-#define AMGX_CASE_LINE(CASE) template class Aggregation_AMG_Level<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+typedef TemplateConfig<AMGX_device, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfig_d;
+typedef TemplateConfig<AMGX_host, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfig_h;
+template class Aggregation_AMG_Level<TConfig_d>;
+template class Aggregation_AMG_Level<TConfig_h>;
+
 }
 
 }

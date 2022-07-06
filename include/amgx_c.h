@@ -280,8 +280,7 @@ AMGX_RC AMGX_API AMGX_distribution_set_32bit_colindices
 /* Matrix */
 AMGX_RC AMGX_API AMGX_matrix_create
 (AMGX_matrix_handle *mtx,
- AMGX_resources_handle rsc,
- AMGX_Mode mode);
+ AMGX_resources_handle rsc);
 
 AMGX_RC AMGX_API AMGX_matrix_destroy
 (AMGX_matrix_handle mtx);
@@ -354,8 +353,7 @@ AMGX_RC AMGX_API AMGX_matrix_comm_from_maps_one_ring
 /* Vector */
 AMGX_RC AMGX_API AMGX_vector_create
 (AMGX_vector_handle *vec,
- AMGX_resources_handle rsc,
- AMGX_Mode mode);
+ AMGX_resources_handle rsc);
 
 AMGX_RC AMGX_API AMGX_vector_destroy
 (AMGX_vector_handle vec);
@@ -392,7 +390,6 @@ AMGX_RC AMGX_API AMGX_vector_bind
 AMGX_RC AMGX_API AMGX_solver_create
 (AMGX_solver_handle *slv,
  AMGX_resources_handle rsc,
- AMGX_Mode mode,
  const AMGX_config_handle cfg_solver);
 
 AMGX_RC AMGX_API AMGX_solver_destroy
@@ -486,7 +483,6 @@ AMGX_RC AMGX_API AMGX_read_system_maps_one_ring
  int **recv_sizes,
  int ***recv_maps,
  AMGX_resources_handle rsc,
- AMGX_Mode mode,
  const char *filename,
  int allocated_halo_depth,
  int num_partitions,
@@ -512,7 +508,6 @@ AMGX_RC AMGX_API AMGX_generate_distributed_poisson_7pt
 (AMGX_matrix_handle mtx,
  AMGX_vector_handle rhs,
  AMGX_vector_handle sol,
- int allocated_halo_depth,
  int num_import_rings,
  int nx,
  int ny,
@@ -553,7 +548,6 @@ AMGX_RC AMGX_API AMGX_read_system_global
  void **rhs,
  void **sol,
  AMGX_resources_handle rsc,
- AMGX_Mode mode,
  const char *filename,
  int allocated_halo_depth,
  int num_partitions,
@@ -572,7 +566,6 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global
  const void *col_indices_global,
  const void *data,
  const void *diag_data,
- int allocated_halo_depth,
  int num_import_rings,
  const int *partition_vector);
  
@@ -587,7 +580,6 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
  const void *col_indices_global,
  const void *data,
  const void *diag_data,
- int allocated_halo_depth,
  int num_import_rings,
  const int *partition_vector);
 

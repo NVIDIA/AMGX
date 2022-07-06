@@ -163,13 +163,11 @@ void Aggressive_HMIS_SelectorBase< T_Config>::markCoarseFinePoints(Matrix< T_Con
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class Aggressive_HMIS_SelectorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Aggressive_HMIS_SelectorBase<TConfigGeneric_d>;
+template class Aggressive_HMIS_SelectorBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Aggressive_HMIS_Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Aggressive_HMIS_Selector<TConfigGeneric_d>;
+template class Aggressive_HMIS_Selector<TConfigGeneric_h>;
 
 } // namespace classical
 

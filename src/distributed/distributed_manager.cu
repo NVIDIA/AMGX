@@ -6054,23 +6054,21 @@ void DistributedManagerBase<TConfig>::consolidateB2LmapsOnRoot(int &num_consolid
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class DistributedManager<TemplateMode<CASE>::Type >;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class DistributedManager<TConfigGeneric_d>;
+template class DistributedManager<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template void DistributedManager<TemplateMode<CASE>::Type>::loadDistributedMatrix( \
-    int, int, const int, const int, const int*, const int *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist); \
-    template void DistributedManager<TemplateMode<CASE>::Type>::loadDistributedMatrix( \
-    int, int, const int, const int, const int*, const int64_t *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void DistributedManager<TConfigGeneric_d>::loadDistributedMatrix(
+        int, int, const int, const int, const int*, const int *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist);
+template void DistributedManager<TConfigGeneric_h>::loadDistributedMatrix(
+        int, int, const int, const int, const int*, const int *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist);
 
-#define AMGX_CASE_LINE(CASE) template class DistributedManagerBase<TemplateMode<CASE>::Type >;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void DistributedManager<TConfigGeneric_d>::loadDistributedMatrix(
+        int, int, const int, const int, const int*, const int64_t *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist);
+template void DistributedManager<TConfigGeneric_h>::loadDistributedMatrix(
+        int, int, const int, const int, const int*, const int64_t *col_indices, const mat_value_type*, int, int, const void*, const MatrixDistribution &dist);
+
+template class DistributedManagerBase<TConfigGeneric_d>;
+template class DistributedManagerBase<TConfigGeneric_h>;
 
 } // namespace amgx
 

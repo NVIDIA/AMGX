@@ -76,7 +76,7 @@ class Size8Selector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >
         typedef typename Matrix_h::IVector IVector;
         typedef typename Matrix<TConfig>::MVector VVector;
         typedef typename TConfig::template setMemSpace<AMGX_host>::Type TConfig_h;
-        typedef Vector<typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig_h::mode)>::Type> Vector_h; // host vector with Matrix precision
+        typedef Vector<typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type> Vector_h; // host vector with Matrix precision
 
         Size8Selector(AMG_Config &cfg, const std::string &cfg_scope) : Size8SelectorBase<TConfig>(cfg, cfg_scope) {}
     private:
@@ -97,7 +97,7 @@ class Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
         typedef typename Matrix_d::IVector IVector;
         typedef typename Matrix<TConfig>::MVector VVector;
         typedef typename TConfig::template setMemSpace<AMGX_host>::Type TConfig_h;
-        typedef Vector<typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig_h::mode)>::Type> Vector_h; // host vector with Matrix precision
+        typedef Vector<typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type> Vector_h; // host vector with Matrix precision
         Size8Selector(AMG_Config &cfg, const std::string &cfg_scope) : Size8SelectorBase<TConfig>(cfg, cfg_scope) {}
     public:
         void setAggregates_common_sqblock(const Matrix_d &A,

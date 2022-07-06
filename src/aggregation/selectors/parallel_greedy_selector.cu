@@ -581,13 +581,11 @@ void ParallelGreedySelector_Base<T_Config>::setAggregates( MatrixType &A, IVecto
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class ParallelGreedySelector_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class ParallelGreedySelector_Base<TConfigGeneric_d>;
+template class ParallelGreedySelector_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class ParallelGreedySelector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class ParallelGreedySelector<TConfigGeneric_d>;
+template class ParallelGreedySelector<TConfigGeneric_h>;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

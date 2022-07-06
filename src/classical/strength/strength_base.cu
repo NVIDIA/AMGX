@@ -552,13 +552,11 @@ void Strength_BaseBase<T_Config>::computeWeights(Matrix<T_Config> &S,
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class Strength_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Strength_Base<TConfigGeneric_d>;
+template class Strength_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Strength_BaseBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Strength_BaseBase<TConfigGeneric_d>;
+template class Strength_BaseBase<TConfigGeneric_h>;
 
 } // namespace amgx
 

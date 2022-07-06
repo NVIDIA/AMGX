@@ -53,9 +53,7 @@ void DeflatedMultiplyOperator<TConfig>::apply(const Vector<TConfig> &v, Vector<T
     axpy(*m_x, res, types::util<ValueTypeVec>::invert(xtres), offset, size);
 }
 
-#define AMGX_CASE_LINE(CASE) template class DeflatedMultiplyOperator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class DeflatedMultiplyOperator<TConfigGeneric_d>;
+template class DeflatedMultiplyOperator<TConfigGeneric_h>;
 
 }

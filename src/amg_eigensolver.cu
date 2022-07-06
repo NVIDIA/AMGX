@@ -298,10 +298,8 @@ int AMG_EigenSolver<T_Config>::get_num_iters()
 /****************************************
  * Explict instantiations
  ***************************************/
-//template class AMG_EigenSolver<CommonMatrixTraits>;
-#define AMGX_CASE_LINE(CASE) template class AMG_EigenSolver<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+
+template class AMG_EigenSolver<TConfigGeneric_d>;
+template class AMG_EigenSolver<TConfigGeneric_h>;
 
 } // namespace amgx

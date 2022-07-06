@@ -140,13 +140,11 @@ void RoundRobinMatrixColoring<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_
     FatalError("Haven't implemented RoundRobin matrix coloring for host", AMGX_ERR_NOT_SUPPORTED_TARGET);
 }
 
-#define AMGX_CASE_LINE(CASE) template class RoundRobinMatrixColoringBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class RoundRobinMatrixColoringBase<TConfigGeneric_d>;
+template class RoundRobinMatrixColoringBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class RoundRobinMatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class RoundRobinMatrixColoring<TConfigGeneric_d>;
+template class RoundRobinMatrixColoring<TConfigGeneric_h>;
 
 } // end namespace amgx
 

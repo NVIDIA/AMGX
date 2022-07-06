@@ -114,14 +114,10 @@ Strength<TConfig> *StrengthFactory<TConfig>::allocate(AMG_Config &cfg, const std
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class Strength<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Strength<TConfigGeneric_d>;
+template class Strength<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class StrengthFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class StrengthFactory<TConfigGeneric_d>;
+template class StrengthFactory<TConfigGeneric_h>;
 
 } // namespace amgx

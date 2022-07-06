@@ -1202,18 +1202,11 @@ template void reorderElementsDeviceCSR(INDEX_TYPE num_rows, INDEX_TYPE *row_offs
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class MatrixBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MatrixBase<TConfigGeneric_d>;
+template class MatrixBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Matrix<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-
-
+template class Matrix<TConfigGeneric_d>;
+template class Matrix<TConfigGeneric_h>;
 
 
 }//end namespace amgx

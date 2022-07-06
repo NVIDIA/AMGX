@@ -193,18 +193,13 @@ void CycleFactory<T_Config>::generate(AMG_Class *amg, AMG_Level<T_Config> *level
  * Explict instantiations
  ***************************************/
 
-#define AMGX_CASE_LINE(CASE) template class Cycle_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Cycle_Base<TConfigGeneric_d>;
+template class Cycle_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Cycle<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Cycle<TConfigGeneric_d>;
+template class Cycle<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class CycleFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CycleFactory<TConfigGeneric_d>;
+template class CycleFactory<TConfigGeneric_h>;
+
 } // namespace amgx

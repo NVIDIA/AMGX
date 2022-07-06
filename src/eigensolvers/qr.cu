@@ -607,9 +607,8 @@ void HouseholderQR<TConfig>::QR_decomposition(TVector &V)
     delete_tree(reduce_tree);
 }
 
-#define AMGX_CASE_LINE(CASE) template class HouseholderQR<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class HouseholderQR<TConfigGeneric_d>;
+template class HouseholderQR<TConfigGeneric_h>;
 
 }
 

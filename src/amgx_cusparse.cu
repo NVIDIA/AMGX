@@ -1779,71 +1779,40 @@ void Cusparse::transpose(const Matrix<TConfig>& A, Matrix<TConfig>& B)
         B.values.raw(), B.row_offsets.raw(), B.col_indices.raw());
 }
 
-//#define AMGX_CASE_LINE(CASE) template class Cusparse<TemplateMode<CASE>::Type>;
-//    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-//#undef AMGX_CASE_LINE
+// Explicit host and device instantiations
+template void Cusparse::bsrmv(const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>&, ViewType);
+template void Cusparse::bsrmv(const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>&, ViewType);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrmv(const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>  &, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::bsrxmv(const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>&, typename Matrix<TConfigGeneric_d>::IVector&, ViewType);
+template void Cusparse::bsrxmv(const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>&, typename Matrix<TConfigGeneric_h>::IVector&, ViewType);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrxmv(const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>&, typename Matrix<TemplateMode<CASE>::Type>::IVector&, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::bsrmv_with_mask(const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d> &);
+template void Cusparse::bsrmv_with_mask(const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h> &);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrmv_with_mask(const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>  &);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::bsrmv_with_mask_restriction(const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>&, Matrix<TConfigGeneric_d>&);
+template void Cusparse::bsrmv_with_mask_restriction(const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>&, Matrix<TConfigGeneric_h>&);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrmv_with_mask_restriction(const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>  &, Matrix<TemplateMode<CASE>::Type>& );
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::bsrmv(const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, const typename Matrix<TConfigGeneric_d>::MVector&, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>  &, ViewType);
+template void Cusparse::bsrmv(const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, const typename Matrix<TConfigGeneric_h>::MVector&, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>  &, ViewType);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrmv(const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, const typename Matrix<TemplateMode<CASE>::Type>::MVector&, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>  &, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::bsrmv(ColumnColorSelector, const int, const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>  &, ViewType);
+template void Cusparse::bsrmv(ColumnColorSelector, const int, const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>  &, ViewType);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrmv(ColumnColorSelector, const int, const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>  &, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::bsrmv(const int, const typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, const typename Matrix<TConfigGeneric_d>::MVector &, Vector<TConfigGeneric_d>&, const typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>  &, ViewType);
+template void Cusparse::bsrmv(const int, const typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, const typename Matrix<TConfigGeneric_h>::MVector &, Vector<TConfigGeneric_h>&, const typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>  &, ViewType);
 
+template void Cusparse::csrmm(typename TConfigGeneric_d::VecPrec, Matrix<TConfigGeneric_d>&, Vector<TConfigGeneric_d>&, typename TConfigGeneric_d::VecPrec, Vector<TConfigGeneric_d>&);
+template void Cusparse::csrmm(typename TConfigGeneric_h::VecPrec, Matrix<TConfigGeneric_h>&, Vector<TConfigGeneric_h>&, typename TConfigGeneric_h::VecPrec, Vector<TConfigGeneric_h>&);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::bsrmv(const int, const typename TemplateMode<CASE>::Type::VecPrec ,  Matrix<TemplateMode<CASE>::Type>&, const typename Matrix<TemplateMode<CASE>::Type>::MVector &, Vector<TemplateMode<CASE>::Type>&, const typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>  &, ViewType);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::transpose(const Matrix<TConfigGeneric_d>& A, Matrix<TConfigGeneric_d>& B);
+template void Cusparse::transpose(const Matrix<TConfigGeneric_h>& A, Matrix<TConfigGeneric_h>& B);
 
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::csrmm(typename TemplateMode<CASE>::Type::VecPrec, Matrix<TemplateMode<CASE>::Type>&, Vector<TemplateMode<CASE>::Type>&, typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>&);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) \
-  template void Cusparse::transpose(const Matrix<TemplateMode<CASE>::Type>& A, Matrix<TemplateMode<CASE>::Type>& B); \
-  template void Cusparse::transpose(const Matrix<TemplateMode<CASE>::Type>& A, Matrix<TemplateMode<CASE>::Type>& B, const int nRows, const int nNz);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void Cusparse::transpose(const Matrix<TConfigGeneric_d>& A, Matrix<TConfigGeneric_d>& B, const int nRows, const int nNz);
+template void Cusparse::transpose(const Matrix<TConfigGeneric_h>& A, Matrix<TConfigGeneric_h>& B, const int nRows, const int nNz);
 
 #ifndef DISABLE_MIXED_PRECISION
-#define AMGX_CASE_LINE(CASE) template struct CusparseMatPrec<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template struct CusparseMatPrec<TConfigGeneric_d>;
+template struct CusparseMatPrec<TConfigGeneric_h>;
 #endif
 
 } // namespace amgx

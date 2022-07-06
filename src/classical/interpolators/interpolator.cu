@@ -111,13 +111,10 @@ Interpolator<TConfig> *InterpolatorFactory<TConfig>::allocate(AMG_Config &cfg, c
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class Interpolator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Interpolator<TConfigGeneric_d>;
+template class Interpolator<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class InterpolatorFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class InterpolatorFactory<TConfigGeneric_d>;
+template class InterpolatorFactory<TConfigGeneric_h>;
+
 } // namespace amgx

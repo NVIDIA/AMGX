@@ -613,13 +613,11 @@ void LocallyDownwindColoring<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_i
     FatalError("Haven't implemented locally downwind coloring for host", AMGX_ERR_NOT_SUPPORTED_TARGET);
 }
 
-#define AMGX_CASE_LINE(CASE) template class LocallyDownwindColoringBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class LocallyDownwindColoringBase<TConfigGeneric_d>;
+template class LocallyDownwindColoringBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class LocallyDownwindColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class LocallyDownwindColoring<TConfigGeneric_d>;
+template class LocallyDownwindColoring<TConfigGeneric_h>;
 
 } // end namespace amgx
 

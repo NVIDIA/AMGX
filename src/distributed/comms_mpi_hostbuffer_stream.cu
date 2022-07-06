@@ -1614,9 +1614,7 @@ void CommsMPIHostBufferStream<T_Config>::all_gather_v(HIVector& data, int num_el
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class CommsMPIHostBufferStream<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CommsMPIHostBufferStream<TConfigGeneric_d>;
+template class CommsMPIHostBufferStream<TConfigGeneric_h>;
 
 } // namespace amgx

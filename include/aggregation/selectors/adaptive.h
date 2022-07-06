@@ -52,11 +52,10 @@ class AdaptiveSelectorBase: public Selector<T_Config>
         typedef typename Matrix<TConfig>::MVector MVector;
 
         //typedefs for the weight matrix and vectors
-        typedef TemplateMode<AMGX_mode_dFFI>::Type TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
+        typedef TemplateConfig<AMGX_device, AMGX_vecFloat, AMGX_matFloat, AMGX_indInt> TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
         typedef typename TConfig_dFFI::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_dFFI;
         typedef Vector<ivec_value_type_dFFI> IVector_dFFI;
         typedef Vector<TConfig_dFFI> VVector_dFFI;
-
 
         AdaptiveSelectorBase(AMG_Config &cfg, const std::string &cfg_scope);
         void setAggregates( Matrix<T_Config> &A,
@@ -80,7 +79,7 @@ class AdaptiveSelector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec
         typedef typename Matrix_h::MVector MVector;
 
         //typedefs for the weight matrix and vectors
-        typedef TemplateMode<AMGX_mode_dFFI>::Type TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
+        typedef TemplateConfig<AMGX_device, AMGX_vecFloat, AMGX_matFloat, AMGX_indInt> TConfig_dFFI;//possible issue: the indextype does not match the actual indextype
         typedef typename TConfig_dFFI::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_dFFI;
         typedef Vector<ivec_value_type_dFFI> IVector_dFFI;
         typedef Vector<TConfig_dFFI> VVector_dFFI;

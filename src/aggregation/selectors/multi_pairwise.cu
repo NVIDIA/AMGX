@@ -1789,12 +1789,10 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 // -------------------------
 //    Explict instantiations
 // -------------------------
-#define AMGX_CASE_LINE(CASE) template class MultiPairwiseSelectorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class MultiPairwiseSelector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MultiPairwiseSelectorBase<TConfigGeneric_d>;
+template class MultiPairwiseSelectorBase<TConfigGeneric_h>;
+template class MultiPairwiseSelector<TConfigGeneric_d>;
+template class MultiPairwiseSelector<TConfigGeneric_h>;
 
 }
 }

@@ -2335,12 +2335,10 @@ void Distance2_InterpolatorBase<T_Config>::generateInterpolationMatrix(Matrix<T_
     P.set_initialized(1);
 }
 
-#define AMGX_CASE_LINE(CASE) template class Distance2_InterpolatorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Distance2_InterpolatorBase<TConfigGeneric_d>;
+template class Distance2_InterpolatorBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Distance2_Interpolator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Distance2_Interpolator<TConfigGeneric_d>;
+template class Distance2_Interpolator<TConfigGeneric_h>;
 
 } // namespace amgx

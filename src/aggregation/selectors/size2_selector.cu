@@ -931,12 +931,10 @@ void Size2SelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 // -------------------------
 //  Explict instantiations
 // -------------------------
-#define AMGX_CASE_LINE(CASE) template class Size2SelectorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class Size2Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Size2SelectorBase<TConfigGeneric_d>;
+template class Size2SelectorBase<TConfigGeneric_h>;
+template class Size2Selector<TConfigGeneric_d>;
+template class Size2Selector<TConfigGeneric_h>;
 
 }
 }

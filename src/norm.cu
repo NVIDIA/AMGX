@@ -581,31 +581,32 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         }
 };
 
-#define AMGX_CASE_LINE(CASE) template typename types::PODTypes< typename Vector<TemplateMode<CASE>::Type>::value_type>::type get_norm(const Matrix<TemplateMode<CASE>::Type>& A, const Vector<TemplateMode<CASE>::Type>& r, const NormType norm_type, typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type norm_factor);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type get_norm(const Matrix<TConfigGeneric_d>& A, const Vector<TConfigGeneric_d>& r, const NormType norm_type, typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type norm_factor);
+template typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type get_norm(const Matrix<TConfigGeneric_h>& A, const Vector<TConfigGeneric_h>& r, const NormType norm_type, typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type norm_factor);
 
-#define AMGX_CASE_LINE(CASE) template typename types::PODTypes< typename Vector<TemplateMode<CASE>::Type>::value_type>::type get_norm(const Operator<TemplateMode<CASE>::Type>& A, const Vector<TemplateMode<CASE>::Type>& r, const NormType norm_type, typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type norm_factor);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename types::PODTypes< typename Vector<TConfigGeneric_d>::value_type>::type get_norm(const Operator<TConfigGeneric_d>& A, const Vector<TConfigGeneric_d>& r, const NormType norm_type, typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type norm_factor);
+template typename types::PODTypes< typename Vector<TConfigGeneric_h>::value_type>::type get_norm(const Operator<TConfigGeneric_h>& A, const Vector<TConfigGeneric_h>& r, const NormType norm_type, typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type norm_factor);
 
-#define AMGX_CASE_LINE(CASE) \
-  typedef typename Vector< TemplateMode<CASE>::Type >::value_type ValueTypeMB##CASE ;\
-  typedef TemplateMode<CASE>::Type::template setMemSpace<AMGX_host>::Type::template setVecPrec< types::PODTypes< ValueTypeMB##CASE >::vec_prec >::Type CurTConfigMB_h##CASE ;\
-  template void get_norm(const Matrix<TemplateMode<CASE>::Type>& A, const Vector<TemplateMode<CASE>::Type>& r, const int block_size, const NormType norm_type, Vector< CurTConfigMB_h##CASE >& block_nrm, typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type norm_factor); \
-  template void compute_norm_factor(Matrix<TemplateMode<CASE>::Type> &A, Vector<TemplateMode<CASE>::Type> &b, Vector<TemplateMode<CASE>::Type> &x, const NormType normType, typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type &normFactor);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+// XXX Could be tidied up
+typedef typename Vector< TConfigGeneric_d >::value_type ValueTypeMB;
+typedef typename Vector< TConfigGeneric_h >::value_type ValueTypeMB_h;
 
-#define AMGX_CASE_LINE(CASE) \
-  typedef typename Vector< TemplateMode<CASE>::Type >::value_type ValueTypeOB##CASE ;\
-  typedef TemplateMode<CASE>::Type::template setMemSpace<AMGX_host>::Type::template setVecPrec< types::PODTypes< ValueTypeOB##CASE >::vec_prec >::Type CurTConfigOB_h##CASE ;\
-  template void get_norm(const Operator<TemplateMode<CASE>::Type>& A, const Vector<TemplateMode<CASE>::Type>& r, const int block_size, const NormType norm_type, Vector< CurTConfigOB_h##CASE >& block_nrm, typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type norm_factor);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+typedef TConfigGeneric_d::template setMemSpace<AMGX_host>::Type::template setVecPrec< types::PODTypes<ValueTypeMB>::vec_prec >::Type CurTConfigMB;
+typedef TConfigGeneric_h::template setMemSpace<AMGX_host>::Type::template setVecPrec< types::PODTypes<ValueTypeMB_h>::vec_prec >::Type CurTConfigMB_h;
+
+template void get_norm(const Matrix<TConfigGeneric_d>& A, const Vector<TConfigGeneric_d>& r, const int block_size, const NormType norm_type, Vector<CurTConfigMB>& block_nrm, typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type norm_factor);
+template void get_norm(const Matrix<TConfigGeneric_h>& A, const Vector<TConfigGeneric_h>& r, const int block_size, const NormType norm_type, Vector<CurTConfigMB_h>& block_nrm, typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type norm_factor);
+
+template void compute_norm_factor(Matrix<TConfigGeneric_d> &A, Vector<TConfigGeneric_d> &b, Vector<TConfigGeneric_d> &x, const NormType normType, typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type &normFactor);
+template void compute_norm_factor(Matrix<TConfigGeneric_h> &A, Vector<TConfigGeneric_h> &b, Vector<TConfigGeneric_h> &x, const NormType normType, typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type &normFactor);
+
+typedef typename Vector<TConfigGeneric_d>::value_type ValueTypeOB;
+typedef typename Vector<TConfigGeneric_h>::value_type ValueTypeOB_h;
+
+typedef TConfigGeneric_d::template setMemSpace<AMGX_host>::Type::template setVecPrec< types::PODTypes<ValueTypeOB>::vec_prec >::Type CurTConfigOB;
+typedef TConfigGeneric_h::template setMemSpace<AMGX_host>::Type::template setVecPrec< types::PODTypes<ValueTypeOB_h>::vec_prec >::Type CurTConfigOB_h;
+
+template void get_norm(const Operator<TConfigGeneric_d>& A, const Vector<TConfigGeneric_d>& r, const int block_size, const NormType norm_type, Vector<CurTConfigOB>& block_nrm, typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type norm_factor);
+template void get_norm(const Operator<TConfigGeneric_h>& A, const Vector<TConfigGeneric_h>& r, const int block_size, const NormType norm_type, Vector<CurTConfigOB_h>& block_nrm, typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type norm_factor);
 
 } // namespace amgx

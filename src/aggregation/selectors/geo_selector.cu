@@ -403,12 +403,10 @@ void GEO_SelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A, IVector &agg
 // ---------------------------
 // Explict instantiations
 // ---------------------------
-#define AMGX_CASE_LINE(CASE) template class GEO_SelectorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class GEO_Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class GEO_SelectorBase<TConfigGeneric_d>;
+template class GEO_SelectorBase<TConfigGeneric_h>;
+template class GEO_Selector<TConfigGeneric_d>;
+template class GEO_Selector<TConfigGeneric_h>;
 
 }
 }

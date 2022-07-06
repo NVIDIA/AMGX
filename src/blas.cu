@@ -943,124 +943,67 @@ nrmmax(const Vector &x, int offset, int size)
  * Explict instantiations
  ***************************************/
 
-#define AMGX_CASE_LINE(CASE) template void axpbypcz(const Vector<TemplateMode<CASE>::Type> &x, const Vector<TemplateMode<CASE>::Type>& y, const Vector<TemplateMode<CASE>::Type>& z, Vector<TemplateMode<CASE>::Type> &out, Vector<TemplateMode<CASE>::Type>::value_type a, Vector<TemplateMode<CASE>::Type>::value_type b, Vector<TemplateMode<CASE>::Type>::value_type c, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void axpbypcz(const Vector<TConfigGeneric_d> &x, const Vector<TConfigGeneric_d>& y, const Vector<TConfigGeneric_d>& z, Vector<TConfigGeneric_d> &out, Vector<TConfigGeneric_d>::value_type a, Vector<TConfigGeneric_d>::value_type b, Vector<TConfigGeneric_d>::value_type c, int, int);
+template void axpbypcz(const Vector<TConfigGeneric_h> &x, const Vector<TConfigGeneric_h>& y, const Vector<TConfigGeneric_h>& z, Vector<TConfigGeneric_h> &out, Vector<TConfigGeneric_h>::value_type a, Vector<TConfigGeneric_h>::value_type b, Vector<TConfigGeneric_h>::value_type c, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axpby(const Vector<TemplateMode<CASE>::Type> &x, const Vector<TemplateMode<CASE>::Type>& y, Vector<TemplateMode<CASE>::Type> &out, double a, double b, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void axpby(const Vector<TConfigGeneric_d> &x, const Vector<TConfigGeneric_d>& y, Vector<TConfigGeneric_d> &out, Vector<TConfigGeneric_d>::value_type a, Vector<TConfigGeneric_d>::value_type b, int, int);
+template void axpby(const Vector<TConfigGeneric_h> &x, const Vector<TConfigGeneric_h>& y, Vector<TConfigGeneric_h> &out, Vector<TConfigGeneric_h>::value_type a, Vector<TConfigGeneric_h>::value_type b, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axpby(const Vector<TemplateMode<CASE>::Type> &x, const Vector<TemplateMode<CASE>::Type>& y, Vector<TemplateMode<CASE>::Type> &out, float a, float b, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void axpy(const Vector<TConfigGeneric_d> &x, Vector<TConfigGeneric_d>& y, Vector<TConfigGeneric_d>::value_type a, int, int);
+template void axpy(const Vector<TConfigGeneric_h> &x, Vector<TConfigGeneric_h>& y, Vector<TConfigGeneric_h>::value_type a, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axpby(const Vector<TemplateMode<CASE>::Type> &x, const Vector<TemplateMode<CASE>::Type>& y, Vector<TemplateMode<CASE>::Type> &out, cuDoubleComplex a, cuDoubleComplex b, int, int);
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void axpy(Vector<TConfigGeneric_d> &x, Vector<TConfigGeneric_d>& y, Vector<TConfigGeneric_d>::value_type a, int, int, int);
+template void axpy(Vector<TConfigGeneric_h> &x, Vector<TConfigGeneric_h>& y, Vector<TConfigGeneric_h>::value_type a, int, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axpby(const Vector<TemplateMode<CASE>::Type> &x, const Vector<TemplateMode<CASE>::Type>& y, Vector<TemplateMode<CASE>::Type> &out, cuComplex a, cuComplex b, int, int);
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void gemv_extnd(bool, const Vector<TConfigGeneric_d> &, const Vector<TConfigGeneric_d> &, Vector<TConfigGeneric_d> &, int, int, Vector<TConfigGeneric_d>::value_type,  Vector<TConfigGeneric_d>::value_type, int, int, int, int, int, int);
+template void gemv_extnd(bool, const Vector<TConfigGeneric_h> &, const Vector<TConfigGeneric_h> &, Vector<TConfigGeneric_h> &, int, int, Vector<TConfigGeneric_h>::value_type,  Vector<TConfigGeneric_h>::value_type, int, int, int, int, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axpy(const Vector<TemplateMode<CASE>::Type> &x, Vector<TemplateMode<CASE>::Type>& y, Vector<TemplateMode<CASE>::Type>::value_type a, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void trsv_extnd(bool, const Vector<TConfigGeneric_d> &, int, Vector<TConfigGeneric_d> &, int, int, int);
+template void trsv_extnd(bool, const Vector<TConfigGeneric_h> &, int, Vector<TConfigGeneric_h> &, int, int, int);
 
+template void scal(Vector<TConfigGeneric_d> &x, Vector<TConfigGeneric_d>::value_type a, int, int);
+template void scal(Vector<TConfigGeneric_h> &x, Vector<TConfigGeneric_h>::value_type a, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axpy(Vector<TemplateMode<CASE>::Type> &x, Vector<TemplateMode<CASE>::Type>& y, Vector<TemplateMode<CASE>::Type>::value_type a, int, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void axmb(Matrix<TConfigGeneric_d>& A, Vector<TConfigGeneric_d>& x, Vector<TConfigGeneric_d>& b, Vector<TConfigGeneric_d>& r, int, int);
+template void axmb(Matrix<TConfigGeneric_h>& A, Vector<TConfigGeneric_h>& x, Vector<TConfigGeneric_h>& b, Vector<TConfigGeneric_h>& r, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void gemv_extnd(bool, const Vector<TemplateMode<CASE>::Type> &, const Vector<TemplateMode<CASE>::Type> &, Vector<TemplateMode<CASE>::Type> &, int, int, Vector<TemplateMode<CASE>::Type>::value_type,  Vector<TemplateMode<CASE>::Type>::value_type, int, int, int, int, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void axmb(Operator<TConfigGeneric_d>& A, Vector<TConfigGeneric_d>& x, Vector<TConfigGeneric_d>& b, Vector<TConfigGeneric_d>& r, int, int);
+template void axmb(Operator<TConfigGeneric_h>& A, Vector<TConfigGeneric_h>& x, Vector<TConfigGeneric_h>& b, Vector<TConfigGeneric_h>& r, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void trsv_extnd(bool, const Vector<TemplateMode<CASE>::Type> &, int, Vector<TemplateMode<CASE>::Type> &, int, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename Vector<TConfigGeneric_d>::value_type dotc(const Vector<TConfigGeneric_d>& a, const Vector<TConfigGeneric_d> &b, int, int);
+template typename Vector<TConfigGeneric_h>::value_type dotc(const Vector<TConfigGeneric_h>& a, const Vector<TConfigGeneric_h> &b, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void scal(Vector<TemplateMode<CASE>::Type> &x, Vector<TemplateMode<CASE>::Type>::value_type a, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename Vector<TConfigGeneric_d>::value_type dotc(const Vector<TConfigGeneric_d>& a, const Vector<TConfigGeneric_d> &b, int, int, int);
+template typename Vector<TConfigGeneric_h>::value_type dotc(const Vector<TConfigGeneric_h>& a, const Vector<TConfigGeneric_h> &b, int, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void axmb(Matrix<TemplateMode<CASE>::Type>& A, Vector<TemplateMode<CASE>::Type>& x, Vector<TemplateMode<CASE>::Type>& b, Vector<TemplateMode<CASE>::Type>& r, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename Vector<TConfigGeneric_d>::value_type dot(const Matrix<TConfigGeneric_d>& A,const Vector<TConfigGeneric_d>& x, const Vector<TConfigGeneric_d> &y);
+template typename Vector<TConfigGeneric_h>::value_type dot(const Matrix<TConfigGeneric_h>& A,const Vector<TConfigGeneric_h>& x, const Vector<TConfigGeneric_h> &y);
 
-#define AMGX_CASE_LINE(CASE) template void axmb(Operator<TemplateMode<CASE>::Type>& A, Vector<TemplateMode<CASE>::Type>& x, Vector<TemplateMode<CASE>::Type>& b, Vector<TemplateMode<CASE>::Type>& r, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename Vector<TConfigGeneric_d>::value_type dot(const Operator<TConfigGeneric_d>& A,const Vector<TConfigGeneric_d>& x, const Vector<TConfigGeneric_d> &y);
+template typename Vector<TConfigGeneric_h>::value_type dot(const Operator<TConfigGeneric_h>& A,const Vector<TConfigGeneric_h>& x, const Vector<TConfigGeneric_h> &y);
 
-#define AMGX_CASE_LINE(CASE) template typename Vector<TemplateMode<CASE>::Type>::value_type dotc(const Vector<TemplateMode<CASE>::Type>& a, const Vector<TemplateMode<CASE>::Type> &b, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename Vector<TConfigGeneric_d>::value_type dot(const Matrix<TConfigGeneric_d>& A,const Vector<TConfigGeneric_d>& x, const Vector<TConfigGeneric_d> &y, int, int);
+template typename Vector<TConfigGeneric_h>::value_type dot(const Matrix<TConfigGeneric_h>& A,const Vector<TConfigGeneric_h>& x, const Vector<TConfigGeneric_h> &y, int, int);
 
-#define AMGX_CASE_LINE(CASE) template typename Vector<TemplateMode<CASE>::Type>::value_type dotc(const Vector<TemplateMode<CASE>::Type>& a, const Vector<TemplateMode<CASE>::Type> &b, int, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename Vector<TConfigGeneric_d>::value_type dot(const Operator<TConfigGeneric_d>& A,const Vector<TConfigGeneric_d>& x, const Vector<TConfigGeneric_d> &y, int, int);
+template typename Vector<TConfigGeneric_h>::value_type dot(const Operator<TConfigGeneric_h>& A,const Vector<TConfigGeneric_h>& x, const Vector<TConfigGeneric_h> &y, int, int);
 
-#define AMGX_CASE_LINE(CASE) template typename Vector<TemplateMode<CASE>::Type>::value_type dot(const Matrix<TemplateMode<CASE>::Type>& A,const Vector<TemplateMode<CASE>::Type>& x, const Vector<TemplateMode<CASE>::Type> &y);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void copy(const Vector<TConfigGeneric_d> & a, Vector<TConfigGeneric_d>  &b, int, int);
+template void copy(const Vector<TConfigGeneric_h> & a, Vector<TConfigGeneric_h>  &b, int, int);
 
-#define AMGX_CASE_LINE(CASE) template typename Vector<TemplateMode<CASE>::Type>::value_type dot(const Operator<TemplateMode<CASE>::Type>& A,const Vector<TemplateMode<CASE>::Type>& x, const Vector<TemplateMode<CASE>::Type> &y);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void copy_ext(Vector<TConfigGeneric_d> & a, Vector<TConfigGeneric_d>  &b, int, int, int);
+template void copy_ext(Vector<TConfigGeneric_h> & a, Vector<TConfigGeneric_h>  &b, int, int, int);
 
-#define AMGX_CASE_LINE(CASE) template typename Vector<TemplateMode<CASE>::Type>::value_type dot(const Matrix<TemplateMode<CASE>::Type>& A,const Vector<TemplateMode<CASE>::Type>& x, const Vector<TemplateMode<CASE>::Type> &y, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template void fill(Vector<TConfigGeneric_d>& x, Vector<TConfigGeneric_d>::value_type val, int, int);
+template void fill(Vector<TConfigGeneric_h>& x, Vector<TConfigGeneric_h>::value_type val, int, int);
 
-#define AMGX_CASE_LINE(CASE) template typename Vector<TemplateMode<CASE>::Type>::value_type dot(const Operator<TemplateMode<CASE>::Type>& A,const Vector<TemplateMode<CASE>::Type>& x, const Vector<TemplateMode<CASE>::Type> &y, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type nrm1(const Vector<TConfigGeneric_d>& x, int, int);
+template typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type nrm1(const Vector<TConfigGeneric_h>& x, int, int);
 
-#define AMGX_CASE_LINE(CASE) template void copy(const Vector<TemplateMode<CASE>::Type> & a, Vector<TemplateMode<CASE>::Type>  &b, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type nrm2(const Vector<TConfigGeneric_d>& x, int, int);
+template typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type nrm2(const Vector<TConfigGeneric_h>& x, int, int);
 
-
-#define AMGX_CASE_LINE(CASE) template void copy_ext(Vector<TemplateMode<CASE>::Type> & a, Vector<TemplateMode<CASE>::Type>  &b, int, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template void fill(Vector<TemplateMode<CASE>::Type>& x, Vector<TemplateMode<CASE>::Type>::value_type val, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type nrm1(const Vector<TemplateMode<CASE>::Type>& x, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type nrm2(const Vector<TemplateMode<CASE>::Type>& x, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template typename types::PODTypes<typename Vector<TemplateMode<CASE>::Type>::value_type>::type nrmmax(const Vector<TemplateMode<CASE>::Type>& x, int, int);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template typename types::PODTypes<typename Vector<TConfigGeneric_d>::value_type>::type nrmmax(const Vector<TConfigGeneric_d>& x, int, int);
+template typename types::PODTypes<typename Vector<TConfigGeneric_h>::value_type>::type nrmmax(const Vector<TConfigGeneric_h>& x, int, int);
 
 } // namespace amgx

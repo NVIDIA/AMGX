@@ -131,15 +131,11 @@ ConvergenceFactory<TConfig>::getFactories( )
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class ConvergenceFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class ConvergenceFactory<TConfigGeneric_d>;
+template class ConvergenceFactory<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Convergence<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Convergence<TConfigGeneric_d>;
+template class Convergence<TConfigGeneric_h>;
 
 } // end namespace
 

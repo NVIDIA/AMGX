@@ -90,10 +90,8 @@ bool RelativeMaxConvergence<TConfig>::convergence_update_and_check(const PODVec_
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class RelativeMaxConvergence<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class RelativeMaxConvergence<TConfigGeneric_d>;
+template class RelativeMaxConvergence<TConfigGeneric_h>;
 
 } // end namespace
 

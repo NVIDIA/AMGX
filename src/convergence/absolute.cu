@@ -72,10 +72,8 @@ bool AbsoluteConvergence<TConfig>::convergence_update_and_check(const PODVec_h &
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class AbsoluteConvergence<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class AbsoluteConvergence<TConfigGeneric_d>;
+template class AbsoluteConvergence<TConfigGeneric_h>;
 
 } // end namespace
 

@@ -1852,6 +1852,28 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
     // get pointer to values on the device
     rc = cudaPointerGetAttributes(&att, ptr);
 
+#if CUDART_VERSION >= 11000
+    if(rc == cudaSuccess && att.type != cudaMemoryTypeDevice)
+    {
+        checkPinnedBuffer(size);
+        rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+
+        if (rc != cudaSuccess)
+        {
+            FatalError("Could not copy into the temporary (host) storage. Try pinning the memory to avoid the cudaMemcpy.", AMGX_ERR_BAD_PARAMETERS);
+        }
+
+        ptr_h = m_pinned_buffer;
+        *allocated = 1;
+        cudaGetLastError(); //to reset last error
+        return ptr_h;
+    }
+    else
+    {
+        cudaGetLastError(); //to reset last error
+        return ptr;
+    }
+#else
     if (rc == cudaSuccess)
     {
         //you are in case 2 or 4 from the above comment.
@@ -1880,6 +1902,7 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
         //you are in case 1 or 3 from the above comment
         ptr_h = ptr;
     }
+#endif
 
     cudaGetLastError(); //to reset last error
 
@@ -1939,6 +1962,28 @@ const void *DistributedManagerBase<TConfig>::getHostPointerForData(const void *p
     // get pointer to values on the device
     rc = cudaPointerGetAttributes(&att, ptr);
 
+#if CUDART_VERSION >= 11000
+    if(rc == cudaSuccess && att.type != cudaMemoryTypeDevice)
+    {
+        checkPinnedBuffer(size);
+        rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+
+        if (rc != cudaSuccess)
+        {
+            FatalError("Could not copy into the temporary (host) storage. Try pinning the memory to avoid the cudaMemcpy.", AMGX_ERR_BAD_PARAMETERS);
+        }
+
+        ptr_h = m_pinned_buffer;
+        *allocated = 1;
+        cudaGetLastError(); //to reset last error
+        return ptr_h;
+    }
+    else
+    {
+        cudaGetLastError(); //to reset last error
+        return ptr;
+    }
+#else
     if (rc == cudaSuccess)
     {
         //you are in case 2 or 4 from the above comment.
@@ -1971,6 +2016,7 @@ const void *DistributedManagerBase<TConfig>::getHostPointerForData(const void *p
         //you are in case 1 or 3 from the above comment
         return ptr;
     }
+#endif
 }
 
 
@@ -2021,9 +2067,19 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
     rc = cudaPointerGetAttributes(&att, ptr);
 
 #if CUDART_VERSION >= 11000
-    // Malloc
-    if(rc != cudaSuccess || att.type == cudaMemoryTypeUnregistered)
+    if(rc == cudaSuccess && att.type != cudaMemoryTypeUnregistered)
     {
+        // Received device registered data (device, managed, malloc+cudaHostRegister, or cudaMallocHost)
+        ptr_d = (void*)att.devicePointer;
+
+        if (ptr_d == NULL)
+        {
+            FatalError("Data passed is registered with device but devicePointer null.", AMGX_ERR_INTERNAL);
+        }
+    }
+    else
+    {
+        // Received unregistered or host allocated data (malloc)
         rc = cudaMalloc(&ptr_d, size);
 
         if (rc != cudaSuccess)
@@ -2040,27 +2096,6 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
 
         *allocated = 1;
     }
-    // Device or managed
-    else if(att.type == cudaMemoryTypeDevice || att.type == cudaMemoryTypeManaged)
-    {
-        ptr_d = (void*)att.devicePointer;
-
-        if(ptr_d == NULL)
-        {
-            FatalError("Invalid device pointer passed.", AMGX_ERR_BAD_PARAMETERS);
-        }
-    }
-    // Host pinned
-    else if (att.type == cudaMemoryTypeHost)
-    {
-        rc = cudaHostGetDevicePointer(&ptr_d, ptr, 0);
-
-        if (rc != cudaSuccess)
-        {
-            FatalError("Invalid host registered pointer passed.", AMGX_ERR_BAD_PARAMETERS);
-        }
-    }
-
 #else
 
     if (rc == cudaSuccess)
@@ -2093,13 +2128,14 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
             *allocated = 1;
         }
     }
-#endif
 
     /* check for null pointers */
     if (ptr_d == NULL)
     {
         FatalError("Result of allocation of required temporary storage is NULL. Try pinning the memory to reduce storage requirements.", AMGX_ERR_BAD_PARAMETERS);
     }
+
+#endif
 
     cudaGetLastError(); //to reset last error
     return ptr_d;
@@ -2151,6 +2187,37 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
     // get pointer to values on the device
     rc = cudaPointerGetAttributes(&att, ptr);
 
+#if CUDART_VERSION >= 11000
+    if(rc == cudaSuccess && att.type != cudaMemoryTypeUnregistered)
+    {
+        // Received device registered data (device, managed, malloc+cudaHostRegister, or cudaMallocHost)
+        ptr_d = (void*)att.devicePointer;
+
+        if (ptr_d == NULL)
+        {
+            FatalError("Data passed is registered with device but devicePointer null.", AMGX_ERR_INTERNAL);
+        }
+    }
+    else
+    {
+        // Received unregistered or host allocated data (malloc)
+        rc = cudaMalloc(&ptr_d, size);
+
+        if (rc != cudaSuccess)
+        {
+            FatalError("Could not allocate required temporary storage. Try pinning the memory to reduce storage requirements.", AMGX_ERR_BAD_PARAMETERS);
+        }
+
+        rc = cudaMemcpy(ptr_d, ptr, size, cudaMemcpyDefault);
+
+        if (rc != cudaSuccess)
+        {
+            FatalError("Could not copy into the temporary storage. Try pinning the memory to avoid the cudaMemcpy.", AMGX_ERR_BAD_PARAMETERS);
+        }
+
+        *allocated = 1;
+    }
+#else
     if (rc == cudaSuccess)
     {
         //you are in case 2 or 4 from the above comment.
@@ -2190,6 +2257,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
     {
         FatalError("Result of allocation of required temporary storage is NULL. Try pinning the memory to reduce storage requirements.", AMGX_ERR_BAD_PARAMETERS);
     }
+#endif
 
     // shouldn't get there
     cudaGetLastError(); //to reset last error

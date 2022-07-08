@@ -255,12 +255,16 @@ endif(MKL_ROOT_DIR)
 
 # We depend on a specific version of thrust now so include the submodule
 add_subdirectory("thrust")
+find_package(Thrust REQUIRED CONFIG)
+thrust_create_target(Thrust)
 
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
 
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
+
+target_link_libraries(amgx_libs Thrust)
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")

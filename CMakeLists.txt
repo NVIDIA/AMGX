@@ -115,12 +115,6 @@ if (DEFINED ENV{CRAY_MPICH2_DIR})
   set(MPI_C_INCLUDE_PATH "$ENV{CRAY_MPICH2_DIR}/include")
 endif(DEFINED ENV{CRAY_MPICH2_DIR})
 
-
-# Thrust:
-if (DEFINED ENV{THRUST_ROOT})
-  set (THRUST_DIR $ENV{THRUST_ROOT})
-endif(DEFINED ENV{THRUST_ROOT})
-
 set(AMGX_INCLUDE_EXTERNAL True CACHE BOOL "Include external 3rd party libraries")
 if (${AMGX_INCLUDE_EXTERNAL})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRAPIDJSON_DEFINED")
@@ -259,9 +253,9 @@ if (MKL_ROOT_DIR)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
-# set up thrust
-find_package(Thrust 1.17.0 REQUIRED)
-thrust_create_target(Thrust)
+# We depend on a specific version of thrust now so include the submodule
+add_subdirectory("thrust")
+
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
 
 add_library(amgx_libs OBJECT "")
@@ -270,8 +264,6 @@ add_subdirectory("src")
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-
-target_link_libraries(amgx_libs Thrust)
 
 target_compile_options(amgx_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 

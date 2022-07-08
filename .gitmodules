@@ -1,0 +1,6 @@
+[submodule "thrust"]
+    path = thrust
+    url = git@github.com:nvidia/thrust
+[submodule "cub"]
+    path = cub
+    url = git@github.com:nvidia/cub

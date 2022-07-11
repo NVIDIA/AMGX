@@ -80,6 +80,8 @@ target_include_directories(amgx_tests_libs PRIVATE ${AMGX_INCLUDES})
 
 add_library(amgx_tests_library STATIC $<TARGET_OBJECTS:amgx_tests_libs>)
 
+target_link_libraries(amgx_tests_library Thrust)
+
 add_dependencies(amgx_tests_library amgx)
 
 target_link_libraries(amgx_tests_library amgx)

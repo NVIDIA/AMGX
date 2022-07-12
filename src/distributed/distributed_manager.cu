@@ -1853,7 +1853,7 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
     rc = cudaPointerGetAttributes(&att, ptr);
 
 #if CUDART_VERSION >= 11000
-    if(rc == cudaSuccess && att.type != cudaMemoryTypeDevice)
+    if(rc == cudaSuccess && (att.type == cudaMemoryTypeDevice || att.type == cudaMemoryTypeManaged))
     {
         checkPinnedBuffer(size);
         rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
@@ -1963,7 +1963,7 @@ const void *DistributedManagerBase<TConfig>::getHostPointerForData(const void *p
     rc = cudaPointerGetAttributes(&att, ptr);
 
 #if CUDART_VERSION >= 11000
-    if(rc == cudaSuccess && att.type != cudaMemoryTypeDevice)
+    if(rc == cudaSuccess && (att.type == cudaMemoryTypeDevice || att.type == cudaMemoryTypeManaged))
     {
         checkPinnedBuffer(size);
         rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);

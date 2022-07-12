@@ -4898,7 +4898,7 @@ extern "C" {
     {
         nvtxRange nvrf(__func__);
 
-        if (dist == NULL || partition_data == NULL) 
+        if (dist == NULL) 
         {
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);
         }

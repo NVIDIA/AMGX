@@ -1017,7 +1017,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
 
     if(col_off > 0)
     {
-        amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
+        cudaMallocAsync((void**)&rows, sizeof(IndType)*(mb+1), stream);
 
         constexpr int nthreads = 128;
         const int nblocks = (mb + 1) / nthreads + 1;
@@ -1039,7 +1039,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
     void* dBuffer = NULL;
     if(bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+        cudaMallocAsync(&dBuffer, bufferSize, stream);
     }
 
     cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
@@ -1050,12 +1050,12 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
 
     if(bufferSize > 0)
     {
-        amgx::memory::cudaFreeAsync(dBuffer);
+        cudaFreeAsync(dBuffer, stream);
     }
 
     if(col_off > 0)
     {
-        amgx::memory::cudaFreeAsync(rows);
+        cudaFreeAsync(rows, stream);
     }
 }
 #endif
@@ -1577,7 +1577,7 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
     void* dBuffer = NULL;
     if(bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+        cudaMallocAsync(&dBuffer, bufferSize, 0);
     }
 
     // Compute the sparse matrix - dense matrix product
@@ -1592,7 +1592,7 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
 
     if(bufferSize > 0)
     {
-        amgx::memory::cudaFreeAsync(dBuffer);
+        cudaFreeAsync(dBuffer, 0);
     }
 }
 #endif
@@ -1731,7 +1731,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
     void *buffer = nullptr;
     if (bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&buffer, bufferSize);
+        cudaMallocAsync(&buffer, bufferSize, 0);
     }
 
     cusparseCheckError(cusparseCsr2cscEx2(
@@ -1740,7 +1740,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
 
     if(bufferSize > 0)
     {
-        amgx::memory::cudaFreeAsync(buffer);
+        cudaFreeAsync(buffer, 0);
     }
 }
 

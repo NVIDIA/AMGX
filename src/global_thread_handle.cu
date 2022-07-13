@@ -400,7 +400,7 @@ DeviceMemoryPool::DeviceMemoryPool(size_t size,
     }
 
     void *ptr = NULL;
-    ::cudaMalloc(&ptr, size);
+    ::cudaMallocAsync(&ptr, size, 0);
 
     if ( ptr == NULL )
     {
@@ -419,7 +419,7 @@ void DeviceMemoryPool::expandPool(size_t size,
     }
 
     void *ptr = NULL;
-    ::cudaMalloc(&ptr, size);
+    ::cudaMallocAsync(&ptr, size, 0);
 
     if ( ptr == NULL )
     {
@@ -435,7 +435,7 @@ DeviceMemoryPool::~DeviceMemoryPool()
     for ( size_t i = 0 ; i < m_owned_ptrs.size() ; ++i )
         if (m_owned_ptrs[i].m_managed)
         {
-            ::cudaFree(m_owned_ptrs[i].m_begin);
+            ::cudaFreeAsync(m_owned_ptrs[i].m_begin, 0);
         }
 
     m_owned_ptrs.clear();
@@ -889,7 +889,7 @@ cudaError_t cudaMalloc(void **ptr, size_t size)
         allocated_size = manager.scale(size);
         // We hack the size to make it a multiple of a page size.
         allocated_size = PAGE_SIZE * ((allocated_size + PAGE_SIZE - 1) / PAGE_SIZE);
-        error = ::cudaMalloc(ptr, allocated_size);
+        error = ::cudaMallocAsync(ptr, allocated_size, 0);
 
         // Very last attempt. Try without over allocation.
         if ( *ptr == NULL )
@@ -1017,7 +1017,7 @@ cudaError_t cudaFreeAsync(void *ptr)
 #ifdef AMGX_PRINT_MEMORY_INFO
         print_fallback = true;
 #endif
-        status = ::cudaFree(ptr);
+        status = ::cudaFreeAsync(ptr, 0);
     }
 
 #ifdef AMGX_PRINT_MEMORY_INFO

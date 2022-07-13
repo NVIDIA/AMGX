@@ -46,8 +46,8 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::Hash_Workspace(
     m_keys(NULL),
     m_vals(NULL)
 {
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_status, sizeof(int) );
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_work_queue, sizeof(int) );
+    cudaMallocAsync( (void **) &m_status, sizeof(int), 0 );
+    cudaMallocAsync( (void **) &m_work_queue, sizeof(int), 0 );
     allocate_workspace();
 }
 
@@ -58,12 +58,12 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::~Hash_Workspace
 {
     if ( m_allocate_vals )
     {
-        thrust::global_thread_handle::cudaFreeAsync( m_vals );
+        cudaFreeAsync( m_vals, 0 );
     }
 
-    thrust::global_thread_handle::cudaFreeAsync( m_keys );
-    thrust::global_thread_handle::cudaFreeAsync( m_work_queue );
-    thrust::global_thread_handle::cudaFreeAsync( m_status );
+    cudaFreeAsync( m_keys, 0 );
+    cudaFreeAsync( m_work_queue, 0 );
+    cudaFreeAsync( m_status, 0 );
 }
 
 // ====================================================================================================================
@@ -76,11 +76,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     // Allocate memory to store the keys of the device-based hashtable.
     if ( m_keys != NULL )
     {
-        thrust::global_thread_handle::cudaFreeAsync( m_keys );
+        cudaFreeAsync( m_keys, 0 );
     }
 
     size_t sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(Key_type);
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_keys, sz );
+    cudaMallocAsync( (void **) &m_keys, sz, 0 );
 
     // Skip value allocation if needed.
     if ( !m_allocate_vals )
@@ -91,11 +91,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     // Allocate memory to store the values of the device-based hashtable.
     if ( m_vals != NULL )
     {
-        thrust::global_thread_handle::cudaFreeAsync( m_vals );
+        cudaFreeAsync( m_vals, 0 );
     }
 
     sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(double);
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_vals, sz );
+    cudaMallocAsync( (void **) &m_vals, sz, 0 );
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

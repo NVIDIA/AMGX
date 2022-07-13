@@ -316,12 +316,13 @@ template <class ScalarType> bool containsNan( ScalarType *mem, int num )
 
     if (num > 0)
     {
-        cudaMalloc(&d_retval, sizeof(bool));
+        cudaMallocAsync(&d_retval, sizeof(bool), 0);
+        cudaStreamSynchronize(0);
         cudaMemcpy(d_retval, &retval, sizeof(bool), cudaMemcpyHostToDevice);
         containsNan_kernel <<< blocks, threads>>>(mem, num, d_retval);
         cudaCheckError();
         cudaMemcpy(&retval, d_retval, sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(d_retval);
+        cudaFreeAsync(d_retval, 0);
     }
 
     return retval;

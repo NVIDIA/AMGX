@@ -2033,7 +2033,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
         if (rc != cudaSuccess)
         {
             //you are in case 1
-            rc = cudaMalloc(&ptr_d, size);
+            rc = cudaMallocAsync(&ptr_d, size, 0);
 
             if (rc != cudaSuccess)
             {
@@ -2121,7 +2121,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
         if (rc != cudaSuccess)
         {
             //you are in case 1
-            rc = cudaMalloc(&ptr_d, size);
+            rc = cudaMallocAsync(&ptr_d, size, 0);
 
             if (rc != cudaSuccess)
             {
@@ -4655,9 +4655,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     /* free memory (if needed) */
-    if (col_alloc) { cudaFree(col_indices_hd); }
-    if (data_alloc) { cudaFree(data_hd); }
-    if (diag_alloc) { cudaFree(diag_hd); }
+    if (col_alloc) { cudaFreeAsync(col_indices_hd, 0); }
+    if (data_alloc) { cudaFreeAsync(data_hd, 0); }
+    if (diag_alloc) { cudaFreeAsync(diag_hd, 0); }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -4716,8 +4716,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     cudaCheckError();
 
     /* free memory (if needed) */
-    if (data_alloc) { cudaFree(data_hd); }
-    if (diag_alloc) { cudaFree(diag_hd); }
+    if (data_alloc) { cudaFreeAsync(data_hd, 0); }
+    if (diag_alloc) { cudaFreeAsync(diag_hd, 0); }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -4960,9 +4960,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     this->A->setView(OWNED);
 
     /* free memory (if needed) */
-    if (data_alloc) { cudaFree(data_hd); }
+    if (data_alloc) { cudaFreeAsync(data_hd, 0); }
 
-    if (diag_alloc) { cudaFree(diag_hd); }
+    if (diag_alloc) { cudaFreeAsync(diag_hd, 0); }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -5172,7 +5172,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     /* free memory (if needed) */
-    if (data_alloc) { cudaFree(data_hd); }
+    if (data_alloc) { cudaFreeAsync(data_hd, 0); }
 
     cudaCheckError();
 }

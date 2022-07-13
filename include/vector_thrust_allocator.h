@@ -120,7 +120,8 @@ class thrust_amgx_allocator
                                 const_pointer = const_pointer(static_cast<T *>(0)))
         {
             void *ptr;
-            amgx::memory::cudaMalloc(&ptr, sizeof(T)*cnt);
+            cudaMallocAsync(&ptr, sizeof(T)*cnt, 0);
+            cudaStreamSynchronize(0);
             return pointer((T *)ptr);
         } // end allocate()
 
@@ -133,7 +134,7 @@ class thrust_amgx_allocator
         __host__
         inline void deallocate(pointer p, size_type cnt)
         {
-            amgx::memory::cudaFreeAsync((void *)p.get());
+            cudaFreeAsync((void *)p.get(), 0);
         } // end deallocate()
 
         /*! Compares against another \p thrust_amgx_allocator for equality.

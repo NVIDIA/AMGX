@@ -451,7 +451,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                                   &alpha, matA, matB, &beta, matC,
                                   computeType, CUSPARSE_SPGEMM_DEFAULT,
                                   spgemmDesc, &bufferSize1, NULL);
-    amgx::memory::cudaMalloc(&dBuffer1, bufferSize1);
+    cudaMallocAsync(&dBuffer1, bufferSize1, 0);
     // inspect the matrices A and B to understand the memory requiremnent for
     // the next step
     cusparseSpGEMM_workEstimation(handle, opA, opB,
@@ -464,7 +464,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                            &alpha, matA, matB, &beta, matC,
                            computeType, CUSPARSE_SPGEMM_DEFAULT,
                            spgemmDesc, &bufferSize2, NULL);
-    amgx::memory::cudaMalloc(&dBuffer2, bufferSize2);
+    cudaMallocAsync(&dBuffer2, bufferSize2, 0);
 
     // compute the intermediate product of A * B
     cusparseSpGEMM_compute(handle, opA, opB,
@@ -503,8 +503,8 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     cusparseCheckError( cusparseDestroySpMat(matA) );
     cusparseCheckError( cusparseDestroySpMat(matB) );
     cusparseCheckError( cusparseDestroySpMat(matC) );
-    amgx::memory::cudaFreeAsync(dBuffer1);
-    amgx::memory::cudaFreeAsync(dBuffer2);
+    cudaFreeAsync(dBuffer1, 0);
+    cudaFreeAsync(dBuffer2, 0);
 }
 #endif
 
@@ -541,7 +541,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
             info, &pBufferSizeInBytes));
 
     // Allocate the intermediary buffer
-    amgx::memory::cudaMalloc(&pBuffer, pBufferSizeInBytes);
+    cudaMallocAsync(&pBuffer, pBufferSizeInBytes, 0);
 
     int nnzC;
     int *nnzTotalDevHostPtr = &nnzC;
@@ -596,7 +596,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
         cusparseSetPointerMode(handle, old_pointer_mode));
     cusparseCheckError(
         cusparseDestroyCsrgemm2Info(info));
-    amgx::memory::cudaFreeAsync(pBuffer);
+    cudaFreeAsync(pBuffer, 0);
 }
 #endif
 

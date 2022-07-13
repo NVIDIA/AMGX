@@ -138,7 +138,7 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     grabDiagonalVector <<< 4096, 128>>>(A.get_num_rows(), A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), diag.raw());
     // check diagonal +ve
     bool positive = true, *d_positive;
-    cudaMalloc(&d_positive, sizeof(bool));
+    cudaMallocAsync(&d_positive, sizeof(bool), 0);
     cudaMemcpy(d_positive, &positive, sizeof(bool), cudaMemcpyHostToDevice);
     checkPositiveVector <<< 4096, 256>>>(diag.size(), diag.raw(), d_positive);
     cudaMemcpy(&positive, d_positive, sizeof(bool), cudaMemcpyDeviceToHost);

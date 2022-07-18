@@ -82,6 +82,11 @@ MemoryPool::MemoryPool(size_t max_block_size, size_t page_size, size_t max_size)
     , m_recently_merged(false)
 {
     //initializeCriticalSection(&m_mutex2);
+    int device;
+    cudaGetDevice(&device);
+    cudaDeviceGetMemPool(&m_mem_pool, device);
+    uint64_t max_threshold = std::numeric_limits<uint64_t>::max();
+    cudaMemPoolSetAttribute(m_mem_pool, cudaMemPoolAttrReleaseThreshold, &max_threshold);
 }
 
 MemoryPool::~MemoryPool()

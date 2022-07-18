@@ -143,6 +143,8 @@ class MemoryPool
         //Mutex added to fix ICE threadsafe issue
         std::mutex m_mutex2;
 
+        cudaMemPool_t m_mem_pool;
+
     private:
         // No copy.
         MemoryPool(const MemoryPool &);

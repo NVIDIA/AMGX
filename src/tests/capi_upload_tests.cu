@@ -32,10 +32,6 @@
 #include "amgx_c.h"
 #include "amgxP_c.h"
 
-#ifdef AMGX_WITH_MPI
-#include "mpi.h"
-#endif
-
 namespace amgx
 
 {
@@ -67,13 +63,6 @@ void preamble(
         }
     }
 
-#ifdef AMGX_WITH_MPI
-    MPI_Comm comm = MPI_COMM_WORLD;
-    int argc = 1;
-    char **argv = NULL;
-    MPI_Init(&argc, &argv);
-#endif
-
     std::string config_string;
     config_string="config_version=2, ";
     config_string+="solver(slv)=PCG, ";
@@ -95,11 +84,7 @@ void preamble(
     AMGX_config_create(&cfg, config_string.c_str());
     AMGX_config_add_parameters(&cfg, "exception_handling=1");
 
-#ifdef AMGX_WITH_MPI
-    AMGX_resources_create(&rsrc, cfg, &comm, 1, &dev);
-#else
     AMGX_resources_create_simple(&rsrc, cfg);
-#endif
 
     AMGX_Mode mode = AMGX_mode_dDDI;
     AMGX_matrix_create(&A, rsrc, mode);
@@ -114,9 +99,6 @@ void cleanup(AMGX_matrix_handle& A, AMGX_resources_handle& rsrc)
     AMGX_matrix_destroy(A);
     AMGX_resources_destroy(rsrc);
     AMGX_finalize();
-#ifdef AMGX_WITH_MPI
-    MPI_Finalize();
-#endif
 }
 
 DECLARE_UNITTEST_BEGIN(CAPIUploadCudaMalloc);

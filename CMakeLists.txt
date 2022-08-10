@@ -130,19 +130,19 @@ endif (${AMGX_INCLUDE_EXTERNAL})
 set(CMAKE_NO_MPI false CACHE BOOL "Force non-MPI build")
 
 FIND_PACKAGE(MPI)
-if (${CMAKE_NO_MPI})
+if (CMAKE_NO_MPI)
   message("Non-MPI build has been forced")
   set(MPI_FOUND false)
-else (${CMAKE_NO_MPI})
-  if(${MPI_FOUND})
+else (CMAKE_NO_MPI)
+  if(MPI_FOUND)
     include_directories(${MPI_INCLUDE_PATH})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAMGX_WITH_MPI")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DAMGX_WITH_MPI")
     if(WIN32)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOMPI_IMPORTS")
     endif(WIN32)
-  endif(${MPI_FOUND})
-endif (${CMAKE_NO_MPI})
+  endif(MPI_FOUND)
+endif (CMAKE_NO_MPI)
 
 message ("This is a MPI build:" ${MPI_FOUND})
 
@@ -259,12 +259,9 @@ if (MKL_ROOT_DIR)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
-
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
-
-FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/src/tests/*.cu")
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")

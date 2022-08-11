@@ -29,8 +29,6 @@ cmake_minimum_required (VERSION 3.18)
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
-set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
-
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
 #disable in-place builds

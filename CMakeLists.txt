@@ -238,8 +238,9 @@ ELSE()
 ENDIF()
 
 # Add the CXX flags to the host set of CUDA flags
-string(REPLACE ";" " " HOST_FLAGS "${CMAKE_CXX_FLAGS}")
-SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${HOST_FLAGS})
+string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used

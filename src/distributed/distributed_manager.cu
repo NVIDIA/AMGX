@@ -1144,7 +1144,6 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         this->A->computeDiagonal();
     }
-    printf("finished init local matrix\n");
     cudaCheckError();
 }
 
@@ -1300,7 +1299,6 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     int my_id = this->getComms()->get_global_id();
     // sanity check, cheap to perform, and helps prevent harder-to-debug errors later on
     if (!std::is_sorted(partition_offsets, partition_offsets + num_ranks + 1)) {
-        fprintf(stderr, "Problem with partition offsets\n");
         FatalError("Partition offsets are not sorted.", AMGX_ERR_BAD_PARAMETERS);
     }
     loadDistributed_SetOffsets(num_ranks, num_rows_global, partition_offsets);
@@ -1358,7 +1356,6 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             local_col_indices[i] = my_indices[col_index];
         }
     }
-    printf("setoffsets to init localmatrix\n");
     loadDistributed_InitLocalMatrix(local_col_indices, num_rows, num_nonzeros, block_dimx, block_dimy, row_offsets, values, diag);
 }
 

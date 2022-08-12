@@ -266,16 +266,16 @@ target_compile_options(amgx PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS
 target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
 IF (WIN32)
-  target_link_libraries( amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
-  target_link_libraries( amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
+  target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
+  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
 ELSE (WIN32)
-  target_link_libraries( amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
-  target_link_libraries( amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+  target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)
-    target_link_libraries( amgx   ${MPI_C_LIBRARIES})
-    target_link_libraries( amgxsh ${MPI_C_LIBRARIES})
+    target_link_libraries(amgx   MPI::MPI_CXX)
+    target_link_libraries(amgxsh MPI::MPI_CXX)
 endif(MPI_FOUND)
 
 # set arch for main libs

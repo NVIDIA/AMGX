@@ -1733,6 +1733,7 @@ inline AMGX_RC matrix_upload_distributed(AMGX_matrix_handle mtx,
     MatrixDistribution &mdist = *wrapDist.wrapped();
     MatrixW wrapA(mtx);
     MatrixLetterT &A_part = *wrapA.wrapped();
+        amgx_printf(" ***** in matrix_upload_distributed ");
     cudaSetDevice(A_part.getResources()->getDevice(0));
     MPI_Comm *mpi_comm = A_part.getResources()->getMpiComm();
     int num_ranks;
@@ -2376,6 +2377,8 @@ extern "C" {
         nvtxRange nvrf(__func__);
 
         AMGX_CPU_PROFILER( "AMGX_config_create " );
+        amgx_printf("inside amgx_config_create");
+        fprintf(stderr, "inside amgx_config_create\n");
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
 

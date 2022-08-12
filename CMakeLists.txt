@@ -242,11 +242,6 @@ string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 
-# WARNING: the placement of the following two if statements is important, they have to come after
-# FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used
-# to compile CUDA are generated at configure time. This means that the scripts are generated based
-# on the values of variables at the point of call (the two phases of cmake are configure then generate).
-
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")

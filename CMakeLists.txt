@@ -29,6 +29,8 @@ cmake_minimum_required (VERSION 3.18)
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
+find_package(MPI)
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
 #disable in-place builds
@@ -129,7 +131,6 @@ endif (AMGX_INCLUDE_EXTERNAL)
 
 set(CMAKE_NO_MPI false CACHE BOOL "Force non-MPI build")
 
-FIND_PACKAGE(MPI)
 if (CMAKE_NO_MPI)
   message("Non-MPI build has been forced")
   set(MPI_FOUND false)

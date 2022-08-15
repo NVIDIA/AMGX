@@ -96,7 +96,7 @@ void preamble(
 
     AMGX_distribution_create(&dist, cfg);
     AMGX_distribution_set_32bit_colindices(dist, true);
-    AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_VECTOR, NULL);
+    AMGX_distribution_set_partition_data(dist, AMGX_DIST_PARTITION_VECTOR, NULL, NULL);
 }
 
 void cleanup(AMGX_matrix_handle& A, AMGX_resources_handle& rsrc)

@@ -34,7 +34,7 @@ IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(dyn_libs amgxsh CUDA::cudart_static CUDA::cublas)
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(libs_all CUDA::cusparse CUDA::cusolver rt dl)
-  set(dyn_libs amgxsh rt dl CUDA::cudart_static CUDA::cublas)
+  set(dyn_libs amgxsh rt dl CUDA::cudart_static CUDA::cublas MPI::MPI_C)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(amgx_capi amgx_capi.c)

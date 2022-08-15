@@ -134,17 +134,17 @@ if (${CMAKE_NO_MPI})
   message("Non-MPI build has been forced")
   set(MPI_FOUND false)
 else (${CMAKE_NO_MPI})
-  if(${MPI_FOUND})
+  if(${MPI_C_FOUND})
     include_directories(${MPI_INCLUDE_PATH})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAMGX_WITH_MPI")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DAMGX_WITH_MPI")
     if(WIN32)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOMPI_IMPORTS")
     endif(WIN32)
-  endif(${MPI_FOUND})
+  endif(${MPI_C_FOUND})
 endif (${CMAKE_NO_MPI})
 
-message ("This is a MPI build:" ${MPI_FOUND})
+message ("This is a MPI build:" ${MPI_C_FOUND})
 
 # Enable NVTX ranges on Linux
 if(NOT WIN32)
@@ -294,8 +294,8 @@ ELSE (WIN32)
 ENDIF(WIN32)
 
 if(MPI_FOUND)
-    target_link_libraries( amgx   ${MPI_C_LIBRARIES})
-    target_link_libraries( amgxsh ${MPI_C_LIBRARIES})
+    target_link_libraries( amgx MPI::MPI_C)
+    target_link_libraries( amgxsh MPI::MPI_C)
 endif(MPI_FOUND)
 
 #link magma

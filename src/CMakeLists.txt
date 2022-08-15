@@ -107,7 +107,7 @@ ENDIF()
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
 
-target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all} OpenMP::OpenMP_CXX)
+target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all} OpenMP::OpenMP_C MPI::MPI_C)
 
 if(NOT ${CMAKE_BUILD_TYPE} MATCHES "Release")
   install(TARGETS amgx_tests_launcher DESTINATION "lib/tests")

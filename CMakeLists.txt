@@ -65,20 +65,7 @@ ENDIF(WIN32)
 if(CMAKE_COMPILER_IS_GNUCXX)
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
     # we throw in ~Matrix(), we assume any error fatal so std::terminate call is ok
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-terminate")
-  endif()
-endif()
-
-
-# min compiler requirements
-if(CMAKE_COMPILER_IS_GNUCXX)
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.2)
-    message(
-      FATAL_ERROR
-      "AmgX requires GCC >= 4.8.2 but GCC version is \"${CMAKE_CXX_COMPILER_VERSION}\""
-    )
-  else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc")
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -Wno-terminate)
   endif()
 endif()
 
@@ -128,7 +115,6 @@ if (DEFINED ENV{CRAY_MPICH2_DIR})
   set(MPI_C_INCLUDE_PATH "$ENV{CRAY_MPICH2_DIR}/include")
 endif(DEFINED ENV{CRAY_MPICH2_DIR})
 
-
 # Thrust:
 if (DEFINED ENV{THRUST_ROOT})
   set (THRUST_DIR $ENV{THRUST_ROOT})
@@ -144,88 +130,69 @@ endif (${AMGX_INCLUDE_EXTERNAL})
 set(CMAKE_NO_MPI false CACHE BOOL "Force non-MPI build")
 
 FIND_PACKAGE(MPI)
-  if (${CMAKE_NO_MPI})
-    message("Non-MPI build has been forced")
-    set(MPI_FOUND false)
-  else (${CMAKE_NO_MPI})
-    if(${MPI_FOUND})
-      include_directories(${MPI_INCLUDE_PATH})
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAMGX_WITH_MPI")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DAMGX_WITH_MPI")
-      if(WIN32)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOMPI_IMPORTS")
-      endif(WIN32)
-    endif(${MPI_FOUND})
-  endif (${CMAKE_NO_MPI})
+if (${CMAKE_NO_MPI})
+  message("Non-MPI build has been forced")
+  set(MPI_FOUND false)
+else (${CMAKE_NO_MPI})
+  if(${MPI_FOUND})
+    include_directories(${MPI_INCLUDE_PATH})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAMGX_WITH_MPI")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DAMGX_WITH_MPI")
+    if(WIN32)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOMPI_IMPORTS")
+    endif(WIN32)
+  endif(${MPI_FOUND})
+endif (${CMAKE_NO_MPI})
 
 message ("This is a MPI build:" ${MPI_FOUND})
 
 # Enable NVTX ranges on Linux
 if(NOT WIN32)
-  set(NVTXRANGE_FLAG "-DNVTX_RANGES;")
+  set(NVTXRANGE_FLAG -DNVTX_RANGES)
 endif()
 
 # Configuration specific nvcc flags
 GET_FILENAME_COMPONENT(CMAKE_CXX_COMPILER_NAME "${CMAKE_CXX_COMPILER}" NAME)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_NAME MATCHES "clang")
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DNDEBUG" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O3;-DPROFILE" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O3;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG -g -G)
+  set(CUDA_NVCC_FLAGS_RELEASE -DNDEBUG)
+  set(CUDA_NVCC_FLAGS_PROFILE -DPROFILE)
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES -g -DNDEBUG)
 else()
-  set(CUDA_NVCC_FLAGS_DEBUG "-g;-G" CACHE STRING "Debug compiler flags")
-  set(CUDA_NVCC_FLAGS_RELEASE "-O2;-DNDEBUG" CACHE STRING "Release compiler flags")
-  set(CUDA_NVCC_FLAGS_PROFILE "-O2;-DPROFILE" CACHE STRING "Profile compiler flags")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "-O2;-DNDEBUG;-DAMGX_USE_CPU_PROFILER" CACHE STRING "RelWithTraces compiler flags")
+  set(CUDA_NVCC_FLAGS_DEBUG -g -G)
+  set(CUDA_NVCC_FLAGS_RELEASE -DNDEBUG)
+  set(CUDA_NVCC_FLAGS_PROFILE -DPROFILE)
+  set(CUDA_NVCC_FLAGS_RELWITHTRACES -g -DNDEBUG)
   if(WIN32)
-    set(CUDA_NVCC_FLAGS_RELEASE "${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX")
+    set(CUDA_NVCC_FLAGS_RELEASE ${CUDA_NVCC_FLAGS_RELEASE} -DNOMINMAX)
   endif()
 endif()
 
 # Add the build-specific flags to the NVCC flags
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPP_BUILD_NAME)
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}}")
+
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}})
 
 # Add errors for execution space warnings and enable NVTX ranges
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --Werror cross-execution-space-call ${NVTXRANGE_FLAG})
 
 # Keep intermediate files
 if (AMGX_keep_intermediate)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-Xcompiler=-keep")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "-keep")
 endif(AMGX_keep_intermediate)
 
 # Windows/linux specific settings for C
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" CACHE STRING "nvcc flags")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS})
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Xcompiler=-rdynamic;-Xcompiler=-fPIC;-Xcompiler=-fvisibility=default" CACHE STRING "nvcc flags")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "-rdynamic -fPIC -fvisibility=default")
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 # VS: include object files in target property SOURCES
 # otherwise a workaround for extracting ${obj_all} is necessary below
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
 set(CUDA_HOST_COMPILATION_CPP ON)
-
-if(MPI_FOUND)
-  set(VAMPIR_TRACE_INCLUDE_PATH "${MPI_INCLUDE_PATH}/vampirtrace")
-  set(VAMPIR_TRACE_LIB_PATH "${MPI_INCLUDE_PATH}/../lib")
-  if (DEFINED ENV{VAMPIR_TRACE_PATH})
-    message("Found VampirTrace: $ENV{VAMPIR_TRACE_PATH}")
-    set(VAMPIR_TRACE_PATH "$ENV{VAMPIR_TRACE_PATH}")
-    set(VAMPIR_TRACE_LIB_PATH "${VAMPIR_TRACE_PATH}/lib")
-    set(VAMPIR_TRACE_INCLUDE_PATH "${VAMPIR_TRACE_PATH}/include/vampirtrace")
-  endif (DEFINED ENV{VAMPIR_TRACE_PATH})
-  set(CMAKE_CXX_FLAGS_RELWITHTRACES "${CMAKE_CXX_FLAGS_RELWITHTRACES} -DAMGX_WITH_MPI;-DAMGX_USE_VAMPIR_TRACE;-DVTRACE;-I${VAMPIR_TRACE_INCLUDE_PATH}")
-  set(CUDA_NVCC_FLAGS_RELWITHTRACES "${CUDA_NVCC_FLAGS_RELWITHTRACES} -DAMGX_WITH_MPI;-DAMGX_USE_VAMPIR_TRACE;-DVTRACE;-I${VAMPIR_TRACE_INCLUDE_PATH}")
-  set(CMAKE_EXE_LINKER_FLAGS_RELWITHTRACES "-L${VAMPIR_TRACE_LIB_PATH} -lvt-mpi -L${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64 -lcupti ${CMAKE_EXE_LINKER_FLAGS_RELWITHTRACES}")
-  set(CMAKE_SHARED_LINKER_FLAGS_RELWITHTRACES "-L${VAMPIR_TRACE_LIB_PATH} -lvt-mpi -L${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64 -lcupti ${CMAKE_SHARED_LINKER_FLAGS_RELWITHTRACES}")
-  if (DEFINED ENV{VAMPIR_TRACE_PATH})
-    message("Will use the following include and lib dirs with RelWithTraces: ${VAMPIR_TRACE_INCLUDE_PATH} and ${VAMPIR_TRACE_LIB_PATH}")
-    set(MPI_C_LIBRARIES "${VAMPIR_TRACE_LIB_PATH}/libvt-mpi.so;${MPI_C_LIBRARIES}")
-    #set(MPI_C_LIBRARIES "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64/libcupti.so;${VAMPIR_TRACE_LIB_PATH}/libvt-mpi.so;${MPI_C_LIBRARIES}") // currently needed by mvapich in ubuntuh
-  endif (DEFINED ENV{VAMPIR_TRACE_PATH})
-endif(MPI_FOUND)
 
 #if compiling against CUDA Toolkit 11.x + 
 IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
@@ -272,47 +239,7 @@ ELSE()
 ENDIF()
 
 # Add the CXX flags to the host set of CUDA flags
-SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
-
-# write version
-set(versionFile "ReleaseVersion.txt")
-set(versionCode "core/src/version.cu")
-if(${versionFile} IS_NEWER_THAN ${versionCode})
-  file(STRINGS ${versionFile} versionString)
-  file(WRITE ${versionCode} "#include <version.h>\n")
-  file(APPEND ${versionCode} "namespace amgx{\n")
-  file(APPEND ${versionCode} "const char __AMGX_BUILD_DATE__ [] = \"__DATE__\";\n")
-  file(APPEND ${versionCode} "const char __AMGX_BUILD_TIME__ [] = \"__TIME__\";\n")
-  file(APPEND ${versionCode} "const char __AMGX_BUILD_ID__ [] = " ${versionString} ";" \n}\n)
-endif(${versionFile} IS_NEWER_THAN ${versionCode})
-
-# plugin management
-set(pluginConf "PluginConfig.txt")                     # plugin configuration
-set(pluginCode "${CMAKE_SOURCE_DIR}/plugin_config.cu") # plugin code
-file(STRINGS ${pluginConf} pluginList)                 # plugin list
-set(libList base core ${pluginList})                   # lib list
-
-# create initialization and finalization for plugins
-if(${pluginConf} IS_NEWER_THAN ${pluginCode})
-  file(WRITE ${pluginCode} "#include <error.h>\n")
-  file(APPEND ${pluginCode} "#include <misc.h>\n")
-  file(APPEND ${pluginCode} "namespace amgx {\n")
-  foreach( plugin ${pluginList} )
-    file(APPEND ${pluginCode} "namespace ${plugin} { extern AMGX_ERROR initialize(); extern void finalize(); }\n")
-  endforeach(plugin)
-  file(APPEND ${pluginCode} "\nAMGX_ERROR initializePlugins() {\n")
-  foreach( plugin ${pluginList} )
-    file(APPEND ${pluginCode} "    if (AMGX_OK != ${plugin}::initialize()) return AMGX_ERR_PLUGIN;\n")
-  endforeach(plugin)
-  file(APPEND ${pluginCode} "  return AMGX_OK;\n")
-  file(APPEND ${pluginCode} "}\n")
-  file(APPEND ${pluginCode} "\nvoid finalizePlugins() {\n")
-  foreach( plugin ${pluginList} )
-    file(APPEND ${pluginCode} "  ${plugin}::finalize();\n")
-  endforeach(plugin)
-  file(APPEND ${pluginCode} "}\n")
-  file(APPEND ${pluginCode} "} // namespace amgx\n")
-endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "${CMAKE_CXX_FLAGS}")
 
 # WARNING: the placement of the following two if statements is important, they have to come after
 # FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used
@@ -321,25 +248,24 @@ endif(${pluginConf} IS_NEWER_THAN ${pluginCode})
 
 #include magma
 if (MAGMA_ROOT_DIR)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_MAGMA")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DAMGX_USE_MAGMA)
   CUDA_INCLUDE_DIRECTORIES(${MAGMA_ROOT_DIR}/include)
   set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a)
 endif(MAGMA_ROOT_DIR)
 #include lapack (MKL)
 if (MKL_ROOT_DIR)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-DAMGX_USE_LAPACK")
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DAMGX_USE_LAPACK)
   CUDA_INCLUDE_DIRECTORIES(${MKL_ROOT_DIR}/include)
   #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
   set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
 endif(MKL_ROOT_DIR)
 
+
 add_library(amgx_libs OBJECT "")
 
-#create a list of all sources in amgx
-foreach( lib ${libList} )
-  add_subdirectory(${lib})
-  FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/${lib}/tests/*.cu")
-endforeach(lib)
+add_subdirectory("src")
+
+FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/src/tests/*.cu")
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
@@ -387,18 +313,16 @@ endif(MKL_ROOT_DIR)
 set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
+install(FILES
+  include/amgx_config.h
+  include/amgx_c.h
+  DESTINATION include)
+
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")
 
 #export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples
-#add_subdirectory(examples)
-if(EXISTS ${CMAKE_SOURCE_DIR}/eigen_examples)
-  #add_subdirectory(eigen_examples)
-endif(EXISTS ${CMAKE_SOURCE_DIR}/eigen_examples)
+add_subdirectory(examples)
 
-# build unit tests
-if(EXISTS ${CMAKE_SOURCE_DIR}/tests)
-   add_subdirectory(tests)
-endif(EXISTS ${CMAKE_SOURCE_DIR}/tests)

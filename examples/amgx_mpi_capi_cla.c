@@ -230,7 +230,6 @@ int main(int argc, char **argv)
 #endif
     /* init */
     AMGX_SAFE_CALL(AMGX_initialize());
-    AMGX_SAFE_CALL(AMGX_initialize_plugins());
     /* system */
     AMGX_SAFE_CALL(AMGX_register_print_callback(&print_callback));
     AMGX_SAFE_CALL(AMGX_install_signal_handler());
@@ -242,7 +241,6 @@ int main(int argc, char **argv)
         printf("amgx api version: %d.%d\n", major, minor);
         AMGX_get_build_info_strings(&ver, &date, &time);
         printf("amgx build version: %s\nBuild date and time: %s %s\n", ver, date, time);
-        AMGX_SAFE_CALL(AMGX_finalize_plugins());
         AMGX_SAFE_CALL(AMGX_finalize());
         /* close the library (if it was dynamically loaded) */
 #ifdef AMGX_DYNAMIC_LOADING
@@ -652,7 +650,6 @@ int main(int argc, char **argv)
     /* destroy config (need to use AMGX_SAFE_CALL after this point) */
     AMGX_SAFE_CALL(AMGX_config_destroy(cfg))
     /* shutdown and exit */
-    AMGX_SAFE_CALL(AMGX_finalize_plugins())
     AMGX_SAFE_CALL(AMGX_finalize())
     /* close the library (if it was dynamically loaded) */
 #ifdef AMGX_DYNAMIC_LOADING

@@ -1809,7 +1809,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     const int nWarps = cta_size / 32;
     int grid_size = min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
 
-    if(true || this->m_use_opt_kernels)
+    if(this->m_use_opt_kernels)
     {
         constexpr int group_size = 8;
         int ngroups_per_block = cta_size / group_size;
@@ -1843,7 +1843,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // Fill the assigned array for the other nodes, going one pass at the time
     while (num_unassigned_max && pass < max_num_passes)
     {
-        if(true || this->m_use_opt_kernels)
+        if(this->m_use_opt_kernels)
         {
             constexpr int group_size = 8;
             int ngroups_per_block = cta_size / group_size;
@@ -1934,7 +1934,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         for (int i = 2; i < num_passes; i++)
         {
-            if(true || this->m_use_opt_kernels)
+            if(this->m_use_opt_kernels)
             {
                 constexpr int group_size = 8;
                 int ngroups_per_block = CTA_SIZE / group_size;
@@ -2000,7 +2000,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         int avg_nz_per_row = A.get_num_nz() / A.get_num_rows();
 
-        if(true || this->m_use_opt_kernels)
+        if(this->m_use_opt_kernels)
         {
             constexpr int group_size = 8;
             int ngroups_per_block = CTA_SIZE / group_size;

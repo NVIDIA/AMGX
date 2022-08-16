@@ -532,6 +532,7 @@ inline void registerParameters()
     AMG_Config::registerParameter<int>( "spmm_max_attempts", "the number of SPMM attempts before we switch to Cusparse.", 6 );
 
     AMG_Config::registerParameter<int>( "use_opt_kernels", "Whether to use the new kernel optimised fast path.", 0);
+    AMG_Config::registerParameter<int>( "use_cusparse_kernels", "Whether to use the cuSPARSE kernels over custom kernels.", 0);
 
     //Register Stopping Criteria Parameters
     AMG_Config::registerParameter<int>("max_iters", "the maximum solve iterations", 100);

@@ -57,6 +57,7 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
 {
     int max_attempts = cfg.getParameter<int>("spmm_max_attempts", cfg_scope);
     int use_opt_kernels = cfg.getParameter<int>("use_opt_kernels", "default");
+    int use_cusparse_kernels = cfg.getParameter<int>("use_cusparse_kernels", "default");
 
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
@@ -66,6 +67,7 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
         CSR_Multiply_Detail<TConfig_d> *wk = new CSR_Multiply_Detail<TConfig_d>();
         wk->set_max_attempts(max_attempts);
         wk->set_opt_multiply(use_opt_kernels);
+        wk->set_use_cusparse_kernels(use_cusparse_kernels);
         return wk;
     }
 
@@ -608,7 +610,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt(
     thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     cudaCheckError();
 
-    this->count_non_zeroes_opt(A, B, C, 16);
+    this->count_non_zeroes_opt(A, B, C, 32);
 
     // Compute row offsets.
     this->compute_offsets( C );
@@ -624,7 +626,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt(
     C.set_block_dimy(B.get_block_dimy());
     C.setColsReorderedByColor(false);
 
-    this->compute_values_opt(A, B, C, 16);
+    this->compute_values_opt(A, B, C, 32);
     
     // Finalize the initialization of the matrix.
     C.set_initialized(1);
@@ -790,6 +792,8 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product( const Matrix_d &R, const Matrix_d &A, const Matrix_d &P, Matrix_d &RAP, IVector *Rq1, IVector *Aq1, IVector *Pq1, IVector *Rq2, IVector *Aq2, IVector *Pq2)
 {
+    nvtxRangePush("galerkin");
+
     Matrix_d AP;
     AP.set_initialized(0);
     int avg_nz_per_row = P.get_num_nz() / P.get_num_rows();
@@ -805,14 +809,20 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         this->set_num_threads_per_row_compute(4);
     }
 
-    if(m_use_opt_kernels)
+    nvtxRangePush("AP");
+    if(this->m_use_opt_kernels)
     {
         this->multiply_opt( A, P, AP );
+    }
+    else if(this->m_use_cusparse_kernels)
+    {
+        this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
     }
     else
     {
         this->multiply( A, P, AP, NULL, NULL, NULL, NULL );
     }
+    nvtxRangePop();
 
     AP.set_initialized(1);
     avg_nz_per_row = AP.get_num_nz() / AP.get_num_rows();
@@ -820,17 +830,24 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
     this->set_num_threads_per_row_compute(32);
     RAP.set_initialized(0);
 
-    if(m_use_opt_kernels)
+    nvtxRangePush("RAP");
+    if(this->m_use_opt_kernels)
     {
         this->multiply_opt( R, AP, RAP );
+    }
+    else if(this->m_use_cusparse_kernels)
+    {
+        this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
     }
     else
     {
         this->multiply( R, AP, RAP, NULL, NULL, NULL, NULL );
     }
+    nvtxRangePop();
 
     RAP.computeDiagonal();
     RAP.set_initialized(1);
+    nvtxRangePop();
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >

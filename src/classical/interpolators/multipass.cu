@@ -1016,52 +1016,23 @@ compute_c_hat_kernel_opt( int A_num_rows,
             int num_rows = __popc( vote );
 
             // For each warp, we have up to 32 rows of B to proceed.
-            for ( int k = 0 ; k < num_rows ; k += NUM_LOADED_ROWS )
+            for ( int k = 0 ; k < num_rows ; ++k)
             {
-                int local_k = k + lane_id_div_num_threads;
-                // Is it an active thread.
-                bool is_active_k = local_k < num_rows;
                 // Threads in the warp proceeds columns of B in the range [bColIt, bColEnd).
-                int uniform_b_row_id = -1;
+                int uniform_b_row_id = s_b_row_ids[warp_id * WARP_SIZE + k];
 
-                if ( is_active_k )
+                // this loops over elements of C_hat for row uniform_b_row_id
+                int b_col_it  = C_hat_start[uniform_b_row_id];
+                int b_col_end = b_col_it + C_hat_size[uniform_b_row_id];
+
+                if(lane_id == 0) 
                 {
-                    uniform_b_row_id = s_b_row_ids[warp_id * WARP_SIZE + local_k];
-                }
-
-                // Load the range of the row of B.
-                int b_col_it = 0, b_col_end = 0;
-
-                if ( is_active_k )
-                {
-                    // this loops over elements of C_hat for row uniform_b_row_id
-                    b_col_it  = C_hat_start[uniform_b_row_id];
-                    b_col_end = b_col_it + C_hat_size[uniform_b_row_id];
-                }
-
-                // _iterate over the range of columns of B.
-                for ( b_col_it += lane_id_mod_num_threads ; utils::any(b_col_it < b_col_end) ; b_col_it += 8 )
-                {
-                    // The ID of the interpolatory point
-                    KeyType  b_col_id = -1;
-
-                    if ( b_col_it < b_col_end )
+                    // _iterate over the range of columns of B.
+                    for ( ; b_col_it < b_col_end ; ++b_col_it)
                     {
-                        b_col_id = C_hat[b_col_it];
+                        // Insert the interpolatory point to the set
+                        set.insert_opt( C_hat[b_col_it], wk_status );
                     }
-
-                    // Is it valid
-                    is_off_diagonal = b_col_it < b_col_end; //  && b_col_id != local_k;
-                    // Push node to set
-                    KeyType b_item = -1;
-
-                    if ( is_off_diagonal )
-                    {
-                        b_item = b_col_id;
-                    }
-
-                    // Insert the interpolatory point to the set
-                    set.insert( b_item, wk_status );
                 }
             }
         }
@@ -1074,87 +1045,6 @@ compute_c_hat_kernel_opt( int A_num_rows,
             C_hat_size[a_row_id] = count;
         }
     }
-
-#if 0
-#if 0
-    const int ngroups = CTA_SIZE / GROUP_SIZE;
-
-    // The hash keys stored in shared memory.
-    __shared__ volatile KeyType s_keys[NUM_WARPS * SMEM_SIZE];
-
-    // The coordinates of the thread inside the CTA/warp.
-    const int warp_id = threadIdx.x / GROUP_SIZE;
-    const int lane_id = threadIdx.x % GROUP_SIZE;
-
-    // First threads load the row IDs of A needed by the CTA...
-    int a_row_id = blockIdx.x * ngroups + warp_id;
-
-    extern __shared__ int s[];
-
-    int* key_s = s;
-    ValueType data_s = (ValueType*)&key_s[ngroups*HASH_SIZE];
-    int* col_ind_s = (int*)&data_s[ngroups*HASH_SIZE];
-
-    int* key_group_s = &key_s[group_id*HASH_SIZE];
-    ValueType* data_group_s = &data_s[group_id*HASH_SIZE];
-
-    // Initialise the keys and values.
-#pragma unroll
-    for(int i = threadIdx.x; i < ngroups*HASH_SIZE; i += CTA_SIZE)
-    {
-        key_s[i] = SLOT_VACANT; // Inserted keys will be in range [0,N]
-        data_s[i] = amgx::types::util<ValueType>::get_zero(); // We will sum into values
-    }
-#endif
-
-    const int warp_id = utils::warp_id( );
-    const int lane_id = utils::lane_id( );
-    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-
-    __shared__ volatile KeyType s_keys[NUM_WARPS * SMEM_SIZE];
-
-    int a = blockIdx.x * NUM_WARPS + warp_id;
-
-    Hash_set<KeyType, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a * gmem_size], gmem_size );
-
-    for ( ; a < A_num_rows ; a += gridDim.x*NUM_WARPS )
-    {
-        int a_row_id = assigned_set[a];
-
-        set.clear();
-
-        // _iterate over the columns of A to build C_hat.
-        for ( int a_col_it = A_rows[a_row_id] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += WARP_SIZE)
-        {
-            // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
-            int a_col_id = A_cols[a_col_it];
-
-            // Is it an off-diagonal element.
-            // Check if assigned == pass -1
-            // Check if we have a strong connection to the point
-            if(a_col_id != a_row_id && assigned[a_col_id] == pass-1 && s_con[a_col_it])
-            {
-                int b_col_beg = C_hat_start[a_col_id];
-                int b_col_end = b_col_beg + C_hat_size[a_col_id];
-
-                for (int b_col_it = b_col_beg; b_col_it < b_col_end; ++b_col_it)
-                {
-                    // The ID of the interpolatory point
-                    // Insert the interpolatory point to the set
-                    set.insert_opt(C_hat[b_col_it], wk_status);
-                }
-            }
-        }
-
-        int c_col_it = C_hat_start[a_row_id];
-        int count = set.store_with_positions( &C_hat[c_col_it], &C_hat_pos[c_col_it] );
-
-        if ( lane_id == 0 )
-        {
-            C_hat_size[a_row_id] = count;
-        }
-    }
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,7 @@
 {
     "config_version": 2, 
+    "min_rows_latency_hiding": 40000,
+    "exact_coarse_solve": 1,
     "solver": {
         "preconditioner": {
             "print_grid_stats": 1, 
@@ -19,6 +21,8 @@
             "max_iters": 1, 
             "monitor_residual": 0, 
             "store_res_history": 0, 
+            "aggressive_levels": 2,
+            "dense_lu_num_rows": 20,
             "scope": "amg", 
             "max_levels": 100, 
             "cycle": "V", 

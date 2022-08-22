@@ -29,6 +29,8 @@ cmake_minimum_required (VERSION 3.18)
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
+find_package(MPI)
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
 #disable in-place builds
@@ -85,8 +87,8 @@ set(CMAKE_EXE_LINKER_FLAGS_RELWITHTRACES "${CMAKE_EXE_LINKER_FLAGS_RELEASE}" CAC
 set(CMAKE_SHARED_LINKER_FLAGS_RELWITHTRACES "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}" CACHE STRING "" FORCE)
 
 if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS})
+    set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS})
 endif()
 
 # install paths
@@ -121,28 +123,27 @@ if (DEFINED ENV{THRUST_ROOT})
 endif(DEFINED ENV{THRUST_ROOT})
 
 set(AMGX_INCLUDE_EXTERNAL True CACHE BOOL "Include external 3rd party libraries")
-if (${AMGX_INCLUDE_EXTERNAL})
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRAPIDJSON_DEFINED")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DRAPIDJSON_DEFINED")
+if (AMGX_INCLUDE_EXTERNAL)
+  set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -DRAPIDJSON_DEFINED)
+  set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -DRAPIDJSON_DEFINED)
   include_directories("${CMAKE_SOURCE_DIR}/external/rapidjson/include")
-endif (${AMGX_INCLUDE_EXTERNAL})
+endif (AMGX_INCLUDE_EXTERNAL)
 
 set(CMAKE_NO_MPI false CACHE BOOL "Force non-MPI build")
 
-FIND_PACKAGE(MPI)
-if (${CMAKE_NO_MPI})
+if (CMAKE_NO_MPI)
   message("Non-MPI build has been forced")
   set(MPI_FOUND false)
-else (${CMAKE_NO_MPI})
-  if(${MPI_FOUND})
+else (CMAKE_NO_MPI)
+  if(MPI_FOUND)
     include_directories(${MPI_INCLUDE_PATH})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAMGX_WITH_MPI")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DAMGX_WITH_MPI")
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -DAMGX_WITH_MPI)
+    set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -DAMGX_WITH_MPI)
     if(WIN32)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOMPI_IMPORTS")
+      set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -DOMPI_IMPORTS)
     endif(WIN32)
-  endif(${MPI_FOUND})
-endif (${CMAKE_NO_MPI})
+  endif(MPI_FOUND)
+endif (CMAKE_NO_MPI)
 
 message ("This is a MPI build:" ${MPI_FOUND})
 
@@ -178,15 +179,15 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --Werror cross-execution-space-call ${NVT
 
 # Keep intermediate files
 if (AMGX_keep_intermediate)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "-keep")
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -keep)
 endif(AMGX_keep_intermediate)
 
 # Windows/linux specific settings for C
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS})
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "-rdynamic -fPIC -fvisibility=default")
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -rdynamic -fPIC -fvisibility=default)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 # VS: include object files in target property SOURCES
@@ -238,33 +239,13 @@ ELSE()
 ENDIF()
 
 # Add the CXX flags to the host set of CUDA flags
-SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler "${CMAKE_CXX_FLAGS}")
-
-# WARNING: the placement of the following two if statements is important, they have to come after
-# FIND_PACKAGE(CUDA) and before create list of all sources/objects in amgx. Since the scripts used
-# to compile CUDA are generated at configure time. This means that the scripts are generated based
-# on the values of variables at the point of call (the two phases of cmake are configure then generate).
-
-#include magma
-if (MAGMA_ROOT_DIR)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DAMGX_USE_MAGMA)
-  CUDA_INCLUDE_DIRECTORIES(${MAGMA_ROOT_DIR}/include)
-  set(magma_libs ${MAGMA_ROOT_DIR}/lib/libmagma.a)
-endif(MAGMA_ROOT_DIR)
-#include lapack (MKL)
-if (MKL_ROOT_DIR)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DAMGX_USE_LAPACK)
-  CUDA_INCLUDE_DIRECTORIES(${MKL_ROOT_DIR}/include)
-  #WARNING: MKL link line flags vary significantly (please double check http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor)
-  set(mkl_libs -Wl,--start-group ${MKL_ROOT_DIR}/lib/intel64/libmkl_intel_lp64.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_gnu_thread.a ${MKL_ROOT_DIR}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -fopenmp)
-endif(MKL_ROOT_DIR)
-
+string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
-
-FILE(GLOB_RECURSE TESTS "${CMAKE_SOURCE_DIR}/src/tests/*.cu")
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
@@ -285,28 +266,17 @@ target_compile_options(amgx PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS
 target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
 IF (WIN32)
-  target_link_libraries( amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
-  target_link_libraries( amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
+  target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
+  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
 ELSE (WIN32)
-  target_link_libraries( amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
-  target_link_libraries( amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+  target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)
-    target_link_libraries( amgx   ${MPI_C_LIBRARIES})
-    target_link_libraries( amgxsh ${MPI_C_LIBRARIES})
+    target_link_libraries(amgx   MPI::MPI_CXX)
+    target_link_libraries(amgxsh MPI::MPI_CXX)
 endif(MPI_FOUND)
-
-#link magma
-if (MAGMA_ROOT_DIR)
-  target_link_libraries(amgx   ${magma_libs})
-  target_link_libraries(amgxsh ${magma_libs})
-endif(MAGMA_ROOT_DIR)
-#link lapack (MKL)
-if (MKL_ROOT_DIR)
-  target_link_libraries(amgx   ${mkl_libs} )
-  target_link_libraries(amgxsh ${mkl_libs})
-endif(MKL_ROOT_DIR)
 
 # set arch for main libs
 set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")

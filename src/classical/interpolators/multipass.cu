@@ -50,6 +50,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust_wrapper.h>
 
+#include <cuda_profiler_api.h>
+
 namespace amgx
 {
 
@@ -946,7 +948,7 @@ compute_c_hat_kernel_opt( int assigned_set_size,
                       int *__restrict assigned_set,
                       int pass )
 {
-    constexpr int SLOT_VACANT = -1;
+    constexpr KeyType SLOT_VACANT = -1;
 
     // Group indices
     constexpr int ngroups = CTA_SIZE / GROUP_SIZE;
@@ -954,9 +956,6 @@ compute_c_hat_kernel_opt( int assigned_set_size,
     const int lane_id = threadIdx.x % GROUP_SIZE;
 
     const int gid = blockIdx.x * ngroups + group_id;
-
-    // One row of A per group
-    const int a_row_id = assigned_set[gid];
 
     // Dynamic sized shared memory
     extern __shared__ int s[];
@@ -986,8 +985,13 @@ compute_c_hat_kernel_opt( int assigned_set_size,
 
     __syncthreads();
 
+    int a_row_id = -1;
+
     if(gid < assigned_set_size)
     {
+        // One row of A per group
+        a_row_id = assigned_set[gid];
+
         // Iterate over the columns of A to build C_hat.
         for ( int a_col_it = A_rows[a_row_id] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += GROUP_SIZE )
         {
@@ -1025,7 +1029,7 @@ compute_c_hat_kernel_opt( int assigned_set_size,
                     
                     if(curr_key == SLOT_VACANT)
                     {
-                        KeyType old_key = (KeyType)atomicCAS((unsigned long long*)&key_group_s[hash], SLOT_VACANT, (unsigned long long)key);
+                        KeyType old_key = (KeyType)atomicCAS((unsigned long long*)&key_group_s[hash], (unsigned long long)SLOT_VACANT, (unsigned long long)key);
                         if(old_key == SLOT_VACANT || old_key == key)
                         {
                             break;

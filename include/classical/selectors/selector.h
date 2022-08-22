@@ -179,6 +179,16 @@ class Selector<TemplateConfig<AMGX_device, V, M, I> > : public Selector_Base< Te
                       Matrix_d &S2,
                       const BVector &s_con,
                       IVector &cf_map);
+
+        template <int hash_size, int group_size>
+            void compute_c_hat_opt_dispatch(
+                    const Matrix_d &A,
+                    const bool *s_con,
+                    const int *C_hat_start,
+                    int *C_hat,
+                    int *C_hat_end,
+                    int *cf_map,
+                    IntVector &unfine_set);
 };
 
 

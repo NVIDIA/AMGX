@@ -27,6 +27,7 @@
 
 #include <classical/interpolators/multipass.h>
 #include <classical/interpolators/common.h>
+#include <device_properties.h>
 #include <amgx_timer.h>
 #include <basic_types.h>
 #include <types.h>
@@ -930,10 +931,10 @@ compute_c_hat_kernel( int A_num_rows,
     }
 }
 
-template <int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, typename KeyType >
+template <int GROUP_SIZE, int CTA_SIZE, int HASH_SIZE, class KeyType >
 __global__ __launch_bounds__( CTA_SIZE )
 void
-compute_c_hat_kernel_opt( int A_num_rows,
+compute_c_hat_kernel_opt( int assigned_set_size,
                       const int *__restrict A_rows,
                       const int *__restrict A_cols,
                       const bool *__restrict s_con,
@@ -943,106 +944,129 @@ compute_c_hat_kernel_opt( int A_num_rows,
                       int *__restrict C_hat_pos,
                       int *__restrict assigned,
                       int *__restrict assigned_set,
-                      int gmem_size,
-                      KeyType *g_keys,
-                      int *wk_work_queue,
-                      int *wk_status,
                       int pass )
 {
-    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-    const int NUM_LOADED_ROWS = WARP_SIZE / 8;
-    // Shared memory to vote.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
-    // The hash keys stored in shared memory.
-    __shared__ KeyType s_keys[NUM_WARPS * SMEM_SIZE];
-    // The coordinates of the thread inside the CTA/warp.
-    const int warp_id = utils::warp_id( );
-    const int lane_id = utils::lane_id( );
-    // Constants.
-    const int lane_id_div_num_threads = lane_id / 8;
-    const int lane_id_mod_num_threads = lane_id % 8;
-    // First threads load the row IDs of A needed by the CTA...
-    int a = blockIdx.x * NUM_WARPS + warp_id;
-    // Create local storage for the set.
-    Hash_set<KeyType, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a * gmem_size], gmem_size );
-    // Loop over rows of A.
-    for ( ; a < A_num_rows ; a += gridDim.x*NUM_WARPS )
+    constexpr int SLOT_VACANT = -1;
+
+    // Group indices
+    constexpr int ngroups = CTA_SIZE / GROUP_SIZE;
+    const int group_id = threadIdx.x / GROUP_SIZE;
+    const int lane_id = threadIdx.x % GROUP_SIZE;
+
+    const int gid = blockIdx.x * ngroups + group_id;
+
+    // One row of A per group
+    const int a_row_id = assigned_set[gid];
+
+    // Dynamic sized shared memory
+    extern __shared__ int s[];
+
+    // Block-level hash container storage
+    KeyType* key_s = (KeyType*)s;
+
+    //KeyType* data_s = (KeyType*)&key_s[ngroups*HASH_SIZE];
+    int* col_ind_s = (int*)&key_s[ngroups*HASH_SIZE];
+
+    // Group-level hash containers
+    KeyType* key_group_s = &key_s[group_id*HASH_SIZE];
+    //KeyType* data_group_s = &data_s[group_id*HASH_SIZE];
+
+    // Initialise the keys and values.
+#pragma unroll
+    for(int i = threadIdx.x; i < ngroups*HASH_SIZE; i += CTA_SIZE)
     {
-        int a_row_id = assigned_set[a];
+        key_s[i] = SLOT_VACANT; // Inserted keys will be in range [0,N]
+        //data_s[i] = 0; // We will sum into values
+    }
 
-        // Clear the set.
-        set.clear();
-        // Load the range of the row.
-        int a_col_tmp = -1;
+    if(lane_id == 0)
+    {
+        col_ind_s[group_id] = 0;
+    }
 
-        if ( lane_id < 2 )
+    __syncthreads();
+
+    if(gid < assigned_set_size)
+    {
+        // Iterate over the columns of A to build C_hat.
+        for ( int a_col_it = A_rows[a_row_id] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += GROUP_SIZE )
         {
-            a_col_tmp = A_rows[a_row_id + lane_id];
-        }
-
-        int a_col_begin = utils::shfl( a_col_tmp, 0 );
-        int a_col_end   = utils::shfl( a_col_tmp, 1 );
-
-        // _iterate over the columns of A to build C_hat.
-        for ( int a_col_it = a_col_begin + lane_id ; utils::any(a_col_it < a_col_end) ; a_col_it += WARP_SIZE )
-        {
-            // Is it an active thread.
-            const bool is_active = a_col_it < a_col_end;
-            // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
-            int a_col_id = -1;
-
-            if ( is_active )
-            {
-                a_col_id = A_cols[a_col_it];
-            }
+            int a_col_id = A_cols[a_col_it];
 
             // Is it an off-diagonal element.
-            bool is_off_diagonal = is_active && a_col_id != a_row_id;
+            bool is_off_diagonal = a_col_id != a_row_id;
+
             // Check if assigned == pass -1
             bool is_assigned = is_off_diagonal && (assigned[a_col_id] == pass - 1);
+
             // Check if we have a strong connection to the point
             bool is_strongly_connected = s_con[a_col_it];
+
             // Check if strong connection to assigned == pass-1
             bool is_assigned_strongly_connected = is_assigned && is_strongly_connected;
-            // We collect columns for which assigned == pass - 1
-            int vote = utils::ballot( is_assigned_strongly_connected);
-            int dest = __popc( vote & utils::lane_mask_lt() );
 
-            if ( is_assigned_strongly_connected)
+            if(!is_assigned_strongly_connected) continue;
+
+            // Threads in the warp proceeds columns of B in the range [bColIt, bColEnd).
+            int b_col_beg  = C_hat_start[a_col_id];
+
+            // Iterate over the range of columns of B.
+            for (int b_col_it = b_col_beg; b_col_it < b_col_beg + C_hat_size[a_col_id]; ++b_col_it)
             {
-                s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
-            }
+                KeyType key = C_hat[b_col_it];
 
-            int num_rows = __popc( vote );
+                int hash = key % HASH_SIZE;
 
-            // For each warp, we have up to 32 rows of B to proceed.
-            for ( int k = 0 ; k < num_rows ; ++k)
-            {
-                // Threads in the warp proceeds columns of B in the range [bColIt, bColEnd).
-                int uniform_b_row_id = s_b_row_ids[warp_id * WARP_SIZE + k];
-
-                // this loops over elements of C_hat for row uniform_b_row_id
-                int b_col_it  = C_hat_start[uniform_b_row_id];
-                int b_col_end = b_col_it + C_hat_size[uniform_b_row_id];
-
-                if(lane_id == 0) 
+                while(true)
                 {
-                    // _iterate over the range of columns of B.
-                    for ( ; b_col_it < b_col_end ; ++b_col_it)
+                    // XXX You can just avoid this and directly atomicCAS, which is faster?
+                    int curr_key = key_group_s[hash];
+                    if(curr_key == key) break;
+                    
+                    if(curr_key == SLOT_VACANT)
                     {
-                        // Insert the interpolatory point to the set
-                        set.insert_opt( C_hat[b_col_it], wk_status );
+                        KeyType old_key = (KeyType)atomicCAS((unsigned long long*)&key_group_s[hash], SLOT_VACANT, (unsigned long long)key);
+                        if(old_key == SLOT_VACANT || old_key == key)
+                        {
+                            break;
+                        }
                     }
+
+                    // We did not secure a slot, so linear probe to next slot
+                    hash = (hash + 1) % HASH_SIZE;
                 }
             }
         }
+    }
 
+    __syncthreads();
+
+    // XXX Could change to poll by ballot style compress
+    if(gid < assigned_set_size)
+    {
+        // Store the results.
         int c_col_it = C_hat_start[a_row_id];
-        int count = set.store_with_positions( &C_hat[c_col_it], &C_hat_pos[c_col_it] );
 
-        if ( lane_id == 0 )
+#pragma unroll
+        for(int i = lane_id; i < HASH_SIZE; i += GROUP_SIZE)
         {
-            C_hat_size[a_row_id] = count;
+            KeyType key = key_group_s[i];
+            if(key != SLOT_VACANT)
+            {
+                int ind = atomicAdd(&col_ind_s[group_id], 1);
+                C_hat[c_col_it + ind] = key;
+                //C_hat_pos[c_col_it + ind] = i;
+            }
+        }
+    }
+
+    __syncthreads();
+
+    if(gid < assigned_set_size)
+    {
+        if(lane_id == 0)
+        {
+            C_hat_size[a_row_id] = col_ind_s[group_id];
         }
     }
 }
@@ -1627,12 +1651,17 @@ struct is_strong_fine
     }
 };
 
-__global__ void assigned_to_1(int n, int pass, int* assigned, int* assigned_in_pass)
+__global__ void set_assigned_in_pass(int n, int pass, int* assigned, int* assigned_in_pass, int* assigned_offs)
 {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if(i >= n) return;
 
     assigned_in_pass[i] = (assigned[i] == pass) ? 1 : 0;
+
+    if(i == 0) 
+    {
+        assigned_offs[0] = 0;
+    }
 }
 
 __global__ void assigned_set_fill(int n, int* assigned_in_pass, int* assigned_offs, int* assigned_set)
@@ -1644,6 +1673,58 @@ __global__ void assigned_set_fill(int n, int* assigned_in_pass, int* assigned_of
     { 
         assigned_set[assigned_offs[i]] = i; 
     } 
+}
+
+template <AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I>
+template <int hash_size, int group_size, class KeyType>
+void Multipass_Interpolator<TemplateConfig<AMGX_device, V, M, I>>::compute_c_hat_opt_dispatch(
+        const Matrix_d &A,
+        const bool *s_con,
+        const int *C_hat_start,
+        int *C_hat_size,
+        KeyType *C_hat,
+        int *C_hat_pos,
+        int *assigned,
+        IntVector &assigned_set,
+        int pass )
+{
+    typedef typename IndPrecisionMap<I>::Type Index_type;
+
+    constexpr int cta_size = 128;
+    constexpr int ngroups = cta_size / group_size;
+
+    const int grid_size = assigned_set.size() / ngroups + 1;
+
+    cudaDeviceProp deviceProps = getDeviceProperties();
+    size_t max_shmem_size = deviceProps.sharedMemPerMultiprocessor;
+
+    constexpr int shmem_size =
+        (sizeof(KeyType)+sizeof(Index_type))*ngroups*hash_size + group_size; 
+
+    if(shmem_size > max_shmem_size) 
+    { 
+        FatalError("In compute_values_opt the requested hash size is larger than max.\n", 
+                AMGX_ERR_NOT_IMPLEMENTED); 
+    } 
+
+    cudaFuncSetAttribute(multipass::compute_c_hat_kernel_opt 
+            <group_size, cta_size, hash_size, KeyType>, 
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size); 
+
+    multipass::compute_c_hat_kernel_opt
+        <group_size, cta_size, hash_size, KeyType> 
+        <<<grid_size, cta_size, shmem_size>>>(
+            assigned_set.size(),
+            A.row_offsets.raw(),
+            A.col_indices.raw(),
+            s_con,
+            C_hat_start,
+            C_hat_size,
+            C_hat,
+            C_hat_pos,
+            assigned,
+            assigned_set.raw(),
+            pass);
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -1939,6 +2020,87 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         for (int i = 2; i < num_passes; i++)
         {
+            {
+                I64Vector_d C_hat_(C_hat);
+                IntVector C_hat_pos_(C_hat_pos);
+                IntVector C_hat_size_(C_hat_size);
+
+                IntVector assigned_in_pass(assigned.size());
+                IntVector assigned_offs(assigned.size()+1);
+
+                int nthreads = 128;
+                int nblocks = assigned.size() / nthreads + 1;
+                set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw(), assigned_offs.raw());
+
+                thrust::inclusive_scan(thrust::device, assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin()+1);
+
+                int nassigned_in_pass = assigned_offs[assigned_offs.size()-1] ;
+                if(nassigned_in_pass > 0)
+                {
+                    IntVector assigned_set(nassigned_in_pass);
+                    assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
+
+                    int max_c_hat_size = thrust::reduce(C_hat_size_.begin(), C_hat_size_.end(), -1, thrust::maximum<int>());
+
+                    int hash_size = pow(2, ceil(log2(max_c_hat_size)));
+
+                    switch(hash_size)
+                    {
+                        case 1:
+                        case 2:
+                        case 4:
+                        case 8:
+                        case 16:
+                        case 32:
+                            compute_c_hat_opt_dispatch<32, 32>(
+                                    A, s_con.raw(), C_hat_start.raw(),
+                                    C_hat_size_.raw(), C_hat_.raw(), C_hat_pos_.raw(), assigned.raw(),
+                                    assigned_set, i);
+                            break;
+                        case 64:
+                            compute_c_hat_opt_dispatch<64, 32>(
+                                    A, s_con.raw(), C_hat_start.raw(),
+                                    C_hat_size_.raw(), C_hat_.raw(), C_hat_pos_.raw(), assigned.raw(),
+                                    assigned_set, i);
+                            break;
+                        case 128:
+                            compute_c_hat_opt_dispatch<128, 32>(
+                                    A, s_con.raw(), C_hat_start.raw(),
+                                    C_hat_size_.raw(), C_hat_.raw(), C_hat_pos_.raw(), assigned.raw(),
+                                    assigned_set, i);
+                            break;
+                        case 256:
+                            compute_c_hat_opt_dispatch<256, 32>(
+                                    A, s_con.raw(), C_hat_start.raw(),
+                                    C_hat_size_.raw(), C_hat_.raw(), C_hat_pos_.raw(), assigned.raw(),
+                                    assigned_set, i);
+                            break;
+                        case 512:
+                            compute_c_hat_opt_dispatch<512, 32>(
+                                    A, s_con.raw(), C_hat_start.raw(),
+                                    C_hat_size_.raw(), C_hat_.raw(), C_hat_pos_.raw(), assigned.raw(),
+                                    assigned_set, i);
+                            break;
+                        default:
+                            FatalError("Size of C_hat in a single row too large, solve with original solvers.", AMGX_ERR_INTERNAL);
+                    }
+                }
+
+                cudaDeviceSynchronize();
+                cudaCheckError();
+
+#if 0
+                if (A.is_matrix_distributed())
+                {
+                    //TODO: We could probably reduce the amount of data exchanged here, since we only need to exchange for recently updated nodes
+                    C_hat_.dirtybit = 1;
+                    C_hat_matrix.manager->exchange_halo(C_hat_, C_hat_.tag);
+                    C_hat_size_.dirtybit = 1;
+                    A.manager->exchange_halo(C_hat_size_, C_hat_size_.tag);
+                }
+#endif
+            }
+
             // In case the hash table is not big enough, run multiple attemps
             int attempt = 0;
 
@@ -1957,17 +2119,62 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 int work_offset = GRID_SIZE * NUM_WARPS;
                 cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
 
+                multipass::compute_c_hat_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
+                        A.get_num_rows(),
+                        A.row_offsets.raw(),
+                        A.col_indices.raw(),
+                        s_con.raw(),
+                        C_hat_start.raw(),
+                        C_hat_size.raw(),
+                        C_hat.raw(),
+                        C_hat_pos.raw(),
+                        assigned.raw(),
+                        exp_wk.get_gmem_size(),
+                        exp_wk.get_keys(),
+                        exp_wk.get_work_queue(),
+                        exp_wk.get_status(),
+                        i);
+
+                if (A.is_matrix_distributed())
+                {
+                    //TODO: We could probably reduce the amount of data exchanged here, since we only need to exchange for recently updated nodes
+                    C_hat.dirtybit = 1;
+                    C_hat_matrix.manager->exchange_halo(C_hat, C_hat.tag);
+                    C_hat_size.dirtybit = 1;
+                    A.manager->exchange_halo(C_hat_size, C_hat_size.tag);
+                }
+
+                cudaCheckError();
+                // Read the result from count_non_zeroes.
+                cudaMemcpy( &status, exp_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost );
+                done = status == 0;
+            }
+
+#if 0
+                thrust::sort(thrust::device, C_hat.begin(), C_hat.end());
+                thrust::sort(thrust::device, C_hat_.begin(), C_hat_.end());
+                I64Vector_h C_hat_h_old(C_hat);
+                I64Vector_h C_hat_h_new(C_hat_);
+
+                if(!thrust::equal(thrust::device, C_hat_.begin(), C_hat_.end(), C_hat.begin()))
+                {
+                    FatalError("Failed to match C_hat", AMGX_ERR_INTERNAL);
+                }
+                else
+                {
+                    printf("Matched C_hat");
+                }
+#endif
+
+#if 0
                 if(this->m_use_opt_kernels)
                 {
                     IntVector assigned_in_pass(assigned.size());
                     IntVector assigned_offs(assigned.size());
 
-                    thrust::counting_iterator<int> first(0);
-                    thrust::counting_iterator<int> last(assigned.size());
-
                     int nthreads = 128;
                     int nblocks = assigned.size() / nthreads + 1;
-                    assigned_to_1<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw());
+                    set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw());
 
                     thrust::exclusive_scan(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin(), 0);
 
@@ -1975,25 +2182,10 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
                     assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
 
-                    Hash_Workspace<TConfig_d, int64_t> exp_wk2(true, GRID_SIZE);
-                    work_offset = GRID_SIZE * NUM_WARPS;
-                    cudaMemcpy( exp_wk2.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
-                    multipass::compute_c_hat_kernel_opt< CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
-                            assigned_set.size(),
-                            A.row_offsets.raw(),
-                            A.col_indices.raw(),
-                            s_con.raw(),
-                            C_hat_start.raw(),
-                            C_hat_size.raw(),
-                            C_hat.raw(),
-                            C_hat_pos.raw(),
-                            assigned.raw(),
-                            assigned_set.raw(),
-                            exp_wk2.get_gmem_size(),
-                            exp_wk2.get_keys(),
-                            exp_wk2.get_work_queue(),
-                            exp_wk2.get_status(),
-                            i);
+                    compute_c_hat_opt_dispatch<1024, 32>(
+                            A, s_con.raw(), C_hat_start.raw(),
+                            C_hat_size.raw(), C_hat.raw(), C_hat_pos.raw(), assigned.raw(),
+                            assigned_set, i);
                 }
                 else
                 {
@@ -2013,21 +2205,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                             exp_wk.get_status(),
                             i);
                 }
-
-                if (A.is_matrix_distributed())
-                {
-                    //TODO: We could probably reduce the amount of data exchanged here, since we only need to exchange for recently updated nodes
-                    C_hat.dirtybit = 1;
-                    C_hat_matrix.manager->exchange_halo(C_hat, C_hat.tag);
-                    C_hat_size.dirtybit = 1;
-                    A.manager->exchange_halo(C_hat_size, C_hat_size.tag);
-                }
-
-                cudaCheckError();
-                // Read the result from count_non_zeroes.
-                cudaMemcpy( &status, exp_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost );
-                done = status == 0;
-            }
+#endif
         }
     }
     // At this stage, for each fine node (even in 1 ring halo), we have the global indices
@@ -2128,15 +2306,12 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             if(this->m_use_opt_kernels)
             {
                 IntVector assigned_in_pass(assigned.size());
-                IntVector assigned_offs(assigned.size());
-
-                thrust::counting_iterator<int> first(0);
-                thrust::counting_iterator<int> last(assigned.size());
+                IntVector assigned_offs(assigned.size() + 1);
 
                 int nthreads = 128;
                 int nblocks = assigned.size() / nthreads + 1;
-                assigned_to_1<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw());
-                thrust::exclusive_scan(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin(), 0);
+                set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw(), assigned_offs.raw());
+                thrust::inclusive_scan(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin()+1);
 
                 IntVector assigned_set(assigned_offs[assigned_offs.size()-1]);
                 assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());

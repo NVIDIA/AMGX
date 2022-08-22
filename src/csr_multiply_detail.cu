@@ -2175,8 +2175,8 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
         C_row_max_block.raw() + C_row_max_block.size(), 
         0, thrust::maximum<int>());
 
-#define CNZ_OPT(nthreads_per_group, hash_size) \
-    csr_multiply_detail::count_non_zeroes_kernel_opt<nthreads_per_group, cta_size, hash_size> \
+#define CNZ_OPT(group_size, hash_size) \
+    csr_multiply_detail::count_non_zeroes_kernel_opt<group_size, cta_size, hash_size> \
         <<<grid_size, cta_size>>>( \
         A.get_num_rows(), \
         A.row_offsets.raw(), \
@@ -2237,71 +2237,55 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
     cudaCheckError();
 }
 
-template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads )
-{
-    constexpr int cta_size = 128;
 
-    // Find the max available shared mem on this device
+template <AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I>
+template <int hash_size, int group_size>
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::cvk_opt(const Matrix_d &A, const Matrix_d &B, Matrix_d &C)
+{
+    typedef typename IndPrecisionMap<I>::Type Index_type;
+
+    constexpr int cta_size = 128;
+    constexpr int ngroups = cta_size / group_size;
+
+    const int grid_size = A.get_num_rows() / ngroups + 1;
+
     cudaDeviceProp deviceProps = getDeviceProperties();
     size_t max_shmem_size = deviceProps.sharedMemPerMultiprocessor;
 
-    typedef typename IndPrecisionMap<I>::Type Index_type;
+    constexpr int shmem_size =
+        (sizeof(Value_type)+sizeof(Index_type))*ngroups*hash_size + group_size; 
 
-    // Dispach optimised version of compute_values_kernel passing number of 
-    // threads per group (which will process a row) and size of hash per group
-#define CVK_OPT(nthreads_per_group, hash_size) \
-    { \
-        constexpr int ngroups = cta_size / nthreads_per_group; \
-        constexpr int shmem_size = \
-        (sizeof(Value_type)+sizeof(Index_type))*ngroups*hash_size + nthreads_per_group; \
-        \
-        if(shmem_size > max_shmem_size) \
-        { \
-            printf("shmem_size=%d bytes, max_shmem_size=%d bytes\n", shmem_size, max_shmem_size); \
-            FatalError("In compute_values_opt the requested hash size is larger than max.\n", \
-                       AMGX_ERR_NOT_IMPLEMENTED); \
-        } \
-        printf("ngroups %d shmem_size %d hash_size %d grid_size %d\n", \
-               ngroups, shmem_size, hash_size, grid_size); \
-        \
-        cudaFuncSetAttribute(csr_multiply_detail::compute_values_kernel_opt \
-                             <nthreads_per_group, cta_size, hash_size, Value_type>, \
-                             cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size); \
-        \
-        csr_multiply_detail::compute_values_kernel_opt \
-        <nthreads_per_group, cta_size, hash_size> \
-        <<<grid_size, cta_size, shmem_size>>>( \
-                                              A.get_num_rows(), \
-                                              A.row_offsets.raw(), \
-                                              A.col_indices.raw(), \
-                                              A.values.raw(), \
-                                              B.row_offsets.raw(), \
-                                              B.col_indices.raw(), \
-                                              B.values.raw(), \
-                                              C.row_offsets.raw(), \
-                                              C.col_indices.raw(), \
-                                              C.values.raw()); \
-    }
+    if(shmem_size > max_shmem_size) 
+    { 
+        FatalError("In compute_values_opt the requested hash size is larger than max.\n", 
+                AMGX_ERR_NOT_IMPLEMENTED); 
+    } 
 
-    // Select the appropriate hash size based on the number of non-zeroes in C
-    // and then dispatch the appropriate compute_values_kernel_opt
-#define CVK_OPT_SMALL_HASH_SELECT(nthreads_per_group)           \
-    switch(C_rounded_avg)                                       \
-    {                                                           \
-        case 2: CVK_OPT(nthreads_per_group, 32); break;          \
-        case 4: CVK_OPT(nthreads_per_group, 32); break;          \
-        case 8: CVK_OPT(nthreads_per_group, 32); break;          \
-        case 16: CVK_OPT(nthreads_per_group, 32); break;        \
-        case 32: CVK_OPT(nthreads_per_group, 32); break;        \
-        case 64: CVK_OPT(nthreads_per_group, 64); break;        \
-        case 128: CVK_OPT(nthreads_per_group, 128); break;      \
-        case 256: CVK_OPT(nthreads_per_group, 256); break;      \
-    }
+    cudaFuncSetAttribute(csr_multiply_detail::compute_values_kernel_opt 
+            <group_size, cta_size, hash_size, Value_type>, 
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size); 
 
+    csr_multiply_detail::compute_values_kernel_opt 
+        <group_size, cta_size, hash_size> 
+        <<<grid_size, cta_size, shmem_size>>>( 
+                A.get_num_rows(), 
+                A.row_offsets.raw(), 
+                A.col_indices.raw(), 
+                A.values.raw(), 
+                B.row_offsets.raw(), 
+                B.col_indices.raw(), 
+                B.values.raw(), 
+                C.row_offsets.raw(), 
+                C.col_indices.raw(), 
+                C.values.raw()); 
+}
+
+
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads )
+{
     int C_nrows = C.get_num_rows();
     int C_nnz = C.get_num_nz();
-
     int C_avg_nnz_per_row = C_nnz / C_nrows;
 
     // The aim is to minimise the hash size while reducing the impact of the linear
@@ -2318,54 +2302,45 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_
     // Operation is group per row, where group size is determined by num_threads
     switch ( num_threads )
     {
-        // 16 threads per group
-        case 16:
+        case 16: // 16 threads per group
             {
-                int ngroups = cta_size / 16;
-                int grid_size = A.get_num_rows() / ngroups + 1;
-
-                if(C_rounded_avg < 512)
+                switch(C_rounded_avg)
                 {
-                    CVK_OPT_SMALL_HASH_SELECT(8);
-                }
-                else if(C_rounded_avg < 1024)
-                {
-                    CVK_OPT(16, 512);
-                }
-                else
-                {
-                    FatalError("In compute_values_opt the requested hash size is too large.\n", AMGX_ERR_NOT_IMPLEMENTED);
+                    case 2: 
+                    case 4:
+                    case 8: 
+                    case 16:
+                    case 32: cvk_opt<32, 8>(A, B, C); break;
+                    case 64: cvk_opt<64, 8>(A, B, C); break;
+                    case 128: cvk_opt<128, 8>(A, B, C); break;
+                    case 256: cvk_opt<256, 8>(A, B, C); break;
+                    case 512: cvk_opt<512, 16>(A, B, C); break;
+                    default: 
+                       FatalError("In compute_values_opt the requested hash size is too large.\n", AMGX_ERR_NOT_IMPLEMENTED);
                 }
             }
             break;
-
-        // Warp per group
-        case 32:
+        case 32: // Warp per group
             {
-                int ngroups = cta_size / 32;
-                int grid_size = A.get_num_rows() / ngroups + 1;
-
-                if(C_rounded_avg < 512)
+                switch(C_rounded_avg)
                 {
-                    CVK_OPT_SMALL_HASH_SELECT(32);
-                }
-                else if(C_rounded_avg < 1024)
-                {
-                    CVK_OPT(32, 512);
-                }
-                else if(C_rounded_avg < 2048)
-                {
-                    CVK_OPT(32, 1024);
-                }
-                else
-                {
-                    FatalError("In compute_values_opt the requested hash size is too large.\n", AMGX_ERR_NOT_IMPLEMENTED);
+                    case 2: 
+                    case 4:
+                    case 8: 
+                    case 16:
+                    case 32: cvk_opt<32, 32>(A, B, C); break;
+                    case 64: cvk_opt<64, 32>(A, B, C); break;
+                    case 128: cvk_opt<128, 32>(A, B, C); break;
+                    case 256: cvk_opt<256, 32>(A, B, C); break;
+                    case 512: cvk_opt<512, 32>(A, B, C); break;
+                    case 1024: cvk_opt<1024, 32>(A, B, C); break;
+                    default: 
+                       FatalError("In compute_values_opt the requested hash size is too large.\n", AMGX_ERR_NOT_IMPLEMENTED);
                 }
             }
             break;
-
         default:
-            FatalError("compute_values_opt only implemented for group size = 8, 16, 32\n", AMGX_ERR_NOT_IMPLEMENTED);
+            FatalError("compute_values_opt only implemented for group size = 16, 32\n", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
     cudaDeviceSynchronize();

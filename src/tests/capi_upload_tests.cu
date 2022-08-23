@@ -37,7 +37,6 @@ namespace amgx
 {
 
 void preamble(
-    MPI_Comm& comm,
     AMGX_matrix_handle& A,
     AMGX_distribution_handle& dist,
     AMGX_resources_handle& rsrc,
@@ -64,10 +63,6 @@ void preamble(
         }
     }
 
-    int argc = 1;
-    char **argv = NULL;
-    MPI_Init(&argc, &argv);
-
     std::string config_string;
     config_string="config_version=2, ";
     config_string+="solver(slv)=PCG, ";
@@ -89,7 +84,7 @@ void preamble(
     AMGX_config_create(&cfg, config_string.c_str());
     AMGX_config_add_parameters(&cfg, "exception_handling=1");
 
-    AMGX_resources_create(&rsrc, cfg, &comm, 1, &dev);
+    AMGX_resources_create_simple(&rsrc, cfg);
 
     AMGX_Mode mode = AMGX_mode_dDDI;
     AMGX_matrix_create(&A, rsrc, mode);
@@ -104,14 +99,12 @@ void cleanup(AMGX_matrix_handle& A, AMGX_resources_handle& rsrc)
     AMGX_matrix_destroy(A);
     AMGX_resources_destroy(rsrc);
     AMGX_finalize();
-    MPI_Finalize();
 }
 
 DECLARE_UNITTEST_BEGIN(CAPIUploadCudaMalloc);
 
 void run()
 {
-    MPI_Comm comm = MPI_COMM_WORLD;
     AMGX_matrix_handle A;
     AMGX_distribution_handle dist;
     AMGX_resources_handle rsrc;
@@ -120,7 +113,7 @@ void run()
 
     std::vector<int> rows_h;
     std::vector<int> cols_h;
-    preamble(comm, A, dist, rsrc, nrows, nnz, rows_h, cols_h);
+    preamble(A, dist, rsrc, nrows, nnz, rows_h, cols_h);
 
     int* rows;
     cudaMalloc(&rows, sizeof(int)*(nrows+1));
@@ -147,7 +140,6 @@ DECLARE_UNITTEST_BEGIN(CAPIUploadCudaMallocManaged);
 
 void run()
 {
-    MPI_Comm comm = MPI_COMM_WORLD;
     AMGX_matrix_handle A;
     AMGX_distribution_handle dist;
     AMGX_resources_handle rsrc;
@@ -156,7 +148,7 @@ void run()
 
     std::vector<int> rows_h;
     std::vector<int> cols_h;
-    preamble(comm, A, dist, rsrc, nrows, nnz, rows_h, cols_h);
+    preamble(A, dist, rsrc, nrows, nnz, rows_h, cols_h);
 
     int* rows;
     cudaMallocManaged(&rows, sizeof(int)*(nrows+1));
@@ -182,7 +174,6 @@ DECLARE_UNITTEST_BEGIN(CAPIUploadNew);
 
 void run()
 {
-    MPI_Comm comm = MPI_COMM_WORLD;
     AMGX_matrix_handle A;
     AMGX_distribution_handle dist;
     AMGX_resources_handle rsrc;
@@ -191,7 +182,7 @@ void run()
 
     std::vector<int> rows_h;
     std::vector<int> cols_h;
-    preamble(comm, A, dist, rsrc, nrows, nnz, rows_h, cols_h);
+    preamble(A, dist, rsrc, nrows, nnz, rows_h, cols_h);
 
     double* vals = new double[nnz];
 
@@ -205,7 +196,6 @@ DECLARE_UNITTEST_BEGIN(CAPIUploadCudaHostRegister);
 
 void run()
 {
-    MPI_Comm comm = MPI_COMM_WORLD;
     AMGX_matrix_handle A;
     AMGX_distribution_handle dist;
     AMGX_resources_handle rsrc;
@@ -214,7 +204,7 @@ void run()
 
     std::vector<int> rows_h;
     std::vector<int> cols_h;
-    preamble(comm, A, dist, rsrc, nrows, nnz, rows_h, cols_h);
+    preamble(A, dist, rsrc, nrows, nnz, rows_h, cols_h);
 
     cudaHostRegister(rows_h.data(), sizeof(int)*(nrows+1), cudaHostRegisterDefault);
 
@@ -233,7 +223,6 @@ DECLARE_UNITTEST_BEGIN(CAPIUploadCudaMallocHost);
 
 void run()
 {
-    MPI_Comm comm = MPI_COMM_WORLD;
     AMGX_matrix_handle A;
     AMGX_distribution_handle dist;
     AMGX_resources_handle rsrc;
@@ -242,7 +231,7 @@ void run()
 
     std::vector<int> rows_h;
     std::vector<int> cols_h;
-    preamble(comm, A, dist, rsrc, nrows, nnz, rows_h, cols_h);
+    preamble(A, dist, rsrc, nrows, nnz, rows_h, cols_h);
 
     int* rows;
     cudaMallocHost(&rows, sizeof(int)*(nrows+1));

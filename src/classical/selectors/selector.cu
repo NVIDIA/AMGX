@@ -379,6 +379,126 @@ estimate_c_hat_size_kernel( const int A_num_rows,
 }
 
 
+template< int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE >
+__global__ __launch_bounds__( CTA_SIZE )
+void
+estimate_c_hat_size_kernel_opt( const int nunfine,
+                            const int *A_rows,
+                            const int *A_cols,
+                            const int *cf_map,
+                            const bool *s_con,
+                            int *C_hat_offsets,
+                            int* unfine_set )
+{
+    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
+    const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
+    // A shared location where threads propose a row of B to load.
+    __shared__ int s_b_row_ids[CTA_SIZE];
+    // The coordinates of the thread inside the CTA/warp.
+    const int warp_id = utils::warp_id( );
+    const int lane_id = utils::lane_id( );
+    // Constants.
+    const int lane_id_div_num_threads = lane_id / NUM_THREADS_PER_ROW;
+    const int lane_id_mod_num_threads = lane_id % NUM_THREADS_PER_ROW;
+    // First threads load the row IDs of A needed by the CTA...
+    int a = blockIdx.x * NUM_WARPS + warp_id;
+
+    // Loop over rows of A.
+    for ( ; a < nunfine ; a += gridDim.x * NUM_WARPS )
+    {
+        int a_row_id = unfine_set[a];
+
+        // Load A row IDs.
+        int a_col_begin = A_rows[a_row_id  ];
+        int a_col_end   = A_rows[a_row_id + 1];
+        // The number of elements.
+        int count(0);
+
+        // Iterate over the columns of A to build C_hat.
+        for ( int a_col_it = a_col_begin + lane_id ; utils::any( a_col_it < a_col_end ) ; a_col_it += WARP_SIZE )
+        {
+            // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
+            int a_col_id = -1;
+
+            if ( a_col_it < a_col_end )
+            {
+                a_col_id = A_cols[a_col_it];
+            }
+
+            // Is it an off-diagonal element.
+            bool is_off_diagonal = a_col_it < a_col_end && a_col_id != a_row_id;
+            // Is it strongly connected ?
+            bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
+            // Is it fine.
+            bool is_fine = is_off_diagonal && cf_map[a_col_id] == FINE;
+            // Is it isolated.
+            bool is_strong_fine = is_off_diagonal && cf_map[a_col_id] == STRONG_FINE;
+            // Is it a coarse and strongly-connected column.
+            bool is_coarse_strongly_connected = is_strongly_connected && !is_fine && !is_strong_fine;
+            // Push coarse and strongly connected nodes in the set.
+            count += __popc( utils::ballot( is_coarse_strongly_connected ) );
+            // Is it a fine and strongly-connected column.
+            bool is_fine_strongly_connected = is_strongly_connected && is_fine;
+            // We collect fine and strongly-collected columns.
+            int vote = utils::ballot( is_fine_strongly_connected );
+            int dest = __popc( vote & utils::lane_mask_lt() );
+
+            if ( is_fine_strongly_connected )
+            {
+                s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
+            }
+
+            // For each warp, we have up to 32 rows of B to proceed.
+            for ( int k = 0, num_rows = __popc(vote) ; k < num_rows ; k += NUM_LOADED_ROWS )
+            {
+                int local_k = k + lane_id_div_num_threads;
+                // Is it an active thread.
+                bool is_active_k = local_k < num_rows;
+                // Threads in the warp proceeds columns of B in the range [b_col_it, b_col_end).
+                int b_row_id = -1;
+
+                if ( is_active_k )
+                {
+                    b_row_id = s_b_row_ids[warp_id * WARP_SIZE + local_k];
+                }
+
+                // Load the range of B.
+                int b_col_it = 0, b_col_end = 0;
+
+                if ( is_active_k )
+                {
+                    b_col_it  = A_rows[b_row_id + 0];
+                    b_col_end = A_rows[b_row_id + 1];
+                }
+
+                // _iterate over the range of columns of B.
+                for ( b_col_it += lane_id_mod_num_threads ; utils::any(b_col_it < b_col_end) ; b_col_it += NUM_THREADS_PER_ROW )
+                {
+                    // The ID of the column.
+                    int b_col_id = -1;
+
+                    if ( b_col_it < b_col_end )
+                    {
+                        b_col_id = A_cols[b_col_it];
+                    }
+
+                    // Is it an off-diagonal element.
+                    is_off_diagonal = b_col_it < b_col_end && b_col_id != b_row_id;
+                    // Is it a coarse and strongly-connected column.
+                    is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
+                    // Push coarse and strongly connected nodes in the set.
+                    count += __popc( utils::ballot( is_coarse_strongly_connected ) );
+                }
+            }
+        }
+
+        // Store the number of columns in each row.
+        if ( lane_id == 0 )
+        {
+            C_hat_offsets[a_row_id] = count;
+        }
+    }
+}
 
 template< int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE >
 __global__ __launch_bounds__( CTA_SIZE )
@@ -1145,6 +1265,45 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     int *cf_map_ptr = cf_map.raw();
     Hash_Workspace<TConfig_d, int> exp_wk(true, GRID_SIZE);
     IntVector C_hat_start( A.get_num_rows() + 1, 0 ), C_hat_end( A.get_num_rows() + 1, 0 );
+
+    bool use_opt_kernels = true;
+    int max_c_hat_size = 0;
+    int nunfine = 0;
+    IntVector unfine_set;
+
+    if(use_opt_kernels)
+    {
+        IntVector unfine(A.get_num_rows());
+        IntVector unfine_offs(A.get_num_rows()+1);
+        int nthreads = 128;
+        int nblocks = A.get_num_rows() / nthreads + 1;
+        set_unfine<<<nblocks, nthreads>>>(A.get_num_rows(), cf_map.raw(), unfine.raw(), unfine_offs.raw());
+        thrust::inclusive_scan(thrust::device, unfine.begin(), unfine.end(), unfine_offs.begin()+1);
+
+        nunfine = unfine_offs[unfine_offs.size()-1];
+        if(nunfine > 0)
+        {
+            unfine_set.resize(nunfine);
+            unfine_set_fill<<<nblocks, nthreads>>>(A.get_num_rows(), unfine.raw(), unfine_offs.raw(), unfine_set.raw());
+        }
+
+        const int CTA_SIZE  = 256;
+        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
+        int grid_size = nunfine/NUM_WARPS + 1;
+
+        amgx::classical::selector::estimate_c_hat_size_kernel_opt< 8, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
+                nunfine,
+                A.row_offsets.raw(),
+                A.col_indices.raw(),
+                cf_map.raw(),
+                s_con.raw(),
+                C_hat_start.raw(),
+                unfine_set.raw());
+        cudaCheckError();
+
+        max_c_hat_size = thrust::reduce(C_hat_start.begin(), C_hat_start.end(), -1, thrust::maximum<int>());
+    }
+    else
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -1175,60 +1334,46 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         cudaCheckError();
     }
 
-    int max_c_hat_size = thrust::reduce(C_hat_start.begin(), C_hat_start.end(), -1, thrust::maximum<int>());
-    printf("max_c_hat_size %d\n", max_c_hat_size);
     thrust_wrapper::exclusive_scan(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
     cudaCheckError();
 
     int nVals = C_hat_start[C_hat_start.size() - 1];
-    int hash_size = pow(2, ceil(log2(max_c_hat_size)));
-    printf("hash_size %d\n", hash_size);
-
     IntVector C_hat( nVals );
-    IntVector unfine(A.get_num_rows());
-    IntVector unfine_offs(A.get_num_rows()+1);
 
-    int nthreads = 128;
-    int nblocks = A.get_num_rows() / nthreads + 1;
-    set_unfine<<<nblocks, nthreads>>>(A.get_num_rows(), cf_map.raw(), unfine.raw(), unfine_offs.raw());
-
-    thrust::inclusive_scan(thrust::device, unfine.begin(), unfine.end(), unfine_offs.begin()+1);
-
-    int nunfine = unfine_offs[unfine_offs.size()-1];
-    printf("Anumrows %d nunfine %d\n", A.get_num_rows(), nunfine);
-    if(nunfine > 0)
+    if(use_opt_kernels)
     {
-        IntVector unfine_set(nunfine);
-        unfine_set_fill<<<nblocks, nthreads>>>(A.get_num_rows(), unfine.raw(), unfine_offs.raw(), unfine_set.raw());
+        int hash_size = pow(2, ceil(log2(max_c_hat_size)));
 
-        switch(hash_size)
+        if(nunfine > 0)
         {
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            case 16:
-            case 32:
-                compute_c_hat_opt_dispatch<32, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
-                break;
-            case 64:
-                compute_c_hat_opt_dispatch<64, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
-                break;
-            case 128:
-                compute_c_hat_opt_dispatch<128, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
-                break;
-            case 256:
-                compute_c_hat_opt_dispatch<256, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
-                break;
-            case 512:
-                compute_c_hat_opt_dispatch<512, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
-                break;
-            default:
-                FatalError("Size of C_hat in a single row too large, solve with original solvers.", AMGX_ERR_INTERNAL);
+            switch(hash_size)
+            {
+                case 1:
+                case 2:
+                case 4:
+                case 8:
+                case 16:
+                case 32:
+                    compute_c_hat_opt_dispatch<32, 8>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 64:
+                    compute_c_hat_opt_dispatch<64, 8>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 128:
+                    compute_c_hat_opt_dispatch<128, 8>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 256:
+                    compute_c_hat_opt_dispatch<256, 16>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 512:
+                    compute_c_hat_opt_dispatch<512, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                default:
+                    FatalError("Size of C_hat in a single row too large, solve with original solvers.", AMGX_ERR_INTERNAL);
+            }
         }
     }
-
-#if 0
+    else
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -1291,7 +1436,6 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             done = status == 0;
         }
     }
-#endif
 
     // get pointers to data
     int *C_hat_ptr = C_hat.raw();

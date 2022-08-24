@@ -1231,6 +1231,157 @@ compute_interp_weight_first_pass_kernel( const int A_num_rows,
 template< typename Value_type, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, typename KeyType >
 __global__ __launch_bounds__( CTA_SIZE )
 void
+compute_interp_weight_first_pass_kernel_opt( const int A_num_rows,
+        const int *__restrict A_rows,
+        const int *__restrict A_cols,
+        const Value_type *__restrict A_vals,
+        const KeyType *__restrict cf_map_global,
+        const bool *__restrict s_con,
+        const Value_type *__restrict diag,
+        const int *__restrict P_rows,
+        KeyType *P_cols,
+        Value_type *P_vals,
+        const int *__restrict assigned)
+{
+    const int NUM_WARPS_PER_CTA = CTA_SIZE / 32;
+    const int NUM_WARPS_PER_GRID = gridDim.x * NUM_WARPS_PER_CTA;
+
+    // The coordinates of the thread inside the CTA/warp.
+    const int warp_id = utils::warp_id();
+    const int lane_id = utils::lane_id();
+    // First threads load the row IDs of A needed by the CTA...
+    int a_row_id = blockIdx.x * NUM_WARPS_PER_CTA + warp_id;
+
+    // Loop over rows of A.
+    for ( ; a_row_id < A_num_rows ; a_row_id += NUM_WARPS_PER_GRID)
+    {
+        // Only do work if assigned[row_id] == pass
+        KeyType coarse_fine_id = cf_map_global[a_row_id];
+
+        // If coarse rows
+        if ( assigned[a_row_id] == 0 )
+        {
+            if ( lane_id == 0 )
+            {
+                int p_row_it = P_rows[a_row_id];
+                P_cols[p_row_it] = coarse_fine_id;
+                P_vals[p_row_it] = Value_type( 1 );
+            }
+        }
+        // If strong fine
+        else if ( assigned[a_row_id] == -1 )
+        {
+            // Do nothing
+        }
+        // strongly connected to a coarse point
+        else if (assigned[a_row_id] == 1)
+        {
+            // Load A row IDs.
+            int a_col_tmp = -1;
+
+            if ( lane_id < 2 )
+            {
+                a_col_tmp = A_rows[a_row_id + lane_id];
+            }
+
+            int a_col_it  = utils::shfl( a_col_tmp, 0 );
+            int a_col_end = utils::shfl( a_col_tmp, 1 );
+
+            int p_col_tmp = -1;
+
+            if ( lane_id < 2 )
+            {
+                p_col_tmp = P_rows[a_row_id + lane_id];
+            }
+
+            int p_col_it  = utils::shfl( p_col_tmp, 0 );
+            int p_col_end = utils::shfl( p_col_tmp, 1 );
+
+            // Weak value.
+            Value_type sum_N(0), sum_C(0), alfa(0);
+            int count = 0;
+
+            // Iterate over the columns of A.
+            for ( a_col_it += lane_id ; utils::any( a_col_it < a_col_end ) ; a_col_it += WARP_SIZE )
+            {
+                // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
+                int a_col_id(-1);
+                Value_type a_value(0);
+
+                if ( a_col_it < a_col_end )
+                {
+                    a_col_id = A_cols[a_col_it];
+                    a_value  = A_vals[a_col_it];
+                }
+
+                // Is it an off-diagonal element.
+                bool is_off_diagonal = a_col_it < a_col_end && a_col_id != a_row_id;
+                // Is it a strongly-connected column.
+                bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
+                // Is it a weakly connected node.
+                //bool is_weakly_connected = is_off_diagonal && !is_strongly_connected;
+                // Is it isolated.
+                bool is_strong_fine = is_off_diagonal && cf_map_global[a_col_id] == STRONG_FINE;
+                // Is it a fine and strongly-connected column.
+                bool is_assigned_strongly_connected = is_strongly_connected && assigned[a_col_id] == 0;
+
+                // Update the weak value.
+                if ( is_off_diagonal && !is_strong_fine)
+                {
+                    sum_N += a_value;
+                }
+
+                if ( is_assigned_strongly_connected )
+                {
+                    sum_C += a_value;
+                }
+
+                // We collect fine and strongly-collected columns.
+                int vote = utils::ballot( is_assigned_strongly_connected );
+                int dest = __popc( vote & utils::lane_mask_lt() );
+
+                if ( is_assigned_strongly_connected )
+                {
+                    P_cols[p_col_it + count + dest] = cf_map_global[a_col_id];
+                    P_vals[p_col_it + count + dest] = a_value;
+                }
+
+                count += __popc( vote );
+            }
+
+            // We're done with that row of A, now reduce sum_N and sum_C
+#pragma unroll
+            for ( int mask = WARP_SIZE / 2 ; mask > 0 ; mask >>= 1 )
+            {
+                sum_C += utils::shfl_xor( sum_C, mask );
+                sum_N += utils::shfl_xor( sum_N, mask );
+            }
+
+            if ( lane_id == 0 )
+            {
+                // NOTE this matches the check for zero in HYPRE
+                double div = (fabs(sum_C * diag[a_row_id]) == 0.0) ? 1. : sum_C * diag[a_row_id];
+                alfa = -sum_N / div;
+            }
+
+            alfa = utils::shfl( alfa, 0 );
+
+            // Scale the value of P
+            for ( p_col_it += lane_id ; utils::any( p_col_it < p_col_end ) ; p_col_it += WARP_SIZE )
+            {
+                // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
+                if ( p_col_it < p_col_end )
+                {
+                    P_vals[p_col_it] *= alfa;
+                }
+            }
+        } // if (assigned[a_row_id] == 1)
+    } // Loop over rows
+}
+
+template< typename Value_type, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, typename KeyType >
+__global__ __launch_bounds__( CTA_SIZE )
+void
 compute_interp_weight_kernel_opt( const int A_num_rows,
                               const int *__restrict A_rows,
                               const int *__restrict A_cols,
@@ -2024,6 +2175,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         for (int i = 2; i < num_passes; i++)
         {
+            if(use_opt_kernels)
             {
                 I64Vector_d C_hat_(C_hat);
                 IntVector C_hat_pos_(C_hat_pos);
@@ -2104,6 +2256,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 }
 #endif
             }
+            else
+            {
+            }
 
             // In case the hash table is not big enough, run multiple attemps
             int attempt = 0;
@@ -2153,65 +2308,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 cudaMemcpy( &status, exp_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost );
                 done = status == 0;
             }
-
-#if 0
-                thrust::sort(thrust::device, C_hat.begin(), C_hat.end());
-                thrust::sort(thrust::device, C_hat_.begin(), C_hat_.end());
-                I64Vector_h C_hat_h_old(C_hat);
-                I64Vector_h C_hat_h_new(C_hat_);
-
-                if(!thrust::equal(thrust::device, C_hat_.begin(), C_hat_.end(), C_hat.begin()))
-                {
-                    FatalError("Failed to match C_hat", AMGX_ERR_INTERNAL);
-                }
-                else
-                {
-                    printf("Matched C_hat");
-                }
-#endif
-
-#if 0
-                if(this->m_use_opt_kernels)
-                {
-                    IntVector assigned_in_pass(assigned.size());
-                    IntVector assigned_offs(assigned.size());
-
-                    int nthreads = 128;
-                    int nblocks = assigned.size() / nthreads + 1;
-                    set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw());
-
-                    thrust::exclusive_scan(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin(), 0);
-
-                    IntVector assigned_set(assigned_offs[assigned_offs.size()-1]);
-
-                    assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
-
-                    compute_c_hat_opt_dispatch<1024, 32>(
-                            A, s_con.raw(), C_hat_start.raw(),
-                            C_hat_size.raw(), C_hat.raw(), C_hat_pos.raw(), assigned.raw(),
-                            assigned_set, i);
-                }
-                else
-                {
-                    multipass::compute_c_hat_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
-                            A.get_num_rows(),
-                            A.row_offsets.raw(),
-                            A.col_indices.raw(),
-                            s_con.raw(),
-                            C_hat_start.raw(),
-                            C_hat_size.raw(),
-                            C_hat.raw(),
-                            C_hat_pos.raw(),
-                            assigned.raw(),
-                            exp_wk.get_gmem_size(),
-                            exp_wk.get_keys(),
-                            exp_wk.get_work_queue(),
-                            exp_wk.get_status(),
-                            i);
-                }
-#endif
         }
     }
+
     // At this stage, for each fine node (even in 1 ring halo), we have the global indices
     // of the interpolatory coarse points
     // count the number of non-zeros in the interpolation matrix,
@@ -2270,6 +2369,31 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
     cudaCheckError();
     // Fill P.col_indices_global, P.values
+    if(use_opt_kernels)
+    {
+        const int CTA_SIZE  = 256;
+        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
+        int grid_size = A.get_num_rows() / NUM_WARPS + 1;
+
+        typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
+
+        multipass::compute_interp_weight_first_pass_kernel_opt
+            <Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t>
+            <<< grid_size, CTA_SIZE>>>(
+            A.get_num_rows(),
+            A.row_offsets.raw(),
+            A.col_indices.raw(),
+            A.values.raw(),
+            cf_map_global.raw(),
+            s_con.raw(),
+            diag.raw(),
+            P.row_offsets.raw(),
+            P_col_indices_global.raw(),
+            P.values.raw(),
+            assigned.raw());
+        cudaCheckError();
+    }
+    else
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -2292,15 +2416,16 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             P.values.raw(),
             assigned.raw());
         cudaCheckError();
+    }
 
-        if (A.is_matrix_distributed())
-        {
-            //TODO: We could probably reduce the amount of data exchanged here, since we only need to exchange for recently updated nodes
-            P_col_indices_global.dirtybit = 1;
-            P_temp.manager->exchange_halo(P_col_indices_global, P_col_indices_global.tag);
-            P.values.dirtybit = 1;
-            P_temp.manager->exchange_halo(P.values, P.values.tag);
-        }
+    if (A.is_matrix_distributed())
+    {
+        //TODO: We could probably reduce the amount of data exchanged here, since we only need to exchange for recently updated nodes
+        P_col_indices_global.dirtybit = 1;
+        P_temp.manager->exchange_halo(P_col_indices_global, P_col_indices_global.tag);
+        P.values.dirtybit = 1;
+        P_temp.manager->exchange_halo(P.values, P.values.tag);
+    }
 
         for (int i = 2; i < num_passes; i++)
         {

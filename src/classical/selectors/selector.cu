@@ -401,32 +401,22 @@ estimate_c_hat_size_kernel_opt( const int nunfine,
     const int lane_id_div_num_threads = lane_id / NUM_THREADS_PER_ROW;
     const int lane_id_mod_num_threads = lane_id % NUM_THREADS_PER_ROW;
     // First threads load the row IDs of A needed by the CTA...
-    int a = blockIdx.x * NUM_WARPS + warp_id;
+    int gid = blockIdx.x * NUM_WARPS + warp_id;
+
+    __shared__ int count_s[NUM_WARPS];
 
     // Loop over rows of A.
-    for ( ; a < nunfine ; a += gridDim.x * NUM_WARPS )
+    for (gid < nunfine)
     {
         int a_row_id = unfine_set[a];
 
-        // Load A row IDs.
-        int a_col_begin = A_rows[a_row_id  ];
-        int a_col_end   = A_rows[a_row_id + 1];
-        // The number of elements.
-        int count(0);
-
         // Iterate over the columns of A to build C_hat.
-        for ( int a_col_it = a_col_begin + lane_id ; utils::any( a_col_it < a_col_end ) ; a_col_it += WARP_SIZE )
+        for ( int a_col_it = A_rows[a_row_id  ] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += WARP_SIZE )
         {
             // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
-            int a_col_id = -1;
-
-            if ( a_col_it < a_col_end )
-            {
-                a_col_id = A_cols[a_col_it];
-            }
-
+            int a_col_id = A_cols[a_col_it];
             // Is it an off-diagonal element.
-            bool is_off_diagonal = a_col_it < a_col_end && a_col_id != a_row_id;
+            bool is_off_diagonal = a_col_id != a_row_id;
             // Is it strongly connected ?
             bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
             // Is it fine.
@@ -435,67 +425,46 @@ estimate_c_hat_size_kernel_opt( const int nunfine,
             bool is_strong_fine = is_off_diagonal && cf_map[a_col_id] == STRONG_FINE;
             // Is it a coarse and strongly-connected column.
             bool is_coarse_strongly_connected = is_strongly_connected && !is_fine && !is_strong_fine;
-            // Push coarse and strongly connected nodes in the set.
-            count += __popc( utils::ballot( is_coarse_strongly_connected ) );
-            // Is it a fine and strongly-connected column.
-            bool is_fine_strongly_connected = is_strongly_connected && is_fine;
-            // We collect fine and strongly-collected columns.
-            int vote = utils::ballot( is_fine_strongly_connected );
-            int dest = __popc( vote & utils::lane_mask_lt() );
 
-            if ( is_fine_strongly_connected )
+            if(is_coarse_strongly_connected) 
             {
-                s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
+                atomicAdd(count_s[warp_id], 1);
             }
 
-            // For each warp, we have up to 32 rows of B to proceed.
-            for ( int k = 0, num_rows = __popc(vote) ; k < num_rows ; k += NUM_LOADED_ROWS )
+            // Is it a fine and strongly-connected column.
+            bool is_fine_strongly_connected = is_strongly_connected && is_fine;
+
+            if (!is_fine_strongly_connected ) continue;
+
+            int b_col_beg = A_rows[a_col_id];
+
+            // _iterate over the range of columns of B.
+            for (int b_col_it = b_col_beg; b_col_it < A_row[a_col_id+1]; ++b_col_it)
             {
-                int local_k = k + lane_id_div_num_threads;
-                // Is it an active thread.
-                bool is_active_k = local_k < num_rows;
-                // Threads in the warp proceeds columns of B in the range [b_col_it, b_col_end).
-                int b_row_id = -1;
+                // The ID of the column.
+                int b_col_id = A_cols[b_col_it];
 
-                if ( is_active_k )
+                // Is it an off-diagonal element.
+                is_off_diagonal = b_col_it < b_col_end && b_col_id != b_row_id;
+                // Is it a coarse and strongly-connected column.
+                is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
+                // Push coarse and strongly connected nodes in the set.
+                if(is_coarse_strongly_connected)
                 {
-                    b_row_id = s_b_row_ids[warp_id * WARP_SIZE + local_k];
-                }
-
-                // Load the range of B.
-                int b_col_it = 0, b_col_end = 0;
-
-                if ( is_active_k )
-                {
-                    b_col_it  = A_rows[b_row_id + 0];
-                    b_col_end = A_rows[b_row_id + 1];
-                }
-
-                // _iterate over the range of columns of B.
-                for ( b_col_it += lane_id_mod_num_threads ; utils::any(b_col_it < b_col_end) ; b_col_it += NUM_THREADS_PER_ROW )
-                {
-                    // The ID of the column.
-                    int b_col_id = -1;
-
-                    if ( b_col_it < b_col_end )
-                    {
-                        b_col_id = A_cols[b_col_it];
-                    }
-
-                    // Is it an off-diagonal element.
-                    is_off_diagonal = b_col_it < b_col_end && b_col_id != b_row_id;
-                    // Is it a coarse and strongly-connected column.
-                    is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
-                    // Push coarse and strongly connected nodes in the set.
-                    count += __popc( utils::ballot( is_coarse_strongly_connected ) );
+                    atomicAdd(count_s[warp_id], 1);
                 }
             }
         }
+    }
 
+    __syncthreads();
+
+    if(gid < nunfine)
+    {
         // Store the number of columns in each row.
         if ( lane_id == 0 )
         {
-            C_hat_offsets[a_row_id] = count;
+            C_hat_offsets[a_row_id] = count_s[warp_id];
         }
     }
 }

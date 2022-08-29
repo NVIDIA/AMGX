@@ -2175,7 +2175,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         for (int i = 2; i < num_passes; i++)
         {
-            if(use_opt_kernels)
+            if(this->m_use_opt_kernels)
             {
                 I64Vector_d C_hat_(C_hat);
                 IntVector C_hat_pos_(C_hat_pos);
@@ -2368,14 +2368,16 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             diag.raw());
     }
     cudaCheckError();
-    // Fill P.col_indices_global, P.values
-    if(use_opt_kernels)
-    {
-        const int CTA_SIZE  = 256;
-        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-        int grid_size = A.get_num_rows() / NUM_WARPS + 1;
 
-        typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
+    const int CTA_SIZE  = 256;
+    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
+    int work_offset = GRID_SIZE * NUM_WARPS;
+    typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
+
+    // Fill P.col_indices_global, P.values
+    if(this->m_use_opt_kernels)
+    {
+        int grid_size = A.get_num_rows() / NUM_WARPS + 1;
 
         multipass::compute_interp_weight_first_pass_kernel_opt
             <Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t>
@@ -2395,14 +2397,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
     else
     {
-        const int CTA_SIZE  = 256;
-        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-        int avg_nz_per_row = A.get_num_nz() / A.get_num_rows();
-        // Compute the set C_hat.
-        int work_offset = GRID_SIZE * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
-        // Run the computation.
-        typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
+
+        // Compute the set C_hat.
         multipass::compute_interp_weight_first_pass_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
             A.get_num_rows(),
             A.row_offsets.raw(),
@@ -2427,26 +2424,23 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         P_temp.manager->exchange_halo(P.values, P.values.tag);
     }
 
-        for (int i = 2; i < num_passes; i++)
+    for (int i = 2; i < num_passes; i++)
+    {
+        if(this->m_use_opt_kernels)
         {
-            cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
-            typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
+            IntVector assigned_in_pass(assigned.size());
+            IntVector assigned_offs(assigned.size() + 1);
 
-            if(this->m_use_opt_kernels)
-            {
-                IntVector assigned_in_pass(assigned.size());
-                IntVector assigned_offs(assigned.size() + 1);
+            int nthreads = 128;
+            int nblocks = assigned.size() / nthreads + 1;
+            set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw(), assigned_offs.raw());
+            thrust::inclusive_scan(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin()+1);
 
-                int nthreads = 128;
-                int nblocks = assigned.size() / nthreads + 1;
-                set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw(), assigned_offs.raw());
-                thrust::inclusive_scan(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin()+1);
+            IntVector assigned_set(assigned_offs[assigned_offs.size()-1]);
+            assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
 
-                IntVector assigned_set(assigned_offs[assigned_offs.size()-1]);
-                assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
-
-                Hash_Workspace<TConfig_d, int64_t> exp_wk2(true, 4096);
-                multipass::compute_interp_weight_kernel_opt<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< 4096, CTA_SIZE>>>(
+            Hash_Workspace<TConfig_d, int64_t> exp_wk2(true, 4096);
+            multipass::compute_interp_weight_kernel_opt<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< 4096, CTA_SIZE>>>(
                     assigned_set.size(),
                     A.row_offsets.raw(),
                     A.col_indices.raw(),
@@ -2468,10 +2462,11 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                     assigned.raw(),
                     assigned_set.raw(),
                     i);
-            }
-            else
-            {
-                multipass::compute_interp_weight_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
+        }
+        else
+        {
+            cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+            multipass::compute_interp_weight_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
                     A.get_num_rows(),
                     A.row_offsets.raw(),
                     A.col_indices.raw(),
@@ -2493,18 +2488,15 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                     assigned.raw(),
                     i);
 
-             }
+        }
 
-            if (A.is_matrix_distributed())
-            {
-                //TODO: This is exchanging too much data
-                P_col_indices_global.dirtybit = 1;
-                P_temp.manager->exchange_halo(P_col_indices_global, P_col_indices_global.tag);
-                P.values.dirtybit = 1;
-                P_temp.manager->exchange_halo(P.values, P.values.tag);
-            }
-
-            cudaCheckError();
+        if (A.is_matrix_distributed())
+        {
+            //TODO: This is exchanging too much data
+            P_col_indices_global.dirtybit = 1;
+            P_temp.manager->exchange_halo(P_col_indices_global, P_col_indices_global.tag);
+            P.values.dirtybit = 1;
+            P_temp.manager->exchange_halo(P.values, P.values.tag);
         }
 
         cudaCheckError();

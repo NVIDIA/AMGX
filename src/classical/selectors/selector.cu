@@ -391,24 +391,27 @@ estimate_c_hat_size_kernel_opt( const int nunfine,
                             int* unfine_set )
 {
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-    const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
-    // A shared location where threads propose a row of B to load.
-    __shared__ int s_b_row_ids[CTA_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
-    // Constants.
-    const int lane_id_div_num_threads = lane_id / NUM_THREADS_PER_ROW;
-    const int lane_id_mod_num_threads = lane_id % NUM_THREADS_PER_ROW;
     // First threads load the row IDs of A needed by the CTA...
     int gid = blockIdx.x * NUM_WARPS + warp_id;
 
     __shared__ int count_s[NUM_WARPS];
 
-    // Loop over rows of A.
-    for (gid < nunfine)
+    if(lane_id == 0)
     {
-        int a_row_id = unfine_set[a];
+        count_s[warp_id] = 0;
+    }
+
+    __syncthreads();
+
+    int a_row_id;
+
+    // Loop over rows of A.
+    if (gid < nunfine)
+    {
+        a_row_id = unfine_set[gid];
 
         // Iterate over the columns of A to build C_hat.
         for ( int a_col_it = A_rows[a_row_id  ] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += WARP_SIZE )
@@ -428,7 +431,7 @@ estimate_c_hat_size_kernel_opt( const int nunfine,
 
             if(is_coarse_strongly_connected) 
             {
-                atomicAdd(count_s[warp_id], 1);
+                atomicAdd(&count_s[warp_id], 1);
             }
 
             // Is it a fine and strongly-connected column.
@@ -439,19 +442,19 @@ estimate_c_hat_size_kernel_opt( const int nunfine,
             int b_col_beg = A_rows[a_col_id];
 
             // _iterate over the range of columns of B.
-            for (int b_col_it = b_col_beg; b_col_it < A_row[a_col_id+1]; ++b_col_it)
+            for (int b_col_it = b_col_beg; b_col_it < A_rows[a_col_id+1]; ++b_col_it)
             {
                 // The ID of the column.
                 int b_col_id = A_cols[b_col_it];
 
                 // Is it an off-diagonal element.
-                is_off_diagonal = b_col_it < b_col_end && b_col_id != b_row_id;
+                is_off_diagonal = b_col_id != a_col_id;
                 // Is it a coarse and strongly-connected column.
                 is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
                 // Push coarse and strongly connected nodes in the set.
                 if(is_coarse_strongly_connected)
                 {
-                    atomicAdd(count_s[warp_id], 1);
+                    atomicAdd(&count_s[warp_id], 1);
                 }
             }
         }
@@ -1244,8 +1247,8 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     {
         IntVector unfine(A.get_num_rows());
         IntVector unfine_offs(A.get_num_rows()+1);
-        int nthreads = 128;
-        int nblocks = A.get_num_rows() / nthreads + 1;
+        constexpr int nthreads = 128;
+        const int nblocks = A.get_num_rows() / nthreads + 1;
         set_unfine<<<nblocks, nthreads>>>(A.get_num_rows(), cf_map.raw(), unfine.raw(), unfine_offs.raw());
         thrust::inclusive_scan(thrust::device, unfine.begin(), unfine.end(), unfine_offs.begin()+1);
 

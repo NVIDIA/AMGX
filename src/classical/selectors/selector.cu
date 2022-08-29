@@ -379,7 +379,7 @@ estimate_c_hat_size_kernel( const int A_num_rows,
 }
 
 
-template< int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE >
+template< int CTA_SIZE >
 __global__ __launch_bounds__( CTA_SIZE )
 void
 estimate_c_hat_size_kernel_opt( const int nunfine,
@@ -390,86 +390,62 @@ estimate_c_hat_size_kernel_opt( const int nunfine,
                             int *C_hat_offsets,
                             int* unfine_set )
 {
-    const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-    // The coordinates of the thread inside the CTA/warp.
-    const int warp_id = utils::warp_id( );
-    const int lane_id = utils::lane_id( );
     // First threads load the row IDs of A needed by the CTA...
-    int gid = blockIdx.x * NUM_WARPS + warp_id;
-
-    __shared__ int count_s[NUM_WARPS];
-
-    if(lane_id == 0)
-    {
-        count_s[warp_id] = 0;
-    }
-
-    __syncthreads();
-
-    int a_row_id;
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // Loop over rows of A.
-    if (gid < nunfine)
-    {
-        a_row_id = unfine_set[gid];
+    if (gid >= nunfine) return;
 
-        // Iterate over the columns of A to build C_hat.
-        for ( int a_col_it = A_rows[a_row_id  ] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += WARP_SIZE )
+    int a_row_id = unfine_set[gid];
+
+    int count = 0;
+    // Iterate over the columns of A to build C_hat.
+    for ( int a_col_it = A_rows[a_row_id  ]; a_col_it < A_rows[a_row_id + 1]; ++a_col_it )
+    {
+        // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
+        int a_col_id = A_cols[a_col_it];
+        // Is it an off-diagonal element.
+        bool is_off_diagonal = a_col_id != a_row_id;
+        // Is it strongly connected ?
+        bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
+        // Is it fine.
+        bool is_fine = is_off_diagonal && cf_map[a_col_id] == FINE;
+        // Is it isolated.
+        bool is_strong_fine = is_off_diagonal && cf_map[a_col_id] == STRONG_FINE;
+        // Is it a coarse and strongly-connected column.
+        bool is_coarse_strongly_connected = is_strongly_connected && !is_fine && !is_strong_fine;
+
+        if(is_coarse_strongly_connected) 
         {
-            // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
-            int a_col_id = A_cols[a_col_it];
+            count++;
+        }
+
+        // Is it a fine and strongly-connected column.
+        bool is_fine_strongly_connected = is_strongly_connected && is_fine;
+
+        if (!is_fine_strongly_connected ) continue;
+
+        int b_col_beg = A_rows[a_col_id];
+
+        // _iterate over the range of columns of B.
+        for (int b_col_it = b_col_beg; b_col_it < A_rows[a_col_id+1]; ++b_col_it)
+        {
+            // The ID of the column.
+            int b_col_id = A_cols[b_col_it];
+
             // Is it an off-diagonal element.
-            bool is_off_diagonal = a_col_id != a_row_id;
-            // Is it strongly connected ?
-            bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
-            // Is it fine.
-            bool is_fine = is_off_diagonal && cf_map[a_col_id] == FINE;
-            // Is it isolated.
-            bool is_strong_fine = is_off_diagonal && cf_map[a_col_id] == STRONG_FINE;
+            is_off_diagonal = b_col_id != a_col_id;
             // Is it a coarse and strongly-connected column.
-            bool is_coarse_strongly_connected = is_strongly_connected && !is_fine && !is_strong_fine;
-
-            if(is_coarse_strongly_connected) 
+            is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
+            // Push coarse and strongly connected nodes in the set.
+            if(is_coarse_strongly_connected)
             {
-                atomicAdd(&count_s[warp_id], 1);
-            }
-
-            // Is it a fine and strongly-connected column.
-            bool is_fine_strongly_connected = is_strongly_connected && is_fine;
-
-            if (!is_fine_strongly_connected ) continue;
-
-            int b_col_beg = A_rows[a_col_id];
-
-            // _iterate over the range of columns of B.
-            for (int b_col_it = b_col_beg; b_col_it < A_rows[a_col_id+1]; ++b_col_it)
-            {
-                // The ID of the column.
-                int b_col_id = A_cols[b_col_it];
-
-                // Is it an off-diagonal element.
-                is_off_diagonal = b_col_id != a_col_id;
-                // Is it a coarse and strongly-connected column.
-                is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
-                // Push coarse and strongly connected nodes in the set.
-                if(is_coarse_strongly_connected)
-                {
-                    atomicAdd(&count_s[warp_id], 1);
-                }
+                count++;
             }
         }
     }
 
-    __syncthreads();
-
-    if(gid < nunfine)
-    {
-        // Store the number of columns in each row.
-        if ( lane_id == 0 )
-        {
-            C_hat_offsets[a_row_id] = count_s[warp_id];
-        }
-    }
+    C_hat_offsets[a_row_id] = count;
 }
 
 template< int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE >
@@ -1259,11 +1235,10 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             unfine_set_fill<<<nblocks, nthreads>>>(A.get_num_rows(), unfine.raw(), unfine_offs.raw(), unfine_set.raw());
         }
 
-        const int CTA_SIZE  = 256;
-        const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
-        int grid_size = nunfine/NUM_WARPS + 1;
+        const int CTA_SIZE  = 128;
+        int grid_size = nunfine/CTA_SIZE + 1;
 
-        amgx::classical::selector::estimate_c_hat_size_kernel_opt< 8, CTA_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(
+        amgx::classical::selector::estimate_c_hat_size_kernel_opt< CTA_SIZE > <<< grid_size, CTA_SIZE>>>(
                 nunfine,
                 A.row_offsets.raw(),
                 A.col_indices.raw(),

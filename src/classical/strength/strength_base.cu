@@ -217,22 +217,18 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
     // One warp works on each row and hence one iteration handles
     // num_warps*numBlock rows. This means atomicAdd() is inevitable.
     const int num_warps = kCtaSize / 32;
-    const int num_rows_per_iter = num_warps * gridDim.x;
     __shared__ volatile ValueType smem[kCtaSize];
     __shared__ volatile ValueType s_diag[num_warps];
     __shared__ volatile ValueType s_threshold[num_warps];
     const int warpId = threadIdx.x / 32;
     const int laneId = threadIdx.x % 32;
+    int aRowId = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for ( int aRowId = blockIdx.x * num_warps + warpId ; aRowId < A_num_rows ;
-            aRowId += num_rows_per_iter )
+    if (aRowId < A_num_rows)
     {
         ValueType minVal(0), maxVal(0);
 
-        if ( laneId == 0 ) // Reset the diagonal
-        {
-            s_diag[warpId] = ValueType(0);
-        }
+        ValueType diag = ValueType(0);
 
         utils::syncwarp();
 
@@ -245,37 +241,30 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
         const int aRowBegin = A_rows[aRowId  ];
         const int aRowEnd   = A_rows[aRowId + 1];
 
-        for ( IndexType aRowIt = aRowBegin + laneId ; utils::any( aRowIt < aRowEnd ) ;
-                aRowIt += 32 )
+        for ( IndexType aRowIt = aRowBegin; aRowIt < aRowEnd ; ++aRowIt)
         {
-            IndexType aColId = aRowIt < aRowEnd ? A_cols[aRowIt] : -1;
-            ValueType aValue = aRowIt < aRowEnd ? A_vals[aRowIt] : ValueType(0);
+            IndexType aColId = A_cols[aRowIt];
+            ValueType aValue = A_vals[aRowIt];
 
             if ( aColId == aRowId ) // only one thread evaluates to true.
             {
-                s_diag[warpId] = aValue;
+                diag = aValue;
             }
 
-            bool is_off_diagonal = aRowIt < aRowEnd && aColId != aRowId;
-
-            if ( is_off_diagonal )
+            if ( aColId != aRowId )
             {
                 minVal = min( minVal, aValue );
                 maxVal = max( maxVal, aValue );
             }
         }
 
-        // init weights[] with a random number
-        if ( laneId == 0 )
+        if ( singleGPU )
         {
-            if ( singleGPU )
-            {
-                atomicAdd( &weights[aRowId], ourHash(aRowId) );
-            }
-            else
-            {
-                atomicAdd( &weights[aRowId], ourHash( (int) base_index + aRowId) );
-            }
+            atomicAdd(&weights[aRowId], ourHash(aRowId));
+        }
+        else
+        {
+            atomicAdd(&weights[aRowId], ourHash( (int) base_index + aRowId));
         }
 
         utils::syncwarp();
@@ -284,53 +273,23 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
         // If diag entry is negative, then all off-diag entries must be positive.
         // This means max off-diag is to be used to compute the threshold.
         // If diag entry is positve, the min off-diag is used instead.
-        if ( s_diag[warpId] < ValueType(0) )
+        ValueType threshold;
+        if ( diag < ValueType(0) )
         {
-            smem[threadIdx.x] = maxVal;
-
-            utils::syncwarp();
-
-#pragma unroll
-            for ( int offset = 16 ; offset > 0 ; offset /= 2 )
-            {
-                if ( laneId < offset )
-                {
-                    smem[threadIdx.x] = maxVal = max( maxVal, smem[threadIdx.x + offset] );
-                }
-                utils::syncwarp();
-            }
+            threshold = maxVal*alpha;
         }
         else
         {
-            smem[threadIdx.x] = minVal;
-
-            utils::syncwarp();
-
-#pragma unroll
-            for ( int offset = 16 ; offset > 0 ; offset /= 2 )
-            {
-                if ( laneId < offset )
-                {
-                    smem[threadIdx.x] = minVal = min( minVal, smem[threadIdx.x + offset] );
-                }
-                utils::syncwarp();
-            }
-        }
-
-        if ( laneId == 0 )
-        {
-            // If laneId=0, then maxVal or minVal is in smem[threadIdx.x].
-            s_threshold[warpId] = smem[threadIdx.x] * alpha;
+            threshold = minVal*alpha;
         }
 
         utils::syncwarp();
 
         // sum of the column of S
-        for ( IndexType aRowIt = aRowBegin + laneId ; utils::any( aRowIt < aRowEnd ) ;
-                aRowIt += 32 )
+        for ( IndexType aRowIt = aRowBegin;  aRowIt < aRowEnd ; ++aRowIt)
         {
-            IndexType aColId = aRowIt < aRowEnd ? A_cols[aRowIt] : -1;
-            ValueType aValue = aRowIt < aRowEnd ? A_vals[aRowIt] : ValueType(0);
+            IndexType aColId = A_cols[aRowIt];
+            ValueType aValue = A_vals[aRowIt];
             bool is_strongly_connected = false;
 
             if (max_row_sum < 1.0 && rowSum > max_row_sum)
@@ -339,20 +298,17 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
             }
             else
             {
-                bool is_off_diagonal = aRowIt < aRowEnd && aColId != aRowId;
+                bool is_off_diagonal = aColId != aRowId;
                 is_strongly_connected = is_off_diagonal &&
-                                        stronglyConnectedAHat( aValue, s_threshold[warpId], s_diag[warpId] );
+                                        stronglyConnectedAHat( aValue, threshold, diag );
             }
 
-            if ( is_strongly_connected && aRowIt < aRowEnd && aColId < A_num_rows)
+            if ( is_strongly_connected && aColId < A_num_rows)
             {
                 atomicAdd( &weights[aColId], 1.0f );
             }
 
-            if ( aRowIt < aRowEnd )
-            {
-                s_con[aRowIt] = is_strongly_connected;
-            }
+            s_con[aRowIt] = is_strongly_connected;
         }
     }
 }
@@ -438,9 +394,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
     }
 
     // choose a blocksize. Use 1 warp per row
-    const int blockSize = 256;
-    const int numWarps  = blockSize / 32;
-    const int numBlocks = min( 4096, (int) (A.get_num_rows() + numWarps - 1) / numWarps );
+    const int blockSize = 128;
+    const int numBlocks = A.get_num_rows() / blockSize + 1;
 
     if (A.get_num_rows() > 0)
     {

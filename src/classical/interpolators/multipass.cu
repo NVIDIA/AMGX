@@ -149,7 +149,7 @@ void initializeAssignedArray(const IndexType *cf_map, IndexType *assigned, const
                 // Is it fine.
                 bool is_coarse  = is_off_diagonal && cf_map[aColId] >= 0;
                 // Is it strongly connected ?
-                bool is_coarse_strongly_connected = s_con[aColIt] && is_coarse;
+                bool is_coarse_strongly_connected = aColIt < aColEnd && s_con[aColIt] && is_coarse;
                 // Push coarse and strongly connected nodes in the set.
                 coarse_count += __popc( utils::ballot( is_coarse_strongly_connected ) );
             }
@@ -197,7 +197,7 @@ void fillAssignedArray(IndexType *assigned, const IndexType *A_rows, const Index
                 // Is it assigned
                 bool is_assigned = is_off_diagonal && assigned[aColId] == pass - 1;
                 // Is it strongly connected ?
-                bool is_assigned_strongly_connected = s_con[aColIt] && is_assigned;
+                bool is_assigned_strongly_connected = aColIt < aColEnd && s_con[aColIt] && is_assigned;
                 // Push coarse and strongly connected nodes in the set.
                 assigned_count += __popc( utils::ballot( is_assigned_strongly_connected ) );
 
@@ -565,7 +565,7 @@ compute_c_hat_kernel( int A_num_rows,
             // Check if assigned == pass -1
             bool is_assigned = is_off_diagonal && (assigned[a_col_id] == pass - 1);
             // Check if we have a strong connection to the point
-            bool is_strongly_connected = s_con[a_col_it];
+            bool is_strongly_connected = is_active && s_con[a_col_it];
             // Check if strong connection to assigned == pass-1
             bool is_assigned_strongly_connected = is_assigned && is_strongly_connected;
             // We collect columns for which assigned == pass - 1

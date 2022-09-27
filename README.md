@@ -42,6 +42,12 @@ In order to build project you would need [CMake](https://cmake.org/) and [CUDA T
 ). If you want to try distributed version of AMGX library you will also need MPI implementation, such as [OpenMPI](https://www.open-mpi.org/) for Linux or [MPICH](https://www.mpich.org/downloads/) for Windows. You will need compiler with c++11 support (for example GCC 4.8 or MSVC 14.0).
 You also need NVIDIA GPU with Compute Capability >=3.0, check to see if your GPU supports this [here](https://developer.nvidia.com/cuda-gpus).
 
+### <a name="cloning"></a> Cloning
+
+In order to pull all necessary dependencies, AmgX must be cloned using the `--recursive` option, i.e.:
+
+`git clone --recursive git@github.com:nvidia/amgx.git`
+
 ### <a name="building"></a> Building
 Typical build commands from the project root:
 

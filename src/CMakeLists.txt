@@ -109,7 +109,7 @@ ENDIF()
 
 add_dependencies(amgx_tests_launcher amgx_tests_library)
 
-target_link_libraries(amgx_tests_launcher amgxsh amgx ${libs_all} OpenMP::OpenMP_C)
+target_link_libraries(amgx_tests_launcher amgxsh ${libs_all} OpenMP::OpenMP_C)
 
 if(MPI_FOUND)
     target_link_libraries(amgx_tests_launcher MPI::MPI_CXX)

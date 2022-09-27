@@ -654,7 +654,8 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
     typedef typename Matrix<TConfig>::index_type index_type;
 
     int offset, nrows, nnz;
-    A.getFixedSizesForView(view, &offset, &nrows, &nnz);
+    A.getOffsetAndSizeForView(view, &offset, &nrows);
+    A.getNnzForView(view, &nnz);
 
     if (nrows <= 0)
     {

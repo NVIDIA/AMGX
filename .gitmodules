@@ -1,5 +1,3 @@
 [submodule "thrust"]
 	path = thrust
-	url = git@github.com:nvidia/thrust
-[submodule "origin"]
-	url = https://github.com/NVIDIA/thrust.git
+    url = https://github.com/NVIDIA/thrust.git

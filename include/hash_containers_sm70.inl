@@ -103,7 +103,7 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear( bool skip_g
     {
         m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
     }
-    __syncwarp();
+    utils::syncwarp();
 
     m_smem_count = 0;
 
@@ -674,7 +674,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::clear()
         m_smem_keys[i_step * WARP_SIZE + lane_id] = -1;
         m_smem_vals[i_step * WARP_SIZE + lane_id] =  amgx::types::util<T>::get_zero();
     }
-    __syncwarp();
+    utils::syncwarp();
 
     if ( !m_any_gmem )
     {
@@ -802,7 +802,7 @@ void Hash_map<Key_type, T, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load( int count
         ptr[idx] = key;
     }
 
-    __syncwarp();
+    utils::syncwarp();
 
     m_any_gmem = utils::any( m_any_gmem );
 }

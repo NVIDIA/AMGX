@@ -34,13 +34,8 @@
 #include <matrix_coloring/matrix_coloring.h>
 #include <cusp/blas.h>
 #include <numerical_zero.h>
-#include <distributed/glue.h>
 
 #include "amgx_types/util.h"
-
-#ifdef AMGX_USE_VAMPIR_TRACE
-#include <vt_user.h>
-#endif
 
 namespace amgx
 {
@@ -50,7 +45,7 @@ Solver<TConfig>::Solver(AMG_Config &cfg, const std::string &cfg_scope,
                         ThreadManager *tmng) :
     m_cfg(&cfg), m_cfg_scope(cfg_scope), m_is_solver_setup(false), m_A(NULL), 
     m_r(NULL), m_num_iters(0), m_curr_iter(0), m_ref_count(1), tag(0), 
-    m_solver_name("SolverNameNotSet"), m_skip_glued_setup(false), m_tmng(tmng)
+    m_solver_name("SolverNameNotSet"), m_tmng(tmng)
 {
     m_norm_factor = types::util<PODValueB>::get_one();
     m_verbosity_level = cfg.getParameter<int>("verbosity_level", cfg_scope);
@@ -306,12 +301,6 @@ bool Solver<TConfig>::converged(PODVector_h &nrm) const
 }
 
 template<class TConfig>
-void Solver<TConfig>::exchangeSolveResultsConsolidation(AMGX_STATUS &status)
-{
-    this->get_A().getManager()->exchangeSolveResultsConsolidation(m_num_iters, m_res_history, status, m_store_res_history == 1);
-}
-
-template<class TConfig>
 const typename Solver<TConfig>::PODVector_h &Solver<TConfig>::get_residual(
     int idx) const
 {
@@ -403,21 +392,6 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
         if (reuse_matrix_structure && (&(this->get_A())) != &A)
             FatalError("Cannot call resetup with a different matrix",
                        AMGX_ERR_UNKNOWN);
-
-#ifdef AMGX_WITH_MPI
-        // skiping setup for glued matrices
-        // this->level was set to -999 in amg_level.cu because it is empty
-        // block jacobi fails to find diagonal if the matrix is empty
-        if (B.manager != NULL)
-        {
-            if (this->m_skip_glued_setup)
-            {
-                this->set_A(A);
-                m_is_solver_setup = true;
-                return;
-            }
-        }
-#endif
 
         // Color the matrix, set the block format, reorder columns if necessary
         if (!B.is_matrix_setup())
@@ -564,22 +538,14 @@ AMGX_ERROR Solver<TConfig>::setup_no_throw(Operator<TConfig> &A,
 
     try
     {
-        if ( (A.getManager() != NULL && A.getManager()->isFineLevelConsolidated() && !A.getManager()->isFineLevelRootPartition() ))
+        // Matrix values have changed, so need to repermute values, color the matrix if necessary
+        if (Matrix<TConfig> *B = dynamic_cast<Matrix<TConfig>*>(&A))
         {
-            this->set_A(A);
-            // Do nothing else since this partition shouldn't participate
+            B->set_is_matrix_setup(false);
         }
-        else
-        {
-            // Matrix values have changed, so need to repermute values, color the matrix if necessary
-            if (Matrix<TConfig> *B = dynamic_cast<Matrix<TConfig>*>(&A))
-            {
-                B->set_is_matrix_setup(false);
-            }
 
-            // Setup the solver
-            this->setup(A, reuse_matrix_structure);
-        }
+        // Setup the solver
+        this->setup(A, reuse_matrix_structure);
     }
 
     AMGX_CATCHES(rc)
@@ -605,42 +571,6 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         FatalError("Block sizes do not match", AMGX_ERR_BAD_PARAMETERS);
     }
 
-    //  --- Gluing path for vectors ---
-#ifdef AMGX_WITH_MPI
-    Matrix<TConfig> *nv_mtx_ptr =  dynamic_cast<Matrix<TConfig>*>(m_A);
-
-    if (nv_mtx_ptr)
-    {
-        if (nv_mtx_ptr->manager != NULL )
-        {
-            if (nv_mtx_ptr->manager->isGlued() && nv_mtx_ptr->manager->getDestinationPartitions().size() != 0 && nv_mtx_ptr->amg_level_index == 0)
-            {
-                MPI_Comm comm, temp_com;
-                comm = nv_mtx_ptr->manager->getComms()->get_mpi_comm();
-                // Compute the temporary splited communicator to glue vectors
-                temp_com = compute_glue_matrices_communicator(*nv_mtx_ptr);
-                int usz = nv_mtx_ptr->manager->halo_offsets_before_glue[0];
-                glue_vector(*nv_mtx_ptr, comm, b, temp_com);
-                b.set_unconsolidated_size(usz);
-                b.getManager()->setIsFineLevelGlued(true);
-                MPI_Barrier(MPI_COMM_WORLD);
-                glue_vector(*nv_mtx_ptr, comm, x, temp_com);
-                x.set_unconsolidated_size(usz);
-                x.getManager()->setIsFineLevelGlued(true);
-                MPI_Barrier(MPI_COMM_WORLD);
-                //Make sure we will not glue the vectors twice on the finest level
-                nv_mtx_ptr->manager->setIsGlued(false);
-            }
-            else
-            {
-                nv_mtx_ptr->manager->setIsGlued(false);
-            }
-        }
-    }
-
-#endif
-    // -- end of gluing path modifications --
-
     if (b.tag == -1 || x.tag == -1)
     {
         b.tag = this->tag * 100 + 0;
@@ -657,10 +587,6 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
             MPI_Barrier(MPI_COMM_WORLD);
         }
 
-#ifdef AMGX_USE_VAMPIR_TRACE
-        int tag = VT_User_marker_def__("Solver_Start", VT_MARKER_TYPE_HINT);
-        VT_User_marker__(tag, "Solver Start");
-#endif
         cudaDeviceSynchronize();
 #endif
 #endif
@@ -977,24 +903,13 @@ AMGX_ERROR Solver<TConfig>::solve_no_throw(VVector &b, VVector &x,
 
     try
     {
-        // Check if fine level is consolidated and not a root partition
-        if ( !(this->get_A().getManager() != NULL && this->get_A().getManager()->isFineLevelConsolidated() && !this->get_A().getManager()->isFineLevelRootPartition() ))
+        if (b.tag == -1 || x.tag == -1)
         {
-            // If matrix is consolidated on fine level and not a root partition
-            if (b.tag == -1 || x.tag == -1)
-            {
-                b.tag = this->tag * 100 + 0;
-                x.tag = this->tag * 100 + 1;
-            }
-
-            status = this->solve(b, x, xIsZero);
+            b.tag = this->tag * 100 + 0;
+            x.tag = this->tag * 100 + 1;
         }
 
-        // Exchange residual history, number of iterations, solve status if fine level consoildation was used
-        if (this->get_A().getManager() != NULL && this->get_A().getManager()->isFineLevelConsolidated())
-        {
-            this->exchangeSolveResultsConsolidation(status);
-        }
+        status = this->solve(b, x, xIsZero);
     }
 
     AMGX_CATCHES(rc)

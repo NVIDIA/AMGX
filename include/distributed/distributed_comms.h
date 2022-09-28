@@ -144,9 +144,6 @@ class DistributedComms
         virtual void set_neighbors(int num_neighbors) = 0;
 
         virtual DistributedComms<TConfig> *Clone() const = 0;
-        virtual DistributedComms<TConfig> *CloneSubComm(HIVector &coarse_part_to_fine_part, bool is_root_partition) = 0;
-
-        virtual void createSubComm( HIVector &coarse_part_to_fine_part, bool is_root_partition ) = 0;
 
 #ifdef AMGX_WITH_MPI
         virtual MPI_Comm get_mpi_comm() = 0;

@@ -176,11 +176,11 @@ class Vector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : publ
         typedef typename TConfig::IndPrec index_type;
         typedef cusp::array1d_format format;
 
-        Vector() :  block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_host_buffer(NULL), explicit_buffer_size(0), m_unconsolidated_size(0), m_resources(0) { };
-        inline Vector(unsigned int N) : thrust::host_vector<value_type>(N), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(unsigned int N, value_type v) : thrust::host_vector<value_type>(N, v), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(const Vector<TConfig_h> &a) : thrust::host_vector<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(const Vector<TConfig_d> &a) : thrust::host_vector<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
+        Vector() :  block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_host_buffer(NULL), explicit_buffer_size(0), m_resources(0) { };
+        inline Vector(unsigned int N) : thrust::host_vector<value_type>(N), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(unsigned int N, value_type v) : thrust::host_vector<value_type>(N, v), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(const Vector<TConfig_h> &a) : thrust::host_vector<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(const Vector<TConfig_d> &a) : thrust::host_vector<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
 
         ~Vector()
         {
@@ -381,8 +381,6 @@ class Vector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : publ
         DistributedManager<TConfig> *getManager() const {return manager;}
         void unset_transformed() {v_is_transformed = false;}
         void set_transformed() {v_is_transformed = true;}
-        void set_unconsolidated_size(int size) {m_unconsolidated_size = size;}
-        int get_unconsolidated_size() { return m_unconsolidated_size;}
         bool is_transformed() { return v_is_transformed;}
         void set_is_vector_read_partitioned(bool is_read_partitioned) {v_is_read_partitioned = is_read_partitioned;}
         inline bool is_vector_read_partitioned() const {return v_is_read_partitioned;}
@@ -395,7 +393,6 @@ class Vector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : publ
         volatile int cancel; //Signals to the async host-copy comms module that vector is being deallocated
         int delayed_send;
         unsigned int in_transfer;
-        int m_unconsolidated_size;
         std::vector<value_type> host_buffer;
         value_type *explicit_host_buffer;  //A separate pinned memory buffer to be used by async host-copy comms module
         int explicit_buffer_size;
@@ -438,12 +435,12 @@ class Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : pu
         typedef typename TConfig::IndPrec index_type;
         typedef cusp::array1d_format format;
 
-        Vector() : block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(unsigned int N) : device_vector_alloc<value_type>(N), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(unsigned int N, int dimx, int dimy) : device_vector_alloc<value_type>(N), block_dimx(dimx), block_dimy(dimy), num_rows(0), num_cols(1), lda(0), buffer(NULL), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(unsigned int N, value_type v) : device_vector_alloc<value_type>(N, v), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(const Vector<TConfig_h> &a) : device_vector_alloc<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
-        inline Vector(const Vector<TConfig_d> &a) : device_vector_alloc<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_unconsolidated_size(0), m_resources(0) {}
+        Vector() : block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(unsigned int N) : device_vector_alloc<value_type>(N), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(unsigned int N, int dimx, int dimy) : device_vector_alloc<value_type>(N), block_dimx(dimx), block_dimy(dimy), num_rows(0), num_cols(1), lda(0), buffer(NULL), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(unsigned int N, value_type v) : device_vector_alloc<value_type>(N, v), block_dimx(1), block_dimy(1), num_rows(0), num_cols(1), lda(0), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(const Vector<TConfig_h> &a) : device_vector_alloc<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
+        inline Vector(const Vector<TConfig_d> &a) : device_vector_alloc<value_type>(a), block_dimx(a.get_block_dimx()), block_dimy(a.get_block_dimy()), num_rows(a.get_num_rows()), num_cols(a.get_num_cols()), lda(a.get_lda()), buffer(NULL), buffer_size(0), dirtybit(1), in_transfer(IDLE), tag(-1), delayed_send(1), cancel(0), manager(NULL), v_is_transformed(false), v_is_read_partitioned(false), host_send_recv_buffer(NULL), linear_buffers_size(0), explicit_buffer_size(0), explicit_host_buffer(NULL), m_resources(0) {}
 
         ~Vector()
         {
@@ -667,8 +664,6 @@ class Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : pu
         DistributedManager<TConfig> *getManager() const {return manager;}
         void set_transformed() {v_is_transformed = true;}
         void unset_transformed() {v_is_transformed = false;}
-        void set_unconsolidated_size(int size) {m_unconsolidated_size = size;}
-        int get_unconsolidated_size() { return m_unconsolidated_size;}
         bool is_transformed() { return v_is_transformed;}
         void set_is_vector_read_partitioned(bool is_read_partitioned) {v_is_read_partitioned = is_read_partitioned;}
         inline bool is_vector_read_partitioned() const {return v_is_read_partitioned;}
@@ -689,7 +684,6 @@ class Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : pu
         volatile int dirtybit;
         volatile int cancel; //Signals to the async host-copy comms module that vector is being deallocated
         int delayed_send;
-        int m_unconsolidated_size;
         unsigned int in_transfer;
         std::vector<value_type> host_buffer;
         value_type *explicit_host_buffer;  //A separate pinned memory buffer to be used by async host-copy comms module

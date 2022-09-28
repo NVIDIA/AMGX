@@ -128,24 +128,6 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
         };
 #endif
 
-        void createSubComm( HIVector &coarse_part_to_fine_part, bool is_root_partition )
-        {
-#ifdef AMGX_WITH_MPI
-            MPI_Group new_group, orig_group;
-            MPI_Comm new_comm;
-            MPI_Comm_group(mpi_comm, &orig_group);
-            MPI_Group_incl(orig_group, coarse_part_to_fine_part.size(), coarse_part_to_fine_part.raw(), &new_group);
-            MPI_Comm_create(mpi_comm, new_group, &new_comm);
-
-            if (is_root_partition)
-            {
-                MPI_Comm_dup(new_comm, &mpi_comm);
-                MPI_Comm_set_errhandler(mpi_comm, glbMPIErrorHandler);
-            }
-
-#endif
-        }
-
 #ifdef AMGX_WITH_MPI
         MPI_Comm get_mpi_comm()
         {
@@ -156,35 +138,6 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
             mpi_comm = new_comm;
         }
 #endif
-
-        DistributedComms<TConfig> *CloneSubComm(HIVector &coarse_part_to_fine_part, bool is_root_partition)
-        {
-#ifdef AMGX_WITH_MPI
-            int my_id = this->get_global_id();
-            MPI_Group new_group, orig_group;
-            MPI_Comm new_comm;
-            MPI_Comm_group(mpi_comm, &orig_group); // get orig group
-
-            if (is_root_partition)
-            {
-                MPI_Group_incl(orig_group, coarse_part_to_fine_part.size(), coarse_part_to_fine_part.raw(), &new_group); // reorder group
-                MPI_Comm_create(mpi_comm, new_group, &new_comm); // create comm for new group
-                MPI_Group_free(&new_group);
-                //MPI_Comm_set_errhandler(new_comm, glbMPIErrorHandler); // set handler for new group
-                return new CommsMPIHostBufferStream<TConfig>(this, &new_comm); //wrap new comm and return it - wrapper will handle resource release
-            }
-            else
-            {
-                MPI_Group_incl(orig_group, 0, coarse_part_to_fine_part.raw(), &new_group); // reorder group - NULL group - do not need to delete this
-                MPI_Comm_create(mpi_comm, new_group, &new_comm); // create comm for new group - empty comm, do not need to delete this
-                MPI_Group_free(&new_group); // but do it anyways just for the funzies
-                return NULL;
-            }
-
-#else
-            return NULL;
-#endif
-        }
 
         void printString(const std::string &str);
 

@@ -161,9 +161,6 @@ class AMG
         void  setD2Workspace(void *workspace) { d2_workspace = workspace; }
         void *getCsrWorkspace() { return csr_workspace; }
         void  setCsrWorkspace(void *workspace) { csr_workspace = workspace; }
-        inline void setConsolidationLowerThreshold(IndexType consolidation_lower_threshold) { m_consolidation_lower_threshold = consolidation_lower_threshold;}
-        inline void setConsolidationUpperThreshold(IndexType consolidation_upper_threshold) { m_consolidation_upper_threshold = consolidation_upper_threshold;}
-
     private:
 
         AMG_Level<TConfig_d> *fine_d;
@@ -183,9 +180,6 @@ class AMG
         int max_levels;
         double coarsen_threshold;
 
-        IndexType m_amg_consolidation_flag;
-        IndexType m_consolidation_lower_threshold;
-        IndexType m_consolidation_upper_threshold;
         int m_sum_stopping_criteria;
         int m_structure_reuse_levels;
         int m_amg_host_levels_rows;

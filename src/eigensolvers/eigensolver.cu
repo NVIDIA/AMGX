@@ -157,44 +157,18 @@ void EigenSolver<TConfig>::setup(Operator<TConfig> &A)
 }
 
 template<class TConfig>
-void EigenSolver<TConfig>::exchangeSolveResultsConsolidation(AMGX_STATUS &status)
-{
-    std::vector<PODVector_h> m_res_history;
-    PODVector_h res(1);
-
-    for (int i = 0; i < m_residuals.size(); i++)
-    {
-        res[0] = m_residuals[i];
-        m_res_history.push_back(res);
-    }
-
-    this->m_A->getManager()->exchangeSolveResultsConsolidation(m_num_iters, m_res_history, status, true /*looks like we always store residual history*/);
-}
-
-template<class TConfig>
 AMGX_ERROR EigenSolver<TConfig>::solve_no_throw(VVector &x, AMGX_STATUS &status)
 {
     AMGX_ERROR rc = AMGX_OK;
 
     try
     {
-        // Check if fine level is consolidated and not a root partition
-        if ( !(this->m_A->getManager() != NULL && this->m_A->getManager()->isFineLevelConsolidated() && !this->m_A->getManager()->isFineLevelRootPartition() ))
+        if (x.tag == -1)
         {
-            // If matrix is consolidated on fine level and not a root partition
-            if (x.tag == -1)
-            {
-                x.tag = 4242 * 100 + 1;
-            }
-
-            status = this->solve(x);
+            x.tag = 4242 * 100 + 1;
         }
 
-        // Exchange residual history, number of iterations, solve status if fine level consoildation was used
-        if (this->m_A->getManager() != NULL && this->m_A->getManager()->isFineLevelConsolidated())
-        {
-            this->exchangeSolveResultsConsolidation(status);
-        }
+        status = this->solve(x);
     }
 
     AMGX_CATCHES(rc)

@@ -111,9 +111,6 @@ class AMG_Level
         virtual IndexType getNumCoarseVertices() = 0;
 
         virtual void prepareNextLevelMatrix(const Matrix<TConfig> &A, Matrix<TConfig> &Ac) = 0;
-        virtual void consolidateVector(VVector &r) = 0;
-        virtual void unconsolidateVector(VVector &r) = 0;
-
         virtual void transfer_level(AMG_Level<TConfig1> *ref_lvl) = 0;
 
         void transfer_from(AMG_Level<TConfig1> *ref_lvl); // copy from other memoryspace
@@ -179,8 +176,6 @@ class AMG_Level
         inline void setNextLevel( AMG_Level<TConfig_d> *level ) { next_d = level; }
         inline void resetNextLevel( device_memory ) { next_d = 0L; }
         inline void deleteNextLevel( device_memory ) { delete next_d; next_d = 0L; }
-        inline bool isConsolidationLevel() { return m_is_consolidation_level; }
-        inline void setIsConsolidationLevel(bool is_consolidation_level) { m_is_consolidation_level = is_consolidation_level; }
         inline bool isReuseLevel() { return m_is_reuse_level; }
         inline void setReuseLevel(bool is_reuse_level) { m_is_reuse_level = is_reuse_level; }
 
@@ -225,14 +220,8 @@ class AMG_Level
         int level_id;
         IndexType m_next_level_size;
         bool init;   //marks if the x vector needs to be initialized
-        bool m_is_consolidation_level;
         bool m_is_reuse_level;
         std::string m_amg_level_name;
-
-
-        bool m_is_root_partition;
-        IndexType m_destination_part;
-        INDEX_TYPE m_num_parts_to_consolidate;
 
 };
 

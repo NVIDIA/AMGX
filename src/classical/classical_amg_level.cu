@@ -24,7 +24,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#define COARSE_CLA_CONSO 0
 
 #include <classical/classical_amg_level.h>
 #include <amg_level.h>
@@ -54,7 +53,6 @@
 #include <thrust/sort.h>
 
 #include <profile.h>
-#include <distributed/glue.h>
 namespace amgx
 {
 
@@ -627,25 +625,10 @@ void Classical_AMG_Level_Base<T_Config>::restrictResidual(VVector &r, VVector &r
     {
         typedef typename TConfig::MemSpace MemorySpace;
         Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
-#if COARSE_CLA_CONSO
-        int desired_size ;
-
-        if (this->getNextLevel(MemorySpace())->isConsolidationLevel())
-        {
-            desired_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets_before_glue[Ac.manager->neighbors_before_glue.size()] * rr.get_block_size());
-        }
-        else
-        {
-            desired_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets[Ac.manager->neighbors.size()] * rr.get_block_size());
-        }
-
-#else
         int desired_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets[Ac.manager->neighbors.size()] * rr.get_block_size());
-#endif
         rr.resize(desired_size);
     }
 
-#if 1
     this->Profile.tic("restrictRes");
 
     // Disable speculative send of rr
@@ -658,7 +641,6 @@ void Classical_AMG_Level_Base<T_Config>::restrictResidual(VVector &r, VVector &r
         multiply_with_mask_restriction( R, r, rr, P);
     }
 
-#endif
     // exchange halo residuals & add residual contribution from neighbors
     rr.dirtybit = 1;
 
@@ -893,24 +875,8 @@ void Classical_AMG_Level_Base<T_Config>::prolongateAndApplyCorrection(VVector &e
         // get coarse matrix
         typedef typename TConfig::MemSpace MemorySpace;
         Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
-#if COARSE_CLA_CONSO
-        int e_size;
-
-        if (this->getNextLevel(MemorySpace())->isConsolidationLevel())
-        {
-            e_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets_before_glue[Ac.manager->neighbors_before_glue.size()]) * e.get_block_size();
-        }
-        else
-        {
-            e_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets[Ac.manager->neighbors.size()]) * e.get_block_size();
-        }
-
-        if (e.size() < e_size) { e.resize(e_size); }
-
-#else
         int e_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets[Ac.manager->neighbors.size()]) * e.get_block_size();
         e.resize(e_size);
-#endif
     }
 
     if (P.is_matrix_singleGPU())
@@ -968,39 +934,6 @@ void Classical_AMG_Level_Base<T_Config>::computeAOperator_distributed()
     {
         FatalError("Classical AMG not implemented for block_size != 1", AMGX_ERR_NOT_IMPLEMENTED);
     }
-}
-
-
-template <class T_Config>
-void Classical_AMG_Level_Base<T_Config>::consolidateVector(VVector &x)
-{
-#ifdef AMGX_WITH_MPI
-#if COARSE_CLA_CONSO
-    typedef typename TConfig::MemSpace MemorySpace;
-    Matrix<TConfig> &A = this->getA();
-    Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
-    MPI_Comm comm, temp_com;
-    comm = Ac.manager->getComms()->get_mpi_comm();
-    temp_com = compute_glue_matrices_communicator(Ac);
-    glue_vector(Ac, comm, x, temp_com);
-#endif
-#endif
-}
-
-template <class T_Config>
-void Classical_AMG_Level_Base<T_Config>::unconsolidateVector(VVector &x)
-{
-#ifdef AMGX_WITH_MPI
-#if COARSE_CLA_CONSO
-    typedef typename TConfig::MemSpace MemorySpace;
-    Matrix<TConfig> &A = this->getA();
-    Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
-    MPI_Comm comm, temp_com;
-    comm = Ac.manager->getComms()->get_mpi_comm();
-    temp_com = compute_glue_matrices_communicator(Ac);
-    unglue_vector(Ac, comm, x, temp_com, x);
-#endif
-#endif
 }
 
 /****************************************

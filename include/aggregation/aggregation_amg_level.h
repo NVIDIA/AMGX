@@ -110,9 +110,6 @@ class Aggregation_AMG_Level_Base : public AMG_Level<T_Config>
         void restrictResidual(VVector &r, VVector &rr);
         void prolongateAndApplyCorrection( VVector &c, VVector &bc, VVector &x, VVector &tmp);
         void computeRestrictionOperator();
-        void consolidateVector(VVector &x);
-        void unconsolidateVector(VVector &x);
-
 
     protected:
 

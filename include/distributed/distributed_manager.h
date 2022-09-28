@@ -283,7 +283,7 @@ template <typename TConfig> class DistributedManagerBase
 
         DistributedManagerBase() : m_fine_level_comms(NULL), _num_interior_nodes(0), m_pinned_buffer(NULL), m_pinned_buffer_size(0), _num_boundary_nodes(0), _comms(NULL), has_B2L(false),
             neighbors(_neighbors), B2L_maps(_B2L_maps), L2H_maps(_L2H_maps),  B2L_rings(_B2L_rings),
-            halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),  halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
+            halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),  halo_rows(NULL), halo_btl(NULL), m_fixed_view_size(false)
 
         {
             cudaEventCreate(&comm_event);
@@ -302,7 +302,7 @@ template <typename TConfig> class DistributedManagerBase
             neighbors(_neighbors), halo_offsets(halo_offsets_),
             B2L_maps(_B2L_maps),   L2H_maps(_L2H_maps), B2L_rings(_B2L_rings),
             halo_ranges(_halo_ranges), halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL),
-            _comms(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
+            _comms(NULL), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -360,7 +360,7 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<std::vector<VecInt_t> > &B2L_rings_,
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(halo_ranges_),
             halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(B2L_maps_),  L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
+            B2L_maps(B2L_maps_),  L2H_maps(_L2H_maps), B2L_rings(B2L_rings_), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -379,7 +379,7 @@ template <typename TConfig> class DistributedManagerBase
                                 std::vector<IVector > &L2H_maps_,
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(_halo_ranges),
             halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(B2L_maps_),  L2H_maps(L2H_maps_), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
+            B2L_maps(B2L_maps_),  L2H_maps(L2H_maps_), B2L_rings(_B2L_rings), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -405,8 +405,6 @@ template <typename TConfig> class DistributedManagerBase
 
         void cacheMapsOneRing(const VecInt_t **b2l_maps, const VecInt_t *b2l_sizes, const VecInt_t **l2h_maps, const VecInt_t *l2h_sizes);
 
-        void setAConsolidationFlags( Matrix<TConfig> &A);
-
         void uploadMatrix(int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data, Matrix<TConfig> &A);
 
         void updateMapsReorder();
@@ -426,7 +424,7 @@ template <typename TConfig> class DistributedManagerBase
                                 Vector<ivec_value_type_h> &neighbors_,
                                 I64Vector_h &halo_ranges_h_,
                                 DistributedComms<TConfig> **comms_) : m_fine_level_comms(NULL), _comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(neighbors_), halo_ranges(_halo_ranges), halo_ranges_h(halo_ranges_h_), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
+            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -444,7 +442,7 @@ template <typename TConfig> class DistributedManagerBase
                                 const VecInt_t *neighbor_bases,
                                 const VecInt_t *neighbor_sizes,
                                 int num_neighbors) : m_fine_level_comms(NULL), A(&a), m_pinned_buffer_size(0), m_pinned_buffer(NULL), neighbors(_neighbors), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h),
-            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
+            B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_fixed_view_size(false)
         {
             cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
             cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
@@ -467,30 +465,6 @@ template <typename TConfig> class DistributedManagerBase
             delete prep;
         }
 
-        void initializeAfterConsolidation(
-            INDEX_TYPE my_id,
-            Matrix<TConfig> &A_,
-            Vector<ivec_value_type_h> neighbors_,
-            INDEX_TYPE interior_nodes_,
-            INDEX_TYPE boundary_nodes_,
-            INDEX_TYPE total_num_rows,
-            Vector<ivec_value_type_h> halo_offsets_,
-            std::vector<IVector > &B2L_maps_,
-            INDEX_TYPE ring_,
-            bool is_root_partition_)
-        {
-            A = &A_;
-            this->set_global_id(my_id);
-            _num_interior_nodes = interior_nodes_;
-            _num_boundary_nodes = boundary_nodes_;
-            neighbors = neighbors_;
-            halo_offsets = halo_offsets_;
-            B2L_maps = B2L_maps_;
-            m_is_root_partition = is_root_partition_;
-            this->set_num_halo_rows(total_num_rows - halo_offsets[0]);
-            this->set_num_halo_rings(ring_);
-        }
-
         virtual void reorder_matrix() = 0;
         virtual void reorder_matrix_owned() = 0;
 
@@ -503,79 +477,20 @@ template <typename TConfig> class DistributedManagerBase
 
         virtual void renumber_P_R(Matrix<TConfig> &P, Matrix<TConfig> &R, Matrix<TConfig> &A) = 0;
 
-        virtual void createOneRingB2Lmaps() = 0;
-
         virtual void createOneRingHaloRows() = 0;
 
-        void computeDestinationPartitions(INDEX_TYPE upper_threshold, float avg_size, const int num_parts, int &new_num_parts, bool &wantNeighbors);
-
-        void computeDestinationPartitionsWithCons(int my_id, int num_parts, IVector_h &destination_part, DistributedComms<TConfig> *comms);
-
-        Vector<ivec_value_type_h> &getDestinationPartitions()
-        {
-            return m_destination_partitions;
-        }
-        Vector<ivec_value_type_h> &getFineDestinationPartitions()
-        {
-            return m_destination_partitions;
-        }
-        void setDestinationPartitions(Vector<ivec_value_type_h> &destination_partitions)
-        {
-            m_destination_partitions = destination_partitions;
-        }
-
         void createNeighToDestPartMap(IVector_h &neigh_to_part, IVector_h &neighbors, IVector_h &destination_part, int num_neighbors);
-
-        void createConsolidatedNeighToPartMap(IVector_h &cons_neigh_to_part, IVector_h &neigh_to_part, int my_destination_part, IVector_h &destination_part, int &num_cons_neighbors);
 
         void createNeighToConsNeigh(IVector_h &neigh_to_cons_neigh, IVector_h &cons_neigh_to_part, IVector_h &neigh_to_part, int my_destination_part, int &num_neighbors);
 
 
-
-        void consolidateB2Lmaps(IVector_h_vector &dest_coarse_B2L_maps, IVector_h_vector &coarse_B2L_maps, IVector_h &fine_neigh_to_coarse_neigh, int num_coarse_neighbors, int num_fine_neighbors);
-        void consolidateB2Lmaps(IVector_d_vector &dest_coarse_B2L_maps, IVector_d_vector &coarse_B2L_maps, IVector_h &fine_neigh_to_coarse_neigh, int num_coarse_neighbors, int num_fine_neighbors);
-
         template <class IVector_hd>
         void consB2Lmaps(std::vector<IVector_hd> &dest_coarse_B2L_maps, std::vector<IVector_hd> &coarse_B2L_maps, IVector_h &fine_neigh_to_coarse_neigh, int num_coarse_neighbors, int num_fine_neighbors);
 
-        void computeConsolidatedOffsets(const int my_id, const int my_destination_part, const bool sis_root_partition, const int num_interior_rows, const int num_boundary_rows, IVector_h_vector &vertex_counts, const IVector_h &parts_to_consolidate, const int num_parts_to_consolidate, int &interior_offset, int &boundary_offset, int &total_interior_rows_in_merged, int &total_boundary_rows_in_merged, int &total_rows_in_merged, DistributedComms<TConfig> *comms);
-
-        void createAggregatesRenumbering(IVector_d &renumbering, IVector_d_vector &B2L_maps, int size, int num_neighbors, int &num_interior_aggregates, int &num_boundary_aggregates, int num_rings);
-        void createAggregatesRenumbering(IVector_h &renumbering, IVector_h_vector &B2L_maps, int size, int num_neighbors, int &num_interior_aggregates, int &num_boundary_aggregates, int num_rings);
-
-        template<class IVector_hd>
-        void createAggRenumbering(IVector_hd &renumbering, std::vector<IVector_hd> &B2L_maps, int size, int num_neighbors, int &num_interior_aggregates, int &num_boundary_aggregates, int num_rings);
-
-
-        void consolidateB2LmapsOnRoot(int &num_consolidated_neighbors, IVector_d_vector &consolidated_B2L_maps, IVector_h &consolidated_coarse_ids, IVector_d_vector &dest_coarse_B2L_maps, IVector_h &coarse_neigh_to_fine_part, IVector_h &num_bdy_per_coarse_neigh, IVector_h &fine_parts_to_consolidate, int num_fine_parts_to_consolidate, int my_id, int my_destination_part, bool is_root_partition, int num_coarse_neighbors, DistributedComms<TConfig> *comms);
-
-        void consolidateB2LmapsOnRoot(int &num_consolidated_neighbors, IVector_h_vector &consolidated_B2L_maps, IVector_h &consolidated_coarse_ids, IVector_h_vector &dest_coarse_B2L_maps, IVector_h &coarse_neigh_to_fine_part, IVector_h &num_bdy_per_coarse_neigh, IVector_h &fine_parts_to_consolidate, int num_fine_parts_to_consolidate, int my_id, int my_destination_part, bool is_root_partition, int num_coarse_neighbors, DistributedComms<TConfig> *comms);
-
-        template<class IVector_hd>
-        void consB2LmapsOnRoot(int &num_consolidated_neighbors, std::vector<IVector_hd> &consolidated_B2L_maps, IVector_h &consolidated_coarse_ids, std::vector<IVector_hd> &dest_coarse_B2L_maps, IVector_h &coarse_neigh_to_fine_part, IVector_h &num_bdy_per_coarse_neigh, IVector_h &fine_parts_to_consolidate, int num_fine_parts_to_consolidate, int my_id, int my_destination_part, bool is_root_partition, int num_coarse_neighbors, DistributedComms<TConfig> *comms);
-
-
-        void consolidateAndRenumberHalos(IVector_h &aggregates, const IVector_h &manager_halo_offsets, IVector_h &halo_offsets, const IVector_h &neighbors, int num_fine_neighbors, const IVector_h &consolidated_coarse_ids, int num_consolidated_neighbors, const IVector_h &destination_part, int my_destination_part, bool is_root_partition, IVector_h &fine_parts_to_consolidate, int num_fine_parts_to_consolidate, int num_parts, int my_id, int total_rows_in_merged, int &num_all_aggregates, DistributedComms<TConfig> *comms);
-
-        void consolidateAndRenumberHalos(IVector_d &aggregates, const IVector_h &manager_halo_offsets, IVector_h &halo_offsets, const IVector_h &neighbors, int num_fine_neighbors, const IVector_h &consolidated_coarse_ids, int num_consolidated_neighbors, const IVector_h &destination_part, int my_destination_part, bool is_root_partition, IVector_h &fine_parts_to_consolidate, int num_fine_parts_to_consolidate, int num_parts, int my_id, int total_rows_in_merged, int &num_all_aggregates, DistributedComms<TConfig> *comms);
-
-        template<class IVector_hd>
-        void consAndRenumberHalos(IVector_hd &aggregates, const IVector_h &manager_halo_offsets, IVector_h &halo_offsets, const IVector_h &neighbors, int num_fine_neighbors, const IVector_h &consolidated_coarse_ids, int num_consolidated_neighbors, const IVector_h &destination_part, int my_destination_part, bool is_root_partition, IVector_h &fine_parts_to_consolidate, int num_fine_parts_to_consolidate, int num_parts, int my_id, int total_rows_in_merged, int &num_all_aggregates, DistributedComms<TConfig> *comms);
-
-        void ipcExchangePtr(void *&ptr, bool is_root_partition, int num_parts_to_consolidate, IVector_h &parts_to_consolidate, int my_root_partition, int my_id, DistributedComms<TConfig> *comms);
-
-        void ipcWaitForChildren(bool is_root_partition, int num_parts_to_consolidate, IVector_h &parts_to_consolidate, int my_destination_part, int my_id, DistributedComms<TConfig> *comms);
-
-        void ipcWaitForRoot(bool is_root_partition, int num_parts_to_consolidate, IVector_h &parts_to_consolidate, int my_destination_part, int my_id, DistributedComms<TConfig> *comms);
-
-        void remove_boundary(IVector_h &flagArray, IVector_h &B2L_maps, int size);
-        void remove_boundary(IVector_d &flagArray, IVector_d &B2L_maps, int size);
         void get_unassigned(IVector_h &flagArray, IVector_h &B2L_maps, IVector_h &partition_flags, int size, int flagArray_size /*, int rank*/);
         void get_unassigned(IVector_d &flagArray, IVector_d &B2L_maps, IVector_d &partition_flags, int size, int flagArray_size /*, int rank*/);
         void set_unassigned(IVector_h &partition_flags, IVector_h &partition_renum, IVector_h &B2L_map, IVector_h &renumbering, int size, int max_element, int renumbering_size /*, int rank*/);
         void set_unassigned(IVector_d &partition_flags, IVector_d &partition_renum, IVector_d &B2L_map, IVector_d &renumbering, int size, int max_element, int renumbering_size /*, int rank*/);
-
-        void exchangeSolveResultsConsolidation(int &num_iters, std::vector<PODVector_h> &res_history, AMGX_STATUS &status, bool store_res_history);
 
         void flag_halo_ids(int size, IVector_h &scratch, IVector_h &halo_aggregates, VecInt_t min_index_coarse_halo, int max_index, int min_index) ;
         void flag_halo_ids(int size, IVector_d &scratch, IVector_d &halo_aggregates, VecInt_t min_index_coarse_halo, int max_index, int min_index) ;
@@ -644,60 +559,10 @@ template <typename TConfig> class DistributedManagerBase
         {
             return (int64_t) _base_index;
         }
-
-        bool isRootPartition() const
-        {
-            return m_is_root_partition;
-        }
-        bool isGlued() const
-        {
-            return m_is_glued;
-        }
-        bool isFineLevelGlued() const
-        {
-            return m_is_fine_level_glued;
-        }
-        bool isFineLevelRootPartition() const
-        {
-            return m_is_fine_level_root_partition;
-        }
-
-        bool isFineLevelConsolidated() const
-        {
-            return m_is_fine_level_consolidated;
-        }
-        void setIsFineLevelConsolidated(const bool flag)
-        {
-            m_is_fine_level_consolidated = flag;
-        }
-        void setIsFineLevelGlued(const bool flag)
-        {
-            m_is_fine_level_glued = flag;
-        }
-        void setIsFineLevelRootPartition(const bool flag)
-        {
-            m_is_fine_level_root_partition = flag;
-        }
-        void setIsRootPartition(bool flag)
-        {
-            m_is_root_partition = flag;
-        }
-        void setIsGlued(const bool flag)
-        {
-            m_is_glued = flag;
-        }
         void fineLevelUpdate()
         {
-            m_is_fine_level_root_partition = m_is_root_partition;
-            m_num_fine_level_parts_to_consolidate = m_num_parts_to_consolidate;
-            m_fine_level_parts_to_consolidate = m_parts_to_consolidate;
-            m_my_fine_level_destination_part = m_my_destination_part;
             m_fine_level_comms = _comms;
             m_fine_level_id = _global_id;
-            // other data structure used on the finest level
-            //fine_level_id
-            //get_unconsolidated_size
-            //getFineLevelComms
         }
 
         INDEX_TYPE getMyDestinationPartition()
@@ -705,28 +570,9 @@ template <typename TConfig> class DistributedManagerBase
             return m_my_destination_part;
         }
 
-        INDEX_TYPE getNumPartsToConsolidate()
-        {
-            return m_num_parts_to_consolidate;
-        }
-
-        void setNumPartsToConsolidate(INDEX_TYPE num_fine_parts)
-        {
-            m_num_parts_to_consolidate = num_fine_parts;
-        }
         void setMyDestinationPartition(INDEX_TYPE my_destination_part)
         {
             m_my_destination_part = my_destination_part;
-        }
-
-        void setPartsToConsolidate(Vector<ivec_value_type_h> &parts_to_consolidate)
-        {
-            m_parts_to_consolidate = parts_to_consolidate;
-        }
-
-        Vector<ivec_value_type_h> &getPartsToConsolidate(void)
-        {
-            return m_parts_to_consolidate;
         }
 
         void setB2Lrings(std::vector<std::vector<VecInt_t> > &par_B2L_rings)
@@ -742,51 +588,6 @@ template <typename TConfig> class DistributedManagerBase
         {
             return B2L_maps;
         }
-        void setCoarseToFine(Vector<ivec_value_type_h> &coarse_to_fine_part)
-        {
-            m_coarse_to_fine_part = coarse_to_fine_part;
-        }
-
-        Vector<ivec_value_type_h> &getCoarseToFine(void)
-        {
-            return m_coarse_to_fine_part;
-        }
-        void setFineToCoarse(Vector<ivec_value_type_h> &fine_to_coarse_part)
-        {
-            m_fine_to_coarse_part = fine_to_coarse_part;
-        }
-
-        Vector<ivec_value_type_h> &getFineToCoarse(void)
-        {
-            return m_fine_to_coarse_part;
-        }
-
-        void setConsolidationOffsets(int int_off, int int_size, int bndry_off, int bndry_size)
-        {
-            m_cons_interior_offset = int_off;
-            m_cons_interior_size = int_size;
-            m_cons_bndry_offset = bndry_off;
-            m_cons_bndry_size = bndry_size;
-        }
-
-        void getConsolidationOffsets(int *int_off, int *int_size, int *bndry_off, int *bndry_size)
-        {
-            *int_off = m_cons_interior_offset;
-            *int_size = m_cons_interior_size;
-            *bndry_off = m_cons_bndry_offset;
-            *bndry_size = m_cons_bndry_size;
-        }
-
-        void setConsolidationArrayOffsets(std::vector<VecInt_t> &array)
-        {
-            m_consolidationArrayOffsets = array;
-        }
-
-        std::vector<VecInt_t> &getConsolidationArrayOffsets()
-        {
-            return m_consolidationArrayOffsets;
-        }
-
         void set_fine_level_id(INDEX_TYPE id)
         {
             m_fine_level_id = id;
@@ -896,9 +697,6 @@ template <typename TConfig> class DistributedManagerBase
                 L2H_maps[i] = a.L2H_maps[i];
             }
 
-            m_is_root_partition = a.isRootPartition();
-            m_is_glued = a.isGlued();
-            m_is_fine_level_glued = a.isFineLevelGlued();
             destroyComms();
             //since you have a copy you should not free the memory
             halo_rows = NULL;
@@ -941,15 +739,6 @@ template <typename TConfig> class DistributedManagerBase
             B2L_maps.swap(a.B2L_maps);
             L2H_maps.swap(a.L2H_maps);
             B2L_rings.swap(a.B2L_rings);
-            bool tmp = m_is_root_partition;
-            m_is_root_partition = a.isRootPartition();
-            a.setIsRootPartition(tmp);
-            tmp = m_is_glued;
-            m_is_glued = a.isGlued();
-            a.setIsGlued(tmp);
-            tmp = m_is_fine_level_glued;
-            m_is_glued = a.isFineLevelGlued();
-            a.setIsFineLevelGlued(tmp);
         }
 
         void print(char *f, char *s, int trank);
@@ -1375,8 +1164,6 @@ template <typename TConfig> class DistributedManagerBase
         // Consolidation related
         DistributedComms<TConfig> *m_fine_level_comms;    //LEVEL 0 - pointer to comms module
 
-        bool m_is_fine_level_consolidated;
-        bool m_use_cuda_ipc_consolidation;
         bool m_host_transform;
         int m_fine_level_id;
         int m_old_nnz_CONS;
@@ -1676,27 +1463,7 @@ template <typename TConfig> class DistributedManagerBase
         INDEX_TYPE _num_halo_rows = 0;             //LEVEL 0 -  total number of rows in the halo section of the matrix
         INDEX_TYPE _num_halo_rings = 0;            //LEVEL 0 -  number of halo rings
 
-        bool m_is_root_partition;
-        bool m_is_glued;
-        bool m_is_fine_level_glued;
         INDEX_TYPE m_my_destination_part = 0;
-        INDEX_TYPE m_num_parts_to_consolidate = 0;
-        INDEX_TYPE m_cons_interior_offset = 0;
-        INDEX_TYPE m_cons_interior_size = 0;
-        INDEX_TYPE m_cons_bndry_offset = 0;
-        INDEX_TYPE m_cons_bndry_size = 0;
-        std::vector<VecInt_t> m_consolidationArrayOffsets;
-        Vector<ivec_value_type_h> m_destination_partitions;
-
-        Vector<ivec_value_type_h> m_parts_to_consolidate;
-        Vector<ivec_value_type_h> m_fine_to_coarse_part;
-        Vector<ivec_value_type_h> m_coarse_to_fine_part;
-
-        // fine level consolidation data structures (used both in classical aggregation)
-        bool m_is_fine_level_root_partition;
-        INDEX_TYPE m_num_fine_level_parts_to_consolidate;
-        Vector<ivec_value_type_h> m_fine_level_parts_to_consolidate;
-        INDEX_TYPE m_my_fine_level_destination_part;
 
         //cached sizes for different views of the matrix (set in Matrix::set_initialized(1))
         INDEX_TYPE _num_rows_interior = 0;
@@ -1732,15 +1499,6 @@ template <typename TConfig> class DistributedManagerBase
 
         IVector renumbering;
         IVector inverse_renumbering;
-
-        // Containers to store info of the unglued matrix, we need that glue or unglue vectors
-        IVector renumbering_before_glue; // to glue vectors during the solve, used in glue path.
-        IVector inverse_renumbering_before_glue; // to unglue vectors before prolongation in fixed cycle, used in glue path.
-        // we need that to exchange the halo of unglued vectors (in coarse level consolidation)
-        Vector<ivec_value_type_h> neighbors_before_glue;  // just neighbors before glue
-        std::vector<IVector > B2L_maps_before_glue;
-        std::vector<std::vector<VecInt_t> > B2L_rings_before_glue; //list of boundary nodes to export to other partitions.
-        Vector<ivec_value_type_h> halo_offsets_before_glue;
 
         Vector<ivec_value_type_h> halo_offsets; //offsets (and size) to halos received from different neighbors, size is halo_rings*neighbors.size()+1, first element is already the offset into the matrix
 
@@ -1870,19 +1628,13 @@ class DistributedManager< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indP
         void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag_data, const MatrixDistribution &dist);
         void renumberMatrixOneRing(int update_neighbours = 0);
         void renumber_P_R(Matrix<TConfig_h> &P, Matrix<TConfig_h> &R, Matrix<TConfig_h> &A);
-        void createOneRingB2Lmaps();
         void createOneRingHaloRows();
-        void consolidateAndUploadAll(int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data, Matrix<TConfig> &in_A) ;
-
-        void replaceMatrixCoefficientsNoCons(int n, int nnz, const mat_value_type *data, const mat_value_type *diag_data);
-        void replaceMatrixCoefficientsWithCons(int n, int nnz, const mat_value_type *data, const mat_value_type *diag_data);
+        void replaceMatrixCoefficients(int n, int nnz, const mat_value_type *data, const mat_value_type *diag_data);
         void transformAndUploadVector(VVector_v &v, const void *data, int n, int block_dim);
         void transformVector(VVector_v &v);
-        void transformAndUploadVectorWithCons(VVector_v &v, const void *data, int n, int block_dim);
         void revertAndDownloadVector(VVector_v &v, const void *data, int n, int block_dimy);
         void revertVector(VVector_v &v);
         void revertVector(VVector_v &v_in, VVector_v &v_out);
-        void revertAndDownloadVectorWithCons(VVector_v &v, const void *data, int n, int block_dimy);
         void createRenumbering(IVector &renumbering);
 
         //constructors
@@ -1990,8 +1742,6 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         typedef std::vector<IVector_h> IVector_h_vector;
         typedef std::vector<IVector_d> IVector_d_vector;
 
-        void consolidateAndUploadAll(int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data, Matrix<TConfig> &A) ;
-
         void reorder_matrix();
         void reorder_matrix_owned();
 
@@ -2003,18 +1753,14 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         void loadDistributedMatrix(int num_rows, int num_nonzeros, const int block_dimx, const int block_dimy, const int *row_offsets, const t_colIndex *col_indices, const mat_value_type *values, int num_ranks, int num_rows_global, const void *diag_data, const MatrixDistribution &dist);
         void renumberMatrixOneRing(int update_neighbours = 0);
         void renumber_P_R(Matrix<TConfig_d> &P, Matrix<TConfig_d> &R, Matrix<TConfig_d> &A);
-        void createOneRingB2Lmaps();
         void createOneRingHaloRows();
-        void replaceMatrixCoefficientsNoCons(int n, int nnz, const mat_value_type *data_pinned, const mat_value_type *diag_data_pinned);
-        void replaceMatrixCoefficientsWithCons(int n, int nnz,  const mat_value_type *data_pinned, const mat_value_type *diag_data_pinned);
+        void replaceMatrixCoefficients(int n, int nnz, const mat_value_type *data_pinned, const mat_value_type *diag_data_pinned);
         void transformAndUploadVector(VVector_v &v, const void *data, int n, int block_dim);
         void transformVector(VVector_v &v);
-        void transformAndUploadVectorWithCons(VVector_v &v, const void *data, int n, int block_dim);
 
         void revertAndDownloadVector(VVector_v &v, const void *data, int n, int block_dimy);
         void revertVector(VVector_v &v);
         void revertVector(VVector_v &v_in, VVector_v &v_out);
-        void revertAndDownloadVectorWithCons(VVector_v &v, const void *data, int n, int block_dimy);
 
         void createRenumbering(IVector &renumbering);
 

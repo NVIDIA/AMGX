@@ -540,7 +540,7 @@ void AMG_Config::importNamedParameter(const char *c_name, const T &c_value, cons
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
-    if ( (name == "determinism_flag" || name == "block_format" || name == "separation_interior" || name == "separation_exterior" || name == "min_rows_latency_hiding" || name == "fine_level_consolidation" || name == "use_cuda_ipc_consolidation") && current_scope != "default" )
+    if ( (name == "determinism_flag" || name == "block_format" || name == "separation_interior" || name == "separation_exterior" || name == "min_rows_latency_hiding") && current_scope != "default" )
     {
         string err = "Incorrect config entry. Parameter " + name + " can only be specified with default scope.";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
@@ -1354,7 +1354,7 @@ void AMG_Config::setParameter(const string &str)
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
-    if ( (name == "determinism_flag" || name == "block_format" || name == "separation_interior" || name == "separation_exterior" || name == "min_rows_latency_hiding" || name == "fine_level_consolidation" || name == "use_cuda_ipc_consolidation") && current_scope != "default" )
+    if ( (name == "determinism_flag" || name == "block_format" || name == "separation_interior" || name == "separation_exterior" || name == "min_rows_latency_hiding") && current_scope != "default" )
     {
         string err = "Incorrect config entry. Parameter " + name + " can only be specified with default scope.";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);

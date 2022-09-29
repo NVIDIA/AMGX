@@ -73,7 +73,7 @@ cmake ....  -DCUDA_ARCH="35 52 60" ....
 The build system now enables CUDA as a language, and employs FindCUDAToolkit and FindMPI,
 so refer to those scripts from your CMake installation for module-specific flags.
 
-When building with the NVIDIA HPC SDK, please use CMake >= 3.22, 
+When building with the NVIDIA HPC SDK, please use CMake >= 3.22,
 and GCC for C/CXX compilation, e.g.
 
 ```
@@ -84,19 +84,19 @@ cmake \
     -DCUDA_ARCH="80" ..
 ```
 
-Artifacts of the build are shared and static libraries (libamgxsh.so or amgxsh.dll 
-and libamgx.a or amgx.lib) and few binaries from 'examples' directory that give you 
+Artifacts of the build are shared and static libraries (libamgxsh.so or amgxsh.dll
+and libamgx.a or amgx.lib) and few binaries from 'examples' directory that give you
 examples of using various AMGX C API. MPI examples are built only if MPI build was
 enabled.
 
 ### <a name="running"></a> Running examples
 
-Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [core/configs](core/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows. 
+Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [src/configs](src/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows.
 
 #### Running single GPU example from the build directory:
 
 ```bash
-> examples/amgx_capi -m ../examples/matrix.mtx -c ../core/configs/FGMRES_AGGREGATION.json
+> examples/amgx_capi -m ../examples/matrix.mtx -c ../src/configs/FGMRES_AGGREGATION.json
 AMGX version 2.0.0-public-build125
 Built on Oct  7 2017, 04:51:11
 Compiled with CUDA Runtime 9.0, using CUDA driver 9.0
@@ -134,7 +134,7 @@ Total Time: 0.00169123
 #### Running multi GPU example from the build directory:
 
 ```bash
-> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../core/configs/FGMRES_AGGREGATION.json
+> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../src/configs/FGMRES_AGGREGATION.json
 Process 0 selecting device 0
 Process 1 selecting device 0
 AMGX version 2.0.0-public-build125
@@ -144,7 +144,7 @@ Warning: No mode specified, using dDDI by default.
 Warning: No mode specified, using dDDI by default.
 Cannot read file as JSON object, trying as AMGX config
 Converting config string to current config version
-Parsing configuration string: exception_handling=1 ; 
+Parsing configuration string: exception_handling=1 ;
 Using Normal MPI (Hostbuffer) communicator...
 Reading matrix dimensions in file: ../examples/matrix.mtx
 Reading data...

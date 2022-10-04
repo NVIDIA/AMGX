@@ -217,6 +217,165 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
     // One warp works on each row and hence one iteration handles
     // num_warps*numBlock rows. This means atomicAdd() is inevitable.
     const int num_warps = kCtaSize / 32;
+    const int num_rows_per_iter = num_warps * gridDim.x;
+    __shared__ volatile ValueType smem[kCtaSize];
+    __shared__ volatile ValueType s_diag[num_warps];
+    __shared__ volatile ValueType s_threshold[num_warps];
+    const int warpId = threadIdx.x / 32;
+    const int laneId = threadIdx.x % 32;
+
+    for ( int aRowId = blockIdx.x * num_warps + warpId ; aRowId < A_num_rows ;
+            aRowId += num_rows_per_iter )
+    {
+        ValueType minVal(0), maxVal(0);
+
+        if ( laneId == 0 ) // Reset the diagonal
+        {
+            s_diag[warpId] = ValueType(0);
+        }
+
+        utils::syncwarp();
+
+        // Row sum
+        ValueType rowSum = -1.0;
+
+        if (max_row_sum < 1.0) { rowSum = row_sum[aRowId]; }
+
+        // get diagonal, min/max off-diagonals
+        const int aRowBegin = A_rows[aRowId  ];
+        const int aRowEnd   = A_rows[aRowId + 1];
+
+        for ( IndexType aRowIt = aRowBegin + laneId ; utils::any( aRowIt < aRowEnd ) ;
+                aRowIt += 32 )
+        {
+            IndexType aColId = aRowIt < aRowEnd ? A_cols[aRowIt] : -1;
+            ValueType aValue = aRowIt < aRowEnd ? A_vals[aRowIt] : ValueType(0);
+
+            if ( aColId == aRowId ) // only one thread evaluates to true.
+            {
+                s_diag[warpId] = aValue;
+            }
+
+            bool is_off_diagonal = aRowIt < aRowEnd && aColId != aRowId;
+
+            if ( is_off_diagonal )
+            {
+                minVal = min( minVal, aValue );
+                maxVal = max( maxVal, aValue );
+            }
+        }
+
+        // init weights[] with a random number
+        if ( laneId == 0 )
+        {
+            if ( singleGPU )
+            {
+                atomicAdd( &weights[aRowId], ourHash(aRowId) );
+            }
+            else
+            {
+                atomicAdd( &weights[aRowId], ourHash( (int) base_index + aRowId) );
+            }
+        }
+
+        utils::syncwarp();
+
+        // Big assumption: diag and off-diag always have the opposite sign.
+        // If diag entry is negative, then all off-diag entries must be positive.
+        // This means max off-diag is to be used to compute the threshold.
+        // If diag entry is positve, the min off-diag is used instead.
+        if ( s_diag[warpId] < ValueType(0) )
+        {
+            smem[threadIdx.x] = maxVal;
+
+            utils::syncwarp();
+
+#pragma unroll
+            for ( int offset = 16 ; offset > 0 ; offset /= 2 )
+            {
+                if ( laneId < offset )
+                {
+                    smem[threadIdx.x] = maxVal = max( maxVal, smem[threadIdx.x + offset] );
+                }
+                utils::syncwarp();
+            }
+        }
+        else
+        {
+            smem[threadIdx.x] = minVal;
+
+            utils::syncwarp();
+
+#pragma unroll
+            for ( int offset = 16 ; offset > 0 ; offset /= 2 )
+            {
+                if ( laneId < offset )
+                {
+                    smem[threadIdx.x] = minVal = min( minVal, smem[threadIdx.x + offset] );
+                }
+                utils::syncwarp();
+            }
+        }
+
+        if ( laneId == 0 )
+        {
+            // If laneId=0, then maxVal or minVal is in smem[threadIdx.x].
+            s_threshold[warpId] = smem[threadIdx.x] * alpha;
+        }
+
+        utils::syncwarp();
+
+        // sum of the column of S
+        for ( IndexType aRowIt = aRowBegin + laneId ; utils::any( aRowIt < aRowEnd ) ;
+                aRowIt += 32 )
+        {
+            IndexType aColId = aRowIt < aRowEnd ? A_cols[aRowIt] : -1;
+            ValueType aValue = aRowIt < aRowEnd ? A_vals[aRowIt] : ValueType(0);
+            bool is_strongly_connected = false;
+
+            if (max_row_sum < 1.0 && rowSum > max_row_sum)
+            {
+                is_strongly_connected = false;
+            }
+            else
+            {
+                bool is_off_diagonal = aRowIt < aRowEnd && aColId != aRowId;
+                is_strongly_connected = is_off_diagonal &&
+                                        stronglyConnectedAHat( aValue, s_threshold[warpId], s_diag[warpId] );
+            }
+
+            if ( is_strongly_connected && aRowIt < aRowEnd && aColId < A_num_rows)
+            {
+                atomicAdd( &weights[aColId], 1.0f );
+            }
+
+            if ( aRowIt < aRowEnd )
+            {
+                s_con[aRowIt] = is_strongly_connected;
+            }
+        }
+    }
+}
+
+/*************************************************************************
+* Computes the strength matrix and the connection weights (device)
+************************************************************************/
+template< typename IndexType, typename ValueType, int kCtaSize, bool singleGPU >
+__global__
+void computeStrongConnectionsAndWeightsKernel_opt( const IndexType *A_rows,
+        const IndexType *A_cols,
+        const ValueType *A_vals,
+        int A_num_rows,
+        bool *s_con,
+        float *weights,
+        ValueType alpha,
+        ValueType *row_sum,
+        const double max_row_sum,
+        int64_t base_index)
+{
+    // One warp works on each row and hence one iteration handles
+    // num_warps*numBlock rows. This means atomicAdd() is inevitable.
+    const int num_warps = kCtaSize / 32;
     __shared__ volatile ValueType smem[kCtaSize];
     __shared__ volatile ValueType s_diag[num_warps];
     __shared__ volatile ValueType s_threshold[num_warps];
@@ -399,32 +558,64 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
 
     if (A.get_num_rows() > 0)
     {
-        if (A.is_matrix_singleGPU())
-            computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, true>
-            <<< numBlocks, blockSize>>>(
-                A.row_offsets.raw(),
-                A.col_indices.raw(),
-                A.values.raw(),
-                A.get_num_rows(),
-                s_con.raw(),
-                weights.raw(),
-                this->alpha,
-                compute_row_sum ? sums_ptr.raw() : NULL,
-                max_row_sum,
-                0);
+        if(use_opt_kernels)
+        {
+            if (A.is_matrix_singleGPU())
+                computeStrongConnectionsAndWeightsKernel_opt<IndexType, ValueType, blockSize, true>
+                    <<< numBlocks, blockSize>>>(
+                            A.row_offsets.raw(),
+                            A.col_indices.raw(),
+                            A.values.raw(),
+                            A.get_num_rows(),
+                            s_con.raw(),
+                            weights.raw(),
+                            this->alpha,
+                            compute_row_sum ? sums_ptr.raw() : NULL,
+                            max_row_sum,
+                            0);
+            else
+                computeStrongConnectionsAndWeightsKernel_opt<IndexType, ValueType, blockSize, false>
+                    <<< numBlocks, blockSize>>>(
+                            A.row_offsets.raw(),
+                            A.col_indices.raw(),
+                            A.values.raw(),
+                            A.get_num_rows(),
+                            s_con.raw(),
+                            weights.raw(),
+                            this->alpha,
+                            compute_row_sum ? sums_ptr.raw() : NULL,
+                            max_row_sum,
+                            A.manager->base_index());
+        }
         else
-            computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, false>
-            <<< numBlocks, blockSize>>>(
-                A.row_offsets.raw(),
-                A.col_indices.raw(),
-                A.values.raw(),
-                A.get_num_rows(),
-                s_con.raw(),
-                weights.raw(),
-                this->alpha,
-                compute_row_sum ? sums_ptr.raw() : NULL,
-                max_row_sum,
-                A.manager->base_index());
+        {
+            if (A.is_matrix_singleGPU())
+                computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, true>
+                    <<< numBlocks, blockSize>>>(
+                            A.row_offsets.raw(),
+                            A.col_indices.raw(),
+                            A.values.raw(),
+                            A.get_num_rows(),
+                            s_con.raw(),
+                            weights.raw(),
+                            this->alpha,
+                            compute_row_sum ? sums_ptr.raw() : NULL,
+                            max_row_sum,
+                            0);
+            else
+                computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, false>
+                    <<< numBlocks, blockSize>>>(
+                            A.row_offsets.raw(),
+                            A.col_indices.raw(),
+                            A.values.raw(),
+                            A.get_num_rows(),
+                            s_con.raw(),
+                            weights.raw(),
+                            this->alpha,
+                            compute_row_sum ? sums_ptr.raw() : NULL,
+                            max_row_sum,
+                            A.manager->base_index());
+        }
     }
 
     if (!A.is_matrix_singleGPU() && A.currentView() == OWNED)

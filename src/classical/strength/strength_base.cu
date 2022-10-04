@@ -234,6 +234,8 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
             s_diag[warpId] = ValueType(0);
         }
 
+        utils::syncwarp();
+
         // Row sum
         ValueType rowSum = -1.0;
 
@@ -276,6 +278,8 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
             }
         }
 
+        utils::syncwarp();
+
         // Big assumption: diag and off-diag always have the opposite sign.
         // If diag entry is negative, then all off-diag entries must be positive.
         // This means max off-diag is to be used to compute the threshold.
@@ -283,24 +287,34 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
         if ( s_diag[warpId] < ValueType(0) )
         {
             smem[threadIdx.x] = maxVal;
-#pragma unroll
 
+            utils::syncwarp();
+
+#pragma unroll
             for ( int offset = 16 ; offset > 0 ; offset /= 2 )
+            {
                 if ( laneId < offset )
                 {
                     smem[threadIdx.x] = maxVal = max( maxVal, smem[threadIdx.x + offset] );
                 }
+                utils::syncwarp();
+            }
         }
         else
         {
             smem[threadIdx.x] = minVal;
-#pragma unroll
 
+            utils::syncwarp();
+
+#pragma unroll
             for ( int offset = 16 ; offset > 0 ; offset /= 2 )
+            {
                 if ( laneId < offset )
                 {
                     smem[threadIdx.x] = minVal = min( minVal, smem[threadIdx.x + offset] );
                 }
+                utils::syncwarp();
+            }
         }
 
         if ( laneId == 0 )
@@ -308,6 +322,8 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
             // If laneId=0, then maxVal or minVal is in smem[threadIdx.x].
             s_threshold[warpId] = smem[threadIdx.x] * alpha;
         }
+
+        utils::syncwarp();
 
         // sum of the column of S
         for ( IndexType aRowIt = aRowBegin + laneId ; utils::any( aRowIt < aRowEnd ) ;

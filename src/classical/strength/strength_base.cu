@@ -558,6 +558,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
 
     if (A.get_num_rows() > 0)
     {
+        bool use_opt_kernels = false;
         if(use_opt_kernels)
         {
             if (A.is_matrix_singleGPU())

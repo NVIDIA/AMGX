@@ -994,6 +994,51 @@ void Cusparse::bsrmv_internal( const int color,
 }
 
 #ifdef CUSPARSE_GENERIC_INTERFACES
+
+// Simple custom implementation of matrix-vector product that has only 1 kernel.
+template<unsigned UNROLL, class T>
+__global__ void csrmv(
+    int nrows,
+    const T alpha,
+    const T* __restrict__ csrVal,
+    const int* __restrict__ csrRow,
+    const int* __restrict__ csrCol,
+    const T* __restrict__ x,
+    const T beta,
+    T* __restrict__ y)
+{
+    for(int i = threadIdx.x + blockIdx.x*blockDim.x; i < nrows; i += blockDim.x*gridDim.x)
+    {
+        T y_tmp = amgx::types::util<T>::get_zero();
+
+        int row_b = csrRow[i];
+        int row_e = csrRow[i+1];
+
+        // Unrolling is important for performance here.
+        // Possible to squeeze more performance out of the key kernels if we
+        // measure the sparsity and use it to inform unrolling.
+        for (int col = row_b; col < row_e; col += UNROLL)
+        {
+#pragma unroll UNROLL
+            for(int off = 0; off < UNROLL; ++off)
+            {
+                int c = col + off;
+                if(c < row_e) y_tmp = alpha * csrVal[c] * x[csrCol[c]] + y_tmp;
+            }
+        }
+
+        // Don't read y unnecessarily
+        if(amgx::types::util<T>::is_zero(beta))
+        {
+            y[i] = y_tmp;
+        }
+        else
+        {
+            y[i] = beta*y[i] + y_tmp;
+        }
+    }
+}
+
 template<class MatType, class VecType, class IndType>
 inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              int mb, int nb, int nnzb,
@@ -1008,55 +1053,65 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              cudaDataType vecType,
                              const cudaStream_t& stream)
 {
-    int col_off;
-    cudaMemcpyAsync(&col_off, &rowPtr[0], sizeof(int), cudaMemcpyDefault, stream);
-    cudaStreamSynchronize(stream);
-
-    IndType* rows = const_cast<IndType*>(rowPtr);
-    IndType* cols = const_cast<IndType*>(colInd) + col_off;
-    MatType* vals = const_cast<MatType*>(val) + col_off;
-
-    if(col_off > 0)
+    if(false && mb < 100000)
     {
-        amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
-
         constexpr int nthreads = 128;
-        const int nblocks = (mb + 1) / nthreads + 1;
-        offset_by_col_off<<<nblocks, nthreads, 0, stream>>>(mb, rows, rowPtr);
+        constexpr int unroll_factor = 16;
+        int nblocks = mb / nthreads + 1;
+        csrmv<unroll_factor><<<nblocks, nthreads>>>(mb, *alpha, val, rowPtr, colInd, x, *beta, y);
     }
-
-    cusparseSpMatDescr_t matA_descr;
-    cusparseDnVecDescr_t vecX_descr;
-    cusparseDnVecDescr_t vecY_descr;
-    cusparseCheckError(cusparseCreateDnVec(&vecX_descr, nb, const_cast<VecType*>(x), vecType));
-    cusparseCheckError(cusparseCreateDnVec(&vecY_descr, mb, const_cast<VecType*>(y), vecType));
-    cusparseCheckError(
-            cusparseCreateCsr(&matA_descr, mb, nb, nnzb, const_cast<IndType*>(rows), const_cast<IndType*>(cols),
-                          const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
-
-    size_t bufferSize = 0;
-    cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
-
-    void* dBuffer = NULL;
-    if(bufferSize > 0)
+    else
     {
-        amgx::memory::cudaMalloc(&dBuffer, bufferSize);
-    }
+        int col_off;
+        cudaMemcpyAsync(&col_off, &rowPtr[0], sizeof(int), cudaMemcpyDefault, stream);
+        cudaStreamSynchronize(stream);
 
-    cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
+        IndType* rows = const_cast<IndType*>(rowPtr);
+        IndType* cols = const_cast<IndType*>(colInd) + col_off;
+        MatType* vals = const_cast<MatType*>(val) + col_off;
 
-    cusparseCheckError(cusparseDestroySpMat(matA_descr));
-    cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
-    cusparseCheckError(cusparseDestroyDnVec(vecY_descr));
+        if(col_off > 0)
+        {
+            amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
 
-    if(bufferSize > 0)
-    {
-        amgx::memory::cudaFreeAsync(dBuffer);
-    }
+            constexpr int nthreads = 128;
+            const int nblocks = (mb + 1) / nthreads + 1;
+            offset_by_col_off<<<nblocks, nthreads, 0, stream>>>(mb, rows, rowPtr);
+        }
 
-    if(col_off > 0)
-    {
-        amgx::memory::cudaFreeAsync(rows);
+        cusparseSpMatDescr_t matA_descr;
+        cusparseDnVecDescr_t vecX_descr;
+        cusparseDnVecDescr_t vecY_descr;
+        cusparseCheckError(cusparseCreateDnVec(&vecX_descr, nb, const_cast<VecType*>(x), vecType));
+        cusparseCheckError(cusparseCreateDnVec(&vecY_descr, mb, const_cast<VecType*>(y), vecType));
+        cusparseCheckError(
+                cusparseCreateCsr(&matA_descr, mb, nb, nnzb, const_cast<IndType*>(rows), const_cast<IndType*>(cols),
+                    const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
+
+        size_t bufferSize = 0;
+        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
+
+        void* dBuffer = NULL;
+        if(bufferSize > 0)
+        {
+            amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+        }
+
+        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
+
+        cusparseCheckError(cusparseDestroySpMat(matA_descr));
+        cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
+        cusparseCheckError(cusparseDestroyDnVec(vecY_descr));
+
+        if(bufferSize > 0)
+        {
+            amgx::memory::cudaFreeAsync(dBuffer);
+        }
+
+        if(col_off > 0)
+        {
+            amgx::memory::cudaFreeAsync(rows);
+        }
     }
 }
 #endif

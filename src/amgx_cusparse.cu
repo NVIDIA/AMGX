@@ -1053,7 +1053,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              cudaDataType vecType,
                              const cudaStream_t& stream)
 {
-    if(false && mb < 100000)
+    if(mb < 100000)
     {
         constexpr int nthreads = 128;
         constexpr int unroll_factor = 16;

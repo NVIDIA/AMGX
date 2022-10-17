@@ -1,6 +1,6 @@
 ---
 name: Compilation issue report
-about: Report an issue during compilation of AMGX
+about: Configuration error with CMake, or build error.
 title: "[Build]"
 labels: build issues
 assignees: ''
@@ -9,7 +9,7 @@ assignees: ''
 
 **Describe the issue**
 
-A clear and concise description of what the issue is - this might be configuration error with CMake, or build error.
+A clear and concise description of what the issue is.
 
 **Environment information:**
  - OS: [e.g. `Windows 10`, `Ubuntu 22.04`]

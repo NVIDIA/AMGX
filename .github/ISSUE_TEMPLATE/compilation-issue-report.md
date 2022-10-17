@@ -9,7 +9,7 @@ assignees: ''
 
 **Describe the issue**
 
-This might be configuration error with CMake, or build error.
+A clear and concise description of what the issue is - this might be configuration error with CMake, or build error.
 
 **Environment information:**
  - OS: [e.g. `Windows 10`, `Ubuntu 22.04`]

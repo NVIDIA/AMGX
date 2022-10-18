@@ -70,7 +70,7 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCGF_CLASSICAL_W_JACOBI.json"
     DESTINATION "lib/configs")
 
-set(AMGX_INCLUDES ${THRUST_DIR} ../include)
+set(AMGX_INCLUDES ../include)
 
 set(tests_all ${tests_all} testframework.cu test_utils.cu unit_test.cu)
 
@@ -79,6 +79,8 @@ add_library(amgx_tests_libs OBJECT ${tests_all})
 target_include_directories(amgx_tests_libs PRIVATE ${AMGX_INCLUDES}) 
 
 add_library(amgx_tests_library STATIC $<TARGET_OBJECTS:amgx_tests_libs>)
+
+target_link_libraries(amgx_tests_libs Thrust)
 
 add_dependencies(amgx_tests_library amgx)
 

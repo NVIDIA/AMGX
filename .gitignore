@@ -7,3 +7,5 @@ plugin_config.cu
 *.sublime-workspace
 core/src/version.cu
 ci/docker/
+install
+Release

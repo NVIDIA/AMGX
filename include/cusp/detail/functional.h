@@ -32,7 +32,7 @@ namespace detail
 {
 
 template<typename T>
-  struct zero_function : public thrust::unary_function<T,T>
+  struct zero_function : public amgx::thrust::unary_function<T,T>
 {
   __host__ __device__ T operator()(const T &x) const {return T(0);}
 }; // end minus

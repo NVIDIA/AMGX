@@ -27,6 +27,8 @@ AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Itera
 ## Table of Contents
 
 * [Quickstart](#quickstart)
+  * [Dependencies and requirements](#requirements)
+  * [Cloning / Pulling](#cloning)
   * [Building AMGX](#building)
   * [Running examples](#running)
 * [Further reading](#further-reading)
@@ -36,7 +38,7 @@ AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Itera
 
 Here are the instructions on how to build library and run an example solver on the matrix in the [Matrix Market](http://math.nist.gov/MatrixMarket/) format file. By default provided examples use vector of ones as RHS of the linear system and vector of zeros as initial solution. In order to provide you own values for RHS and initial solution edit the examples.
 
-### Dependencies and requirements
+### <a name="requirements"></a> Dependencies and requirements
 
 In order to build project you would need [CMake](https://cmake.org/) and [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit
 ). If you want to try distributed version of AMGX library you will also need MPI implementation, such as [OpenMPI](https://www.open-mpi.org/) for Linux or [MPICH](https://www.mpich.org/downloads/) for Windows. You will need compiler with c++11 support (for example GCC 4.8 or MSVC 14.0).
@@ -64,7 +66,7 @@ make -j16 all
 Therer are few custom CMake flags that you could use:
 - CUDA_ARCH: List of virtual architectures values that in the CMakeLists file is translated to the corresponding nvcc flags. For example:
 ```bash
-cmake ....  -DCUDA_ARCH="35 52 60" ....
+cmake ....  -DCUDA_ARCH="60 70" ....
 ```
 - CMAKE_NO_MPI: Boolean value. If True then non-MPI (single GPU) build will be forced. Results in smaller sized library which could be run on systems without MPI installed. If not specified then MPI build would be enabled if FindMPI script found any MPI installation.
 - AMGX_NO_RPATH: Boolean value. By default CMake adds -rpath flags to binaries. Setting this flag to True tell CMake to not do that - useful for controlling execution environment.

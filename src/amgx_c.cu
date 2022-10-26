@@ -219,10 +219,10 @@ int create_part_offsets(int &root, int &rank, MPI_Comm &mpicm, Matrix<TConfig> *
         }
 
         //perform a prefix sum
-        thrust::inclusive_scan(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets_h.begin());
+        amgx::thrust::inclusive_scan(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets_h.begin());
         //create the corresponding array on device (this is important)
         nv_mtx->manager->part_offsets.resize(nranks + 1);
-        thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets.begin());
+        amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets.begin());
     }
 
     return 0;
@@ -241,19 +241,19 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
     t_IndPrec *rc_ptr, *di_ptr;
     t_IndPrec *hli_ptr, *hgi_ptr;
     t_MatPrec *hlv_ptr, *hgv_ptr;
-    thrust::host_vector<t_IndPrec> rc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> rc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unpacked local matrix on the device and host
     device_vector_alloc<t_IndPrec> Bp;
     device_vector_alloc<t_IndPrec> Bi;
     device_vector_alloc<t_MatPrec> Bv;
-    thrust::host_vector<t_IndPrec> hBp;
-    thrust::host_vector<t_IndPrec> hBi;
-    thrust::host_vector<t_MatPrec> hBv;
+    amgx::thrust::host_vector<t_IndPrec> hBp;
+    amgx::thrust::host_vector<t_IndPrec> hBi;
+    amgx::thrust::host_vector<t_MatPrec> hBv;
     //constructed global matrix on the host
-    thrust::host_vector<t_IndPrec> hAp;
-    thrust::host_vector<t_IndPrec> hAi;
-    thrust::host_vector<t_MatPrec> hAv;
+    amgx::thrust::host_vector<t_IndPrec> hAp;
+    amgx::thrust::host_vector<t_IndPrec> hAi;
+    amgx::thrust::host_vector<t_MatPrec> hAv;
     //WARNING: this routine currently supports matrix only with block size =1 (it can be generalized in the future, though)
     //initialize the defaults
     root = 0;
@@ -300,9 +300,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
 
         cudaCheckError();
         //--- unpack the matrix ---
-        nv_mtx->manager->unpack_partition(thrust::raw_pointer_cast(Bp.data()),
-                                          thrust::raw_pointer_cast(Bi.data()),
-                                          thrust::raw_pointer_cast(Bv.data()));
+        nv_mtx->manager->unpack_partition(amgx::thrust::raw_pointer_cast(Bp.data()),
+                                          amgx::thrust::raw_pointer_cast(Bi.data()),
+                                          amgx::thrust::raw_pointer_cast(Bv.data()));
         cudaCheckError();
         //copy to host (should be able to optimize this out later on)
         hBp = Bp;
@@ -315,18 +315,18 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            amgx::thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
-            //thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
+            //amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
+            amgx::thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
             cudaCheckError();
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hli_ptr = thrust::raw_pointer_cast(hBp.data());
-        hgi_ptr = thrust::raw_pointer_cast(hAp.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hli_ptr = amgx::thrust::raw_pointer_cast(hBp.data());
+        hgi_ptr = amgx::thrust::raw_pointer_cast(hAp.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -354,7 +354,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 end  = nv_mtx->manager->part_offsets_h[i + 1];
                 shift = hAp[start];
                 //if (rank == 0) printf("# %d %d %d\n",start,end,shift);
-                thrust::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                amgx::thrust::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];
@@ -367,12 +367,12 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hli_ptr = thrust::raw_pointer_cast(hBi.data());
-        hgi_ptr = thrust::raw_pointer_cast(hAi.data());
-        hlv_ptr = thrust::raw_pointer_cast(hBv.data());
-        hgv_ptr = thrust::raw_pointer_cast(hAv.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hli_ptr = amgx::thrust::raw_pointer_cast(hBi.data());
+        hgi_ptr = amgx::thrust::raw_pointer_cast(hAi.data());
+        hlv_ptr = amgx::thrust::raw_pointer_cast(hBv.data());
+        hgv_ptr = amgx::thrust::raw_pointer_cast(hAv.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -423,9 +423,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 //construct a map (based on partition vector)
                 int i, j, nranks;
                 MPI_Comm_size(mpicm, &nranks);
-                thrust::host_vector<t_IndPrec> c(nranks, 0);
-                thrust::host_vector<t_IndPrec> map(hAp.size() - 1);
-                thrust::host_vector<t_IndPrec> imap(hAp.size() - 1);
+                amgx::thrust::host_vector<t_IndPrec> c(nranks, 0);
+                amgx::thrust::host_vector<t_IndPrec> map(hAp.size() - 1);
+                amgx::thrust::host_vector<t_IndPrec> imap(hAp.size() - 1);
 
                 for (i = 0; i < (hAp.size() - 1); i++)
                 {
@@ -441,19 +441,19 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 hBv.resize(hAv.size());
                 reorder_partition_host<t_IndPrec, t_MatPrec, true, true>
                 (hAp.size() - 1, hAi.size(),
-                 thrust::raw_pointer_cast(hAp.data()),
-                 thrust::raw_pointer_cast(hAi.data()),
-                 thrust::raw_pointer_cast(hAv.data()),
-                 thrust::raw_pointer_cast(hBp.data()),
-                 thrust::raw_pointer_cast(hBi.data()),
-                 thrust::raw_pointer_cast(hBv.data()),
-                 imap.size(), thrust::raw_pointer_cast(imap.data()));
+                 amgx::thrust::raw_pointer_cast(hAp.data()),
+                 amgx::thrust::raw_pointer_cast(hAi.data()),
+                 amgx::thrust::raw_pointer_cast(hAv.data()),
+                 amgx::thrust::raw_pointer_cast(hBp.data()),
+                 amgx::thrust::raw_pointer_cast(hBi.data()),
+                 amgx::thrust::raw_pointer_cast(hBv.data()),
+                 imap.size(), amgx::thrust::raw_pointer_cast(imap.data()));
                 cudaCheckError();
                 gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
                 gA.resize(hBp.size() - 1, hBp.size() - 1, hBi.size());
-                thrust::copy(hBp.begin(), hBp.end(), gA.row_offsets.begin());
-                thrust::copy(hBi.begin(), hBi.end(), gA.col_indices.begin());
-                thrust::copy(hBv.begin(), hBv.end(), gA.values.begin());
+                amgx::thrust::copy(hBp.begin(), hBp.end(), gA.row_offsets.begin());
+                amgx::thrust::copy(hBi.begin(), hBi.end(), gA.col_indices.begin());
+                amgx::thrust::copy(hBv.begin(), hBv.end(), gA.values.begin());
                 cudaCheckError();
             }
             else
@@ -461,9 +461,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 //copy (host -> host or device depending on matrix type)
                 gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
                 gA.resize(hAp.size() - 1, hAp.size() - 1, hAi.size());
-                thrust::copy(hAp.begin(), hAp.end(), gA.row_offsets.begin());
-                thrust::copy(hAi.begin(), hAi.end(), gA.col_indices.begin());
-                thrust::copy(hAv.begin(), hAv.end(), gA.values.begin());
+                amgx::thrust::copy(hAp.begin(), hAp.end(), gA.row_offsets.begin());
+                amgx::thrust::copy(hAi.begin(), hAi.end(), gA.col_indices.begin());
+                amgx::thrust::copy(hAv.begin(), hAv.end(), gA.values.begin());
                 cudaCheckError();
             }
         }
@@ -473,9 +473,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         /* ASSUMPTION: when manager has not been allocated you are running on a single rank */
         gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
         gA.resize(nv_mtx->row_offsets.size() - 1, nv_mtx->row_offsets.size() - 1, nv_mtx->col_indices.size());
-        thrust::copy(nv_mtx->row_offsets.begin(), nv_mtx->row_offsets.end(), gA.row_offsets.begin());
-        thrust::copy(nv_mtx->col_indices.begin(), nv_mtx->col_indices.end(), gA.col_indices.begin());
-        thrust::copy(nv_mtx->values.begin(),     nv_mtx->values.end(),      gA.values.begin());
+        amgx::thrust::copy(nv_mtx->row_offsets.begin(), nv_mtx->row_offsets.end(), gA.row_offsets.begin());
+        amgx::thrust::copy(nv_mtx->col_indices.begin(), nv_mtx->col_indices.end(), gA.col_indices.begin());
+        amgx::thrust::copy(nv_mtx->values.begin(),     nv_mtx->values.end(),      gA.values.begin());
 
         cudaCheckError();
     }
@@ -494,12 +494,12 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
     //MPI call parameters
     t_IndPrec *rc_ptr, *di_ptr;
     t_VecPrec *hv_ptr, *hg_ptr;
-    thrust::host_vector<t_IndPrec> rc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> rc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unreordered local vector on the host
-    thrust::host_vector<t_VecPrec> hv;
+    amgx::thrust::host_vector<t_VecPrec> hv;
     //constructed global vector on the host
-    thrust::host_vector<t_VecPrec> hg;
+    amgx::thrust::host_vector<t_VecPrec> hg;
     //WARNING: this routine currently supports vectors only with block size =1 (it can be generalized in the future, though)
     //initialize the defaults
     root = 0;
@@ -539,10 +539,10 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         cudaCheckError();
         //--- unreorder the vector back (just like you did with the matrix, but only need to undo the interior-boundary reordering, because others do not apply) ---
         //Approach 1: just copy the vector (host or device depending on vector type -> host)
-        //thrust::copy(nv_vec->begin(),nv_vec->end(),hv.begin());
+        //amgx::thrust::copy(nv_vec->begin(),nv_vec->end(),hv.begin());
         //Approach 2: unreorder and copy the vector
-        thrust::copy(thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin()  ),
-                     thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin() + n),
+        amgx::thrust::copy(amgx::thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin()  ),
+                     amgx::thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin() + n),
                      hv.begin());
         cudaCheckError();
 
@@ -550,17 +550,17 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            amgx::thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
-            thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
+            amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();
         }
 
-        //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hv_ptr = thrust::raw_pointer_cast(hv.data());
-        hg_ptr = thrust::raw_pointer_cast(hg.data());
+        //alias raw pointers to amgx::thrust::ector data (see amgx::thrust::xample unwrap_pointer for details)
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hv_ptr = amgx::thrust::raw_pointer_cast(hv.data());
+        hg_ptr = amgx::thrust::raw_pointer_cast(hg.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -595,9 +595,9 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
                 //construct a map (based on partition vector)
                 int i, j, nranks;
                 MPI_Comm_size(mpicm, &nranks);
-                thrust::host_vector<t_IndPrec> c(nranks, 0);
-                thrust::host_vector<t_IndPrec> map(hg.size());
-                thrust::host_vector<t_IndPrec> imap(hg.size());
+                amgx::thrust::host_vector<t_IndPrec> c(nranks, 0);
+                amgx::thrust::host_vector<t_IndPrec> map(hg.size());
+                amgx::thrust::host_vector<t_IndPrec> imap(hg.size());
 
                 for (i = 0; i < hg.size(); i++)
                 {
@@ -609,8 +609,8 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 
                 //permute according to map during copy (host -> host or device depending on vector type)
                 gvec.resize(hg.size());
-                thrust::copy(thrust::make_permutation_iterator(hg.begin(), imap.begin()),
-                             thrust::make_permutation_iterator(hg.begin(), imap.end()),
+                amgx::thrust::copy(amgx::thrust::make_permutation_iterator(hg.begin(), imap.begin()),
+                             amgx::thrust::make_permutation_iterator(hg.begin(), imap.end()),
                              gvec.begin());
                 cudaCheckError();
             }
@@ -618,7 +618,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
             {
                 //copy (host -> host or device depending on vector type)
                 gvec.resize(hg.size());
-                thrust::copy(hg.begin(), hg.end(), gvec.begin());
+                amgx::thrust::copy(hg.begin(), hg.end(), gvec.begin());
                 cudaCheckError();
             }
         }
@@ -627,7 +627,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
     {
         /* ASSUMPTION: when manager has not been allocated you are running on a single rank */
         gvec.resize(nv_vec->size());
-        thrust::copy(nv_vec->begin(), nv_vec->end(), gvec.begin());
+        amgx::thrust::copy(nv_vec->begin(), nv_vec->end(), gvec.begin());
         cudaCheckError();
     }
 
@@ -1121,7 +1121,7 @@ inline AMGX_RC vector_set_zero(AMGX_vector_handle vec,
 
     v.resize(n * block_dim);
     v.set_block_dimy(block_dim);
-    thrust::fill(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
+    amgx::thrust::fill(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
     cudaCheckError();
     return AMGX_RC_OK;
 }
@@ -1540,7 +1540,7 @@ inline AMGX_RC read_system_distributed(AMGX_matrix_handle mtx,
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
             partitionVec.resize(partition_vector_size);
 
-        thrust::copy(partition_vector, partition_vector + partition_vector_size, partitionVec.begin());
+        amgx::thrust::copy(partition_vector, partition_vector + partition_vector_size, partitionVec.begin());
         cudaCheckError();
 
         if (num_partitions == 0) { num_partitions = num_ranks; }
@@ -1551,13 +1551,13 @@ inline AMGX_RC read_system_distributed(AMGX_matrix_handle mtx,
 
         if (partition_sizes != NULL)
         {
-            thrust::copy(partition_sizes, partition_sizes + num_partitions, partSize.begin());
+            amgx::thrust::copy(partition_sizes, partition_sizes + num_partitions, partSize.begin());
             cudaCheckError();
         }
         else
         {
             int partsPerRank = num_partitions / num_ranks;
-            thrust::fill(partSize.begin(), partSize.end(), 0);
+            amgx::thrust::fill(partSize.begin(), partSize.end(), 0);
             cudaCheckError();
 
             for (int i = 0; i < partitionVec.size(); i++)
@@ -1705,9 +1705,9 @@ inline AMGX_RC generate_distributed_poisson_7pt(AMGX_matrix_handle mtx,
     A_part.set_initialized(1);
     /* Create rhs and solution */
     rhs.resize(A_part.get_num_rows());
-    thrust::fill(rhs.begin(), rhs.end(), types::util<ValueTypeB>::get_one());
+    amgx::thrust::fill(rhs.begin(), rhs.end(), types::util<ValueTypeB>::get_one());
     sol.resize(A_part.get_num_rows());
-    thrust::fill(sol.begin(), sol.end(), types::util<ValueTypeB>::get_one());
+    amgx::thrust::fill(sol.begin(), sol.end(), types::util<ValueTypeB>::get_one());
     cudaCheckError();
     return AMGX_RC_OK;
 }
@@ -4347,7 +4347,7 @@ extern "C" {
             partition_offsets[pvi + 1]++;
         }
 
-        thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
+        amgx::thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
         // compute partition map (which tells you how the global elements are mapped into the partitions)
         int64_t *partition_map = get_c_arr_mem_manager().callocate<int64_t>(num_rows_global);
 

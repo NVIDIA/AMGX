@@ -46,7 +46,7 @@ Dummy_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+        amgx::thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
     }
 

@@ -90,7 +90,7 @@ void __spmv_ell(const cusp::ell_matrix<IndexType,ValueType,cusp::device_memory>&
 {
     const unsigned int BLOCK_SIZE = 256;
     const unsigned int MAX_BLOCKS = MAX_THREADS / BLOCK_SIZE;
-//    const unsigned int MAX_BLOCKS = thrust::experimental::arch::max_active_blocks(spmv_ell_kernel<IndexType, ValueType, UseCache>, BLOCK_SIZE, (size_t) 0);
+//    const unsigned int MAX_BLOCKS = amgx::thrust::experimental::arch::max_active_blocks(spmv_ell_kernel<IndexType, ValueType, UseCache>, BLOCK_SIZE, (size_t) 0);
     const unsigned int NUM_BLOCKS = std::min(MAX_BLOCKS, DIVIDE_INTO(ell.num_rows, BLOCK_SIZE));
 
     const IndexType stride              = ell.column_indices.num_rows;
@@ -102,10 +102,10 @@ void __spmv_ell(const cusp::ell_matrix<IndexType,ValueType,cusp::device_memory>&
     spmv_ell_kernel<UseCache> <<<NUM_BLOCKS, BLOCK_SIZE>>>
         (ell.num_rows, ell.num_cols,
          num_entries_per_row, stride,
-         thrust::raw_pointer_cast(&ell.column_indices.values[0]), 
-         thrust::raw_pointer_cast(&ell.values.values[0]),
+         amgx::thrust::raw_pointer_cast(&ell.column_indices.values[0]), 
+         amgx::thrust::raw_pointer_cast(&ell.values.values[0]),
          x, y,
-         thrust::identity<ValueType>(), thrust::multiplies<ValueType>(), thrust::plus<ValueType>());
+         amgx::thrust::identity<ValueType>(), amgx::thrust::multiplies<ValueType>(), amgx::thrust::plus<ValueType>());
 
     if (UseCache)
         unbind_x(x);

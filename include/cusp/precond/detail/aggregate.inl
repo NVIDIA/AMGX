@@ -51,34 +51,34 @@ void mis_to_aggregates(const cusp::coo_matrix<IndexType,ValueType,MemorySpace>& 
   ArrayType idx2(N);
 
   typedef typename ArrayType::value_type T;
-  typedef thrust::tuple<T,T> Tuple;
+  typedef amgx::thrust::tuple<T,T> Tuple;
 
   // find the largest (mis[j],j) 1-ring neighbor for each node
   cusp::detail::device::cuda::spmv_coo
       (C.num_rows, C.num_entries,
-       C.row_indices.begin(), C.column_indices.begin(), thrust::constant_iterator<int>(1),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
-       thrust::make_zip_iterator(thrust::make_tuple(mis.begin(), thrust::counting_iterator<IndexType>(0))),
-       thrust::make_zip_iterator(thrust::make_tuple(mis.begin(), thrust::counting_iterator<IndexType>(0))),
-       thrust::make_zip_iterator(thrust::make_tuple(mis1.begin(), idx1.begin())),
-       thrust::project2nd<Tuple,Tuple>(), thrust::maximum<Tuple>());
+       C.row_indices.begin(), C.column_indices.begin(), amgx::thrust::constant_iterator<int>(1),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(mis.begin(), amgx::thrust::counting_iterator<IndexType>(0))),
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(mis.begin(), amgx::thrust::counting_iterator<IndexType>(0))),
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(mis1.begin(), idx1.begin())),
+       amgx::thrust::project2nd<Tuple,Tuple>(), amgx::thrust::maximum<Tuple>());
 
   // boost mis0 values so they win in second round
-  thrust::transform(mis.begin(), mis.end(), mis1.begin(), mis1.begin(), thrust::plus<typename ArrayType::value_type>());
+  amgx::thrust::transform(mis.begin(), mis.end(), mis1.begin(), mis1.begin(), amgx::thrust::plus<typename ArrayType::value_type>());
 
   // find the largest (mis[j],j) 2-ring neighbor for each node
   cusp::detail::device::cuda::spmv_coo
       (C.num_rows, C.num_entries,
-       C.row_indices.begin(), C.column_indices.begin(), thrust::constant_iterator<int>(1),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
-       thrust::make_zip_iterator(thrust::make_tuple(mis1.begin(), idx1.begin())),
-       thrust::make_zip_iterator(thrust::make_tuple(mis1.begin(), idx1.begin())),
-       thrust::make_zip_iterator(thrust::make_tuple(mis2.begin(), idx2.begin())),
-       thrust::project2nd<Tuple,Tuple>(), thrust::maximum<Tuple>());
+       C.row_indices.begin(), C.column_indices.begin(), amgx::thrust::constant_iterator<int>(1),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(mis1.begin(), idx1.begin())),
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(mis1.begin(), idx1.begin())),
+       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(mis2.begin(), idx2.begin())),
+       amgx::thrust::project2nd<Tuple,Tuple>(), amgx::thrust::maximum<Tuple>());
 
   // enumerate the MIS nodes
   cusp::array1d<IndexType,MemorySpace> mis_enum(N);
-  thrust::exclusive_scan(mis.begin(), mis.end(), mis_enum.begin());
+  amgx::thrust::exclusive_scan(mis.begin(), mis.end(), mis_enum.begin());
 
-  thrust::gather(idx2.begin(), idx2.end(),
+  amgx::thrust::gather(idx2.begin(), idx2.end(),
                  mis_enum.begin(),
                  aggregates.begin());
 } // mis_to_aggregates()
@@ -113,7 +113,7 @@ void standard_aggregation(const cusp::csr_matrix<IndexType,ValueType,cusp::host_
   IndexType next_aggregate = 1; // number of aggregates + 1
 
   // initialize aggregates to 0
-  thrust::fill(aggregates.begin(), aggregates.end(), 0);
+  amgx::thrust::fill(aggregates.begin(), aggregates.end(), 0);
 
   IndexType n_row = C.num_rows;
 
@@ -210,15 +210,15 @@ void standard_aggregation(const cusp::csr_matrix<IndexType,ValueType,cusp::host_
 
   if( next_aggregate == 0 )
   {
-    thrust::fill( aggregates.begin(), aggregates.end(), 0 );
+      amgx::thrust::fill( aggregates.begin(), aggregates.end(), 0 );
   }
   else
   {
     // TODO Handle unaggregated nodes
-    ValueType agg_min = *thrust::min_element(aggregates.begin(), aggregates.end());
+    ValueType agg_min = *amgx::thrust::min_element(aggregates.begin(), aggregates.end());
     if( agg_min == -1 )
     {
-      IndexType num_unaggregated = thrust::count(aggregates.begin(), aggregates.end(), -1.0);
+      IndexType num_unaggregated = amgx::thrust::count(aggregates.begin(), aggregates.end(), -1.0);
       printf("number unaggregated nodes: %d\n",num_unaggregated);
       for( size_t i = 0; i < aggregates.size(); i++ )
       {

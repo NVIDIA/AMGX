@@ -42,7 +42,7 @@ namespace amgx
 namespace aggregation
 {
 
-typedef thrust::tuple<int, int> tuple_t;
+typedef amgx::thrust::tuple<int, int> tuple_t;
 
 // --------------------
 // Kernels
@@ -115,18 +115,18 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     jToJKernel <<< num_blocks_J, block_size_J>>>(column_indices_ptr, aggregates_ptr, J_ptr, (int)A.get_num_nz());
     cudaCheckError();
     // Copy A.values to V array
-    thrust::copy(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), V.begin());
+    amgx::thrust::copy(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), V.begin());
     cudaCheckError();
     // Sort (I,J,V) by rows and columns (I,J)
     cusp::detail::sort_by_row_and_column(I, J, V);
     cudaCheckError();
     // compute unique number of nonzeros in the output
-    IndexType NNZ = thrust::inner_product(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-                                          thrust::make_zip_iterator(thrust::make_tuple(I.end (),  J.end()))   - 1,
-                                          thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())) + 1,
+    IndexType NNZ = amgx::thrust::inner_product(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+                                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end (),  J.end()))   - 1,
+                                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())) + 1,
                                           IndexType(0),
-                                          thrust::plus<IndexType>(),
-                                          thrust::not_equal_to< thrust::tuple<IndexType, IndexType> >()) + 1;
+                                          amgx::thrust::plus<IndexType>(),
+                                          amgx::thrust::not_equal_to< amgx::thrust::tuple<IndexType, IndexType> >()) + 1;
     cudaCheckError();
     // allocate space for coarse matrix Ac
     Ac.addProps(CSR);
@@ -146,13 +146,13 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
     // Reduce by key to fill in Ac.column_indices and Ac.values
     IVector new_row_indices(NNZ, 0);
-    thrust::reduce_by_key(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-        thrust::make_zip_iterator(thrust::make_tuple(I.end(),   J.end())),
+    amgx::thrust::reduce_by_key(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end(),   J.end())),
         V.begin(),
-        thrust::make_zip_iterator(thrust::make_tuple(new_row_indices.begin(), Ac.col_indices.begin())),
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(new_row_indices.begin(), Ac.col_indices.begin())),
         Ac.values.begin(),
-        thrust::equal_to< thrust::tuple<IndexType, IndexType> >(),
-        thrust::plus<ValueType>());
+        amgx::thrust::equal_to< amgx::thrust::tuple<IndexType, IndexType> >(),
+        amgx::thrust::plus<ValueType>());
     cudaCheckError();
     // Convert array new_row_indices to offsets
     cusp::detail::indices_to_offsets(new_row_indices, Ac.row_offsets);
@@ -171,7 +171,7 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 {
     if (A.hasProps(DIAG))
     {
-        FatalError("ThrustCoarseAGenerator: unsupported diagonal", AMGX_ERR_NOT_IMPLEMENTED);
+        FatalError("amgx::thrust::arseAGenerator: unsupported diagonal", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
     IVector I(A.get_num_nz(), -1);
@@ -202,18 +202,18 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     }
 
     // Copy A.values to V array
-    thrust::copy(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), V.begin());
+    amgx::thrust::copy(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), V.begin());
     cudaCheckError();
     // Sort (I,J,V) by rows and columns (I,J)
     cusp::detail::sort_by_row_and_column(I, J, V);
     cudaCheckError();
     // compute unique number of nonzeros in the output
-    IndexType NNZ = thrust::inner_product(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-                                          thrust::make_zip_iterator(thrust::make_tuple(I.end (),  J.end()))   - 1,
-                                          thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())) + 1,
+    IndexType NNZ = amgx::thrust::inner_product(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+                                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end (),  J.end()))   - 1,
+                                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())) + 1,
                                           IndexType(0),
-                                          thrust::plus<IndexType>(),
-                                          thrust::not_equal_to< thrust::tuple<IndexType, IndexType> >()) + 1;
+                                          amgx::thrust::plus<IndexType>(),
+                                          amgx::thrust::not_equal_to< amgx::thrust::tuple<IndexType, IndexType> >()) + 1;
     cudaCheckError();
     // allocate space for coarse matrix Ac
     Ac.addProps(CSR);
@@ -233,13 +233,13 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 
     // Reduce by key to fill in Ac.column_indices and Ac.values
     typename Matrix_h::IVector new_row_indices(NNZ, 0);
-    thrust::reduce_by_key(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-        thrust::make_zip_iterator(thrust::make_tuple(I.end(),   J.end())),
+    amgx::thrust::reduce_by_key(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end(),   J.end())),
         V.begin(),
-        thrust::make_zip_iterator(thrust::make_tuple(new_row_indices.begin(), Ac.col_indices.begin())),
+        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(new_row_indices.begin(), Ac.col_indices.begin())),
         Ac.values.begin(),
-        thrust::equal_to< thrust::tuple<IndexType, IndexType> >(),
-        thrust::plus<ValueType>());
+        amgx::thrust::equal_to< amgx::thrust::tuple<IndexType, IndexType> >(),
+        amgx::thrust::plus<ValueType>());
     cudaCheckError();
     // Convert array new_row_indices to offsets
     cusp::detail::indices_to_offsets(new_row_indices, Ac.row_offsets);

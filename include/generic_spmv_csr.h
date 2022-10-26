@@ -180,7 +180,7 @@ void __csr_generic_spmv_vector(const Matrix    &A,
                                        A.col_indices.raw(),
                                        A.values.raw(),
                                        x.raw(),
-                                       thrust::raw_pointer_cast(&y[0]),
+                                       amgx::thrust::raw_pointer_cast(&y[0]),
                                        st
                                    );
     cudaCheckError();
@@ -248,10 +248,10 @@ void retrieveThreeArguments(const inVector &in,
 {
     const int blockSize = 128;
     const int numBlocks = min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
-    retrieveThreeKernel <<< numBlocks, blockSize>>>(thrust::raw_pointer_cast(&in[0]),
-            thrust::raw_pointer_cast(&out1[0]),
-            thrust::raw_pointer_cast(&out2[0]),
-            thrust::raw_pointer_cast(&out3[0]),
+    retrieveThreeKernel <<< numBlocks, blockSize>>>(amgx::thrust::raw_pointer_cast(&in[0]),
+            amgx::thrust::raw_pointer_cast(&out1[0]),
+            amgx::thrust::raw_pointer_cast(&out2[0]),
+            amgx::thrust::raw_pointer_cast(&out3[0]),
             (int)in.size());
     cudaCheckError();
 }
@@ -289,7 +289,7 @@ void retrieveTwoArguments(const inVector &in,
 {
     const int blockSize = 128;
     const int numBlocks = min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
-    retrieveTwoKernel <<< numBlocks, blockSize>>>(thrust::raw_pointer_cast(&in[0]),
+    retrieveTwoKernel <<< numBlocks, blockSize>>>(amgx::thrust::raw_pointer_cast(&in[0]),
             out1.raw(),
             out2.raw(),
             (int)in.size());
@@ -327,7 +327,7 @@ void retrieveOneArgument(const inVector &in,
 {
     const int blockSize = 128;
     const int numBlocks = min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
-    retrieveOneKernel <<< numBlocks, blockSize>>>(thrust::raw_pointer_cast(&in[0]),
+    retrieveOneKernel <<< numBlocks, blockSize>>>(amgx::thrust::raw_pointer_cast(&in[0]),
             out.raw(),
             (int)in.size());
     cudaCheckError();

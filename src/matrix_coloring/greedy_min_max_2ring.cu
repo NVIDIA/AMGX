@@ -682,7 +682,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
     const int GRID_SIZE_1 = std::min( 2048, (num_rows + NUM_WARPS_PER_CTA_1 - 1) / NUM_WARPS_PER_CTA_1 );
     device_vector_alloc<int> finished_colors_flag(1);
     finished_colors_flag[0] = 0;
-    int *finished_colors_flag_ptr = thrust::raw_pointer_cast( &finished_colors_flag.front() );
+    int *finished_colors_flag_ptr = amgx::thrust::raw_pointer_cast( &finished_colors_flag.front() );
     device_vector_alloc<int> gtlt_count;
     std::vector<device_vector_alloc<int> > max_id_per_level(this->m_coloring_level);
     std::vector<device_vector_alloc<unsigned long long int> > used_colors_per_level(this->m_coloring_level);
@@ -716,7 +716,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 this->m_row_colors.raw(),
-                thrust::raw_pointer_cast( &gtlt_count.front() ),
+                amgx::thrust::raw_pointer_cast( &gtlt_count.front() ),
                 seed
                 , 0);
             cudaCheckError();
@@ -724,7 +724,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
                 num_rows,
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast( &gtlt_count.front() ),
+                amgx::thrust::raw_pointer_cast( &gtlt_count.front() ),
                 this->m_num_colors,
                 this->m_weakness_bound, max_color,
                 this->m_row_colors.raw(), 0, 0);
@@ -741,10 +741,10 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
                             A.col_indices.raw(),
                             this->m_row_colors.raw(),
                             0, // in
-                            thrust::raw_pointer_cast(max_id_per_level[i + 1].data()),  //out
+                            amgx::thrust::raw_pointer_cast(max_id_per_level[i + 1].data()),  //out
                             0, // in
-                            thrust::raw_pointer_cast(used_colors_per_level[i + 1].data()),  //out
-                            //thrust::raw_pointer_cast(interesting_in.data()),
+                            amgx::thrust::raw_pointer_cast(used_colors_per_level[i + 1].data()),  //out
+                            //amgx::thrust::raw_pointer_cast(interesting_in.data()),
                             currentSafeColor,
                             seed);
                 else
@@ -752,11 +752,11 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
                             A.row_offsets.raw(),
                             A.col_indices.raw(),
                             this->m_row_colors.raw(),
-                            thrust::raw_pointer_cast(max_id_per_level[i  ].data()),  // in
-                            thrust::raw_pointer_cast(max_id_per_level[i + 1].data()),  //out
-                            thrust::raw_pointer_cast(used_colors_per_level[i  ].data()),  // in
-                            thrust::raw_pointer_cast(used_colors_per_level[i + 1].data()),  //out
-                            //thrust::raw_pointer_cast(interesting_in.data()),
+                            amgx::thrust::raw_pointer_cast(max_id_per_level[i  ].data()),  // in
+                            amgx::thrust::raw_pointer_cast(max_id_per_level[i + 1].data()),  //out
+                            amgx::thrust::raw_pointer_cast(used_colors_per_level[i  ].data()),  // in
+                            amgx::thrust::raw_pointer_cast(used_colors_per_level[i + 1].data()),  //out
+                            //amgx::thrust::raw_pointer_cast(interesting_in.data()),
                             currentSafeColor,
                             seed);
 
@@ -765,10 +765,10 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
 
             color_kernel_greedy_onlymax<CTA_SIZE, WARP_SIZE> <<< GRID_SIZE, CTA_SIZE>>>( num_rows,
                     A.row_offsets.raw(), A.col_indices.raw(),
-                    thrust::raw_pointer_cast( max_id_per_level[this->m_coloring_level - 1].data()), //in: max_id_tmp
+                    amgx::thrust::raw_pointer_cast( max_id_per_level[this->m_coloring_level - 1].data()), //in: max_id_tmp
                     seed,
                     this->m_row_colors.raw(),
-                    (unsigned long long *)thrust::raw_pointer_cast( used_colors_per_level[this->m_coloring_level - 1].data() ),
+                    (unsigned long long *)amgx::thrust::raw_pointer_cast( used_colors_per_level[this->m_coloring_level - 1].data() ),
                     finished_colors_flag_ptr,
                     currentSafeColor);
             cudaCheckError();
@@ -778,7 +778,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
 
         if (iter > std::min((int)std::pow(nnz_per_row, this->m_coloring_level), 63)) //estimate number of epochs required for coloring
         {
-            num_uncolored = (int) thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_zero() );
+            num_uncolored = (int) amgx::thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_zero() );
             cudaCheckError();
 
             if (num_uncolored == prev_uncolored)
@@ -801,8 +801,8 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
                         //reset buffers
                         for (int i = 1; i < this->m_coloring_level; i++)
                         {
-                            thrust::fill(max_id_per_level[i].begin(), max_id_per_level[i]    .end(), 0);
-                            thrust::fill(used_colors_per_level[i].begin(), used_colors_per_level[i].end(), 0);
+                            amgx::thrust::fill(max_id_per_level[i].begin(), max_id_per_level[i]    .end(), 0);
+                            amgx::thrust::fill(used_colors_per_level[i].begin(), used_colors_per_level[i].end(), 0);
                         }
 
                         cudaCheckError();
@@ -816,7 +816,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
         }
     }
 
-    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
     cudaCheckError();
 }
 
@@ -834,7 +834,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
     else { A.setViewExterior(); }
 
     this->m_num_colors = 1;
-    thrust::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
+    amgx::thrust::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
     cudaCheckError();
     float avg_nnz_per_row = A.get_num_nz() / float(A.get_num_rows());
     //Choose subwarp (group of threads processing a row) size

@@ -143,12 +143,12 @@ int UnitTest::start_test()
             _assert_ss << "[EXCEPTION] in test " << _name  << " :Caught amgx exception " << e.what() << " at " << e.where();
             set_failed();
         }
-        catch (thrust::system_error &e)
+        catch (amgx::thrust::system_error &e)
         {
             _assert_ss << "[EXCEPTION] in test " << _name << ": Thrust failure: " << std::string(e.what());
             set_failed();
         }
-        catch (thrust::system::detail::bad_alloc &e)
+        catch (amgx::thrust::system::detail::bad_alloc &e)
         {
             _assert_ss << "[EXCEPTION] in test " << _name << ": Not enough memory for thrust call: " << std::string(e.what());
             set_failed();

@@ -890,7 +890,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     cusp::detail::offsets_to_indices(A.row_offsets, row_indices);
     IndexType total_rows = (A.is_matrix_singleGPU()) ? A.get_num_rows() : A.manager->num_rows_all();
     aggregates.resize(total_rows);
-    thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    amgx::thrust::fill(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
 
     if ( this->merge_singletons == 2 && sizes.size() == 0 )
@@ -929,7 +929,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 
     ValueType *edge_weights_ptr = edge_weights.raw();
     ValueType *rand_edge_weights_ptr = NULL;
-    cudaStream_t str = thrust::global_thread_handle::get_stream();
+    cudaStream_t str = amgx::thrust::global_thread_handle::get_stream();
 
     // Compute the edge weights
     if ( computeWeights )
@@ -1085,7 +1085,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 #else
                 cudaStreamSynchronize(str);
                 numUnassigned_previous = numUnassigned;
-                numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
+                numUnassigned = (int)amgx::thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
                 cudaCheckError();
 #endif
                 icount++;
@@ -1112,7 +1112,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
             {
                 mergeWithExistingAggregatesBlockDiaCsr_V2 <<< num_blocks, threads_per_block, 0, str>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, aggregates_ptr, A.get_block_dimy(), this->deterministic, (IndexType *) NULL);
                 cudaCheckError();
-                numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
+                numUnassigned = (int)amgx::thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
                 cudaCheckError();
             }
         }
@@ -1126,7 +1126,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 cudaCheckError();
                 joinExistingAggregates <<< num_blocks, threads_per_block, 0, str>>>(num_block_rows, aggregates_ptr, aggregates_candidate.raw());
                 cudaCheckError();
-                numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
+                numUnassigned = (int)amgx::thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
                 cudaCheckError();
             }
 
@@ -1570,7 +1570,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
         //for mergeAggregates kernel
         const int threads_per_block = 256;
         const int num_blocks = min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
-        cudaStream_t stream = thrust::global_thread_handle::get_stream();
+        cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
         //initialize and prepare weight matrix
         Matrix<TConfig> w;
         w.set_initialized(0);
@@ -1716,9 +1716,9 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
                 IVector R_row_indices(aggregates_current);
                 R_row_offsets.resize(num_aggregates + 2);
                 R_col_indices.resize(numRows);
-                thrust::sequence(R_col_indices.begin(), R_col_indices.end());
+                amgx::thrust::sequence(R_col_indices.begin(), R_col_indices.end());
                 cudaCheckError();
-                thrust::sort_by_key(R_row_indices.begin(), R_row_indices.end(), R_col_indices.begin());
+                amgx::thrust::sort_by_key(R_row_indices.begin(), R_row_indices.end(), R_col_indices.begin());
                 cudaCheckError();
                 cusp::detail::indices_to_offsets(R_row_indices, R_row_offsets);
                 cudaCheckError();

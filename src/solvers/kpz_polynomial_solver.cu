@@ -123,13 +123,13 @@ KPZPolynomialSolver<T_Config>::solver_setup(bool reuse_matrix_structure)
     Matrix<T_Config>  AT_csr; // Generic Matrix is a device-side scalar csr format
     transpose( *this->m_explicit_A, AT_csr );
     // Compute the sums of columns and perform the reduction. TODO: try segmented sum then reduction.
-    thrust::counting_iterator<typename Matrix<T_Config>::index_type, typename Matrix<T_Config>::memory_space> it( 0 );
-    l_inf = thrust::transform_reduce(
+    amgx::thrust::counting_iterator<typename Matrix<T_Config>::index_type, typename Matrix<T_Config>::memory_space> it( 0 );
+    l_inf = amgx::thrust::transform_reduce(
                 it,
                 it + this->m_explicit_A->get_num_rows(),
                 detail::row_sum<Matrix<T_Config> >( (int *) AT_csr.row_offsets.raw(), AT_csr.values.raw() ),
                 ValueTypeA( 0 ),
-                thrust::maximum<ValueTypeA>( ) );
+                amgx::thrust::maximum<ValueTypeA>( ) );
     cudaCheckError();
 }
 

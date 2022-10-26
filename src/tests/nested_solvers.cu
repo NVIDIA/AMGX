@@ -97,10 +97,10 @@ void run()
     x.set_block_dimx(bsize);
     // Fill b
     b.resize(n_rows);
-    thrust::fill(b.begin(), b.end(), 1.);
+    amgx::thrust::fill(b.begin(), b.end(), 1.);
     // Initialize x
     x.resize(n_rows);
-    thrust::fill(x.begin(), x.end(), 0.);
+    amgx::thrust::fill(x.begin(), x.end(), 0.);
     // Copy to device if necessary
     MatrixA A_hd;
     VVector x_ini_hd, x_fin_inside_hd, x_fin_outside_hd, b_hd, r_hd;

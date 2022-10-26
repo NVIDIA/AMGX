@@ -697,7 +697,7 @@ void MatrixAnalysis<T_Config>::aggregatesQuality2(const typename Matrix<T_Config
         if (agg_list[agg].size() > 0)
         {
             std::vector<int> clusters(agg_list[agg].size());
-            thrust::sequence(clusters.begin(), clusters.end());
+            amgx::thrust::sequence(clusters.begin(), clusters.end());
 
             for (int iter = 0; iter < clusters.size(); iter++)
             {

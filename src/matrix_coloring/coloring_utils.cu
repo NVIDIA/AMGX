@@ -46,22 +46,22 @@ namespace amgx
 
 void coloring_histogram(int *out_hist_host, int num_rows, int max_color, int *row_colors)
 {
-    thrust::device_ptr<int> data(row_colors);
+    amgx::thrust::device_ptr<int> data(row_colors);
 
     if (false) //TODO: enable, since almost always faster
     {
         device_vector_alloc<int> histogram(num_rows);
         thrust_wrapper::sort(data, data + num_rows);
         cudaCheckError();
-        thrust::counting_iterator<int> search_begin(0);
-        thrust::upper_bound(data, data + num_rows,
+        amgx::thrust::counting_iterator<int> search_begin(0);
+        amgx::thrust::upper_bound(data, data + num_rows,
                             search_begin, search_begin + num_rows,
                             histogram.begin());
         cudaCheckError();
-        thrust::adjacent_difference(histogram.begin(), histogram.end(), histogram.begin());
+        amgx::thrust::adjacent_difference(histogram.begin(), histogram.end(), histogram.begin());
         cudaCheckError();
-        thrust::host_vector<int> h(max_color + 1);
-        thrust::copy(histogram.begin(), histogram.begin() + max_color + 1, h.begin());
+        amgx::thrust::host_vector<int> h(max_color + 1);
+        amgx::thrust::copy(histogram.begin(), histogram.begin() + max_color + 1, h.begin());
         cudaCheckError();
 
         for (int i = 0; i <= max_color; i++)
@@ -73,7 +73,7 @@ void coloring_histogram(int *out_hist_host, int num_rows, int max_color, int *ro
     {
         for (int i = 0; i <= max_color; i++)
         {
-            out_hist_host[i] = thrust::count(data, data + num_rows, i);
+            out_hist_host[i] = amgx::thrust::count(data, data + num_rows, i);
         }
 
         cudaCheckError();
@@ -122,10 +122,10 @@ int reverse_colors(int num_rows, int max_color, int *row_colors)
 
 int eliminate_null_colors(int num_rows, int max_color, int *row_colors)
 {
-    thrust::host_vector<int> hist(max_color + 1, 0);
-    thrust::host_vector<int> perm(max_color + 1, 0);
+    amgx::thrust::host_vector<int> hist(max_color + 1, 0);
+    amgx::thrust::host_vector<int> perm(max_color + 1, 0);
     device_vector_alloc<int> perm_d(max_color + 1, 0);
-    coloring_histogram(thrust::raw_pointer_cast(hist.data()), num_rows, max_color, row_colors);
+    coloring_histogram(amgx::thrust::raw_pointer_cast(hist.data()), num_rows, max_color, row_colors);
     int nonempty_color = 1;
 
     for (int i = 1; i <= max_color; i++) //0 is blank
@@ -138,16 +138,16 @@ int eliminate_null_colors(int num_rows, int max_color, int *row_colors)
 
     perm_d = perm;
     const int GRID_SIZE_1 = std::min( 2048, (num_rows + 256 - 1) / 256 );
-    permute_colors_kernel <<< GRID_SIZE_1, 256>>>(num_rows, row_colors, thrust::raw_pointer_cast(perm_d.data()));
+    permute_colors_kernel <<< GRID_SIZE_1, 256>>>(num_rows, row_colors, amgx::thrust::raw_pointer_cast(perm_d.data()));
     cudaCheckError();
     return nonempty_color - 1;
 }
 int reorder_colors_by_frequency(int num_rows, int max_color, int *row_colors)
 {
-    thrust::host_vector<int> hist(max_color + 1, 0);
-    thrust::host_vector<int> perm(max_color + 1, 0);
+    amgx::thrust::host_vector<int> hist(max_color + 1, 0);
+    amgx::thrust::host_vector<int> perm(max_color + 1, 0);
     device_vector_alloc<int> perm_d(max_color + 1, 0);
-    coloring_histogram(thrust::raw_pointer_cast(hist.data()), num_rows, max_color, row_colors);
+    coloring_histogram(amgx::thrust::raw_pointer_cast(hist.data()), num_rows, max_color, row_colors);
     int nonempty_color = 1;
 
     for (int i = 1; i <= max_color; i++) //0 is blank
@@ -160,7 +160,7 @@ int reorder_colors_by_frequency(int num_rows, int max_color, int *row_colors)
 
     perm_d = perm;
     const int GRID_SIZE_1 = std::min( 2048, (num_rows + 256 - 1) / 256 );
-    permute_colors_kernel <<< GRID_SIZE_1, 256>>>(num_rows, row_colors, thrust::raw_pointer_cast(perm_d.data()));
+    permute_colors_kernel <<< GRID_SIZE_1, 256>>>(num_rows, row_colors, amgx::thrust::raw_pointer_cast(perm_d.data()));
     cudaCheckError();
     return nonempty_color - 1;
     //return 0;

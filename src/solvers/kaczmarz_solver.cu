@@ -77,8 +77,8 @@ template <class Vector>
 void initRandom(Vector &vec, int size, int max_int)
 {
     vec.resize(size);
-    thrust::counting_iterator<unsigned int> index_sequence_begin(0);
-    thrust::transform(index_sequence_begin,
+    amgx::thrust::counting_iterator<unsigned int> index_sequence_begin(0);
+    amgx::thrust::transform(index_sequence_begin,
                       index_sequence_begin + size,
                       vec.begin(),
                       prg(max_int));
@@ -556,8 +556,8 @@ KaczmarzSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
 
         double d_inv = this->m_an[0];
         int c_sz = this->m_an.size();
-        d_inv = thrust::reduce(this->m_an.begin(), this->m_an.end(), d_inv, thrust::minimum<ValueTypeA>());
-        thrust::inclusive_scan(this->m_an.begin(), this->m_an.end(), this->m_an.begin()); // in-place scan
+        d_inv = amgx::thrust::reduce(this->m_an.begin(), this->m_an.end(), d_inv, amgx::thrust::minimum<ValueTypeA>());
+        amgx::thrust::inclusive_scan(this->m_an.begin(), this->m_an.end(), this->m_an.begin()); // in-place scan
         int c_inv_sz = (this->m_an[c_sz - 1] + d_inv - 1 ) / d_inv;
         this->m_c_inv.resize(c_inv_sz, -1);
         const size_t THREADS_PER_BLOCK  = 128;

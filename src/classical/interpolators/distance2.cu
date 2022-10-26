@@ -501,14 +501,14 @@ void Distance2_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     }
 
     // get the offsets with an exclusive scan
-    thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    amgx::thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[A.get_num_rows()] = nonZeros;
     // resize P
     P.addProps(CSR);
     P.resize(A.get_num_rows(), coarsePoints, nonZeros, 1);
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // main loop
     int outerOffset = 0, innerOffset;
@@ -2186,7 +2186,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     IndexType *Pcolumn_indices = P.col_indices.raw();
     ValueType *Pvalues = P.values.raw();
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // grab the diagonal terms
     VVector diag(size_one_ring);

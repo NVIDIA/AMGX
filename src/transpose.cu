@@ -156,7 +156,7 @@ void transpose(const Matrix &A, Matrix &B, int num_rows)
 
     if (types::util<ValueTypeA>::is_complex)
     {
-        thrust::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
+        amgx::thrust::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
     }
 
     B.set_initialized(1);

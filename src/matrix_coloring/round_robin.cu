@@ -111,20 +111,20 @@ void RoundRobinMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, 
 
     // Copy row colors
     IVector row_colors(num_owned_rows);
-    thrust::copy(A.row_colors.begin(), A.row_colors.begin()+num_owned_rows, row_colors.begin());
+    amgx::thrust::copy(A.row_colors.begin(), A.row_colors.begin()+num_owned_rows, row_colors.begin());
 
-    thrust::sequence(A.sorted_rows_by_color.begin(),A.sorted_rows_by_color.end());
-    thrust::sort_by_key(row_colors.begin(),row_colors.end(),A.sorted_rows_by_color.begin());
+    amgx::thrust::sequence(A.sorted_rows_by_color.begin(),A.sorted_rows_by_color.end());
+    amgx::thrust::sort_by_key(row_colors.begin(),row_colors.end(),A.sorted_rows_by_color.begin());
     cudaCheckError();
 
     // Compute the offset for each color
     IVector d_offsets_rows_per_color(A.num_colors+1);
     A.offsets_rows_per_color.resize(A.num_colors+1);
 
-    thrust::lower_bound(row_colors.begin(),
+    amgx::thrust::lower_bound(row_colors.begin(),
                         row_colors.end(),
-                         thrust::counting_iterator<IndexType>(0),
-                         thrust::counting_iterator<IndexType>(d_offsets_rows_per_color.size()),
+                        amgx::thrust::counting_iterator<IndexType>(0),
+                         amgx::thrust::counting_iterator<IndexType>(d_offsets_rows_per_color.size()),
                          d_offsets_rows_per_color.begin());
 
     cudaCheckError();

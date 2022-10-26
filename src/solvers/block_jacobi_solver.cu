@@ -60,10 +60,10 @@ struct jacobi_postsmooth_functor
     jacobi_postsmooth_functor( double omega ) : omega( omega ) {}
     template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeA d = thrust::get<1>(t);
-        ValueTypeB b = thrust::get<2>(t);
-        ValueTypeB y = thrust::get<3>(t);
+        ValueTypeB x = amgx::thrust::get<0>(t);
+        ValueTypeA d = amgx::thrust::get<1>(t);
+        ValueTypeB b = amgx::thrust::get<2>(t);
+        ValueTypeB y = amgx::thrust::get<3>(t);
         // return x + omega * (b - y) / d.
         d = isNotCloseToZero(d) ? d :  epsilon(d);
         d = types::util<ValueTypeA>::get_one() / d;
@@ -895,7 +895,7 @@ BlockJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool 
     {
         if (xIsZero)
         {
-            thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+            amgx::thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
             cudaCheckError();
         }
 
@@ -971,7 +971,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     if ( A_as_matrix->hasProps(DIAG) )
     {
         const int num_values = A_as_matrix->diagOffset() * A_as_matrix->get_block_size();
-        thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
+        amgx::thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
         cudaCheckError();
     }
     else
@@ -1330,8 +1330,8 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     this->y.dirtybit = 0;
     multiply( A, x, this->y, separation_flags );
-    thrust::transform( thrust::make_zip_iterator(thrust::make_tuple( x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
-                       thrust::make_zip_iterator(thrust::make_tuple( x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(),   this->y.begin() + A.get_num_rows())),
+    amgx::thrust::transform( amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple( x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
+                       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple( x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(),   this->y.begin() + A.get_num_rows())),
                        x.begin() + offset,
                        jacobi_postsmooth_functor<ValueTypeA, ValueTypeB>( this->weight ));
     cudaCheckError();
@@ -1357,7 +1357,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     int num_rows = A.get_num_rows();
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    thrust::transform( b.begin( ) + offset,
+    amgx::thrust::transform( b.begin( ) + offset,
                        b.begin( ) + A.get_num_rows(),
                        this->Dinv.begin( ) + offset,
                        x.begin( ) + offset,
@@ -1381,7 +1381,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
         this->y.set_block_dimy(b.get_block_dimy());
     }
 
-    thrust::copy(b.begin(), b.end(), this->y.begin()); // copy of vector b
+    amgx::thrust::copy(b.begin(), b.end(), this->y.begin()); // copy of vector b
     cudaCheckError();
     Cusparse::bsrmv(types::util<ValueTypeB>::get_minus_one(), A, x, types::util<ValueTypeB>::get_one(), this->y, separation_flags);         // y= -1.0f*(A.x) + y
     cudaCheckError();

@@ -57,10 +57,10 @@ struct jacobi_postsmooth_functor
     __host__ __device__
     ValueType operator()(const Tuple& t)
     {
-        const ValueType x = thrust::get<0>(t);
-        const ValueType d = thrust::get<1>(t);
-        const ValueType b = thrust::get<2>(t);
-        const ValueType y = thrust::get<3>(t);
+        const ValueType x = amgx::thrust::get<0>(t);
+        const ValueType d = amgx::thrust::get<1>(t);
+        const ValueType b = amgx::thrust::get<2>(t);
+        const ValueType y = amgx::thrust::get<3>(t);
 
         return x + omega * (b - y) / d;
     }
@@ -109,8 +109,8 @@ template<typename MatrixType, typename VectorType1, typename VectorType2>
         cusp::multiply(A, x, temp);
         
         // x <- x + omega * D^-1 * (b - y)
-        thrust::transform(thrust::make_zip_iterator(thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
-                          thrust::make_zip_iterator(thrust::make_tuple(x.end(),   diagonal.end(),   b.end(),   temp.end())),
+        amgx::thrust::transform(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
+                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.end(),   diagonal.end(),   b.end(),   temp.end())),
                           x.begin(),
                           detail::jacobi_postsmooth_functor<ValueType>(omega));
     }
@@ -123,7 +123,7 @@ template<typename MatrixType, typename VectorType1, typename VectorType2>
         CUSP_PROFILE_SCOPED();
         
         // x <- omega * D^-1 * b 
-        thrust::transform(b.begin(), b.end(),
+        amgx::thrust::transform(b.begin(), b.end(),
                           diagonal.begin(),
                           x.begin(),
                           detail::jacobi_presmooth_functor<ValueType>(default_omega));
@@ -140,8 +140,8 @@ template<typename MatrixType, typename VectorType1, typename VectorType2>
         cusp::multiply(A, x, temp);
         
         // x <- x + omega * D^-1 * (b - y)
-        thrust::transform(thrust::make_zip_iterator(thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
-                          thrust::make_zip_iterator(thrust::make_tuple(x.end(),   diagonal.end(),   b.end(),   temp.end())),
+        amgx::thrust::transform(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
+                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.end(),   diagonal.end(),   b.end(),   temp.end())),
                           x.begin(),
                           detail::jacobi_postsmooth_functor<ValueType>(default_omega));
     }

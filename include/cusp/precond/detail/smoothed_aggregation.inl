@@ -74,14 +74,14 @@ double estimate_rho_Dinv_A(const MatrixType& A)
 
 
 template <typename T>
-struct square : thrust::unary_function<T,T>
+struct square : amgx::thrust::unary_function<T,T>
 {
     __host__ __device__
     T operator()(const T& x) { return x * x; }
 };
 
 template <typename T>
-struct sqrt_functor : thrust::unary_function<T,T>
+struct sqrt_functor : amgx::thrust::unary_function<T,T>
 {
     __host__ __device__
     T operator()(const T& x) { return sqrt(x); }
@@ -98,16 +98,16 @@ void fit_candidates(const Array1& aggregates,
 {
   CUSP_PROFILE_SCOPED();
   // TODO handle case w/ unaggregated nodes (marked w/ -1)
-  IndexType num_aggregates = *thrust::max_element(aggregates.begin(), aggregates.end()) + 1;
+  IndexType num_aggregates = *amgx::thrust::max_element(aggregates.begin(), aggregates.end()) + 1;
 
   cusp::coo_matrix<IndexType,ValueType,cusp::host_memory> Q;
   Q.resize(aggregates.size(), num_aggregates, aggregates.size());
   R.resize(num_aggregates);
 
   // gather values into Q
-  thrust::sequence(Q.row_indices.begin(), Q.row_indices.end());
-  thrust::copy(aggregates.begin(), aggregates.end(), Q.column_indices.begin());
-  thrust::copy(B.begin(), B.end(), Q.values.begin());
+  amgx::thrust::sequence(Q.row_indices.begin(), Q.row_indices.end());
+  amgx::thrust::copy(aggregates.begin(), aggregates.end(), Q.column_indices.begin());
+  amgx::thrust::copy(B.begin(), B.end(), Q.values.begin());
                         
   // compute norm over each aggregate
   {
@@ -116,24 +116,24 @@ void fit_candidates(const Array1& aggregates,
 
     // compute sum of squares for each column of Q (rows of Qt)
     cusp::array1d<IndexType, cusp::host_memory> temp(num_aggregates);
-    thrust::reduce_by_key(Qt.row_indices.begin(), Qt.row_indices.end(),
-                          thrust::make_transform_iterator(Qt.values.begin(), square<ValueType>()),
+    amgx::thrust::reduce_by_key(Qt.row_indices.begin(), Qt.row_indices.end(),
+                          amgx::thrust::make_transform_iterator(Qt.values.begin(), square<ValueType>()),
                           temp.begin(),
                           R.begin());
 
     // compute square root of each column sum
-    thrust::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
+    amgx::thrust::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
   }
 
   Q_.resize(Q.num_rows, Q.num_cols, Q.num_entries);
-  thrust::copy(Q.column_indices.begin(), Q.column_indices.end(), Q_.column_indices.begin());
+  amgx::thrust::copy(Q.column_indices.begin(), Q.column_indices.end(), Q_.column_indices.begin());
   cusp::detail::indices_to_offsets(Q.row_indices, Q_.row_offsets);
 
   // rescale columns of Q
-  thrust::transform(Q.values.begin(), Q.values.end(),
-                    thrust::make_permutation_iterator(R.begin(), Q.column_indices.begin()),
+  amgx::thrust::transform(Q.values.begin(), Q.values.end(),
+                    amgx::thrust::make_permutation_iterator(R.begin(), Q.column_indices.begin()),
                     Q_.values.begin(),
-                    thrust::divides<ValueType>());
+                    amgx::thrust::divides<ValueType>());
 }
 
 template <typename Array1,
@@ -147,15 +147,15 @@ void fit_candidates(const Array1& aggregates,
 {
   CUSP_PROFILE_SCOPED();
   // TODO handle case w/ unaggregated nodes (marked w/ -1)
-  IndexType num_aggregates = *thrust::max_element(aggregates.begin(), aggregates.end()) + 1;
+  IndexType num_aggregates = *amgx::thrust::max_element(aggregates.begin(), aggregates.end()) + 1;
 
   Q.resize(aggregates.size(), num_aggregates, aggregates.size());
   R.resize(num_aggregates);
 
   // gather values into Q
-  thrust::sequence(Q.row_indices.begin(), Q.row_indices.end());
-  thrust::copy(aggregates.begin(), aggregates.end(), Q.column_indices.begin());
-  thrust::copy(B.begin(), B.end(), Q.values.begin());
+  amgx::thrust::sequence(Q.row_indices.begin(), Q.row_indices.end());
+  amgx::thrust::copy(aggregates.begin(), aggregates.end(), Q.column_indices.begin());
+  amgx::thrust::copy(B.begin(), B.end(), Q.values.begin());
                         
   // compute norm over each aggregate
   {
@@ -164,20 +164,20 @@ void fit_candidates(const Array1& aggregates,
 
     // compute sum of squares for each column of Q (rows of Qt)
     cusp::array1d<IndexType, cusp::device_memory> temp(num_aggregates);
-    thrust::reduce_by_key(Qt.row_indices.begin(), Qt.row_indices.end(),
-                          thrust::make_transform_iterator(Qt.values.begin(), square<ValueType>()),
+    amgx::thrust::reduce_by_key(Qt.row_indices.begin(), Qt.row_indices.end(),
+                          amgx::thrust::make_transform_iterator(Qt.values.begin(), square<ValueType>()),
                           temp.begin(),
                           R.begin());
 
     // compute square root of each column sum
-    thrust::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
+    amgx::thrust::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
   }
 
   // rescale columns of Q
-  thrust::transform(Q.values.begin(), Q.values.end(),
-                    thrust::make_permutation_iterator(R.begin(), Q.column_indices.begin()),
+  amgx::thrust::transform(Q.values.begin(), Q.values.end(),
+                    amgx::thrust::make_permutation_iterator(R.begin(), Q.column_indices.begin()),
                     Q.values.begin(),
-                    thrust::divides<ValueType>());
+                    amgx::thrust::divides<ValueType>());
 }
 
 template <typename Matrix>

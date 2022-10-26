@@ -518,7 +518,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     int *scratch_ptr = scratch.raw();
     IVector mark(cf_map.size());
     // do the initial marking of points
-    thrust::fill(mark.begin(), mark.end(), 0);
+    amgx::thrust::fill(mark.begin(), mark.end(), 0);
     cudaCheckError();
 
     if (numRows > 0)
@@ -586,7 +586,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             }
             else
             {
-                thrust::copy(cf_map.begin(), cf_map.begin() + one_ring_size, scratch.begin());
+                amgx::thrust::copy(cf_map.begin(), cf_map.begin() + one_ring_size, scratch.begin());
                 cudaCheckError();
             }
 

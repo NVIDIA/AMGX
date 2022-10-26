@@ -265,7 +265,7 @@ void run()
     solver.setup(A_d, false);
     const int n = A_h.get_num_rows();
     Vector_d b_d(n), x_d(n), r_d(n);
-    thrust::fill(b_d.begin(), b_d.end(), Matrix_data(1));
+    amgx::thrust::fill(b_d.begin(), b_d.end(), Matrix_data(1));
     solver.solve(b_d, x_d, false);
     solver.compute_residual(b_d, x_d, r_d);
     Vector_h resid_nrm(1);

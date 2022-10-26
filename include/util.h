@@ -150,7 +150,7 @@ void printDenseNRows(const Matrix<TConfig> &A, int num_rows)
 {
     typedef typename TConfig::MatPrec ValueTypeA;
     int num_cols = -1;
-    num_cols = thrust::reduce(A.col_indices.begin(), A.col_indices.end(), num_cols, thrust::maximum<int>()) + 1;
+    num_cols = amgx::thrust::reduce(A.col_indices.begin(), A.col_indices.end(), num_cols, amgx::thrust::maximum<int>()) + 1;
     cudaCheckError();
 
     for (int i = 0; i < num_rows; i++)
@@ -219,7 +219,7 @@ void printDense(const Matrix<TConfig> &A)
 {
     typedef typename TConfig::MatPrec ValueTypeA;
     int num_cols = -1;
-    num_cols = thrust::reduce(A.col_indices.begin(), A.col_indices.end(), num_cols, thrust::maximum<int>()) + 1;
+    num_cols = amgx::thrust::reduce(A.col_indices.begin(), A.col_indices.end(), num_cols, amgx::thrust::maximum<int>()) + 1;
     cudaCheckError();
 
     for (int i = 0; i < A.get_num_rows(); i++)

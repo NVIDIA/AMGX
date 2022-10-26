@@ -144,8 +144,8 @@ void run()
             const IndexType *row_colors_ptr = A.getMatrixColoring().getRowColors().raw();
             CheckColoringVC<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, A.getMatrixColoring().getColoringLevel());
             IndexType num_bad =
-                thrust::transform_reduce(thrust::counting_iterator<IndexType>(0), thrust::counting_iterator<IndexType>(A.get_num_rows()),
-                                         checker, (IndexType)0, thrust::plus<IndexType>());
+                amgx::thrust::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A.get_num_rows()),
+                                         checker, (IndexType)0, amgx::thrust::plus<IndexType>());
             //printf("Num bad %s-%d = %d\n", coloring_configs[k].c_str(), i, num_bad);
             UNITTEST_ASSERT_EQUAL_DESC("No invalid rows", num_bad, 0);
             //delete coloring;

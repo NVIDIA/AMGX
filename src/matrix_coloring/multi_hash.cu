@@ -282,7 +282,7 @@ void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     // One thread per row
     const int num_rows = A.get_num_rows();
     int max_uncolored_rows = (int) (this->m_uncolored_fraction * ((ValueType) num_rows));
-    thrust::fill(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, -1);
+    amgx::thrust::fill(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, -1);
     cudaCheckError();
     const IndexType *A_row_offsets_ptr    = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
@@ -412,17 +412,17 @@ void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
             cudaCheckError();
             seed = hash(seed, 0);
             next_color += 2 * this->num_hash;
-            num_uncolored = (int) thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_less_than_zero() );
+            num_uncolored = (int) amgx::thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_less_than_zero() );
             cudaCheckError();
         }
     }
     else
     {
-        thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
+        amgx::thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
         cudaCheckError();
     }
 
-    this->m_num_colors = *thrust::max_element(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows) + 1;
+    this->m_num_colors = *amgx::thrust::max_element(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows) + 1;
     cudaCheckError();
 }
 

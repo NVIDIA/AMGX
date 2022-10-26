@@ -3897,7 +3897,7 @@ MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bo
 
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+        amgx::thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
     }
 
@@ -3988,7 +3988,7 @@ void MulticolorDILUSolver<TemplateConfig<AMGX_device, V, M, I> >::computeEinv_Nx
 
         const int ROWS_PER_CTA = ROWS_PER_WARP * NUM_WARPS_PER_CTA;
         const int GRID_SIZE = std::min( 4096, (num_rows_per_color + ROWS_PER_CTA - 1) / ROWS_PER_CTA );
-        cudaStream_t stream = thrust::global_thread_handle::get_stream();
+        cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
 
         switch ( bsize )
         {

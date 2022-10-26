@@ -153,28 +153,28 @@ template <class T_Config>
 bool compz (typename GEO_SelectorBase<T_Config>::p3d i, typename GEO_SelectorBase<T_Config>::p3d j) { return (i.z < j.z); }
 
 template <typename Tuple, typename GeoType, typename IndexType>
-struct reduce_functor2 : public thrust::binary_function< Tuple, Tuple, Tuple >
+struct reduce_functor2 : public amgx::thrust::binary_function< Tuple, Tuple, Tuple >
 {
     __host__ __device__
     Tuple operator()(const Tuple x, const Tuple y)
     {
-        return thrust::make_tuple(thrust::get<0>(x) + thrust::get<0>(y),
-                                  thrust::get<1>(x) + thrust::get<1>(y),
-                                  thrust::get<2>(x) + thrust::get<2>(y)
+        return amgx::thrust::make_tuple(amgx::thrust::get<0>(x) + amgx::thrust::get<0>(y),
+                                  amgx::thrust::get<1>(x) + amgx::thrust::get<1>(y),
+                                  amgx::thrust::get<2>(x) + amgx::thrust::get<2>(y)
                                  );
     }
 };
 
 template <typename Tuple, typename GeoType, typename IndexType>
-struct reduce_functor3 : public thrust::binary_function< Tuple, Tuple, Tuple >
+struct reduce_functor3 : public amgx::thrust::binary_function< Tuple, Tuple, Tuple >
 {
     __host__ __device__
     Tuple operator()(const Tuple x, const Tuple y)
     {
-        return thrust::make_tuple(thrust::get<0>(x) + thrust::get<0>(y),
-                                  thrust::get<1>(x) + thrust::get<1>(y),
-                                  thrust::get<2>(x) + thrust::get<2>(y),
-                                  thrust::get<3>(x) + thrust::get<3>(y)
+        return amgx::thrust::make_tuple(amgx::thrust::get<0>(x) + amgx::thrust::get<0>(y),
+                                  amgx::thrust::get<1>(x) + amgx::thrust::get<1>(y),
+                                  amgx::thrust::get<2>(x) + amgx::thrust::get<2>(y),
+                                  amgx::thrust::get<3>(x) + amgx::thrust::get<3>(y)
                                  );
     }
 };
@@ -215,28 +215,28 @@ void GEO_SelectorBase<T_Config>::interpolateGeoinfo( Matrix<T_Config> &A )
 
     if (this->dimension == 2)
     {
-        thrust::sort_by_key(cur_geo_idx.begin(), cur_geo_idx.end(), thrust::make_zip_iterator(thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin())));
-        thrust::reduce_by_key(
+        amgx::thrust::sort_by_key(cur_geo_idx.begin(), cur_geo_idx.end(), amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin())));
+        amgx::thrust::reduce_by_key(
             cur_geo_idx.begin(),
             cur_geo_idx.end(),
-            thrust::make_zip_iterator(thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin(), v_counter.begin())),
+            amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin(), v_counter.begin())),
             r_coord.begin(),
-            thrust::make_zip_iterator(thrust::make_tuple(ngeo_x.begin(), ngeo_y.begin(), v_new_counter.begin())),
-            thrust::equal_to<int>(),
-            reduce_functor2< thrust::tuple< ValueType, ValueType, IndexType>, ValueType, IndexType > ()
+            amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(ngeo_x.begin(), ngeo_y.begin(), v_new_counter.begin())),
+            amgx::thrust::equal_to<int>(),
+            reduce_functor2< amgx::thrust::tuple< ValueType, ValueType, IndexType>, ValueType, IndexType > ()
         );
     }
     else
     {
-        thrust::sort_by_key(cur_geo_idx.begin(), cur_geo_idx.end(), thrust::make_zip_iterator(thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin(), this->cord_z->begin())));
-        thrust::reduce_by_key(
+        amgx::thrust::sort_by_key(cur_geo_idx.begin(), cur_geo_idx.end(), amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin(), this->cord_z->begin())));
+        amgx::thrust::reduce_by_key(
             cur_geo_idx.begin(),
             cur_geo_idx.end(),
-            thrust::make_zip_iterator(thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin(), this->cord_z->begin(), v_counter.begin())),
+            amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(this->cord_x->begin(), this->cord_y->begin(), this->cord_z->begin(), v_counter.begin())),
             r_coord.begin(),
-            thrust::make_zip_iterator(thrust::make_tuple(ngeo_x.begin(), ngeo_y.begin(), ngeo_z.begin(), v_new_counter.begin())),
-            thrust::equal_to<int>(),
-            reduce_functor3< thrust::tuple< ValueType, ValueType, ValueType, IndexType>, ValueType, IndexType > ()
+            amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(ngeo_x.begin(), ngeo_y.begin(), ngeo_z.begin(), v_new_counter.begin())),
+            amgx::thrust::equal_to<int>(),
+            reduce_functor3< amgx::thrust::tuple< ValueType, ValueType, ValueType, IndexType>, ValueType, IndexType > ()
         );
     }
 
@@ -256,7 +256,7 @@ void GEO_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     //initialize the aggregates vector
     int n = A.get_num_rows();
     aggregates.resize(n);
-    thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    amgx::thrust::fill(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
     int nlevel;
 
@@ -268,7 +268,7 @@ void GEO_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     const int threads_per_block = 512;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (n - 1) / threads_per_block + 1 );
     // generate aggregation index in 1d
-    IndexType *aggregation_ptr = thrust::raw_pointer_cast(&aggregates[0]);
+    IndexType *aggregation_ptr = amgx::thrust::raw_pointer_cast(&aggregates[0]);
 
     if (A.hasParameter("uniform_based"))
     {
@@ -309,15 +309,15 @@ void GEO_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
         }
 
         //Find the boundary coordinates
-        this->xmax = *thrust::max_element(geo_ptrs[0]->begin(), geo_ptrs[0]->end());
-        this->xmin = *thrust::min_element(geo_ptrs[0]->begin(), geo_ptrs[0]->end());
-        this->ymax = *thrust::max_element(geo_ptrs[1]->begin(), geo_ptrs[1]->end());
-        this->ymin = *thrust::min_element(geo_ptrs[1]->begin(), geo_ptrs[1]->end());
+        this->xmax = *amgx::thrust::max_element(geo_ptrs[0]->begin(), geo_ptrs[0]->end());
+        this->xmin = *amgx::thrust::min_element(geo_ptrs[0]->begin(), geo_ptrs[0]->end());
+        this->ymax = *amgx::thrust::max_element(geo_ptrs[1]->begin(), geo_ptrs[1]->end());
+        this->ymin = *amgx::thrust::min_element(geo_ptrs[1]->begin(), geo_ptrs[1]->end());
 
         if (this->dimension == 3)
         {
-            this->zmax = *thrust::max_element(geo_ptrs[2]->begin(), geo_ptrs[2]->end());
-            this->zmin = *thrust::min_element(geo_ptrs[2]->begin(), geo_ptrs[2]->end());
+            this->zmax = *amgx::thrust::max_element(geo_ptrs[2]->begin(), geo_ptrs[2]->end());
+            this->zmin = *amgx::thrust::min_element(geo_ptrs[2]->begin(), geo_ptrs[2]->end());
         }
 
         cudaCheckError();

@@ -563,7 +563,7 @@ void LocallyDownwindColoringBase<TConfig>::colorMatrixUsingAggregates(Matrix<TCo
         const int num_blocks = (numAggregates - 1) / threads_per_block + 1;
         const int smem_size = max_aggregate_size * threads_per_block * sizeof(IndexType);
         this->m_row_colors.resize( numRows );
-        thrust::fill( this->m_row_colors.begin(), this->m_row_colors.end(), -1 );
+        amgx::thrust::fill( this->m_row_colors.begin(), this->m_row_colors.end(), -1 );
         cudaCheckError();
         std::cout << "start coloring kernel" << std::endl;
         locally_downwind_kernels::traverse <<< num_blocks, threads_per_block, smem_size>>>( A.row_offsets.raw(),
@@ -578,7 +578,7 @@ void LocallyDownwindColoringBase<TConfig>::colorMatrixUsingAggregates(Matrix<TCo
                 blocksize);
         cudaDeviceSynchronize();
         cudaCheckError();
-        std::cout << "uncolored nodes: " << thrust::count( this->m_row_colors.begin(), this->m_row_colors.end(), -1 ) << std::endl;
+        std::cout << "uncolored nodes: " << amgx::thrust::count( this->m_row_colors.begin(), this->m_row_colors.end(), -1 ) << std::endl;
     }
     else
     {

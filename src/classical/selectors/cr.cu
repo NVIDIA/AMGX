@@ -64,8 +64,8 @@ struct prg
     __host__ __device__
     float operator()(const unsigned int n) const
     {
-        thrust::default_random_engine rng;
-        thrust::uniform_real_distribution<float> dist(a, b);
+        amgx::thrust::default_random_engine rng;
+        amgx::thrust::uniform_real_distribution<float> dist(a, b);
         rng.discard(n);
         return dist(rng);
     }
@@ -77,8 +77,8 @@ template <class Vector>
 void initRandom(Vector &vec)
 {
     const unsigned int size = vec.size();
-    thrust::counting_iterator<unsigned int> index_sequence_begin(0);
-    thrust::transform(index_sequence_begin, index_sequence_begin + size,
+    amgx::thrust::counting_iterator<unsigned int> index_sequence_begin(0);
+    amgx::thrust::transform(index_sequence_begin, index_sequence_begin + size,
                       vec.begin(), prg(0.f, 1.f));
 }
 
@@ -406,18 +406,18 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Compute 'energy norm' of v_u (normalize error before smoothing)
     // v_tmp = diag(Aff).*v_u
-    thrust::transform(AdiagValues.begin(), AdiagValues.end(),
+    amgx::thrust::transform(AdiagValues.begin(), AdiagValues.end(),
                       v_u.begin(), v_tmp.begin(),
-                      thrust::multiplies<ValueTypeB>());
+                      amgx::thrust::multiplies<ValueTypeB>());
     cudaCheckError();
     // norm0 = sqrt(v_tmp' * v_u)
-    norm0 = sqrt( thrust::inner_product(v_u.begin(), v_u.end(),
+    norm0 = sqrt( amgx::thrust::inner_product(v_u.begin(), v_u.end(),
                                         v_tmp.begin(), ValueTypeB(0.)) );
     cudaCheckError();
     // normalize: v_u = v_u / (norm0 + 1e-12);
-    thrust::transform(v_u.begin(), v_u.end(),
-                      thrust::make_constant_iterator(norm0 + 1.0e-12), v_u.begin(),
-                      thrust::divides<ValueTypeB>());
+    amgx::thrust::transform(v_u.begin(), v_u.end(),
+                      amgx::thrust::make_constant_iterator(norm0 + 1.0e-12), v_u.begin(),
+                      amgx::thrust::divides<ValueTypeB>());
     cudaCheckError();
 
     // ---------------------------- begin error presmoothing --------------------------
@@ -435,19 +435,19 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 
         // -------------------- compute 'energy norm' of v_u ------------------------------
         // v_tmp = diag(Aff).*v_u
-        thrust::transform(AdiagValues.begin(), AdiagValues.end(),
+        amgx::thrust::transform(AdiagValues.begin(), AdiagValues.end(),
                           v_u.begin(), v_tmp.begin(),
-                          thrust::multiplies<ValueTypeB>());
+                          amgx::thrust::multiplies<ValueTypeB>());
         cudaCheckError();
         // norm0 = sqrt(v_tmp' * v_u)
-        norm0 = sqrt( thrust::inner_product(v_u.begin(), v_u.end(),
+        norm0 = sqrt( amgx::thrust::inner_product(v_u.begin(), v_u.end(),
                                             v_tmp.begin(), ValueTypeB(0.)) );
         cudaCheckError();
         // -------------------- done with 'energy norm' of v_u ----------------------------
         // normalize: v_u = v_u / (norm0 + 1e-12);
-        thrust::transform(v_u.begin(), v_u.end(),
-                          thrust::make_constant_iterator(norm0 + 1.0e-12), v_u.begin(),
-                          thrust::divides<ValueTypeB>());
+        amgx::thrust::transform(v_u.begin(), v_u.end(),
+                          amgx::thrust::make_constant_iterator(norm0 + 1.0e-12), v_u.begin(),
+                          amgx::thrust::divides<ValueTypeB>());
         cudaCheckError();
 
         // norm0 := rho
@@ -536,7 +536,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     Asc.resize(AnumRows, AnumRows, Asc_nnz, 1);
     Asc.row_offsets[0] = 0;
     // set P offsets (P column offsets or P^T row offsets)
-    thrust::copy(Asc_nnzPerRow.begin(), Asc_nnzPerRow.end(), Asc.row_offsets.begin() + 1);
+    amgx::thrust::copy(Asc_nnzPerRow.begin(), Asc_nnzPerRow.end(), Asc.row_offsets.begin() + 1);
     cudaCheckError();
 #ifdef EXPERIMENTAL_CR
     compute_AscColInd_kernel<IndexType, ValueType>
@@ -591,7 +591,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
         <<< numBlocks, blocksize>>>(cf_map_ptr, AnumRows, levels - 1, A_row_colors_ptr);
         cudaCheckError();
         // Get the new FINE points count.
-        numFine = (int) thrust::count(cf_map.begin(), cf_map.end(), (int)FINE);
+        numFine = (int) amgx::thrust::count(cf_map.begin(), cf_map.end(), (int)FINE);
         cudaCheckError();
 
         if (numFine == 0) { break; }  // no fine points left, just exit

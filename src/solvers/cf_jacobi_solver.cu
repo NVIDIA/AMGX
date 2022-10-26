@@ -87,10 +87,10 @@ struct jacobi_postsmooth_functor
     jacobi_postsmooth_functor( ValueTypeB omega ) : omega( omega ) {}
     template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeA d = thrust::get<1>(t);
-        ValueTypeB b = thrust::get<2>(t);
-        ValueTypeB y = thrust::get<3>(t);
+        ValueTypeB x = amgx::thrust::get<0>(t);
+        ValueTypeA d = amgx::thrust::get<1>(t);
+        ValueTypeB b = amgx::thrust::get<2>(t);
+        ValueTypeB y = amgx::thrust::get<3>(t);
         // return x + omega * (b - y) / d.
         d = isNotCloseToZero(d) ? d :  epsilon(d);
         d  = ValueTypeA( 1 ) / d;
@@ -253,13 +253,13 @@ CFJacobiSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
     {
         IVector *cf_map = A_as_matrix->template getParameterPtr< IVector >("cf_map");
         int nrows = A_as_matrix->get_num_rows();
-        this->num_coarse = thrust::count(cf_map->begin(), cf_map->end(), (int)COARSE);
+        this->num_coarse = amgx::thrust::count(cf_map->begin(), cf_map->end(), (int)COARSE);
         this->c_rows.resize(this->num_coarse);
         this->f_rows.resize(nrows - this->num_coarse);
-        thrust::counting_iterator<int> zero(0);
-        thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
-        thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->c_rows.begin(), is_coarse());
-        thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->f_rows.begin(), is_fine());
+        amgx::thrust::counting_iterator<int> zero(0);
+        amgx::thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
+        amgx::thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->c_rows.begin(), is_coarse());
+        amgx::thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->f_rows.begin(), is_fine());
         cudaCheckError();
         // partitioning check
         /*
@@ -295,9 +295,9 @@ CFJacobiSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         cudaCheckError();
         agg_write_agg <<< num_blocks, threads_per_block>>>(this->c_rows.raw(), this->num_coarse, tmap.raw());
         cudaCheckError();
-        thrust::counting_iterator<int> zero(0);
-        thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
-        thrust::copy_if(zero, zero_plus_nrows, tmap.begin(), this->f_rows.begin(), is_eq_minus_one());
+        amgx::thrust::counting_iterator<int> zero(0);
+        amgx::thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
+        amgx::thrust::copy_if(zero, zero_plus_nrows, tmap.begin(), this->f_rows.begin(), is_eq_minus_one());
         cudaCheckError();
     }
     else
@@ -400,7 +400,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     if ( A_as_matrix->hasProps(DIAG) )
     {
         const int num_values = A_as_matrix->diagOffset() * A_as_matrix->get_block_size();
-        thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
+        amgx::thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
         cudaCheckError();
     }
     else
@@ -580,7 +580,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
           this->weight,
           x.raw());*/
         // it is not so much harder to initialize whole vector instead of just C or F points
-        thrust::transform(b.begin( ),
+        amgx::thrust::transform(b.begin( ),
                           b.begin( ) + A.get_num_rows(),
                           this->Dinv.begin( ),
                           x.begin( ),

@@ -41,8 +41,8 @@ template<unsigned int CTA_SIZE,
 __device__
 void scan_by_key(KeyIterator keys, ValueIterator vals)
 {
-    typedef typename thrust::iterator_value<KeyIterator>::type   KeyType;
-    typedef typename thrust::iterator_value<ValueIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_value<KeyIterator>::type   KeyType;
+    typedef typename amgx::thrust::iterator_value<ValueIterator>::type ValueType;
 
     KeyType   key = keys[threadIdx.x];
     ValueType val = vals[threadIdx.x];
@@ -221,12 +221,12 @@ void __spmv_coo_flat_k(const coo_matrix<IndexType,ValueType,cusp::device_memory>
                        const ValueType * d_x, 
                              ValueType * d_y)
 {
-    const IndexType * I = thrust::raw_pointer_cast(&coo.row_indices[0]);
-    const IndexType * J = thrust::raw_pointer_cast(&coo.column_indices[0]);
-    const ValueType * V = thrust::raw_pointer_cast(&coo.values[0]);
+    const IndexType * I = amgx::thrust::raw_pointer_cast(&coo.row_indices[0]);
+    const IndexType * J = amgx::thrust::raw_pointer_cast(&coo.column_indices[0]);
+    const ValueType * V = amgx::thrust::raw_pointer_cast(&coo.values[0]);
 
     if (InitializeY)
-        thrust::fill(thrust::device_pointer_cast(d_y), thrust::device_pointer_cast(d_y) + coo.num_rows, ValueType(0));
+        amgx::thrust::fill(amgx::thrust::device_pointer_cast(d_y), amgx::thrust::device_pointer_cast(d_y) + coo.num_rows, ValueType(0));
 
     if(coo.num_entries == 0)
     {
@@ -248,10 +248,10 @@ void __spmv_coo_flat_k(const coo_matrix<IndexType,ValueType,cusp::device_memory>
     const unsigned int N = coo.num_entries;
 
     const unsigned int unit_size  = CTA_SIZE * K;
-    const unsigned int num_units  = thrust::detail::util::divide_ri(N, unit_size);
-    const unsigned int max_blocks = 120; //thrust::experimental::arch::max_active_blocks(scan_intervals<CTA_SIZE,K,InputIterator,OutputIterator,BinaryFunction>, CTA_SIZE, 0);
+    const unsigned int num_units  = amgx::thrust::detail::util::divide_ri(N, unit_size);
+    const unsigned int max_blocks = 120; //amgx::thrust::experimental::arch::max_active_blocks(scan_intervals<CTA_SIZE,K,InputIterator,OutputIterator,BinaryFunction>, CTA_SIZE, 0);
     const unsigned int num_blocks = std::min(max_blocks, num_units);
-    const unsigned int num_iters  = thrust::detail::util::divide_ri(num_units, num_blocks);
+    const unsigned int num_iters  = amgx::thrust::detail::util::divide_ri(num_units, num_blocks);
 
     const unsigned int interval_size = unit_size * num_iters;
 
@@ -263,13 +263,13 @@ void __spmv_coo_flat_k(const coo_matrix<IndexType,ValueType,cusp::device_memory>
 
     spmv_coo_flat_k_kernel<CTA_SIZE,K,UseCache,IndexType,ValueType> <<<num_blocks,CTA_SIZE>>>
         (N, interval_size, I, J, V, d_x, d_y,
-         thrust::raw_pointer_cast(&temp_rows[0]), thrust::raw_pointer_cast(&temp_vals[0]));
+         amgx::thrust::raw_pointer_cast(&temp_rows[0]), amgx::thrust::raw_pointer_cast(&temp_vals[0]));
 
 //    spmv_coo_serial_kernel<IndexType,ValueType> <<<1,1>>>
 //        (coo.num_entries - tail, I + tail, J + tail, V + tail, d_x, d_y);
 
     spmv_coo_reduce_update_kernel<IndexType, ValueType, 512> <<<1, 512>>>
-        (num_blocks, thrust::raw_pointer_cast(&temp_rows[0]), thrust::raw_pointer_cast(&temp_vals[0]), d_y);
+        (num_blocks, amgx::thrust::raw_pointer_cast(&temp_rows[0]), amgx::thrust::raw_pointer_cast(&temp_vals[0]), d_y);
 
     if (UseCache)
         unbind_x(d_x);

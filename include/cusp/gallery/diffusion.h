@@ -64,8 +64,8 @@ void diffusion(	MatrixType& matrix, size_t m, size_t n,
 {
 	typedef typename MatrixType::index_type IndexType;
 	typedef typename MatrixType::value_type ValueType;
-	typedef thrust::tuple<IndexType,IndexType>    StencilIndex;
-	typedef thrust::tuple<StencilIndex,ValueType> StencilPoint;
+	typedef amgx::thrust::tuple<IndexType,IndexType>    StencilIndex;
+	typedef amgx::thrust::tuple<StencilIndex,ValueType> StencilPoint;
 
 	ValueType C = cos(theta);
 	ValueType S = sin(theta);
@@ -79,7 +79,7 @@ void diffusion(	MatrixType& matrix, size_t m, size_t n,
 	ValueType d;
 	ValueType e;
 
-	if( thrust::detail::is_same<Method, FE>::value )
+	if( amgx::thrust::detail::is_same<Method, FE>::value )
 	{
 		a = (-1.0*eps - 1.0)*CC + (-1.0*eps - 1.0)*SS + ( 3.0*eps - 3.0)*CS;
         	b = ( 2.0*eps - 4.0)*CC + (-4.0*eps + 2.0)*SS;
@@ -93,7 +93,7 @@ void diffusion(	MatrixType& matrix, size_t m, size_t n,
 		d /= 6.0;
 		e /= 6.0;
 	}
-	else if( thrust::detail::is_same<Method, FD>::value )
+	else if( amgx::thrust::detail::is_same<Method, FD>::value )
 	{
 		a = 0.5 * (eps-1.0) * CS;
 		b = -(eps*SS + CC); 

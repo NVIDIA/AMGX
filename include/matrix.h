@@ -1094,7 +1094,7 @@ class Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : pub
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                amgx::thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1264,7 +1264,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                amgx::thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1312,7 +1312,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                amgx::thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1355,11 +1355,11 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
                 _metric_arr(metric_arr) {};
 
             __host__ __device__
-            bool operator()(const thrust::tuple<IndexType, IndexType, matrixType> &a)
+            bool operator()(const amgx::thrust::tuple<IndexType, IndexType, matrixType> &a)
             {
-                metricType metric = _metric_arr[thrust::get<0>(a)];
+                metricType metric = _metric_arr[amgx::thrust::get<0>(a)];
 
-                if (fabs(thrust::get<2>(a)) >= _trunc_factor * metric) { return true; }
+                if (fabs(amgx::thrust::get<2>(a)) >= _trunc_factor * metric) { return true; }
 
                 return false;
             }
@@ -1380,10 +1380,10 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             scale_op(const VectorType *s) : scale_vec(s) {};
 
             __host__ __device__
-            thrust::tuple<IndexType, MatrixType> operator()(const thrust::tuple<IndexType, MatrixType> &a)
+            amgx::thrust::tuple<IndexType, MatrixType> operator()(const amgx::thrust::tuple<IndexType, MatrixType> &a)
             {
-                const IndexType row = thrust::get<0>(a);
-                return thrust::tuple<IndexType, MatrixType>(row, thrust::get<1>(a) / scale_vec[row]);
+                const IndexType row = amgx::thrust::get<0>(a);
+                return amgx::thrust::tuple<IndexType, MatrixType>(row, amgx::thrust::get<1>(a) / scale_vec[row]);
             }
         };
 

@@ -226,12 +226,12 @@ void color_histogram(const Vector1 &row_colors, Vector2 &histogram)
     // resize histogram storage
     histogram.resize(num_bins);
     // find the end of each bin of values
-    thrust::counting_iterator<IndexType> search_begin(0);
-    thrust::upper_bound(data.begin(), data.end(),
+    amgx::thrust::counting_iterator<IndexType> search_begin(0);
+    amgx::thrust::upper_bound(data.begin(), data.end(),
                         search_begin, search_begin + num_bins,
                         histogram.begin());
     // compute the histogram by taking differences of the cumulative histogram
-    thrust::adjacent_difference(histogram.begin(), histogram.end(),
+    amgx::thrust::adjacent_difference(histogram.begin(), histogram.end(),
                                 histogram.begin());
 }
 
@@ -412,18 +412,18 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
             //order +1
             CheckColoring<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, 1 + A_d.getMatrixColoring().getColoringLevel());
             num_bad_plus =
-                thrust::transform_reduce(thrust::counting_iterator<IndexType>(0), thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
-                                         checker, (IndexType)0, thrust::plus<IndexType>());
+                amgx::thrust::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
+                                         checker, (IndexType)0, amgx::thrust::plus<IndexType>());
         }
         {
             CheckColoring<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, A_d.getMatrixColoring().getColoringLevel());
             num_bad =
-                thrust::transform_reduce(thrust::counting_iterator<IndexType>(0), thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
-                                         checker, (IndexType)0, thrust::plus<IndexType>());
+                amgx::thrust::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
+                                         checker, (IndexType)0, amgx::thrust::plus<IndexType>());
         }
-        int num_uncolored = (int) thrust::count_if( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), is_zero() );
-        int mincol        = (int) thrust::reduce( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), 0, thrust::minimum<int>() );
-        int maxcol        = (int) thrust::reduce( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), 0, thrust::maximum<int>() );
+        int num_uncolored = (int) amgx::thrust::count_if( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), is_zero() );
+        int mincol        = (int) amgx::thrust::reduce( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), 0, amgx::thrust::minimum<int>() );
+        int maxcol        = (int) amgx::thrust::reduce( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), 0, amgx::thrust::maximum<int>() );
         std::stringstream error_str;
         error_str << "Coloring scheme " << coloring_schemes[i] << " with " << num_bad << " invalid rows, " << num_uncolored << "(" << mincol << "," << maxcol << ")" << " uncolored rows and " << A_d.getMatrixColoring().getNumColors()  << " used colors and bonus = " << num_bad_plus;
 
@@ -456,10 +456,10 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
         int degree;
         {
             device_vector_alloc<int> hist;
-            thrust::host_vector<int> h_hist;
+            amgx::thrust::host_vector<int> h_hist;
             device_vector_alloc<int> columns(A_d.get_num_rows());
-            thrust::adjacent_difference(A_d.row_offsets.begin(), A_d.row_offsets.end(), columns.begin());
-            degree = thrust::reduce(columns.begin(), columns.end(), -1, thrust::maximum<int>());
+            amgx::thrust::adjacent_difference(A_d.row_offsets.begin(), A_d.row_offsets.end(), columns.begin());
+            degree = amgx::thrust::reduce(columns.begin(), columns.end(), -1, amgx::thrust::maximum<int>());
             color_histogram(A_d.getMatrixColoring().getRowColors(), hist);
             h_hist = hist;
             float total = 0, m = h_hist[1], M = h_hist[1]; //0 is 0

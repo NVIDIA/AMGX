@@ -382,7 +382,7 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         }
 
         // Accumulate sum_n V_m*y_m into m_Z_vector
-        thrust::fill(m_Z_vector.begin(), m_Z_vector.end(), types::util<ValueTypeB>::get_zero());
+        amgx::thrust::fill(m_Z_vector.begin(), m_Z_vector.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
 
         for (int j = 0; j <= i; j++)

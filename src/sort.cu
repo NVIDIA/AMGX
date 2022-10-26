@@ -44,7 +44,7 @@ namespace amgx
 template <class Vector>
 void sort(Vector &v)
 {
-    thrust::sort(v.begin(), v.end());
+    amgx::thrust::sort(v.begin(), v.end());
     cudaCheckError();
 }
 

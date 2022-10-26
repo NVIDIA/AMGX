@@ -41,12 +41,12 @@ template <typename KernelFunction>
 size_t max_active_blocks(KernelFunction kernel, const size_t CTA_SIZE, const size_t dynamic_smem_bytes)
 {
 #if THRUST_VERSION >= 100600
-  ///return thrust::system::cuda::detail::arch::max_active_blocks(kernel, CTA_SIZE, dynamic_smem_bytes);//OLD Thrust
+  ///return amgx::thrust::system::cuda::detail::arch::max_active_blocks(kernel, CTA_SIZE, dynamic_smem_bytes);//OLD Thrust
   int numBlocks = 0;
   cudaOccupancyMaxActiveBlocksPerMultiprocessor ( &numBlocks, kernel, CTA_SIZE, dynamic_smem_bytes );//NEW Thrust: THRUST_VERSION >= 100802
   return numBlocks;
 #else
-  return thrust::detail::backend::cuda::arch::max_active_blocks(kernel, CTA_SIZE, dynamic_smem_bytes);//Ancient Thrust: This SHOULD trigger error
+  return amgx::thrust::detail::backend::cuda::arch::max_active_blocks(kernel, CTA_SIZE, dynamic_smem_bytes);//Ancient Thrust: This SHOULD trigger error
 #endif
 }
 

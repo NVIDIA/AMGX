@@ -597,7 +597,7 @@ __global__ void strided_reduction_collect_partials(T *out_sums, T *partial_sums,
 template<int STRIDE, class scalar_t, class OP>
 void count_block_results(scalar_t *out_host, const int n_blocks, scalar_t *out_d, const OP &op = OP())
 {
-    strided_reduction_collect_partials<scalar_t, STRIDE, 32, OP> <<< 1, 32, 0, thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
+    strided_reduction_collect_partials<scalar_t, STRIDE, 32, OP> <<< 1, 32, 0, amgx::thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
     cudaCheckError();
     cudaMemcpy(out_host, out_d, STRIDE * sizeof(scalar_t), cudaMemcpyDeviceToHost);
 }
@@ -711,15 +711,15 @@ void launch_strided_reduction(scalar_out *out_host, const scalar_t *in_d, const 
     const int n_blocks = min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
     const int out_size = n_blocks * STRIDE;
     scalar_out *out_d = 0;
-    thrust::global_thread_handle::cudaMalloc((void **) &out_d, out_size * sizeof(scalar_out));
+    amgx::thrust::global_thread_handle::cudaMalloc((void **) &out_d, out_size * sizeof(scalar_out));
     cudaMemset(out_d, 0, out_size * sizeof(scalar_out));
     cudaFuncSetCacheConfig(strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM>, cudaFuncCachePreferL1);
-    strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);
+    strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, amgx::thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);
     cudaCheckError();
-    strided_reduction_collect_partials<scalar_out, STRIDE, 32, op_sum> <<< 1, 32, 0, thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
+    strided_reduction_collect_partials<scalar_out, STRIDE, 32, op_sum> <<< 1, 32, 0, amgx::thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
     cudaCheckError();
     cudaMemcpy(out_host, out_d, STRIDE * sizeof(scalar_out), cudaMemcpyDeviceToHost);
-    thrust::global_thread_handle::cudaFreeAsync((void *) out_d);
+    amgx::thrust::global_thread_handle::cudaFreeAsync((void *) out_d);
 }
 
 template< class scalar_t, class scalar_out, class TRANSFORM, bool real>

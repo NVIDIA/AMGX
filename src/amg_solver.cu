@@ -215,11 +215,11 @@ AMGX_ERROR AMG_Solver<T_Config>::setup( Matrix<T_Config> &A)//&A0)
     memory::setAsyncFreeFlag(true);
     AMGX_ERROR e = solver->setup_no_throw(A, reuse_fine_matrix);
     m_resources->get_tmng()->wait_threads();
-    thrust::global_thread_handle::joinDevicePools();
+    amgx::thrust::global_thread_handle::joinDevicePools();
     // reset settings to normal
     memory::setAsyncFreeFlag(false);
     // free postponed objects
-    thrust::global_thread_handle::cudaFreeWait();
+    amgx::thrust::global_thread_handle::cudaFreeWait();
 
     if ( m_with_timings )
     {
@@ -247,11 +247,11 @@ AMGX_ERROR AMG_Solver<T_Config>::resetup( Matrix<T_Config> &A)//&A0 )
     memory::setAsyncFreeFlag(true);
     AMGX_ERROR e = solver->setup_no_throw(A, true);
     m_resources->get_tmng()->wait_threads();
-    thrust::global_thread_handle::joinDevicePools();
+    amgx::thrust::global_thread_handle::joinDevicePools();
     // reset settings to normal
     memory::setAsyncFreeFlag(false);
     // free postponed objects
-    thrust::global_thread_handle::cudaFreeWait();
+    amgx::thrust::global_thread_handle::cudaFreeWait();
 
     if ( m_with_timings )
     {
@@ -293,7 +293,7 @@ AMGX_ERROR AMG_Solver<T_Config>::solve( Vector<T_Config> &b, Vector<T_Config> &x
     }
 
     AMGX_ERROR e = solver->solve_no_throw( b, x, status, xIsZero );
-    thrust::global_thread_handle::cudaFreeWait();
+    amgx::thrust::global_thread_handle::cudaFreeWait();
 
     if ( m_with_timings )
     {

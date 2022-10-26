@@ -269,11 +269,11 @@ void Classical_AMG_Level_Base<T_Config>::createCoarseVertices()
     this->m_cf_map.resize(size_all);
     this->m_s_con.resize(nnz_full);
     this->m_scratch.resize(size_full);
-    thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
+    amgx::thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
     cudaCheckError();
-    thrust::fill(this->m_s_con.begin(), this->m_s_con.end(), false);
+    amgx::thrust::fill(this->m_s_con.begin(), this->m_s_con.end(), false);
     cudaCheckError();
-    thrust::fill(this->m_scratch.begin(), this->m_scratch.end(), 0);
+    amgx::thrust::fill(this->m_scratch.begin(), this->m_scratch.end(), 0);
     cudaCheckError();
     markCoarseFinePoints();
 }
@@ -343,7 +343,7 @@ void Classical_AMG_Level_Base<T_Config>::createCoarseMatrices()
         RAP.set_initialized(1);
         // update # of columns in P - this is necessary for correct CSR multiply
         P.set_initialized(0);
-        int new_num_cols = thrust_wrapper::reduce(P.col_indices.begin(), P.col_indices.end(), int(0), thrust::maximum<int>()) + 1;
+        int new_num_cols = thrust_wrapper::reduce(P.col_indices.begin(), P.col_indices.end(), int(0), amgx::thrust::maximum<int>()) + 1;
         cudaCheckError();
         P.set_num_cols(new_num_cols);
         P.set_initialized(1);
@@ -391,7 +391,7 @@ void Classical_AMG_Level_Base<T_Config>::markCoarseFinePoints()
         weights.resize(A.get_num_rows());
     }
 
-    thrust::fill(weights.begin(), weights.end(), 0.0);
+    amgx::thrust::fill(weights.begin(), weights.end(), 0.0);
     cudaCheckError();
 
     // extend A to include 1st ring nodes
@@ -557,16 +557,16 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     if ( spmm_verbose )
     {
         typedef typename Matrix<TConfig_d>::IVector::const_iterator Iterator;
-        typedef thrust::pair<Iterator, Iterator> Result;
+        typedef amgx::thrust::pair<Iterator, Iterator> Result;
         std::ostringstream buffer;
         buffer << "SPMM: Level " << this->getLevelIndex() << std::endl;
 
         if ( this->getLevelIndex() == 0 )
         {
             device_vector_alloc<int> num_nz( this->getA().row_offsets.size() );
-            thrust::adjacent_difference( this->getA().row_offsets.begin(), this->getA().row_offsets.end(), num_nz.begin() );
+            amgx::thrust::adjacent_difference( this->getA().row_offsets.begin(), this->getA().row_offsets.end(), num_nz.begin() );
             cudaCheckError();
-            Result result = thrust::minmax_element( num_nz.begin() + 1, num_nz.end() );
+            Result result = amgx::thrust::minmax_element( num_nz.begin() + 1, num_nz.end() );
             cudaCheckError();
             int min_size = *result.first;
             int max_size = *result.second;
@@ -580,9 +580,9 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         }
 
         device_vector_alloc<int> num_nz( this->P.row_offsets.size() );
-        thrust::adjacent_difference( this->P.row_offsets.begin(), this->P.row_offsets.end(), num_nz.begin() );
+        amgx::thrust::adjacent_difference( this->P.row_offsets.begin(), this->P.row_offsets.end(), num_nz.begin() );
         cudaCheckError();
-        Result result = thrust::minmax_element( num_nz.begin() + 1, num_nz.end() );
+        Result result = amgx::thrust::minmax_element( num_nz.begin() + 1, num_nz.end() );
         cudaCheckError();
         int min_size = *result.first;
         int max_size = *result.second;
@@ -594,9 +594,9 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         buffer << "SPMM: Matrix min row size: " << min_size << std::endl;
         buffer << "SPMM: Matrix max row size: " << max_size << std::endl;
         num_nz.resize( this->R.row_offsets.size() );
-        thrust::adjacent_difference( this->R.row_offsets.begin(), this->R.row_offsets.end(), num_nz.begin() );
+        amgx::thrust::adjacent_difference( this->R.row_offsets.begin(), this->R.row_offsets.end(), num_nz.begin() );
         cudaCheckError();
-        result = thrust::minmax_element( num_nz.begin() + 1, num_nz.end() );
+        result = amgx::thrust::minmax_element( num_nz.begin() + 1, num_nz.end() );
         cudaCheckError();
         min_size = *result.first;
         max_size = *result.second;
@@ -861,7 +861,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             (nl2g, RAP.manager->local_to_global_map.raw(), l2g_t.raw(), l2g_p.raw());
 
         cudaCheckError();
-        thrust::copy(l2g_t.begin(), l2g_t.begin() + new_nl2g, RAP.manager->local_to_global_map.begin());
+        amgx::thrust::copy(l2g_t.begin(), l2g_t.begin() + new_nl2g, RAP.manager->local_to_global_map.begin());
         cudaCheckError();
         /*
         //slow version of the above kernel (through Thrust)

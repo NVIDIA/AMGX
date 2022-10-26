@@ -1375,7 +1375,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     IndexType *Pcolumn_indices = P.col_indices.raw();
     ValueType *Pvalues = P.values.raw();
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // grab the diagonal terms
     VVector diag(size_one_ring);

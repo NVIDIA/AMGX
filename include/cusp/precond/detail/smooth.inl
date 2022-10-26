@@ -65,10 +65,10 @@ void smooth_prolongator(const cusp::coo_matrix<IndexType,ValueType,cusp::device_
 
   // temp <- -lambda * S(i,j) * T(j,k)
   cusp::coo_matrix<IndexType,ValueType,cusp::device_memory> temp(S.num_rows, T.num_cols, S.num_entries + T.num_entries);
-  thrust::copy(S.row_indices.begin(), S.row_indices.end(), temp.row_indices.begin());
-  thrust_wrapper::gather(S.column_indices.begin(), S.column_indices.end(), T.column_indices.begin(), temp.column_indices.begin());
-  thrust::transform(S.values.begin(), S.values.end(),
-                    thrust::make_permutation_iterator(T.values.begin(), S.column_indices.begin()),
+  amgx::thrust::copy(S.row_indices.begin(), S.row_indices.end(), temp.row_indices.begin());
+  amgx::thrust::rapper::gather(S.column_indices.begin(), S.column_indices.end(), T.column_indices.begin(), temp.column_indices.begin());
+  amgx::thrust::transform(S.values.begin(), S.values.end(),
+                    amgx::thrust::make_permutation_iterator(T.values.begin(), S.column_indices.begin()),
                     temp.values.begin(),
                     scaled_multiply<ValueType>(-lambda));
 
@@ -76,40 +76,40 @@ void smooth_prolongator(const cusp::coo_matrix<IndexType,ValueType,cusp::device_
   {
     cusp::array1d<ValueType, cusp::device_memory> D(S.num_rows);
     cusp::detail::extract_diagonal(S, D);
-    thrust::transform(temp.values.begin(), temp.values.begin() + S.num_entries,
-                      thrust::make_permutation_iterator(D.begin(), S.row_indices.begin()),
+    amgx::thrust::transform(temp.values.begin(), temp.values.begin() + S.num_entries,
+                      amgx::thrust::make_permutation_iterator(D.begin(), S.row_indices.begin()),
                       temp.values.begin(),
-                      thrust::divides<ValueType>());
+                      amgx::thrust::divides<ValueType>());
   }
 
   // temp <- temp + T
-  thrust::copy(T.row_indices.begin(),    T.row_indices.end(),    temp.row_indices.begin()    + S.num_entries);
-  thrust::copy(T.column_indices.begin(), T.column_indices.end(), temp.column_indices.begin() + S.num_entries);
-  thrust::copy(T.values.begin(),         T.values.end(),         temp.values.begin()         + S.num_entries);
+  amgx::thrust::copy(T.row_indices.begin(),    T.row_indices.end(),    temp.row_indices.begin()    + S.num_entries);
+  amgx::thrust::copy(T.column_indices.begin(), T.column_indices.end(), temp.column_indices.begin() + S.num_entries);
+  amgx::thrust::copy(T.values.begin(),         T.values.end(),         temp.values.begin()         + S.num_entries);
 
   // sort by (I,J)
   cusp::detail::sort_by_row_and_column(temp.row_indices, temp.column_indices, temp.values);
 
   // compute unique number of nonzeros in the output
   // throws a warning at compile (warning: expression has no effect)
-  IndexType NNZ = thrust::inner_product(thrust::make_zip_iterator(thrust::make_tuple(temp.row_indices.begin(), temp.column_indices.begin())),
-                                        thrust::make_zip_iterator(thrust::make_tuple(temp.row_indices.end (),  temp.column_indices.end()))   - 1,
-                                        thrust::make_zip_iterator(thrust::make_tuple(temp.row_indices.begin(), temp.column_indices.begin())) + 1,
+  IndexType NNZ = amgx::thrust::inner_product(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp.row_indices.begin(), temp.column_indices.begin())),
+                                        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp.row_indices.end (),  temp.column_indices.end()))   - 1,
+                                        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp.row_indices.begin(), temp.column_indices.begin())) + 1,
                                         IndexType(0),
-                                        thrust::plus<IndexType>(),
-                                        thrust::not_equal_to< thrust::tuple<IndexType,IndexType> >()) + 1;
+                                        amgx::thrust::plus<IndexType>(),
+                                        amgx::thrust::not_equal_to< amgx::thrust::tuple<IndexType,IndexType> >()) + 1;
 
   // allocate space for output
   P.resize(temp.num_rows, temp.num_cols, NNZ);
 
   // sum values with the same (i,j)
-  thrust::reduce_by_key(thrust::make_zip_iterator(thrust::make_tuple(temp.row_indices.begin(), temp.column_indices.begin())),
-                        thrust::make_zip_iterator(thrust::make_tuple(temp.row_indices.end(),   temp.column_indices.end())),
+  amgx::thrust::reduce_by_key(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp.row_indices.begin(), temp.column_indices.begin())),
+                        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp.row_indices.end(),   temp.column_indices.end())),
                         temp.values.begin(),
-                        thrust::make_zip_iterator(thrust::make_tuple(P.row_indices.begin(), P.column_indices.begin())),
+                        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(P.row_indices.begin(), P.column_indices.begin())),
                         P.values.begin(),
-                        thrust::equal_to< thrust::tuple<IndexType,IndexType> >(),
-                        thrust::plus<ValueType>());
+                        amgx::thrust::equal_to< amgx::thrust::tuple<IndexType,IndexType> >(),
+                        amgx::thrust::plus<ValueType>());
 }
 
 template <typename IndexType, typename ValueType>

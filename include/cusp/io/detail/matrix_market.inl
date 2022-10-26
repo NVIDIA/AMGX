@@ -357,7 +357,7 @@ void read_array_stream(cusp::array2d<ValueType,cusp::host_memory>& mtx, Stream& 
 template <typename IndexType, typename ValueType, typename Stream>
 void write_coordinate_stream(const cusp::coo_matrix<IndexType,ValueType,cusp::host_memory>& coo, Stream& output)
 {
-  bool is_complex = thrust::detail::is_same<ValueType, cusp::complex<typename norm_type<ValueType>::type> >::value;
+  bool is_complex = amgx::thrust::detail::is_same<ValueType, cusp::complex<typename norm_type<ValueType>::type> >::value;
 
   if (is_complex)
     output << "%%MatrixMarket matrix coordinate complex general\n";
@@ -435,7 +435,7 @@ void write_matrix_market_stream(const Matrix& mtx, Stream& output, cusp::array1d
 {
   typedef typename Matrix::value_type ValueType;
 
-  bool is_complex = thrust::detail::is_same<ValueType, cusp::complex<typename norm_type<ValueType>::type> >::value;
+  bool is_complex = amgx::thrust::detail::is_same<ValueType, cusp::complex<typename norm_type<ValueType>::type> >::value;
 
   if (is_complex)
     output << "%%MatrixMarket matrix array complex general\n";
@@ -456,7 +456,7 @@ void write_matrix_market_stream(const Matrix& mtx, Stream& output, cusp::array2d
 {
   typedef typename Matrix::value_type ValueType;
 
-  bool is_complex = thrust::detail::is_same<ValueType, cusp::complex<typename norm_type<ValueType>::type> >::value;
+  bool is_complex = amgx::thrust::detail::is_same<ValueType, cusp::complex<typename norm_type<ValueType>::type> >::value;
 
   if (is_complex)
     output << "%%MatrixMarket matrix array complex general\n";

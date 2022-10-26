@@ -248,7 +248,6 @@ inline cudaStream_t get_stream()
 }
 
 } // namespace memory
-} // namespace amgx
 
 namespace thrust
 {
@@ -257,3 +256,4 @@ namespace global_thread_handle = amgx::memory; // Expose global_thread_handle in
 
 }
 
+} // namespace amgx

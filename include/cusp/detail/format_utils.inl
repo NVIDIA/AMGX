@@ -43,8 +43,8 @@ struct empty_row_functor
     __host__ __device__
   bool operator()(const Tuple& t) const
   {
-    const IndexType a = thrust::get<0>(t);
-    const IndexType b = thrust::get<1>(t);
+    const IndexType a = amgx::thrust::get<0>(t);
+    const IndexType b = amgx::thrust::get<1>(t);
 
     return a != b;
   }
@@ -59,16 +59,16 @@ void offsets_to_indices(const OffsetArray& offsets, IndexArray& indices)
     typedef typename OffsetArray::value_type OffsetType;
 
     // convert compressed row offsets into uncompressed row indices
-    thrust::fill(indices.begin(), indices.end(), OffsetType(0));
-    thrust::scatter_if( thrust::counting_iterator<OffsetType>(0),
-			thrust::counting_iterator<OffsetType>(offsets.size()-1),
+    amgx::thrust::fill(indices.begin(), indices.end(), OffsetType(0));
+    amgx::thrust::scatter_if( amgx::thrust::counting_iterator<OffsetType>(0),
+			amgx::thrust::counting_iterator<OffsetType>(offsets.size()-1),
 			offsets.begin(),
-                    	thrust::make_transform_iterator(
-                                thrust::make_zip_iterator( thrust::make_tuple( offsets.begin(), offsets.begin()+1 ) ),
+			amgx::thrust::make_transform_iterator(
+                                amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( offsets.begin(), offsets.begin()+1 ) ),
                                 empty_row_functor<OffsetType>()),
                     	indices.begin());
 
-    thrust_wrapper::inclusive_scan(indices.begin(), indices.end(), indices.begin(), thrust::maximum<OffsetType>());
+    thrust_wrapper::inclusive_scan(indices.begin(), indices.end(), indices.begin(), amgx::thrust::maximum<OffsetType>());
 }
 
 template <typename IndexArray, typename OffsetArray>
@@ -79,10 +79,10 @@ void indices_to_offsets(const IndexArray& indices, OffsetArray& offsets)
     typedef typename OffsetArray::value_type OffsetType;
 
     // convert uncompressed row indices into compressed row offsets
-    thrust::lower_bound(indices.begin(),
+    amgx::thrust::lower_bound(indices.begin(),
                         indices.end(),
-                        thrust::counting_iterator<OffsetType>(0),
-                        thrust::counting_iterator<OffsetType>(offsets.size()),
+                        amgx::thrust::counting_iterator<OffsetType>(0),
+                        amgx::thrust::counting_iterator<OffsetType>(offsets.size()),
                         offsets.begin());
 }
 
@@ -103,12 +103,12 @@ struct row_operator : public std::unary_function<size_t,IndexType>
 
 
 template <typename IndexType>
-struct tuple_equal_to : public thrust::unary_function<thrust::tuple<IndexType,IndexType>,bool>
+struct tuple_equal_to : public amgx::thrust::unary_function<amgx::thrust::tuple<IndexType,IndexType>,bool>
 {
     __host__ __device__
-    bool operator()(const thrust::tuple<IndexType,IndexType>& t) const
+    bool operator()(const amgx::thrust::tuple<IndexType,IndexType>& t) const
     {
-        return thrust::get<0>(t) == thrust::get<1>(t);
+        return amgx::thrust::get<0>(t) == amgx::thrust::get<1>(t);
     }
 };
 
@@ -121,12 +121,12 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::coo_format)
     typedef typename Array::value_type   ValueType;
     
     // initialize output to zero
-    thrust::fill(output.begin(), output.end(), ValueType(0));
+    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
 
     // scatter the diagonal values to output
-    thrust::scatter_if(A.values.begin(), A.values.end(),
+    amgx::thrust::scatter_if(A.values.begin(), A.values.end(),
                        A.row_indices.begin(),
-                       thrust::make_transform_iterator(thrust::make_zip_iterator(thrust::make_tuple(A.row_indices.begin(), A.column_indices.begin())), tuple_equal_to<IndexType>()),
+                       amgx::thrust::make_transform_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(A.row_indices.begin(), A.column_indices.begin())), tuple_equal_to<IndexType>()),
                        output.begin());
 }
 
@@ -143,12 +143,12 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::csr_format)
     offsets_to_indices(A.row_offsets, row_indices);
 
     // initialize output to zero
-    thrust::fill(output.begin(), output.end(), ValueType(0));
+    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
 
     // scatter the diagonal values to output
-    thrust::scatter_if(A.values.begin(), A.values.end(),
+    amgx::thrust::scatter_if(A.values.begin(), A.values.end(),
                        row_indices.begin(),
-                       thrust::make_transform_iterator(thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), A.column_indices.begin())), tuple_equal_to<IndexType>()),
+                       amgx::thrust::make_transform_iterator(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), A.column_indices.begin())), tuple_equal_to<IndexType>()),
                        output.begin());
 }
 
@@ -167,7 +167,7 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::dia_format)
         if(diagonal_offsets[i] == 0)
         {
             // diagonal found, copy to output and return
-            thrust::copy(A.values.values.begin() + A.values.pitch * i,
+            amgx::thrust::copy(A.values.values.begin() + A.values.pitch * i,
                          A.values.values.begin() + A.values.pitch * i + output.size(),
                          output.begin());
             return;
@@ -175,7 +175,7 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::dia_format)
     }
 
     // no diagonal found
-    thrust::fill(output.begin(), output.end(), ValueType(0));
+    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
 }
 
 
@@ -186,13 +186,13 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::ell_format)
     typedef typename Array::value_type   ValueType;
     
     // initialize output to zero
-    thrust::fill(output.begin(), output.end(), ValueType(0));
+    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
 
-    thrust::scatter_if
+    amgx::thrust::scatter_if
         (A.values.values.begin(), A.values.values.end(),
-         thrust::make_transform_iterator(thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.column_indices.pitch)),
-         thrust::make_zip_iterator(thrust::make_tuple
-             (thrust::make_transform_iterator(thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.column_indices.pitch)),
+         amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.column_indices.pitch)),
+         amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple
+             (amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.column_indices.pitch)),
               A.column_indices.values.begin())),
          output.begin(),
          tuple_equal_to<IndexType>());
@@ -210,11 +210,11 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::hyb_format)
     cusp::detail::extract_diagonal(A.coo, output);
 
     // extract ELL diagonal
-    thrust::scatter_if
+    amgx::thrust::scatter_if
         (A.ell.values.values.begin(), A.ell.values.values.end(),
-         thrust::make_transform_iterator(thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.ell.column_indices.pitch)),
-         thrust::make_zip_iterator(thrust::make_tuple
-             (thrust::make_transform_iterator(thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.ell.column_indices.pitch)),
+         amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.ell.column_indices.pitch)),
+         amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple
+             (amgx::thrust::make_transform_iterator(amgx::thrust::counting_iterator<size_t>(0), row_operator<IndexType>(A.ell.column_indices.pitch)),
               A.ell.column_indices.values.begin())),
          output.begin(),
          tuple_equal_to<IndexType>());
@@ -228,7 +228,7 @@ void extract_diagonal(const Matrix& A, Array& output)
 {
     CUSP_PROFILE_SCOPED();
 
-    output.resize(thrust::min(A.num_rows, A.num_cols));
+    output.resize(amgx::thrust::min(A.num_rows, A.num_cols));
 
     // dispatch on matrix format
     extract_diagonal(A, output, typename Matrix::format());
@@ -246,7 +246,7 @@ void sort_by_row(Array1& rows, Array2& columns, Array3& values)
     size_t N = rows.size();
 
     cusp::array1d<IndexType,MemorySpace> permutation(N);
-    thrust::sequence(permutation.begin(), permutation.end());
+    amgx::thrust::sequence(permutation.begin(), permutation.end());
   
     // compute permutation that sorts the rows
     thrust_wrapper::sort_by_key(rows.begin(), rows.end(), permutation.begin());
@@ -257,8 +257,8 @@ void sort_by_row(Array1& rows, Array2& columns, Array3& values)
         
     // use permutation to reorder the values
     thrust_wrapper::gather(permutation.begin(), permutation.end(),
-                   thrust::make_zip_iterator(thrust::make_tuple(temp1.begin(),   temp2.begin())),
-                   thrust::make_zip_iterator(thrust::make_tuple(columns.begin(), values.begin())));
+                   amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp1.begin(),   temp2.begin())),
+                   amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(columns.begin(), values.begin())));
 }
 
 template <typename Array1, typename Array2, typename Array3>
@@ -273,7 +273,7 @@ void sort_by_row_and_column(Array1& rows, Array2& columns, Array3& values)
     size_t N = rows.size();
 
     cusp::array1d<IndexType,MemorySpace> permutation(N);
-    thrust::sequence(permutation.begin(), permutation.end());
+    amgx::thrust::sequence(permutation.begin(), permutation.end());
   
     // compute permutation and sort by (I,J)
     {

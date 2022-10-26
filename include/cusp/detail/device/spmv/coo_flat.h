@@ -179,7 +179,7 @@ spmv_coo_flat_kernel(const IndexType num_nonzeros,
     const IndexType warp_id     = thread_id   / WARP_SIZE;                                       // global warp index
 
     const IndexType interval_begin = warp_id * interval_size;                                    // warp's offset into I,J,V
-    const IndexType interval_end   = thrust::min(interval_begin + interval_size, num_nonzeros);  // end of warps's work
+    const IndexType interval_end   = amgx::thrust::min(interval_begin + interval_size, num_nonzeros);  // end of warps's work
 
     const IndexType idx = 16 * (threadIdx.x/32 + 1) + threadIdx.x;                               // thread's index into padded rows array
 
@@ -302,12 +302,12 @@ void __spmv_coo_flat(const Matrix&    A,
 {
     typedef typename Matrix::index_type IndexType;
 
-    const IndexType * I = thrust::raw_pointer_cast(&A.row_indices[0]);
-    const IndexType * J = thrust::raw_pointer_cast(&A.column_indices[0]);
-    const ValueType * V = thrust::raw_pointer_cast(&A.values[0]);
+    const IndexType * I = amgx::thrust::raw_pointer_cast(&A.row_indices[0]);
+    const IndexType * J = amgx::thrust::raw_pointer_cast(&A.column_indices[0]);
+    const ValueType * V = amgx::thrust::raw_pointer_cast(&A.values[0]);
 
     if (InitializeY)
-        thrust::fill(thrust::device_pointer_cast(y), thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
+        amgx::thrust::fill(amgx::thrust::device_pointer_cast(y), amgx::thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
 
     if(A.num_entries == 0)
     {
@@ -345,10 +345,10 @@ void __spmv_coo_flat(const Matrix&    A,
 
     spmv_coo_flat_kernel<IndexType, ValueType, BLOCK_SIZE, UseCache> <<<num_blocks, BLOCK_SIZE>>>
         (tail, interval_size, I, J, V, x, y,
-         thrust::raw_pointer_cast(&temp_rows[0]), thrust::raw_pointer_cast(&temp_vals[0]));
+         amgx::thrust::raw_pointer_cast(&temp_rows[0]), amgx::thrust::raw_pointer_cast(&temp_vals[0]));
 
     spmv_coo_reduce_update_kernel<IndexType, ValueType, BLOCK_SIZE> <<<1, BLOCK_SIZE>>>
-        (active_warps, thrust::raw_pointer_cast(&temp_rows[0]), thrust::raw_pointer_cast(&temp_vals[0]), y);
+        (active_warps, amgx::thrust::raw_pointer_cast(&temp_rows[0]), amgx::thrust::raw_pointer_cast(&temp_vals[0]), y);
     
     spmv_coo_serial_kernel<IndexType,ValueType> <<<1,1>>>
         (A.num_entries - tail, I + tail, J + tail, V + tail, x, y);

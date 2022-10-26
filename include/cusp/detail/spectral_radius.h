@@ -40,7 +40,7 @@ namespace detail
 // TODO move this to a shared header
 // absolute<T> computes the absolute value of a number f(x) -> |x|
 template <typename T>
-struct absolute : public thrust::unary_function<T,T>
+struct absolute : public amgx::thrust::unary_function<T,T>
 {
     __host__ __device__
 	T operator()(T x)
@@ -118,14 +118,14 @@ double disks_spectral_radius(const cusp::coo_matrix<IndexType,ValueType,MemorySp
 
     {
       cusp::array1d<IndexType, MemorySpace> temp(N);
-      thrust::reduce_by_key
+      amgx::thrust::reduce_by_key
         (A.row_indices.begin(), A.row_indices.end(),
-         thrust::make_transform_iterator(A.values.begin(), absolute<ValueType>()),
+         amgx::thrust::make_transform_iterator(A.values.begin(), absolute<ValueType>()),
          temp.begin(),
          row_sums.begin());
     }
 
-    return *thrust::max_element(row_sums.begin(), row_sums.end());
+    return *amgx::thrust::max_element(row_sums.begin(), row_sums.end());
 }
 
 template <typename Matrix> 

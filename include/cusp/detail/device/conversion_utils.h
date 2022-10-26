@@ -59,8 +59,8 @@ struct occupied_diagonal_functor
     __host__ __device__
   IndexType operator()(const Tuple& t) const
   {
-    const IndexType i = thrust::get<0>(t);
-    const IndexType j = thrust::get<1>(t);
+    const IndexType i = amgx::thrust::get<0>(t);
+    const IndexType j = amgx::thrust::get<1>(t);
 
     return j-i+num_rows;
   }
@@ -97,9 +97,9 @@ size_t count_diagonals(const size_t num_rows,
 
     cusp::array1d<IndexType,cusp::device_memory> values(num_rows+num_cols,IndexType(0));
 
-    thrust::scatter(thrust::constant_iterator<IndexType>(1), 
-		    thrust::constant_iterator<IndexType>(1)+num_entries, 
-		    thrust::make_transform_iterator(thrust::make_zip_iterator( thrust::make_tuple( row_indices.begin(), column_indices.begin() ) ), 
+    amgx::thrust::scatter(amgx::thrust::constant_iterator<IndexType>(1),
+		    amgx::thrust::constant_iterator<IndexType>(1)+num_entries,
+		    amgx::thrust::make_transform_iterator(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), column_indices.begin() ) ),
 						    occupied_diagonal_functor<IndexType>(num_rows)), 
 		    values.begin());
 
@@ -130,11 +130,11 @@ size_t compute_max_entries_per_row(const Array1d& row_offsets)
     typedef typename Array1d::value_type IndexType;
 
     size_t max_entries_per_row = 
-    thrust::inner_product(row_offsets.begin() + 1, row_offsets.end(),
+    amgx::thrust::inner_product(row_offsets.begin() + 1, row_offsets.end(),
         row_offsets.begin(),
         IndexType(0),
-        thrust::maximum<IndexType>(),
-        thrust::minus<IndexType>());
+        amgx::thrust::maximum<IndexType>(),
+        amgx::thrust::minus<IndexType>());
 
     return max_entries_per_row;
 }
@@ -174,21 +174,21 @@ size_t compute_optimal_entries_per_row(const  Array1d& row_offsets,
 
     // compute distribution of nnz per row
     cusp::array1d<IndexType,cusp::device_memory> entries_per_row(num_rows);
-    thrust::adjacent_difference( row_offsets.begin()+1, row_offsets.end(), entries_per_row.begin() );
+    amgx::thrust::adjacent_difference( row_offsets.begin()+1, row_offsets.end(), entries_per_row.begin() );
 
     // sort data to bring equal elements together
     thrust_wrapper::sort(entries_per_row.begin(), entries_per_row.end());
 
     // find the end of each bin of values
-    thrust::counting_iterator<IndexType> search_begin(0);
-    thrust::upper_bound(entries_per_row.begin(),
+    amgx::thrust::counting_iterator<IndexType> search_begin(0);
+    amgx::thrust::upper_bound(entries_per_row.begin(),
                         entries_per_row.end(),
                         search_begin,
                         search_begin + max_cols_per_row + 1,
                         cumulative_histogram.begin());
 
     // compute optimal ELL column size 
-    IndexType num_cols_per_row = thrust::find_if( cumulative_histogram.begin(), cumulative_histogram.end()-1, 
+    IndexType num_cols_per_row = amgx::thrust::find_if( cumulative_histogram.begin(), cumulative_histogram.end()-1,
 						  speed_threshold_functor(num_rows, relative_speed, breakeven_threshold) )
 				 - cumulative_histogram.begin();
 

@@ -36,12 +36,12 @@ struct inside_grid_helper
     __host__ __device__
     static bool inside_grid(StencilPoint point, GridDimension grid, IndexType index)
     {
-        IndexType x = index % thrust::get<i>(grid) + thrust::get<i>(thrust::get<0>(point));
+        IndexType x = index % amgx::thrust::get<i>(grid) + amgx::thrust::get<i>(amgx::thrust::get<0>(point));
         
-        if (x < 0 || x >= thrust::get<i>(grid))
+        if (x < 0 || x >= amgx::thrust::get<i>(grid))
             return false;
         else
-            return inside_grid_helper<StencilPoint,GridDimension,IndexType,i + 1,n>::inside_grid(point, grid, index / thrust::get<i>(grid));
+            return inside_grid_helper<StencilPoint,GridDimension,IndexType,i + 1,n>::inside_grid(point, grid, index / amgx::thrust::get<i>(grid));
     }
 };
 
@@ -59,7 +59,7 @@ template <typename StencilPoint, typename GridDimension, typename IndexType>
 __host__ __device__
 bool inside_grid(StencilPoint point, GridDimension grid, IndexType index)
 {
-    return inside_grid_helper<StencilPoint,GridDimension,IndexType, 0, thrust::tuple_size<GridDimension>::value >::inside_grid(point, grid, index);
+    return inside_grid_helper<StencilPoint,GridDimension,IndexType, 0, amgx::thrust::tuple_size<GridDimension>::value >::inside_grid(point, grid, index);
 }
 
 
@@ -68,7 +68,7 @@ struct tuple_for_each_helper
 {
     static UnaryFunction for_each(Tuple& t, UnaryFunction f)
     {
-        f(thrust::get<i>(t));
+        f(amgx::thrust::get<i>(t));
 
         return tuple_for_each_helper<Tuple,UnaryFunction,i + 1,size>::for_each(t, f);
     }
@@ -86,7 +86,7 @@ struct tuple_for_each_helper<Tuple,UnaryFunction,size,size>
 template <typename Tuple, typename UnaryFunction>
 UnaryFunction tuple_for_each(Tuple& t, UnaryFunction f)
 {
-    return tuple_for_each_helper<Tuple, UnaryFunction, 0, thrust::tuple_size<Tuple>::value>::for_each(t, f);
+    return tuple_for_each_helper<Tuple, UnaryFunction, 0, amgx::thrust::tuple_size<Tuple>::value>::for_each(t, f);
 }
 
 
@@ -127,7 +127,7 @@ struct fill_diagonal_entries
     ValueType operator()(IndexType index)
     {
         if (inside_grid(point, grid, index))
-            return thrust::get<1>(point);
+            return amgx::thrust::get<1>(point);
         else
             return ValueType(0);
     }
@@ -144,23 +144,23 @@ void generate_matrix_from_stencil(      cusp::dia_matrix<IndexType,ValueType,Mem
                                   const cusp::array1d<StencilPoint,cusp::host_memory>& stencil,
                                   const GridDimension& grid)
 {
-    IndexType num_dimensions = thrust::tuple_size<GridDimension>::value;
+    IndexType num_dimensions = amgx::thrust::tuple_size<GridDimension>::value;
 
     cusp::array1d<IndexType,cusp::host_memory> grid_indices(num_dimensions);
     detail::unpack_tuple(grid, grid_indices.begin());
 
-    IndexType num_rows = thrust::reduce(grid_indices.begin(), grid_indices.end(), IndexType(1), thrust::multiplies<IndexType>());
+    IndexType num_rows = amgx::thrust::reduce(grid_indices.begin(), grid_indices.end(), IndexType(1), amgx::thrust::multiplies<IndexType>());
 
     IndexType num_diagonals = stencil.size();
 
     cusp::array1d<IndexType,cusp::host_memory> strides(grid_indices.size());
-    thrust::exclusive_scan(grid_indices.begin(), grid_indices.end(), strides.begin(), IndexType(1), thrust::multiplies<IndexType>());
+    amgx::thrust::exclusive_scan(grid_indices.begin(), grid_indices.end(), strides.begin(), IndexType(1), amgx::thrust::multiplies<IndexType>());
 
     cusp::array1d<IndexType,cusp::host_memory> offsets(stencil.size(), 0);
     for(size_t i = 0; i < offsets.size(); i++)
     {
         cusp::array1d<IndexType,cusp::host_memory> stencil_indices(num_dimensions);
-        detail::unpack_tuple(thrust::get<0>(stencil[i]), stencil_indices.begin());
+        detail::unpack_tuple(amgx::thrust::get<0>(stencil[i]), stencil_indices.begin());
 
         for(IndexType j = 0; j < num_dimensions; j++)
         {
@@ -176,13 +176,13 @@ void generate_matrix_from_stencil(      cusp::dia_matrix<IndexType,ValueType,Mem
     // ideally we'd have row views and column views here
     for(IndexType i = 0; i < num_diagonals; i++)
     {
-        thrust::transform(thrust::counting_iterator<IndexType>(0),
-                          thrust::counting_iterator<IndexType>(num_rows),
+        amgx::thrust::transform(amgx::thrust::counting_iterator<IndexType>(0),
+                          amgx::thrust::counting_iterator<IndexType>(num_rows),
                           matrix.values.values.begin() + matrix.values.pitch * i, 
                           detail::fill_diagonal_entries<IndexType,ValueType,StencilPoint,GridDimension>(stencil[i], grid));
     }
 
-    matrix.num_entries = matrix.values.values.size() - thrust::count(matrix.values.values.begin(), matrix.values.values.end(), ValueType(0));
+    matrix.num_entries = matrix.values.values.size() - amgx::thrust::count(matrix.values.values.begin(), matrix.values.values.end(), ValueType(0));
 }
 
 // TODO add an entry point and make this the default path

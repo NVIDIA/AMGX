@@ -43,62 +43,62 @@ __global__ void profileSubphaseTruncateP_kernel() {}
 
 void profileLevelUp()
 {
-    profileLevelUp_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileLevelUp_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 void profileLevelDown()
 {
-    profileLevelDown_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileLevelDown_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 void profileLevelZero()
 {
-    profileLevelZero_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileLevelZero_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 void profilePhaseSetup()
 {
-    profilePhaseSetup_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profilePhaseSetup_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 void profilePhaseSolve()
 {
-    profilePhaseSolve_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profilePhaseSolve_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 void profilePhaseNone()
 {
-    profilePhaseNone_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profilePhaseNone_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseMatrixColoring()
 {
-    profileSubphaseMatrixColoring_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseMatrixColoring_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseSmootherSetup()
 {
-    profileSubphaseSmootherSetup_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseSmootherSetup_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseFindAggregates()
 {
-    profileSubphaseFindAggregates_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseFindAggregates_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseComputeRestriction()
 {
-    profileSubphaseComputeRestriction_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseComputeRestriction_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseComputeCoarseA()
 {
-    profileSubphaseComputeCoarseA_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseComputeCoarseA_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseNone()
 {
-    profileSubphaseNone_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseNone_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 void profileSubphaseTruncateP()
 {
-    profileSubphaseTruncateP_kernel <<< 1, 1, 0, thrust::global_thread_handle::get_stream()>>>();
+    profileSubphaseTruncateP_kernel <<< 1, 1, 0, amgx::thrust::global_thread_handle::get_stream()>>>();
 }
 
 

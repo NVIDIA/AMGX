@@ -45,19 +45,19 @@ namespace detail
    
   template<typename T, typename MemorySpace>
    struct default_memory_allocator
-      : thrust::detail::eval_if<
-          thrust::detail::is_convertible<MemorySpace, host_memory>::value,
+      : amgx::thrust::detail::eval_if<
+          amgx::thrust::detail::is_convertible<MemorySpace, host_memory>::value,
   
-          thrust::detail::identity_< std::allocator<T> >,
+          amgx::thrust::detail::identity_< std::allocator<T> >,
   
           // XXX add backend-specific allocators here?
   
-          thrust::detail::eval_if<
-            thrust::detail::is_convertible<MemorySpace, device_memory>::value,
+          amgx::thrust::detail::eval_if<
+            amgx::thrust::detail::is_convertible<MemorySpace, device_memory>::value,
   
-            thrust::detail::identity_< amgx::thrust_amgx_allocator<T> >,
+            amgx::thrust::detail::identity_< amgx::thrust_amgx_allocator<T> >,
   
-            thrust::detail::identity_< MemorySpace >
+            amgx::thrust::detail::identity_< MemorySpace >
           >
         >
   {};

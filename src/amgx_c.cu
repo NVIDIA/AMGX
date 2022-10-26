@@ -556,7 +556,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
             cudaCheckError();
         }
 
-        //alias raw pointers to amgx::thrust::ector data (see amgx::thrust::xample unwrap_pointer for details)
+        //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
         rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
         di_ptr = amgx::thrust::raw_pointer_cast(di.data());
         hv_ptr = amgx::thrust::raw_pointer_cast(hv.data());

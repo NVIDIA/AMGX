@@ -171,7 +171,7 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 {
     if (A.hasProps(DIAG))
     {
-        FatalError("amgx::thrust::arseAGenerator: unsupported diagonal", AMGX_ERR_NOT_IMPLEMENTED);
+        FatalError("ThrustCoarseAGenerator: unsupported diagonal", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
     IVector I(A.get_num_nz(), -1);

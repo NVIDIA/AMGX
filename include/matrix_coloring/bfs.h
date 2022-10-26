@@ -218,7 +218,7 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
         task_queue_n = task_queue_out_tail[0];
         cudaCheckError();
         //contract duplicates using amgx::thrust::
-        amgx::thrust::sort(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
+        thrust_wrapper::sort(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
         cudaCheckError();
         task_queue_n = amgx::thrust::unique(task_queue_out.begin(), task_queue_out.begin() + task_queue_n) - task_queue_out.begin();
         cudaCheckError();

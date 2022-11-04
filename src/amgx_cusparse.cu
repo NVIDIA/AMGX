@@ -1055,6 +1055,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
 {
     if(mb < 100000)
     {
+        // Custom single-kernel SpMV
         constexpr int nthreads = 128;
         constexpr int unroll_factor = 16;
         int nblocks = mb / nthreads + 1;

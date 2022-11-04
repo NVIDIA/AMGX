@@ -115,7 +115,7 @@ namespace detail
   
   // functors 
   template <typename IndexType, typename Orientation>
-  struct logical_to_physical_functor : public thrust::unary_function<IndexType,IndexType>
+  struct logical_to_physical_functor : public amgx::thrust::unary_function<IndexType,IndexType>
   {
     IndexType num_rows, num_cols, pitch;
   
@@ -130,7 +130,7 @@ namespace detail
   };
 
   template <typename IndexType, typename Orientation1, typename Orientation2>
-  struct logical_to_other_physical_functor : public thrust::unary_function<IndexType,IndexType>
+  struct logical_to_other_physical_functor : public amgx::thrust::unary_function<IndexType,IndexType>
   {
     IndexType num_rows, num_cols, pitch;
   
@@ -283,7 +283,7 @@ class array2d : public cusp::detail::matrix_base<int,ValueType,MemorySpace,cusp:
   void swap(array2d& matrix)
   {
     Parent::swap(matrix);
-    thrust::swap(this->pitch, matrix.pitch);
+    amgx::thrust::swap(this->pitch, matrix.pitch);
     values.swap(matrix.values);
   }
 

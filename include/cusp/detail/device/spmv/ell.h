@@ -99,8 +99,8 @@ void __spmv_ell(const Matrix&    A,
     spmv_ell_kernel<IndexType,ValueType,BLOCK_SIZE,UseCache> <<<NUM_BLOCKS, BLOCK_SIZE>>>
         (A.num_rows, A.num_cols,
          num_entries_per_row, pitch,
-         thrust::raw_pointer_cast(&A.column_indices.values[0]), 
-         thrust::raw_pointer_cast(&A.values.values[0]),
+         amgx::thrust::raw_pointer_cast(&A.column_indices.values[0]),
+         amgx::thrust::raw_pointer_cast(&A.values.values[0]),
          x, y);
 
     if (UseCache)

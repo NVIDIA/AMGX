@@ -77,7 +77,7 @@ template <typename IndexType, typename ValueType, class MemorySpace>
     coo_matrix<IndexType,ValueType,MemorySpace>
     ::is_sorted_by_row(void)
     {
-        return thrust::is_sorted(row_indices.begin(), row_indices.end());
+        return amgx::thrust::is_sorted(row_indices.begin(), row_indices.end());
     }
 
 // determine whether matrix elements are sorted by row and column index
@@ -86,9 +86,9 @@ template <typename IndexType, typename ValueType, class MemorySpace>
     coo_matrix<IndexType,ValueType,MemorySpace>
     ::is_sorted_by_row_and_column(void)
     {
-        return thrust::is_sorted
-            (thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), column_indices.begin())),
-             thrust::make_zip_iterator(thrust::make_tuple(row_indices.end(),   column_indices.end())));
+        return amgx::thrust::is_sorted
+            (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), column_indices.begin())),
+             amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.end(),   column_indices.end())));
     }
 
 ///////////////////////////
@@ -119,7 +119,7 @@ template <typename Array1, typename Array2, typename Array3, typename IndexType,
     coo_matrix_view<Array1,Array2,Array3,IndexType,ValueType,MemorySpace>
     ::is_sorted_by_row(void)
     {
-        return thrust::is_sorted(row_indices.begin(), row_indices.end());
+        return amgx::thrust::is_sorted(row_indices.begin(), row_indices.end());
     }
 
 // determine whether matrix elements are sorted by row and column index
@@ -128,9 +128,9 @@ template <typename Array1, typename Array2, typename Array3, typename IndexType,
     coo_matrix_view<Array1,Array2,Array3,IndexType,ValueType,MemorySpace>
     ::is_sorted_by_row_and_column(void)
     {
-        return thrust::is_sorted
-            (thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), column_indices.begin())),
-             thrust::make_zip_iterator(thrust::make_tuple(row_indices.end(),   column_indices.end())));
+        return amgx::thrust::is_sorted
+            (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), column_indices.begin())),
+             amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.end(),   column_indices.end())));
     }
 
 } // end namespace cusp

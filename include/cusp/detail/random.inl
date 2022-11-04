@@ -32,7 +32,7 @@ namespace detail
 
 // Integer hash functions
 template <typename IndexType, typename T>
-struct random_integer_functor : public thrust::unary_function<IndexType,T>
+struct random_integer_functor : public amgx::thrust::unary_function<IndexType,T>
 {
     size_t seed;
 
@@ -41,7 +41,7 @@ struct random_integer_functor : public thrust::unary_function<IndexType,T>
 
     // source: http://www.concentric.net/~ttwang/tech/inthash.htm
     __host__ __device__
-    T hash(const IndexType i, thrust::detail::false_type) const
+    T hash(const IndexType i, amgx::thrust::detail::false_type) const
     {
         unsigned int h = (unsigned int) i ^ (unsigned int) seed;
         h = ~h + (h << 15);
@@ -54,7 +54,7 @@ struct random_integer_functor : public thrust::unary_function<IndexType,T>
     }
 
     __host__ __device__
-    T hash(const IndexType i, thrust::detail::true_type) const
+    T hash(const IndexType i, amgx::thrust::detail::true_type) const
     {
         unsigned long long h = (unsigned long long) i ^ (unsigned long long) seed;
         h = ~h + (h << 21);
@@ -70,12 +70,12 @@ struct random_integer_functor : public thrust::unary_function<IndexType,T>
     __host__ __device__
     T operator()(const IndexType i) const
     {
-        return hash(i, typename thrust::detail::integral_constant<bool, sizeof(IndexType) == 8 || sizeof(T) == 8>::type());
+        return hash(i, typename amgx::thrust::detail::integral_constant<bool, sizeof(IndexType) == 8 || sizeof(T) == 8>::type());
     }
 };
 
 template <typename UnsignedInteger, typename Real>
-struct integer_to_real : public thrust::unary_function<UnsignedInteger,Real>
+struct integer_to_real : public amgx::thrust::unary_function<UnsignedInteger,Real>
 {
     __host__ __device__
     Real operator()(const UnsignedInteger i) const
@@ -90,9 +90,9 @@ struct random_integer_iterator
 {
     public:
     typedef           ptrdiff_t                                               IndexType;
-    typedef typename thrust::counting_iterator<IndexType>                     CountingIterator;
+    typedef typename amgx::thrust::counting_iterator<IndexType>                     CountingIterator;
     typedef          random_integer_functor<IndexType,T>                      Functor;
-    typedef typename thrust::transform_iterator<Functor, CountingIterator, T> TransformIterator;
+    typedef typename amgx::thrust::transform_iterator<Functor, CountingIterator, T> TransformIterator;
 
     typedef TransformIterator type;
 
@@ -111,7 +111,7 @@ struct random_real_iterator<float>
 {
     typedef typename random_integer_iterator<unsigned int>::type                RandomIterator;
     typedef          integer_to_real<unsigned int, float>                       Functor;
-    typedef typename thrust::transform_iterator<Functor, RandomIterator, float> TransformIterator;
+    typedef typename amgx::thrust::transform_iterator<Functor, RandomIterator, float> TransformIterator;
     
     typedef TransformIterator type;
 
@@ -126,7 +126,7 @@ struct random_real_iterator<double>
 {
     typedef typename random_integer_iterator<unsigned long long>::type           RandomIterator;
     typedef          integer_to_real<unsigned long long, double>                 Functor;
-    typedef typename thrust::transform_iterator<Functor, RandomIterator, double> TransformIterator;
+    typedef typename amgx::thrust::transform_iterator<Functor, RandomIterator, double> TransformIterator;
 
     typedef TransformIterator type;
 

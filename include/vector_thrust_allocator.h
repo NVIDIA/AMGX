@@ -51,16 +51,16 @@ class thrust_amgx_allocator
         typedef T                                   value_type;
 
         /*! Pointer to allocation, \c device_ptr<T>. */
-        typedef thrust::device_ptr<T>               pointer;
+        typedef amgx::thrust::device_ptr<T>               pointer;
 
         /*! \c const pointer to allocation, \c device_ptr<const T>. */
-        typedef thrust::device_ptr<const T>         const_pointer;
+        typedef amgx::thrust::device_ptr<const T>         const_pointer;
 
         /*! Reference to allocated element, \c device_reference<T>. */
-        typedef thrust::device_reference<T>         reference;
+        typedef amgx::thrust::device_reference<T>         reference;
 
         /*! \c const reference to allocated element, \c device_reference<const T>. */
-        typedef thrust::device_reference<const T>   const_reference;
+        typedef amgx::thrust::device_reference<const T>   const_reference;
 
         /*! Type of allocation size, \c std::size_t. */
         typedef std::size_t                         size_type;
@@ -150,6 +150,6 @@ class thrust_amgx_allocator
 }; // end thrust_amgx_allocator
 
 template<class T>
-using device_vector_alloc = thrust::device_vector<T, thrust_amgx_allocator<T>>;
+using device_vector_alloc = amgx::thrust::device_vector<T, thrust_amgx_allocator<T>>;
 
 } // end amgx

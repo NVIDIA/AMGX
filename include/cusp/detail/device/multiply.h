@@ -66,9 +66,9 @@ void multiply(const Matrix&  A,
               cusp::array1d_format)
 {
 #ifdef CUSP_USE_TEXTURE_MEMORY    
-    cusp::detail::device::spmv_coo_flat_tex(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_coo_flat_tex(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #else
-    cusp::detail::device::spmv_coo_flat(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_coo_flat(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #endif    
 }
 
@@ -83,9 +83,9 @@ void multiply(const Matrix&  A,
               cusp::array1d_format)
 {
 #ifdef CUSP_USE_TEXTURE_MEMORY    
-    cusp::detail::device::spmv_csr_vector_tex(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_csr_vector_tex(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #else
-    cusp::detail::device::spmv_csr_vector(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_csr_vector(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #endif    
 }
 
@@ -100,9 +100,9 @@ void multiply(const Matrix&  A,
               cusp::array1d_format)
 {
 #ifdef CUSP_USE_TEXTURE_MEMORY    
-    cusp::detail::device::spmv_dia_tex(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_dia_tex(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #else
-    cusp::detail::device::spmv_dia(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_dia(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #endif    
 }
 
@@ -117,9 +117,9 @@ void multiply(const Matrix&  A,
               cusp::array1d_format)
 {
 #ifdef CUSP_USE_TEXTURE_MEMORY    
-    cusp::detail::device::spmv_ell_tex(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_ell_tex(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #else
-    cusp::detail::device::spmv_ell(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_ell(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #endif    
 }
 
@@ -134,9 +134,9 @@ void multiply(const Matrix&  A,
               cusp::array1d_format)
 {
 #ifdef CUSP_USE_TEXTURE_MEMORY    
-    cusp::detail::device::spmv_hyb_tex(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_hyb_tex(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #else
-    cusp::detail::device::spmv_hyb(A, thrust::raw_pointer_cast(&B[0]), thrust::raw_pointer_cast(&C[0]));
+    cusp::detail::device::spmv_hyb(A, amgx::thrust::raw_pointer_cast(&B[0]), amgx::thrust::raw_pointer_cast(&C[0]));
 #endif    
 }
 

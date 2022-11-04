@@ -42,7 +42,7 @@
 #include <algorithm>
 
 template<typename T>
-struct row_length : public thrust::unary_function<T, T>
+struct row_length : public amgx::thrust::unary_function<T, T>
 {
     __host__ __device__ T operator()(const T &x) const
     {
@@ -727,7 +727,7 @@ MatrixBase<T_Config>::resize(index_type num_rows, index_type num_cols, index_typ
         else
         {
             values.resize((num_nz + 1)*block_size);
-            //thrust::fill(values.begin() + num_nz*block_size, values.end(), static_cast<value_type>(0.0));
+            //amgx::thrust::fill(values.begin() + num_nz*block_size, values.end(), static_cast<value_type>(0.0));
         }
 
         diag.resize(num_rows);
@@ -740,7 +740,7 @@ MatrixBase<T_Config>::resize(index_type num_rows, index_type num_cols, index_typ
         if ( hasProps(CSR) ) { row_offsets.resize(num_rows + 1); }
 
         m_seq_offsets.resize(num_rows + 1);
-        thrust::sequence(m_seq_offsets.begin(), m_seq_offsets.end());
+        amgx::thrust::sequence(m_seq_offsets.begin(), m_seq_offsets.end());
         cudaCheckError();
 
         if (!skipDiaCompute )
@@ -879,16 +879,16 @@ MatrixBase<T_Config>::reorderColumnsByColor(bool insert_diagonal)
     // The new matrix will have inside diagonal
     if (hasProps(DIAG) && insert_diagonal)
     {
-        thrust::counting_iterator<int> first(0);
-        thrust::counting_iterator<int> last = first + num_rows;
+        amgx::thrust::counting_iterator<int> first(0);
+        amgx::thrust::counting_iterator<int> last = first + num_rows;
         // Create new row_indices with appended diagonal
         IVector new_row_indices(num_non_zeros);
         IVector new_col_indices(num_non_zeros);
-        thrust::copy(row_indices.begin(), row_indices.end(), new_row_indices.begin());
-        thrust::copy(first, last, new_row_indices.begin() + num_nz);
+        amgx::thrust::copy(row_indices.begin(), row_indices.end(), new_row_indices.begin());
+        amgx::thrust::copy(first, last, new_row_indices.begin() + num_nz);
         // Create new col_indices with appended diagonal
-        thrust::copy(col_indices.begin(), col_indices.end(), new_col_indices.begin());
-        thrust::copy(first, last, new_col_indices.begin() + num_nz);
+        amgx::thrust::copy(col_indices.begin(), col_indices.end(), new_col_indices.begin());
+        amgx::thrust::copy(first, last, new_col_indices.begin() + num_nz);
         row_indices.swap(new_row_indices);
         col_indices.swap(new_col_indices);
         new_row_indices.clear();
@@ -899,20 +899,20 @@ MatrixBase<T_Config>::reorderColumnsByColor(bool insert_diagonal)
 
     // Compute the color of every column
     IVector element_colors(num_non_zeros);
-    thrust::copy(thrust::make_permutation_iterator(this->getMatrixColoring().getRowColors().begin(), col_indices.begin()),
-                 thrust::make_permutation_iterator(this->getMatrixColoring().getRowColors().begin(), col_indices.end()),
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->getMatrixColoring().getRowColors().begin(), col_indices.begin()),
+                 amgx::thrust::make_permutation_iterator(this->getMatrixColoring().getRowColors().begin(), col_indices.end()),
                  element_colors.begin());
     // Compute the permutation vector by sorting by rows and columns
     m_values_permutation_vector.resize(num_non_zeros);
-    thrust::sequence(m_values_permutation_vector.begin(), m_values_permutation_vector.end());
+    amgx::thrust::sequence(m_values_permutation_vector.begin(), m_values_permutation_vector.end());
     cusp::detail::sort_by_row_and_column(row_indices, element_colors, m_values_permutation_vector);
     cudaCheckError();
     element_colors.clear();
     element_colors.shrink_to_fit();
     // Compute the new column indices sorted by color
     IVector new_column_indices(num_non_zeros);
-    thrust::copy(thrust::make_permutation_iterator(col_indices.begin(), m_values_permutation_vector.begin()),
-                 thrust::make_permutation_iterator(col_indices.begin(), m_values_permutation_vector.end()),
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(col_indices.begin(), m_values_permutation_vector.begin()),
+                 amgx::thrust::make_permutation_iterator(col_indices.begin(), m_values_permutation_vector.end()),
                  new_column_indices.begin());
     col_indices.swap(new_column_indices);
     new_column_indices.clear();
@@ -966,23 +966,23 @@ MatrixBase<T_Config>::sortByRowAndColumn()
 
     size_t N = this->row_indices.size();
     IVector permutation(N);
-    thrust::sequence(permutation.begin(), permutation.end());
+    amgx::thrust::sequence(permutation.begin(), permutation.end());
     cudaCheckError();
     // compute permutation and sort by (I,J)
     {
         IVector temp(this->col_indices);
-        thrust::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
+        amgx::thrust::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
         temp = this->row_indices;
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), this->row_indices.begin());
-        thrust::stable_sort_by_key(this->row_indices.begin(), this->row_indices.end(), permutation.begin());
+        amgx::thrust::gather(permutation.begin(), permutation.end(), temp.begin(), this->row_indices.begin());
+        amgx::thrust::stable_sort_by_key(this->row_indices.begin(), this->row_indices.end(), permutation.begin());
         temp = this->col_indices;
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), this->col_indices.begin());
+        amgx::thrust::gather(permutation.begin(), permutation.end(), temp.begin(), this->col_indices.begin());
     }
     cudaCheckError();
     // use permutation to reorder the values
     {
         MVector temp(this->values);
-        thrust::gather(permutation.begin(), permutation.end(), temp.begin(), this->values.begin());
+        amgx::thrust::gather(permutation.begin(), permutation.end(), temp.begin(), this->values.begin());
     }
     cudaCheckError();
     this->set_allow_recompute_diag(true);
@@ -1103,7 +1103,7 @@ void Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::comp
     if (this->hasProps(DIAG))
     {
         int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
-        computeDiagonalKernelDiagProp <<< num_blocks, 512, 0, thrust::global_thread_handle::get_stream()>>>(this->get_num_rows(), this->get_num_nz(), this->diag.raw(), this->m_diag_end_offsets.raw());
+        computeDiagonalKernelDiagProp <<< num_blocks, 512, 0, amgx::thrust::global_thread_handle::get_stream()>>>(this->get_num_rows(), this->get_num_nz(), this->diag.raw(), this->m_diag_end_offsets.raw());
     }
     else if (this->hasProps(COO))
     {
@@ -1208,8 +1208,8 @@ void reorderElementsDeviceCSR(INDEX_TYPE num_rows,
                               T *values,
                               INDEX_TYPE block_size)
 {
-    thrust::device_ptr<INDEX_TYPE> dev_ptr = thrust::device_pointer_cast(row_offsets);
-    INDEX_TYPE max_row_length = std::max(1, thrust::transform_reduce(dev_ptr, dev_ptr + num_rows, row_length<INDEX_TYPE>(), 0, thrust::maximum<INDEX_TYPE>()));
+    amgx::thrust::device_ptr<INDEX_TYPE> dev_ptr = amgx::thrust::device_pointer_cast(row_offsets);
+    INDEX_TYPE max_row_length = std::max(1, amgx::thrust::transform_reduce(dev_ptr, dev_ptr + num_rows, row_length<INDEX_TYPE>(), 0, amgx::thrust::maximum<INDEX_TYPE>()));
     //TODO: optimise this in terms of storage
     INDEX_TYPE storage_space = 100 * 1024 * 1024 * sizeof(T) / sizeof(cuDoubleComplex); // because we allocate as for cuComplex
     INDEX_TYPE blocks = 1500 < storage_space / (max_row_length * block_size * sizeof(T)) ? 1500 : storage_space / (max_row_length * block_size * sizeof(T));

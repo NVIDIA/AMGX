@@ -75,22 +75,22 @@ void coo_spmm_helper(size_t workspace_size,
     }
 
     // compute gather locations of intermediate format
-    thrust::fill(A_gather_locations.begin(), A_gather_locations.end(), 0);
-    thrust::scatter_if(thrust::counting_iterator<IndexType>(begin_segment), thrust::counting_iterator<IndexType>(end_segment),
+    amgx::thrust::fill(A_gather_locations.begin(), A_gather_locations.end(), 0);
+    amgx::thrust::scatter_if(amgx::thrust::counting_iterator<IndexType>(begin_segment), amgx::thrust::counting_iterator<IndexType>(end_segment),
                        output_ptr.begin() + begin_segment, 
                        segment_lengths.begin() + begin_segment,
                        A_gather_locations.begin() - output_ptr[begin_segment]);
-    thrust::inclusive_scan(A_gather_locations.begin(), A_gather_locations.end(), A_gather_locations.begin(), thrust::maximum<IndexType>());
+    amgx::thrust::inclusive_scan(A_gather_locations.begin(), A_gather_locations.end(), A_gather_locations.begin(), amgx::thrust::maximum<IndexType>());
   
     // compute gather locations of intermediate format
-    thrust::fill(B_gather_locations.begin(), B_gather_locations.end(), 1);
-    thrust::scatter_if(thrust::make_permutation_iterator(B_row_offsets.begin(), A.column_indices.begin()) + begin_segment,
-                       thrust::make_permutation_iterator(B_row_offsets.begin(), A.column_indices.begin()) + end_segment,
+    amgx::thrust::fill(B_gather_locations.begin(), B_gather_locations.end(), 1);
+    amgx::thrust::scatter_if(amgx::thrust::make_permutation_iterator(B_row_offsets.begin(), A.column_indices.begin()) + begin_segment,
+                       amgx::thrust::make_permutation_iterator(B_row_offsets.begin(), A.column_indices.begin()) + end_segment,
                        output_ptr.begin() + begin_segment,
-//                       thrust::make_transform_iterator(output_ptr.begin(), subtract_constant<IndexType>(begin + begin_segment,
+//                       amgx::thrust::make_transform_iterator(output_ptr.begin(), subtract_constant<IndexType>(begin + begin_segment,
                        segment_lengths.begin() + begin_segment,
                        B_gather_locations.begin() - output_ptr[begin_segment]);
-    thrust::inclusive_scan_by_key(A_gather_locations.begin(), A_gather_locations.end(),
+                       amgx::thrust::inclusive_scan_by_key(A_gather_locations.begin(), A_gather_locations.end(),
                                   B_gather_locations.begin(),
                                   B_gather_locations.begin());
 
@@ -102,35 +102,35 @@ void coo_spmm_helper(size_t workspace_size,
                    B.column_indices.begin(),
                    J.begin());
 
-    thrust::transform(thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.begin()),
-                      thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.end()),
-                      thrust::make_permutation_iterator(B.values.begin(), B_gather_locations.begin()),
+    amgx::thrust::transform(amgx::thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.begin()),
+                      amgx::thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.end()),
+                      amgx::thrust::make_permutation_iterator(B.values.begin(), B_gather_locations.begin()),
                       V.begin(),
-                      thrust::multiplies<ValueType>());
+                      amgx::thrust::multiplies<ValueType>());
 
     // sort (I,J,V) tuples by (I,J)
     cusp::detail::sort_by_row_and_column(I, J, V);
 
     // compute unique number of nonzeros in the output
-    IndexType NNZ = thrust::inner_product(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-                                          thrust::make_zip_iterator(thrust::make_tuple(I.end (),  J.end()))   - 1,
-                                          thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())) + 1,
+    IndexType NNZ = amgx::thrust::inner_product(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+                                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end (),  J.end()))   - 1,
+                                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())) + 1,
                                           IndexType(0),
-                                          thrust::plus<IndexType>(),
-                                          thrust::not_equal_to< thrust::tuple<IndexType,IndexType> >()) + 1;
+                                          amgx::thrust::plus<IndexType>(),
+                                          amgx::thrust::not_equal_to< amgx::thrust::tuple<IndexType,IndexType> >()) + 1;
 
     // allocate space for output
     C.resize(A.num_rows, B.num_cols, NNZ);
 
     // sum values with the same (i,j)
-    thrust::reduce_by_key
-        (thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-         thrust::make_zip_iterator(thrust::make_tuple(I.end(),   J.end())),
+    amgx::thrust::reduce_by_key
+        (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+         amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end(),   J.end())),
          V.begin(),
-         thrust::make_zip_iterator(thrust::make_tuple(C.row_indices.begin(), C.column_indices.begin())),
+         amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(C.row_indices.begin(), C.column_indices.begin())),
          C.values.begin(),
-         thrust::equal_to< thrust::tuple<IndexType,IndexType> >(),
-         thrust::plus<ValueType>());
+         amgx::thrust::equal_to< amgx::thrust::tuple<IndexType,IndexType> >(),
+         amgx::thrust::plus<ValueType>());
 }
 
 
@@ -160,7 +160,7 @@ void spmm_coo(const Matrix1& A,
 
     // compute row lengths for B
     cusp::array1d<IndexType,MemorySpace> B_row_lengths(B.num_rows);
-    thrust::transform(B_row_offsets.begin() + 1, B_row_offsets.end(), B_row_offsets.begin(), B_row_lengths.begin(), thrust::minus<IndexType>());
+    amgx::thrust::transform(B_row_offsets.begin() + 1, B_row_offsets.end(), B_row_offsets.begin(), B_row_lengths.begin(), amgx::thrust::minus<IndexType>());
 
     // for each element A(i,j) compute the number of nonzero elements in B(j,:)
     cusp::array1d<IndexType,MemorySpace> segment_lengths(A.num_entries);
@@ -170,14 +170,14 @@ void spmm_coo(const Matrix1& A,
     
     // output pointer
     cusp::array1d<IndexType,MemorySpace> output_ptr(A.num_entries + 1);
-    thrust::exclusive_scan(segment_lengths.begin(), segment_lengths.end(),
+    amgx::thrust::exclusive_scan(segment_lengths.begin(), segment_lengths.end(),
                            output_ptr.begin(),
                            IndexType(0));
     output_ptr[A.num_entries] = output_ptr[A.num_entries - 1] + segment_lengths[A.num_entries - 1]; // XXX is this necessary?
 
     size_t coo_num_nonzeros = output_ptr[A.num_entries];
 
-    size_t workspace_capacity = thrust::min<size_t>(coo_num_nonzeros, 16 << 20);
+    size_t workspace_capacity = amgx::thrust::min<size_t>(coo_num_nonzeros, 16 << 20);
     
     {
       // TODO abstract this
@@ -188,7 +188,7 @@ void spmm_coo(const Matrix1& A,
       size_t max_workspace_capacity = free / (4 * sizeof(IndexType) + sizeof(ValueType));
 
       // use at most one third of the remaining capacity
-      workspace_capacity = thrust::min<size_t>(max_workspace_capacity / 3, workspace_capacity);
+      workspace_capacity = amgx::thrust::min<size_t>(max_workspace_capacity / 3, workspace_capacity);
     }
 
     // workspace arrays
@@ -243,7 +243,7 @@ void spmm_coo(const Matrix1& A,
             Container C_slice;
     
             // find largest end_row such that the capacity of [begin_row, end_row) fits in the workspace_capacity
-            size_t end_row = thrust::upper_bound(cummulative_row_workspace.begin() + begin_row, cummulative_row_workspace.end(),
+            size_t end_row = amgx::thrust::upper_bound(cummulative_row_workspace.begin() + begin_row, cummulative_row_workspace.end(),
                                                  total_work + IndexType(workspace_capacity)) - cummulative_row_workspace.begin();
 
             size_t begin_segment = A_row_offsets[begin_row];
@@ -295,9 +295,9 @@ void spmm_coo(const Matrix1& A,
         size_t base = 0;
         for(typename ContainerList::iterator iter = slices.begin(); iter != slices.end(); ++iter)
         {
-            thrust::copy(iter->row_indices.begin(),    iter->row_indices.end(),    C.row_indices.begin()    + base);
-            thrust::copy(iter->column_indices.begin(), iter->column_indices.end(), C.column_indices.begin() + base);
-            thrust::copy(iter->values.begin(),         iter->values.end(),         C.values.begin()         + base);
+            amgx::thrust::copy(iter->row_indices.begin(),    iter->row_indices.end(),    C.row_indices.begin()    + base);
+            amgx::thrust::copy(iter->column_indices.begin(), iter->column_indices.end(), C.column_indices.begin() + base);
+            amgx::thrust::copy(iter->values.begin(),         iter->values.end(),         C.values.begin()         + base);
             base += iter->num_entries;
         }
     }

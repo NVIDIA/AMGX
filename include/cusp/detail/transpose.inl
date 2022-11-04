@@ -45,7 +45,7 @@ void transpose(const MatrixType1& A, MatrixType2& At,
 
 // convert logical linear index in the (tranposed) destination into a physical index in the source
 template <typename IndexType, typename Orientation1, typename Orientation2>
-struct transpose_index_functor : public thrust::unary_function<IndexType,IndexType>
+struct transpose_index_functor : public amgx::thrust::unary_function<IndexType,IndexType>
 {
   IndexType num_rows, num_cols, pitch; // source dimensions
 
@@ -73,16 +73,16 @@ void transpose(const MatrixType1& A, MatrixType2& At,
 
   At.resize(A.num_cols, A.num_rows);
 
-  thrust::counting_iterator<size_t> begin(0);
-  thrust::counting_iterator<size_t> end(A.num_entries);
+  amgx::thrust::counting_iterator<size_t> begin(0);
+  amgx::thrust::counting_iterator<size_t> end(A.num_entries);
 
   // prefer coalesced writes to coalesced reads
   cusp::detail::transpose_index_functor    <size_t, Orientation1, Orientation2> func1(A.num_rows,  A.num_cols,  A.pitch);
   cusp::detail::logical_to_physical_functor<size_t, Orientation2>               func2(At.num_rows, At.num_cols, At.pitch);
 
-  thrust::copy(thrust::make_permutation_iterator(A.values.begin(),  thrust::make_transform_iterator(begin, func1)),
-               thrust::make_permutation_iterator(A.values.begin(),  thrust::make_transform_iterator(end,   func1)),
-               thrust::make_permutation_iterator(At.values.begin(), thrust::make_transform_iterator(begin, func2)));
+  amgx::thrust::copy(amgx::thrust::make_permutation_iterator(A.values.begin(),  amgx::thrust::make_transform_iterator(begin, func1)),
+               amgx::thrust::make_permutation_iterator(A.values.begin(),  amgx::thrust::make_transform_iterator(end,   func1)),
+               amgx::thrust::make_permutation_iterator(At.values.begin(), amgx::thrust::make_transform_iterator(begin, func2)));
 }
 
 

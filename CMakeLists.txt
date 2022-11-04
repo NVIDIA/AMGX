@@ -171,7 +171,6 @@ endif()
 
 # Add the build-specific flags to the NVCC flags
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPP_BUILD_NAME)
-
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}})
 
 # Add errors for execution space warnings and enable NVTX ranges
@@ -200,9 +199,9 @@ IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
   SET(CUDA_ALLOW_ARCH "60;70;80")
 
   # Use the generic cuSPARSE interfaces available from 10.1 on Linux, cusparseSpGEMM from 11.0
-  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} 
-      -DDISABLE_MIXED_PRECISION 
-      -DCUSPARSE_GENERIC_INTERFACES 
+  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
+      -DDISABLE_MIXED_PRECISION
+      -DCUSPARSE_GENERIC_INTERFACES
       -DCUSPARSE_USE_GENERIC_SPGEMM)
 
 #if compiling against CUDA Toolkit 10.x
@@ -238,14 +237,22 @@ ELSE()
 
 ENDIF()
 
+# We depend on a specific version of thrust now so include the submodule
+add_subdirectory("thrust")
+find_package(Thrust REQUIRED CONFIG)
+thrust_create_target(Thrust)
+
 # Add the CXX flags to the host set of CUDA flags
 string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
 
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
+
+target_link_libraries(amgx_libs Thrust)
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
@@ -279,6 +286,7 @@ if(MPI_FOUND)
 endif(MPI_FOUND)
 
 # set arch for main libs
+
 set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 

@@ -907,7 +907,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     IVector_h offsets_rows_per_color;
     {
         device_vector_alloc<int> sets_per_block(n_blocks + 1);
-        int *sets_per_block_ptr = thrust::raw_pointer_cast(sets_per_block.data());
+        int *sets_per_block_ptr = amgx::thrust::raw_pointer_cast(sets_per_block.data());
 
         if  (this->m_halo_coloring == SYNC_COLORS) { A.setView(ALL); }
         else { A.setViewExterior(); }
@@ -930,17 +930,17 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
 
         while (num_uncolored > 0)
         {
-            //int mx  = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, thrust::maximum<int>() );
+            //int mx  = amgx::thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, amgx::thrust::maximum<int>() );
             //if(mx > 2*K*i) printf("ERR UX %d %d %d\n", num_uncolored, mx, 2*K*i);
 #if USE_GTLT
             fast_multihash_kernel_gtlt_kernel<K, block_size, 1> <<< n_blocks, block_size>>>
             (num_rows, A.row_offsets.raw(), A.col_indices.raw(),
-             this->m_row_colors.raw(), thrust::raw_pointer_cast(gtlt.data()),
+             this->m_row_colors.raw(), amgx::thrust::raw_pointer_cast(gtlt.data()),
              seed);
             cudaCheckError();
             fast_multihash_kernel_gtlt_assign_kernel<K, block_size, 1> <<< n_blocks, block_size>>>
             (num_rows, A.row_offsets.raw(), A.col_indices.raw(),
-             this->m_row_colors.raw(), thrust::raw_pointer_cast(gtlt.data()),
+             this->m_row_colors.raw(), amgx::thrust::raw_pointer_cast(gtlt.data()),
              2 * K * i);
             cudaCheckError();
 #else
@@ -948,14 +948,14 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
             if (num_uncolored == num_rows || (!DISCARD_COLORED))
             {
                 fast_multihash_kernel<false, K, COLORING_LEVEL, block_size, 1> <<< n_blocks, block_size>>>(num_rows, A.row_offsets.raw(), A.col_indices.raw(),
-                        this->m_row_colors.raw(), thrust::raw_pointer_cast(color_in.data()),
+                        this->m_row_colors.raw(), amgx::thrust::raw_pointer_cast(color_in.data()),
                         2 * K * i, seed,
                         sets_per_block_ptr);
             }
             else
             {
                 fast_multihash_kernel<true, K, COLORING_LEVEL, block_size, 1> <<< n_blocks, block_size>>>(num_rows, A.row_offsets.raw(), A.col_indices.raw(),
-                        this->m_row_colors.raw(), thrust::raw_pointer_cast(color_in.data()),
+                        this->m_row_colors.raw(), amgx::thrust::raw_pointer_cast(color_in.data()),
                         2 * K * i, seed,
                         sets_per_block_ptr);
             }
@@ -964,7 +964,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
 #endif
             seed = hash2(seed, 0);
 #if GET_COLORS == GET_COLORS_THRUST || USE_GTLT
-            num_uncolored = thrust::count( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0);
+            num_uncolored = amgx::thrust::count( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0);
             cudaCheckError();
 #elif GET_COLORS == GET_COLORS_TWOPASS
             num_uncolored -= amgx::strided_reduction::count_block_results_1(n_blocks, sets_per_block_ptr, amgx::strided_reduction::op_sum());
@@ -995,7 +995,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
         color_in.swap(this->m_row_colors);
 #endif
         int max_color = i * K * 2; //available_color+c0 = 2*K*i + 2*(K-1)+2=2K(i+1), but i++
-        //max_color = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, thrust::maximum<int>() );
+        //max_color = amgx::thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, amgx::thrust::maximum<int>() );
         //printf("CC %d<%d\n",max_color,i*K*2+2);
         this->m_num_colors = max_color + 1;
 #if ONLY_FIRSTSTEP
@@ -1016,14 +1016,14 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
             IVector row_colors(this->m_row_colors); //useless copy
             sorted_rows_by_color.resize(num_rows);
             //this->m_sorted_rows_by_color.resize(num_rows);
-            thrust::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
+            amgx::thrust::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
             thrust_wrapper::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
             cudaCheckError();
             IVector offsets_rows_per_color_d(this->m_num_colors + 1);
-            thrust::lower_bound(row_colors.begin(),
+            amgx::thrust::lower_bound(row_colors.begin(),
                                 row_colors.begin() + num_rows,
-                                thrust::counting_iterator<IndexType>(0),
-                                thrust::counting_iterator<IndexType>(offsets_rows_per_color_d.size()),
+                                amgx::thrust::counting_iterator<IndexType>(0),
+                                amgx::thrust::counting_iterator<IndexType>(offsets_rows_per_color_d.size()),
                                 offsets_rows_per_color_d.begin());
             // Copy from device to host
             offsets_rows_per_color = offsets_rows_per_color_d;
@@ -1058,7 +1058,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     //If 1st pass coloring is valid all elements of same color can be processed in parallel by definition
 #if GETMAX_COLOR == GETMAX_TWOPASS
     device_vector_alloc<int> max_color_per_block(n_blocks + 1, 1);
-    int *max_color_per_block_ptr = thrust::raw_pointer_cast(max_color_per_block.data());
+    int *max_color_per_block_ptr = amgx::thrust::raw_pointer_cast(max_color_per_block.data());
 #else
     int *max_color_per_block_ptr = 0;
 #endif
@@ -1088,7 +1088,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     }
 
     //;
-    //int max_colorx = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, thrust::maximum<int>() );
+    //int max_colorx = amgx::thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, amgx::thrust::maximum<int>() );
     //printf("MAX %d",max_colorx);
 #define RECOLOR_CALL_CASE(__WSIZE) if(WARP_SIZE==__WSIZE){ \
   recolor_greedy_kernel<DO_SORT,COLORING_LEVEL,block_size,__WSIZE><<<GRID_SIZE, block_size>>>(\
@@ -1162,7 +1162,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     cudaCheckError();
 #if GETMAX_COLOR == GETMAX_TWOPASS
     int max_color = amgx::strided_reduction::count_block_results_1(n_blocks, max_color_per_block_ptr, amgx::strided_reduction::op_max());
-    /*int max_colorg = thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, thrust::maximum<int>() );
+    /*int max_colorg = amgx::thrust::reduce( this->m_row_colors.begin(), this->m_row_colors.begin()+num_rows, 0, amgx::thrust::maximum<int>() );
 
     max_color=0;
     for(int i=0;i<n_blocks;i++)
@@ -1172,7 +1172,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     printf("MAXCOLOR ref=%d %d\n",max_colorg,max_color);
     if(max_colorg!=max_color)exit(1);*/
 #else
-    int max_color = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, thrust::maximum<int>() );
+    int max_color = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() );
 #endif
     //printf("MAXCOLOR %d %d\n",max_color_gold,max_color);
     cudaCheckError();

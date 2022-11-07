@@ -1053,13 +1053,18 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              cudaDataType vecType,
                              const cudaStream_t& stream)
 {
-    if(mb < 100000)
+    constexpr int cta_size = 128;
+    const int sm_count = thrust::global_thread_handle::get_sm_count();
+
+    // Assuming that csrmv will be more efficient than cuSPARSE for row counts 
+    // that are lower than the 3 times the total number of threads
+    if(mb < cta_size * sm_count * 3)
     {
-        // Custom single-kernel SpMV
-        constexpr int nthreads = 128;
+        // Custom single-kernel SpMV, we could actually determine unroll factor
+        // more accurately here by checking non-zeros per row
         constexpr int unroll_factor = 16;
-        int nblocks = mb / nthreads + 1;
-        csrmv<unroll_factor><<<nblocks, nthreads>>>(mb, *alpha, val, rowPtr, colInd, x, *beta, y);
+        int nblocks = mb / cta_size + 1;
+        csrmv<unroll_factor><<<nblocks, cta_size>>>(mb, *alpha, val, rowPtr, colInd, x, *beta, y);
     }
     else
     {
@@ -1075,9 +1080,8 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         {
             amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
 
-            constexpr int nthreads = 128;
-            const int nblocks = (mb + 1) / nthreads + 1;
-            offset_by_col_off<<<nblocks, nthreads, 0, stream>>>(mb, rows, rowPtr);
+            const int nblocks = (mb + 1) / cta_size + 1;
+            offset_by_col_off<<<nblocks, cta_size, 0, stream>>>(mb, rows, rowPtr);
         }
 
         cusparseSpMatDescr_t matA_descr;
@@ -1290,10 +1294,10 @@ inline void Xcsrxmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseO
         FatalError("Cannot currently latency hide if matrix is not row major.", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
-    constexpr int nthreads = 128;
+    constexpr int cta_size = 128;
     constexpr int unroll_factor = 16;
-    int nblocks = sizeOfMask / nthreads + 1;
-    csrxmv<unroll_factor><<<nblocks, nthreads>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
+    int nblocks = sizeOfMask / cta_size + 1;
+    csrxmv<unroll_factor><<<nblocks, cta_size>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
 }
 
 // overloaded C++ wrappers for cusparse?bsrxmv

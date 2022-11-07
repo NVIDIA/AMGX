@@ -97,12 +97,10 @@ class MemoryPool
         virtual void free(void *ptr, size_t &freed_size);
         // Has a block been allocated?
         bool is_allocated(void *ptr) ;
-
         // The amount of free memory.
         inline size_t get_free_mem() const { return m_free_mem; }
         // The amount of used memory.
         inline size_t get_used_mem() const { return m_size - m_free_mem; }
-
         // Size of the max block.
         inline size_t get_max_block_size() const { return m_max_block_size; }
 
@@ -221,6 +219,14 @@ void setStream(_thread_id thread_id, cudaStream_t stream);
 
 // Get the stream associated with the current thread.
 cudaStream_t getStream();
+
+int getSMCount();
+
+// Return the number of Streaming Multiprocessors on the current device
+inline int get_sm_count()
+{
+    return amgx::memory::getSMCount();
+}
 
 // Register a host pointer.
 void cudaHostRegister(void *ptr, int size);

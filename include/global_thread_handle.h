@@ -220,14 +220,6 @@ void setStream(_thread_id thread_id, cudaStream_t stream);
 // Get the stream associated with the current thread.
 cudaStream_t getStream();
 
-int getSMCount();
-
-// Return the number of Streaming Multiprocessors on the current device
-inline int get_sm_count()
-{
-    return amgx::memory::getSMCount();
-}
-
 // Register a host pointer.
 void cudaHostRegister(void *ptr, int size);
 

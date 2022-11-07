@@ -462,10 +462,6 @@ struct MemoryManager
         , m_alloc_scaling_threshold(16 * 1024 * 1024)
     {
         //initializeCriticalSection(&m_mutex);
-
-        cudaDeviceProp devProp;
-        cudaGetDeviceProperties(&devProp, 0);
-        this->smCount = devProp.multiProcessorCount;
     }
 
     // Dtor.
@@ -533,8 +529,6 @@ struct MemoryManager
     size_t m_alloc_scaling_factor;
     // Scaling threshold.
     size_t m_alloc_scaling_threshold;
-
-    int smCount;
 };
 
 void MemoryManager::sync_pinned_pool(PinnedMemoryPool *pool)
@@ -745,12 +739,6 @@ cudaStream_t getStream()
     }
 
     return manager.m_main_stream;
-}
-
-int getSMCount()
-{
-    MemoryManager &manager = MemoryManager::get_instance();
-    return manager.smCount;
 }
 
 void cudaHostRegister(void *ptr, int size)

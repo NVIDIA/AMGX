@@ -34,6 +34,7 @@
 #include <thrust/sequence.h>
 #include <util.h>
 #include <sm_utils.inl>
+#include <device_properties.h>
 
 #include <amgx_cusparse.h>
 
@@ -1054,7 +1055,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              const cudaStream_t& stream)
 {
     constexpr int cta_size = 128;
-    const int sm_count = thrust::global_thread_handle::get_sm_count();
+    const int sm_count = getSMCount();
 
     // Assuming that csrmv will be more efficient than cuSPARSE for row counts 
     // that are lower than the 3 times the total number of threads

@@ -315,10 +315,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            amgx::thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            thrust_wrapper::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
             //amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
-            amgx::thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
+            thrust_wrapper::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
             cudaCheckError();
         }
 
@@ -354,7 +354,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 end  = nv_mtx->manager->part_offsets_h[i + 1];
                 shift = hAp[start];
                 //if (rank == 0) printf("# %d %d %d\n",start,end,shift);
-                amgx::thrust::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                thrust_wrapper::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];
@@ -550,7 +550,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            amgx::thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            thrust_wrapper::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
             amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();

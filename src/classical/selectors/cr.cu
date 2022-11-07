@@ -78,7 +78,7 @@ void initRandom(Vector &vec)
 {
     const unsigned int size = vec.size();
     amgx::thrust::counting_iterator<unsigned int> index_sequence_begin(0);
-    amgx::thrust::transform(index_sequence_begin, index_sequence_begin + size,
+    thrust_wrapper::transform(index_sequence_begin, index_sequence_begin + size,
                       vec.begin(), prg(0.f, 1.f));
 }
 
@@ -406,7 +406,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Compute 'energy norm' of v_u (normalize error before smoothing)
     // v_tmp = diag(Aff).*v_u
-    amgx::thrust::transform(AdiagValues.begin(), AdiagValues.end(),
+    thrust_wrapper::transform(AdiagValues.begin(), AdiagValues.end(),
                       v_u.begin(), v_tmp.begin(),
                       amgx::thrust::multiplies<ValueTypeB>());
     cudaCheckError();
@@ -415,7 +415,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
                                         v_tmp.begin(), ValueTypeB(0.)) );
     cudaCheckError();
     // normalize: v_u = v_u / (norm0 + 1e-12);
-    amgx::thrust::transform(v_u.begin(), v_u.end(),
+    thrust_wrapper::transform(v_u.begin(), v_u.end(),
                       amgx::thrust::make_constant_iterator(norm0 + 1.0e-12), v_u.begin(),
                       amgx::thrust::divides<ValueTypeB>());
     cudaCheckError();
@@ -435,7 +435,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 
         // -------------------- compute 'energy norm' of v_u ------------------------------
         // v_tmp = diag(Aff).*v_u
-        amgx::thrust::transform(AdiagValues.begin(), AdiagValues.end(),
+        thrust_wrapper::transform(AdiagValues.begin(), AdiagValues.end(),
                           v_u.begin(), v_tmp.begin(),
                           amgx::thrust::multiplies<ValueTypeB>());
         cudaCheckError();
@@ -445,7 +445,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
         cudaCheckError();
         // -------------------- done with 'energy norm' of v_u ----------------------------
         // normalize: v_u = v_u / (norm0 + 1e-12);
-        amgx::thrust::transform(v_u.begin(), v_u.end(),
+        thrust_wrapper::transform(v_u.begin(), v_u.end(),
                           amgx::thrust::make_constant_iterator(norm0 + 1.0e-12), v_u.begin(),
                           amgx::thrust::divides<ValueTypeB>());
         cudaCheckError();

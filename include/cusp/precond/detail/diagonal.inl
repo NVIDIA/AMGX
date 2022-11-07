@@ -54,7 +54,7 @@ template <typename ValueType, typename MemorySpace>
         cusp::detail::extract_diagonal(A, diagonal_reciprocals);
     
         // invert the entries
-        amgx::thrust::transform(diagonal_reciprocals.begin(), diagonal_reciprocals.end(),
+        thrust_wrapper::transform(diagonal_reciprocals.begin(), diagonal_reciprocals.end(),
                           diagonal_reciprocals.begin(), detail::reciprocal<ValueType>());
     }
         

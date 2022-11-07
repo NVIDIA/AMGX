@@ -102,7 +102,7 @@ void coo_spmm_helper(size_t workspace_size,
                    B.column_indices.begin(),
                    J.begin());
 
-    amgx::thrust::transform(amgx::thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.begin()),
+    thrust_wrapper::transform(amgx::thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.begin()),
                       amgx::thrust::make_permutation_iterator(A.values.begin(), A_gather_locations.end()),
                       amgx::thrust::make_permutation_iterator(B.values.begin(), B_gather_locations.begin()),
                       V.begin(),
@@ -160,7 +160,7 @@ void spmm_coo(const Matrix1& A,
 
     // compute row lengths for B
     cusp::array1d<IndexType,MemorySpace> B_row_lengths(B.num_rows);
-    amgx::thrust::transform(B_row_offsets.begin() + 1, B_row_offsets.end(), B_row_offsets.begin(), B_row_lengths.begin(), amgx::thrust::minus<IndexType>());
+    thrust_wrapper::transform(B_row_offsets.begin() + 1, B_row_offsets.end(), B_row_offsets.begin(), B_row_lengths.begin(), amgx::thrust::minus<IndexType>());
 
     // for each element A(i,j) compute the number of nonzero elements in B(j,:)
     cusp::array1d<IndexType,MemorySpace> segment_lengths(A.num_entries);

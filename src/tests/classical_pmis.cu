@@ -186,7 +186,7 @@ void run()
     }
 
     IndexType num_bad =
-        amgx::thrust::transform_reduce(rows.begin(),
+        thrust_wrapper::transform_reduce(rows.begin(),
                                  rows.end(),
                                  checker, (IndexType)0, amgx::thrust::plus<IndexType>());
     cudaCheckError();

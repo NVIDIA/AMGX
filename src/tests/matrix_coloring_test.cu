@@ -412,13 +412,13 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
             //order +1
             CheckColoring<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, 1 + A_d.getMatrixColoring().getColoringLevel());
             num_bad_plus =
-                amgx::thrust::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
+                thrust_wrapper::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
                                          checker, (IndexType)0, amgx::thrust::plus<IndexType>());
         }
         {
             CheckColoring<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, A_d.getMatrixColoring().getColoringLevel());
             num_bad =
-                amgx::thrust::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
+                thrust_wrapper::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
                                          checker, (IndexType)0, amgx::thrust::plus<IndexType>());
         }
         int num_uncolored = (int) amgx::thrust::count_if( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), is_zero() );

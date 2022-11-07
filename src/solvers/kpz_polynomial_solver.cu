@@ -124,7 +124,7 @@ KPZPolynomialSolver<T_Config>::solver_setup(bool reuse_matrix_structure)
     transpose( *this->m_explicit_A, AT_csr );
     // Compute the sums of columns and perform the reduction. TODO: try segmented sum then reduction.
     amgx::thrust::counting_iterator<typename Matrix<T_Config>::index_type, typename Matrix<T_Config>::memory_space> it( 0 );
-    l_inf = amgx::thrust::transform_reduce(
+    l_inf = thrust_wrapper::transform_reduce(
                 it,
                 it + this->m_explicit_A->get_num_rows(),
                 detail::row_sum<Matrix<T_Config> >( (int *) AT_csr.row_offsets.raw(), AT_csr.values.raw() ),

@@ -58,7 +58,7 @@ void CoarseAGenerator<T_Config>::printNonzeroStats(const typename Matrix<T_Confi
 
     for (int i = 0; i < max_nonzero; i++)
     {
-        amgx::thrust::transform(Ac_row_offsets.begin(), Ac_row_offsets.end(), amgx::thrust::make_constant_iterator(i + 1), temporary.begin(), amgx::thrust::less<int>());
+        thrust_wrapper::transform(Ac_row_offsets.begin(), Ac_row_offsets.end(), amgx::thrust::make_constant_iterator(i + 1), temporary.begin(), amgx::thrust::less<int>());
         breakdown[i] = 1.0 * (amgx::thrust::count(temporary.begin(), temporary.end(), true)) / num_aggregates;
         amgx_printf("Percentage of rows with less than %d nonzeros is %d\n", (i + 1), breakdown[i]);
     }

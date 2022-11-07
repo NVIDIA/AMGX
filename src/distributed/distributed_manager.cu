@@ -2729,8 +2729,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
       identity_csr_cols = {   0,   1 }
       identity_csr_vals = { 1.0, 1.0 } */
     //shift identity tmatrix by size = this->A->get_num_rows();
-    amgx::thrust::transform(identity_csr_rows.begin(), identity_csr_rows.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(nnz), identity_csr_rows.begin(), amgx::thrust::plus<INDEX_TYPE>());
-    amgx::thrust::transform(identity_csr_cols.begin(), identity_csr_cols.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(size), identity_csr_cols.begin(), amgx::thrust::plus<INDEX_TYPE>());
+    thrust_wrapper::transform(identity_csr_rows.begin(), identity_csr_rows.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(nnz), identity_csr_rows.begin(), amgx::thrust::plus<INDEX_TYPE>());
+    thrust_wrapper::transform(identity_csr_cols.begin(), identity_csr_cols.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(size), identity_csr_cols.begin(), amgx::thrust::plus<INDEX_TYPE>());
     /*for example, 2x2 identity_csr matrix is created:
       identity_csr_rows = {   0,   1,   2  }
       identity_csr_cols = {size, size+1 }
@@ -3197,10 +3197,10 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     index_type l = p.size();
     q.resize(l);
     amgx::thrust::copy     (p.begin(), p.end(),     q.begin());
-    amgx::thrust::transform(q.begin(), q.end(),     q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
+    thrust_wrapper::transform(q.begin(), q.end(),     q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
     this->exchange_halo(q, tag);
     amgx::thrust::sequence (q.begin(), q.begin() + n);
-    amgx::thrust::transform(q.begin(), q.begin() + n, q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
+    thrust_wrapper::transform(q.begin(), q.begin() + n, q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
     cudaCheckError();
 }
 
@@ -4338,7 +4338,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     for (int i = 0; i < num_cons_neighbors; i++)
     {
-        amgx::thrust::transform(dest_B2L_maps[i].begin(),
+        thrust_wrapper::transform(dest_B2L_maps[i].begin(),
                           dest_B2L_maps[i].end(),
                           amgx::thrust::constant_iterator<index_type>(boundary_offset),
                           dest_B2L_maps[i].begin(),

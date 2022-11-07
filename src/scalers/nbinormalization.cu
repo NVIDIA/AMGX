@@ -507,11 +507,11 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         if (!scaled_before)
         {
-            this->norm_coef = sqrt(amgx::thrust::transform_reduce(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / A.get_num_rows());
+            this->norm_coef = sqrt(thrust_wrapper::transform_reduce(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / A.get_num_rows());
             cudaCheckError();
-            amgx::thrust::transform(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
-            amgx::thrust::transform(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
-            amgx::thrust::transform(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
+            thrust_wrapper::transform(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
+            thrust_wrapper::transform(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
+            thrust_wrapper::transform(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
             cudaCheckError();
             /*amgx::thrust::fill(rownorms.begin(), rownorms.end(), 0.);
               amgx::thrust::fill(colnorms.begin(), colnorms.end(), 0.);
@@ -630,14 +630,14 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 {
     VVector *scale_vector = (leftOrRight == amgx::LEFT) ? &this->left_scale : &this->right_scale;
 
-    //amgx::thrust::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), (scaleOrUnscale == amgx::SCALE) ? vmul_scale<ValueTypeB>() : vmul_unscale<ValueTypeB>() );
+    //thrust_wrapper::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), (scaleOrUnscale == amgx::SCALE) ? vmul_scale<ValueTypeB>() : vmul_unscale<ValueTypeB>() );
     if (scaleOrUnscale == amgx::SCALE)
     {
-        amgx::thrust::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_scale<ValueTypeB>() );
+        thrust_wrapper::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_scale<ValueTypeB>() );
     }
     else
     {
-        amgx::thrust::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_unscale<ValueTypeB>() );
+        thrust_wrapper::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_unscale<ValueTypeB>() );
     }
 }
 

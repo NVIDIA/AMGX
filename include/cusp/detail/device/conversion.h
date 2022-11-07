@@ -507,7 +507,7 @@ void coo_to_dia(const Matrix1& src, Matrix2& dst,
 
     // compute number of occupied diagonals and enumerate them
     cusp::array1d<IndexType,cusp::device_memory> diag_map(src.num_entries);
-    amgx::thrust::transform(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.begin(), src.column_indices.begin() ) ),
+    thrust_wrapper::transform(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.begin(), src.column_indices.begin() ) ),
 		      amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( src.row_indices.end()  , src.column_indices.end() ) )  ,
 		      diag_map.begin(),
 		      occupied_diagonal_functor<IndexType>(src.num_rows)); 
@@ -567,7 +567,7 @@ void csr_to_dia(const Matrix1& src, Matrix2& dst,
     cusp::detail::offsets_to_indices(src.row_offsets, row_indices);
 
     cusp::array1d<IndexType,cusp::device_memory> diag_map(src.num_entries);
-    amgx::thrust::transform(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), src.column_indices.begin() ) ),
+    thrust_wrapper::transform(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), src.column_indices.begin() ) ),
 		      amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.end()  , src.column_indices.end() ) )  ,
 		      diag_map.begin(),
 		      occupied_diagonal_functor<IndexType>(src.num_rows)); 

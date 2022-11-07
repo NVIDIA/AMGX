@@ -568,7 +568,7 @@ namespace trans_m
     const ScalarType *raw_ptr_source = amgx::thrust::raw_pointer_cast(source.data());
 
     // compute
-    amgx::thrust::transform(counter,counter+N_t,dest.begin(),
+    thrust_wrapper::transform(counter,counter+N_t,dest.begin(),
     cusp::krylov::detail_m::KERNEL_VCOPY<ScalarType>(N,raw_ptr_source));
 
   }

@@ -63,7 +63,7 @@ void mis_to_aggregates(const cusp::coo_matrix<IndexType,ValueType,MemorySpace>& 
        amgx::thrust::project2nd<Tuple,Tuple>(), amgx::thrust::maximum<Tuple>());
 
   // boost mis0 values so they win in second round
-  amgx::thrust::transform(mis.begin(), mis.end(), mis1.begin(), mis1.begin(), amgx::thrust::plus<typename ArrayType::value_type>());
+  thrust_wrapper::transform(mis.begin(), mis.end(), mis1.begin(), mis1.begin(), amgx::thrust::plus<typename ArrayType::value_type>());
 
   // find the largest (mis[j],j) 2-ring neighbor for each node
   cusp::detail::device::cuda::spmv_coo

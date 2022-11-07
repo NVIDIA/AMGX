@@ -173,7 +173,7 @@ void partition(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t *part_
     A_part.resize(part_offsets[my_id + 1] - part_offsets[my_id], A.get_num_cols(), (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]] - (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.get_block_dimy(), A.get_block_dimx(), 1);
     amgx::thrust::copy(A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]], A_part.col_indices.begin());
     amgx::thrust::copy(A.row_offsets.begin() + part_offsets[my_id], A.row_offsets.begin() + part_offsets[my_id + 1] + 1, A_part.row_offsets.begin());
-    amgx::thrust::transform(A_part.row_offsets.begin(), A_part.row_offsets.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(A.row_offsets[part_offsets[my_id]]), A_part.row_offsets.begin(), amgx::thrust::minus<INDEX_TYPE>());
+    thrust_wrapper::transform(A_part.row_offsets.begin(), A_part.row_offsets.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(A.row_offsets[part_offsets[my_id]]), A_part.row_offsets.begin(), amgx::thrust::minus<INDEX_TYPE>());
     cudaCheckError();
     transfer_values(my_id, num_part, part_offsets, A, A_part);
 }

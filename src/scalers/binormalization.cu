@@ -398,9 +398,9 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     printf("Original Matrix: rowmax: %e, rowmin: %e, colmax: %e, colmin: %e\n", row_max, row_min, col_max, col_min);fflush(stdout);*/
     scaleMatrixDevice <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), scale_vector.raw());
     cudaCheckError();
-    ValueTypeB C_norm = sqrt(amgx::thrust::transform_reduce(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / nrows);
-    amgx::thrust::transform(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / C_norm) );
-    amgx::thrust::transform(scale_vector.begin(), scale_vector.end(), scale_vector.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / C_norm)) );
+    ValueTypeB C_norm = sqrt(thrust_wrapper::transform_reduce(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / nrows);
+    thrust_wrapper::transform(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / C_norm) );
+    thrust_wrapper::transform(scale_vector.begin(), scale_vector.end(), scale_vector.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / C_norm)) );
     cudaCheckError();
     /*amgx::thrust::fill(rownorms.begin(), rownorms.end(), 0.);
       amgx::thrust::fill(colnorms.begin(), colnorms.end(), 0.);
@@ -508,11 +508,11 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 {
     if (scaleOrUnscale == amgx::SCALE)
     {
-        amgx::thrust::transform(v.begin(), v.end(), this->scale_vector.begin(), v.begin(), vmul_scale<ValueTypeB>() );
+        thrust_wrapper::transform(v.begin(), v.end(), this->scale_vector.begin(), v.begin(), vmul_scale<ValueTypeB>() );
     }
     else
     {
-        amgx::thrust::transform(v.begin(), v.end(), this->scale_vector.begin(), v.begin(), vmul_unscale<ValueTypeB>() );
+        thrust_wrapper::transform(v.begin(), v.end(), this->scale_vector.begin(), v.begin(), vmul_unscale<ValueTypeB>() );
     }
 }
 

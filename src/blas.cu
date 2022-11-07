@@ -246,7 +246,7 @@ thrust_nrm1(InputIterator first,
     absolute<ValueType> unary_op;
     amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return result;
 }
@@ -261,7 +261,7 @@ thrust_nrm2(InputIterator first,
     norm_squared<ValueType> unary_op;
     amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return std::sqrt( result );
 }
@@ -276,7 +276,7 @@ thrust_nrmmax(InputIterator first,
     absolute<ValueType>  unary_op;
     maximum<OutType>   binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return result;
 }

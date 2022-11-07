@@ -68,7 +68,7 @@ void coo_elementwise_transform_simple(const Matrix1& A,
     amgx::thrust::copy(A.values.begin(),         A.values.end(),         vals.begin());
 
     // apply transformation to B's values 
-    amgx::thrust::transform(B.values.begin(), B.values.end(), vals.begin() + A_nnz, op);
+    thrust_wrapper::transform(B.values.begin(), B.values.end(), vals.begin() + A_nnz, op);
 
     // sort by (I,J)
     cusp::detail::sort_by_row_and_column(rows, cols, vals);

@@ -67,7 +67,7 @@ void smooth_prolongator(const cusp::coo_matrix<IndexType,ValueType,cusp::device_
   cusp::coo_matrix<IndexType,ValueType,cusp::device_memory> temp(S.num_rows, T.num_cols, S.num_entries + T.num_entries);
   amgx::thrust::copy(S.row_indices.begin(), S.row_indices.end(), temp.row_indices.begin());
   thrust_wrapper::gather(S.column_indices.begin(), S.column_indices.end(), T.column_indices.begin(), temp.column_indices.begin());
-  amgx::thrust::transform(S.values.begin(), S.values.end(),
+  thrust_wrapper::transform(S.values.begin(), S.values.end(),
                     amgx::thrust::make_permutation_iterator(T.values.begin(), S.column_indices.begin()),
                     temp.values.begin(),
                     scaled_multiply<ValueType>(-lambda));
@@ -76,7 +76,7 @@ void smooth_prolongator(const cusp::coo_matrix<IndexType,ValueType,cusp::device_
   {
     cusp::array1d<ValueType, cusp::device_memory> D(S.num_rows);
     cusp::detail::extract_diagonal(S, D);
-    amgx::thrust::transform(temp.values.begin(), temp.values.begin() + S.num_entries,
+    thrust_wrapper::transform(temp.values.begin(), temp.values.begin() + S.num_entries,
                       amgx::thrust::make_permutation_iterator(D.begin(), S.row_indices.begin()),
                       temp.values.begin(),
                       amgx::thrust::divides<ValueType>());

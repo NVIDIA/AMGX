@@ -80,7 +80,7 @@ void add(const Matrix1& A,
 
     C.resize(A.num_rows, A.num_cols);
 
-    amgx::thrust::transform(A.values.values.begin(), A.values.values.end(),
+    thrust_wrapper::transform(A.values.values.begin(), A.values.values.end(),
                       B.values.values.begin(),
                       C.values.values.begin(),
                       amgx::thrust::plus<ValueType>());
@@ -100,7 +100,7 @@ void subtract(const Matrix1& A,
 
     C.resize(A.num_rows, A.num_cols);
 
-    amgx::thrust::transform(A.values.values.begin(), A.values.values.end(),
+    thrust_wrapper::transform(A.values.values.begin(), A.values.values.end(),
                       B.values.values.begin(),
                       C.values.values.begin(),
                       amgx::thrust::minus<ValueType>());

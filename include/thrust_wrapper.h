@@ -66,14 +66,14 @@ namespace thrust_wrapper
     inline typename amgx::thrust::iterator_traits<InputIterator>::value_type reduce(InputIterator first, InputIterator last)
     {
       amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
-      return amgx::thrust::reduce(amgx::thrust::cuda::par_nosync(alloc), first, last);
+      return amgx::thrust::reduce(amgx::thrust::cuda::par(alloc), first, last);
     }
 
   template<typename InputIterator, typename T, typename BinaryFunction>
     inline T reduce(InputIterator first, InputIterator last, T init, BinaryFunction binary_op)
     {
       amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
-      return amgx::thrust::reduce(amgx::thrust::cuda::par_nosync(alloc), first, last, init, binary_op);
+      return amgx::thrust::reduce(amgx::thrust::cuda::par(alloc), first, last, init, binary_op);
     }
 
   template<typename InputIterator, typename OutputIterator, typename UnaryFunction>
@@ -94,7 +94,7 @@ namespace thrust_wrapper
     inline OutputType transform_reduce(InputIterator first, InputIterator last, UnaryFunction unary_op, OutputType init, BinaryFunction binary_op)
     {
       amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
-      return amgx::thrust::transform_reduce(amgx::thrust::cuda::par_nosync(alloc), first, last, unary_op, init, binary_op);
+      return amgx::thrust::transform_reduce(amgx::thrust::cuda::par(alloc), first, last, unary_op, init, binary_op);
     }
 
   template<typename InputIterator, typename UnaryFunction>

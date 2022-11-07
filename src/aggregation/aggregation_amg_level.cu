@@ -1314,7 +1314,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
 
             //calculate row length and row_offsets
             halo_rows[i].row_offsets.resize(num_unique + 1);
-            amgx::thrust::transform(amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin() + 1, Ac.manager->B2L_maps[i].begin()),
+            thrust_wrapper::transform(amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin() + 1, Ac.manager->B2L_maps[i].begin()),
                               amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin() + 1, Ac.manager->B2L_maps[i].end()),
                               amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin(), Ac.manager->B2L_maps[i].begin()),
                               halo_rows[i].row_offsets.begin(),
@@ -1349,7 +1349,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
         // Step 1 - calculate inverse renumbering (to global indices - base_index)
         //
         Ac.manager->inverse_renumbering.resize(c_size);
-        amgx::thrust::transform(renumbering.begin(),
+        thrust_wrapper::transform(renumbering.begin(),
                           renumbering.begin() + c_size,
                           amgx::thrust::constant_iterator<IndexType>(A.manager->base_index()),
                           Ac.manager->inverse_renumbering.begin(),
@@ -1856,7 +1856,7 @@ void Aggregation_AMG_Level_Base<T_Config>::setNeighborAggregates()
         amgx::thrust::copy(amgx::thrust::make_permutation_iterator(A.manager->inverse_renumbering.begin(), this->m_aggregates_fine_idx.begin()),
                      amgx::thrust::make_permutation_iterator(A.manager->inverse_renumbering.begin(), this->m_aggregates_fine_idx.begin() + f_size),
                      this->m_aggregates_fine_idx.begin());
-        amgx::thrust::transform(this->m_aggregates_fine_idx.begin(),
+        thrust_wrapper::transform(this->m_aggregates_fine_idx.begin(),
                           this->m_aggregates_fine_idx.begin() + f_size,
                           amgx::thrust::constant_iterator<IndexType>(A.manager->base_index()),
                           this->m_aggregates_fine_idx.begin(),
@@ -2240,7 +2240,7 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
 
         for (int i = 0; i < num_coarse_neighbors; i++)
         {
-            amgx::thrust::transform(dest_coarse_B2L_maps[i].begin(),
+            thrust_wrapper::transform(dest_coarse_B2L_maps[i].begin(),
                               dest_coarse_B2L_maps[i].end(),
                               amgx::thrust::constant_iterator<IndexType>(boundary_offset),
                               dest_coarse_B2L_maps[i].begin(),
@@ -2396,14 +2396,14 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
                 }
 
                 //Get interior row length
-                amgx::thrust::transform(work_row_offsets->begin() + interior_offset + 1,
+                thrust_wrapper::transform(work_row_offsets->begin() + interior_offset + 1,
                                   work_row_offsets->begin() + interior_offset + vertex_counts[i][0] + 1,
                                   work_row_offsets->begin() + interior_offset,
                                   new_row_offsets.begin() + interior_offset,
                                   amgx::thrust::minus<IndexType>());
                 cudaCheckError();
                 //Get boundary row length
-                amgx::thrust::transform(work_row_offsets->begin() + boundary_offset + 1,
+                thrust_wrapper::transform(work_row_offsets->begin() + boundary_offset + 1,
                                   work_row_offsets->begin() + boundary_offset + vertex_counts[i][1] + 1,
                                   work_row_offsets->begin() + boundary_offset,
                                   new_row_offsets.begin() + boundary_offset,

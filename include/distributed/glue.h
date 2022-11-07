@@ -334,7 +334,7 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
                 start = di[i] - 1;
                 end   = di[i] + rc[i] - 1;
                 shift = hAp[start];
-                amgx::thrust::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                thrust_wrapper::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];

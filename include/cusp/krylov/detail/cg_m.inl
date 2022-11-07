@@ -345,7 +345,7 @@ namespace trans_m
     const ScalarType *raw_ptr_source = amgx::thrust::raw_pointer_cast(source.data());
 
     // compute
-    amgx::thrust::transform(counter,counter+N_t,dest.begin(),
+    thrust_wrapper::transform(counter,counter+N_t,dest.begin(),
     cusp::krylov::detail_m::KERNEL_VCOPY<ScalarType>(N,raw_ptr_source));
 
   }
@@ -358,7 +358,7 @@ namespace trans_m
               ForwardIterator2 first2,
               ScalarType alpha)
   {
-      amgx::thrust::transform(first1, last1, first2, first2, detail_m::XPAY<ScalarType>(alpha));
+      thrust_wrapper::transform(first1, last1, first2, first2, detail_m::XPAY<ScalarType>(alpha));
   }
   
   template <typename Array1,

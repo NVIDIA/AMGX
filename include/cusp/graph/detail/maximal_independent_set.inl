@@ -210,7 +210,7 @@ void compute_mis_states(const size_t k,
 //            cusp::array1d<bool,MemorySpace> retained_nodes(N);
 //            cusp::array1d<bool,MemorySpace> last_retained_nodes(N);
 //
-//            amgx::thrust::transform(maximal_states.begin(), maximal_states.end(), amgx::thrust::constant_iterator<NodeStateType>(1), retained_nodes.begin(), amgx::thrust::equal_to<NodeStateType>());
+//            thrust_wrapper::transform(maximal_states.begin(), maximal_states.end(), amgx::thrust::constant_iterator<NodeStateType>(1), retained_nodes.begin(), amgx::thrust::equal_to<NodeStateType>());
 //
 //            // propagate retained region outward
 //            for(size_t ring = 1; 2*ring <= k; ring++)
@@ -355,7 +355,7 @@ size_t maximal_independent_set(const Matrix& A, Array& stencil, size_t k,
     stencil.resize(N);
 
     // mark all mis nodes
-    amgx::thrust::transform(states.begin(), states.end(), amgx::thrust::constant_iterator<NodeStateType>(2), stencil.begin(), amgx::thrust::equal_to<NodeStateType>());
+    thrust_wrapper::transform(states.begin(), states.end(), amgx::thrust::constant_iterator<NodeStateType>(2), stencil.begin(), amgx::thrust::equal_to<NodeStateType>());
 
     // return the size of the MIS
     return amgx::thrust::count(stencil.begin(), stencil.end(), typename Array::value_type(true));

@@ -60,7 +60,7 @@ distributed_gemm_TN(typename TConfig::VecPrec alpha, const Vector<TConfig> &lhs,
 
     for (int i = 0; i < gathered.size(); ++i)
     {
-        amgx::thrust::transform(gathered[i].begin(), gathered[i].end(),
+        thrust_wrapper::transform(gathered[i].begin(), gathered[i].end(),
                           h_res.begin(), h_res.begin(), amgx::thrust::plus<ValueTypeVec>());
     }
 

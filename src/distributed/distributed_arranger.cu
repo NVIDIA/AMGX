@@ -1246,7 +1246,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i = 0; i < num_neighbors; i++)
     {
         L2H_maps[i].resize(boundary_lists[i].size());
-        amgx::thrust::transform(boundary_lists[i].begin(), boundary_lists[i].end(), amgx::thrust::constant_iterator<INDEX_TYPE > (halo_ranges_h[2 * i]), L2H_maps[i].begin(), amgx::thrust::plus<INDEX_TYPE > ());
+        thrust_wrapper::transform(boundary_lists[i].begin(), boundary_lists[i].end(), amgx::thrust::constant_iterator<INDEX_TYPE > (halo_ranges_h[2 * i]), L2H_maps[i].begin(), amgx::thrust::plus<INDEX_TYPE > ());
         halo_lists[i] = &L2H_maps[i];
     }
 
@@ -2828,7 +2828,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         if (num_halo_rows > 0)
         {
             // update halo row offsets in-place
-            amgx::thrust::transform(halo_row_offsets[i].begin(), halo_row_offsets[i].end(), amgx::thrust::constant_iterator<INDEX_TYPE>(cur_offset), halo_row_offsets[i].begin(), amgx::thrust::plus<INDEX_TYPE>());
+            thrust_wrapper::transform(halo_row_offsets[i].begin(), halo_row_offsets[i].end(), amgx::thrust::constant_iterator<INDEX_TYPE>(cur_offset), halo_row_offsets[i].begin(), amgx::thrust::plus<INDEX_TYPE>());
             // insert halo rows
             amgx::thrust::copy(halo_row_offsets[i].begin(), halo_row_offsets[i].end() - 1, A.row_offsets.begin() + cur_row);
             amgx::thrust::copy(halo_local_indices[i].begin(), halo_local_indices[i].end(), A.col_indices.begin() + cur_offset);
@@ -3393,7 +3393,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i = 0; i < num_neighbors; i++)
     {
         A.manager->L2H_maps[i].resize(boundary_lists[i].size());
-        amgx::thrust::transform(boundary_lists[i].begin(), boundary_lists[i].end(), amgx::thrust::constant_iterator<INDEX_TYPE > (halo_ranges_h[2 * i]), A.manager->L2H_maps[i].begin(), amgx::thrust::plus<INDEX_TYPE > ());
+        thrust_wrapper::transform(boundary_lists[i].begin(), boundary_lists[i].end(), amgx::thrust::constant_iterator<INDEX_TYPE > (halo_ranges_h[2 * i]), A.manager->L2H_maps[i].begin(), amgx::thrust::plus<INDEX_TYPE > ());
         halo_lists[i] = &A.manager->L2H_maps[i];
     }
 

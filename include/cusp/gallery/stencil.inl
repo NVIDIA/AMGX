@@ -176,7 +176,7 @@ void generate_matrix_from_stencil(      cusp::dia_matrix<IndexType,ValueType,Mem
     // ideally we'd have row views and column views here
     for(IndexType i = 0; i < num_diagonals; i++)
     {
-        amgx::thrust::transform(amgx::thrust::counting_iterator<IndexType>(0),
+        thrust_wrapper::transform(amgx::thrust::counting_iterator<IndexType>(0),
                           amgx::thrust::counting_iterator<IndexType>(num_rows),
                           matrix.values.values.begin() + matrix.values.pitch * i, 
                           detail::fill_diagonal_entries<IndexType,ValueType,StencilPoint,GridDimension>(stencil[i], grid));

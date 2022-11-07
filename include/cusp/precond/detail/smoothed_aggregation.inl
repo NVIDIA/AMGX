@@ -122,7 +122,7 @@ void fit_candidates(const Array1& aggregates,
                           R.begin());
 
     // compute square root of each column sum
-    amgx::thrust::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
+    thrust_wrapper::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
   }
 
   Q_.resize(Q.num_rows, Q.num_cols, Q.num_entries);
@@ -130,7 +130,7 @@ void fit_candidates(const Array1& aggregates,
   cusp::detail::indices_to_offsets(Q.row_indices, Q_.row_offsets);
 
   // rescale columns of Q
-  amgx::thrust::transform(Q.values.begin(), Q.values.end(),
+  thrust_wrapper::transform(Q.values.begin(), Q.values.end(),
                     amgx::thrust::make_permutation_iterator(R.begin(), Q.column_indices.begin()),
                     Q_.values.begin(),
                     amgx::thrust::divides<ValueType>());
@@ -170,11 +170,11 @@ void fit_candidates(const Array1& aggregates,
                           R.begin());
 
     // compute square root of each column sum
-    amgx::thrust::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
+    thrust_wrapper::transform(R.begin(), R.end(), R.begin(), sqrt_functor<ValueType>());
   }
 
   // rescale columns of Q
-  amgx::thrust::transform(Q.values.begin(), Q.values.end(),
+  thrust_wrapper::transform(Q.values.begin(), Q.values.end(),
                     amgx::thrust::make_permutation_iterator(R.begin(), Q.column_indices.begin()),
                     Q.values.begin(),
                     amgx::thrust::divides<ValueType>());

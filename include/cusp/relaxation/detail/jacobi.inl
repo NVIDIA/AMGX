@@ -109,7 +109,7 @@ template<typename MatrixType, typename VectorType1, typename VectorType2>
         cusp::multiply(A, x, temp);
         
         // x <- x + omega * D^-1 * (b - y)
-        amgx::thrust::transform(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
+        thrust_wrapper::transform(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
                           amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.end(),   diagonal.end(),   b.end(),   temp.end())),
                           x.begin(),
                           detail::jacobi_postsmooth_functor<ValueType>(omega));
@@ -123,7 +123,7 @@ template<typename MatrixType, typename VectorType1, typename VectorType2>
         CUSP_PROFILE_SCOPED();
         
         // x <- omega * D^-1 * b 
-        amgx::thrust::transform(b.begin(), b.end(),
+        thrust_wrapper::transform(b.begin(), b.end(),
                           diagonal.begin(),
                           x.begin(),
                           detail::jacobi_presmooth_functor<ValueType>(default_omega));
@@ -140,7 +140,7 @@ template<typename MatrixType, typename VectorType1, typename VectorType2>
         cusp::multiply(A, x, temp);
         
         // x <- x + omega * D^-1 * (b - y)
-        amgx::thrust::transform(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
+        thrust_wrapper::transform(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.begin(), diagonal.begin(), b.begin(), temp.begin())),
                           amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(x.end(),   diagonal.end(),   b.end(),   temp.end())),
                           x.begin(),
                           detail::jacobi_postsmooth_functor<ValueType>(default_omega));

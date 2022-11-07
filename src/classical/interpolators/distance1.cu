@@ -301,7 +301,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 {
     // The diagonal of A.
     VVector diag( A.get_num_rows() );
-    amgx::thrust::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
+    thrust_wrapper::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
                        amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                        diag.begin( ),
                        detail::find_row_diagonal<Matrix_h>( A ) );
@@ -314,7 +314,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 
     // Count the number of non-zero elements per row of P.
     IntVector nnz_per_row( A.get_num_rows() + 1 );
-    amgx::thrust::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
+    thrust_wrapper::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
                        amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                        nnz_per_row.begin( ),
                        detail::count_nnz_per_row<Matrix_h>( A, are_sc, cf_map ) );

@@ -42,6 +42,7 @@
 #include <matrix.h>
 #include <complex>
 #include <thrust/inner_product.h>
+#include <thrust_wrapper.h>
 #include <amgx_cublas.h>
 #ifdef AMGX_USE_LAPACK
 #include "mkl.h"
@@ -236,7 +237,7 @@ thrust_dotc(InputIterator1 first1,
                                  types::util<OutputType>::get_zero());
 }
 
-template <typename InputIterator>
+template <int MemSpace, typename InputIterator>
 typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
 thrust_nrm1(InputIterator first,
             InputIterator last)
@@ -246,12 +247,12 @@ thrust_nrm1(InputIterator first,
     absolute<ValueType> unary_op;
     amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce<MemSpace>(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return result;
 }
 
-template <typename InputIterator>
+template <int MemSpace, typename InputIterator>
 typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
 thrust_nrm2(InputIterator first,
             InputIterator last)
@@ -261,12 +262,12 @@ thrust_nrm2(InputIterator first,
     norm_squared<ValueType> unary_op;
     amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce<MemSpace>(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return std::sqrt( result );
 }
 
-template <typename InputIterator>
+template <int MemSpace, typename InputIterator>
 typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
 thrust_nrmmax(InputIterator first,
               InputIterator last)
@@ -276,7 +277,7 @@ thrust_nrmmax(InputIterator first,
     absolute<ValueType>  unary_op;
     maximum<OutType>   binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce<MemSpace>(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return result;
 }
@@ -826,7 +827,7 @@ void fill(Vector &x, typename Vector::value_type val, int offset, int size)
     if (x.get_block_dimx() == -1) { FatalError("x block dims not set", AMGX_ERR_NOT_IMPLEMENTED); }
 
 #endif
-    amgx::thrust::fill(x.begin() + offset * x.get_block_size(),
+    thrust_wrapper::fill<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                  x.begin() + (offset + size) * x.get_block_size(), val);
     x.dirtybit = 1;
     cudaCheckError();
@@ -844,7 +845,7 @@ nrm1(const Vector &x, int offset, int size)
 
 #endif
     typename types::PODTypes<typename Vector::value_type>::type out =
-        thrust_nrm1(x.begin() + offset * x.get_block_size(),
+        thrust_nrm1<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                     x.begin() + (offset + size) * x.get_block_size());
     cudaCheckError();
     return out;
@@ -890,7 +891,7 @@ nrm2(const Vector &x, int offset, int size)
     int x_first = offset * x.get_block_size();
     int x_last = (offset + size) * x.get_block_size();
     // We are not using CUBLAS for nrm2 since the implementation is slower.
-    return thrust_nrm2(x.begin() + x_first,
+    return thrust_nrm2<Vector::TConfig::memSpace>(x.begin() + x_first,
                        x.begin() + x_last);
 }
 
@@ -931,7 +932,7 @@ nrmmax(const Vector &x, int offset, int size)
 
 #endif
     typename types::PODTypes<typename Vector::value_type>::type out =
-        thrust_nrmmax(x.begin() + offset * x.get_block_size(),
+        thrust_nrmmax<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                       x.begin() + (offset + size) * x.get_block_size());
     cudaCheckError();
     return out;

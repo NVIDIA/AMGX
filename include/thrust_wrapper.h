@@ -11,6 +11,7 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/adjacent_difference.h>
 #include <type_traits>
+#include <basic_types.h>
 
 namespace thrust_wrapper
 {

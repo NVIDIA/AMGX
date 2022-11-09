@@ -301,7 +301,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 {
     // The diagonal of A.
     VVector diag( A.get_num_rows() );
-    thrust_wrapper::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
+    thrust_wrapper::transform<AMGX_host>( amgx::thrust::make_counting_iterator<int>( 0 ),
                        amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                        diag.begin( ),
                        detail::find_row_diagonal<Matrix_h>( A ) );
@@ -328,7 +328,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     P.addProps(CSR);
     P.resize( A.get_num_rows(), n_coarse, nnz );
     // Compute row offsets of P.
-    thrust_wrapper::exclusive_scan( nnz_per_row.begin( ),
+    thrust_wrapper::exclusive_scan<AMGX_host>( nnz_per_row.begin( ),
                             nnz_per_row.end( ),
                             P.row_offsets.begin( ) );
     cudaCheckError();
@@ -870,9 +870,9 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // now I have the non-zeros per row for matrix P, count the non-zeros on each row
     // to get total NNZ
     // sum non-zeros per row
-    int NNZidx = thrust_wrapper::reduce(nonZerosVec.begin(), nonZerosVec.end());
+    int NNZidx = thrust_wrapper::reduce<AMGX_device>(nonZerosVec.begin(), nonZerosVec.end());
     cudaCheckError();
-    thrust_wrapper::exclusive_scan(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
     cudaCheckError();
     nonZerosVec[A.get_num_rows()] = NNZidx;
     // generate sets on the device

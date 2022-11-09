@@ -961,7 +961,7 @@ FixcolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &
 
     if (xIsZero)
     {
-        amgx::thrust::fill(x.begin(), x.end(), 0.);
+        thrust_wrapper::fill(x.begin(), x.end(), 0.);
         cudaCheckError();
     }
 

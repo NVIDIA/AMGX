@@ -75,7 +75,7 @@ void coo_spmm_helper(size_t workspace_size,
     }
 
     // compute gather locations of intermediate format
-    amgx::thrust::fill(A_gather_locations.begin(), A_gather_locations.end(), 0);
+    thrust_wrapper::fill(A_gather_locations.begin(), A_gather_locations.end(), 0);
     amgx::thrust::scatter_if(amgx::thrust::counting_iterator<IndexType>(begin_segment), amgx::thrust::counting_iterator<IndexType>(end_segment),
                        output_ptr.begin() + begin_segment, 
                        segment_lengths.begin() + begin_segment,
@@ -83,7 +83,7 @@ void coo_spmm_helper(size_t workspace_size,
     amgx::thrust::inclusive_scan(A_gather_locations.begin(), A_gather_locations.end(), A_gather_locations.begin(), amgx::thrust::maximum<IndexType>());
   
     // compute gather locations of intermediate format
-    amgx::thrust::fill(B_gather_locations.begin(), B_gather_locations.end(), 1);
+    thrust_wrapper::fill(B_gather_locations.begin(), B_gather_locations.end(), 1);
     amgx::thrust::scatter_if(amgx::thrust::make_permutation_iterator(B_row_offsets.begin(), A.column_indices.begin()) + begin_segment,
                        amgx::thrust::make_permutation_iterator(B_row_offsets.begin(), A.column_indices.begin()) + end_segment,
                        output_ptr.begin() + begin_segment,
@@ -170,7 +170,7 @@ void spmm_coo(const Matrix1& A,
     
     // output pointer
     cusp::array1d<IndexType,MemorySpace> output_ptr(A.num_entries + 1);
-    amgx::thrust::exclusive_scan(segment_lengths.begin(), segment_lengths.end(),
+    thrust_wrapper::exclusive_scan(segment_lengths.begin(), segment_lengths.end(),
                            output_ptr.begin(),
                            IndexType(0));
     output_ptr[A.num_entries] = output_ptr[A.num_entries - 1] + segment_lengths[A.num_entries - 1]; // XXX is this necessary?

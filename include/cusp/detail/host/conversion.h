@@ -47,7 +47,7 @@ void coo_to_csr(const Matrix1& src, Matrix2& dst)
     dst.resize(src.num_rows, src.num_cols, src.num_entries);
     
     // compute number of non-zero entries per row of A 
-    amgx::thrust::fill(dst.row_offsets.begin(), dst.row_offsets.end(), IndexType(0));
+    thrust_wrapper::fill(dst.row_offsets.begin(), dst.row_offsets.end(), IndexType(0));
 
     for (size_t n = 0; n < src.num_entries; n++)
         dst.row_offsets[src.row_indices[n]]++;
@@ -93,7 +93,7 @@ void coo_to_array2d(const Matrix1& src, Matrix2& dst)
 
     dst.resize(src.num_rows, src.num_cols);
 
-    amgx::thrust::fill(dst.values.begin(), dst.values.end(), ValueType(0));
+    thrust_wrapper::fill(dst.values.begin(), dst.values.end(), ValueType(0));
 
     for(size_t n = 0; n < src.num_entries; n++)
         dst(src.row_indices[n], src.column_indices[n]) += src.values[n]; //sum duplicates
@@ -163,7 +163,7 @@ void csr_to_dia(const Matrix1& src, Matrix2& dst,
     }
 
     // fill in values array
-    amgx::thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
+    thrust_wrapper::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
 
     for(size_t i = 0; i < src.num_rows; i++)
     {
@@ -205,8 +205,8 @@ void csr_to_hyb(const Matrix1& src, Matrix2& dst,
     const IndexType invalid_index = cusp::ell_matrix<IndexType, ValueType, cusp::host_memory>::invalid_index;
 
     // pad out ELL format with zeros
-    amgx::thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), invalid_index);
-    amgx::thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
+    thrust_wrapper::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), invalid_index);
+    thrust_wrapper::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
 
     for(size_t i = 0, coo_nnz = 0; i < src.num_rows; i++)
     {
@@ -251,8 +251,8 @@ void csr_to_ell(const Matrix1& src, Matrix2& dst,
     const IndexType invalid_index = cusp::ell_matrix<IndexType, ValueType, cusp::host_memory>::invalid_index;
 
     // pad out ELL format with zeros
-    amgx::thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), invalid_index);
-    amgx::thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
+    thrust_wrapper::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), invalid_index);
+    thrust_wrapper::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
 
     for(size_t i = 0; i < src.num_rows; i++)
     {
@@ -278,7 +278,7 @@ void csr_to_array2d(const Matrix1& src, Matrix2& dst)
 
     dst.resize(src.num_rows, src.num_cols);
 
-    amgx::thrust::fill(dst.values.begin(), dst.values.end(), ValueType(0));
+    thrust_wrapper::fill(dst.values.begin(), dst.values.end(), ValueType(0));
 
     for(size_t i = 0; i < src.num_rows; i++)
         for(IndexType jj = src.row_offsets[i]; jj < src.row_offsets[i+1]; jj++)

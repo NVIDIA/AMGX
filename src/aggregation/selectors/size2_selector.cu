@@ -692,7 +692,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         aggregates.resize(A.get_num_rows());
     }
 
-    amgx::thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
     //typedef typename csr_matrix_d::index_type IndexType;
     //typedef typename csr_matrix_d::value_type ValueType;
@@ -777,7 +777,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     cusp::detail::offsets_to_indices(A.row_offsets, row_indices);
     IndexType total_rows = (A.is_matrix_singleGPU()) ? A.get_num_rows() : A.manager->num_rows_all();
     aggregates.resize(total_rows);
-    amgx::thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_row_indices_ptr = row_indices.raw();

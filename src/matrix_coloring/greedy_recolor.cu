@@ -1016,7 +1016,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
             IVector row_colors(this->m_row_colors); //useless copy
             sorted_rows_by_color.resize(num_rows);
             //this->m_sorted_rows_by_color.resize(num_rows);
-            amgx::thrust::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
+            thrust_wrapper::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
             thrust_wrapper::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
             cudaCheckError();
             IVector offsets_rows_per_color_d(this->m_num_colors + 1);

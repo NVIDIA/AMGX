@@ -27,6 +27,7 @@
 #include <thrust/inner_product.h>
 
 #include <thrust/iterator/transform_iterator.h>
+#include <thrust_wrapper.h>
 
 #include <cmath>
 
@@ -341,7 +342,7 @@ namespace detail
 	    ForwardIterator last,
 	    ScalarType alpha)
   {
-      amgx::thrust::fill(first, last, alpha);
+      thrust_wrapper::fill(first, last, alpha);
   }
   
   template <typename InputIterator>
@@ -668,7 +669,7 @@ void fill(ForwardIterator first,
           ForwardIterator last,
           ScalarType alpha)
 {
-    amgx::thrust::fill(first, last, alpha);
+    thrust_wrapper::fill(first, last, alpha);
 }
 
 template <typename Array,

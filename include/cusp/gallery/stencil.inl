@@ -154,7 +154,7 @@ void generate_matrix_from_stencil(      cusp::dia_matrix<IndexType,ValueType,Mem
     IndexType num_diagonals = stencil.size();
 
     cusp::array1d<IndexType,cusp::host_memory> strides(grid_indices.size());
-    amgx::thrust::exclusive_scan(grid_indices.begin(), grid_indices.end(), strides.begin(), IndexType(1), amgx::thrust::multiplies<IndexType>());
+    thrust_wrapper::exclusive_scan(grid_indices.begin(), grid_indices.end(), strides.begin(), IndexType(1), amgx::thrust::multiplies<IndexType>());
 
     cusp::array1d<IndexType,cusp::host_memory> offsets(stencil.size(), 0);
     for(size_t i = 0; i < offsets.size(); i++)

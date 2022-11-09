@@ -251,7 +251,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
     {
         //std::cout << "solver=" << iter->first << std::endl;
         solver = NULL;
-        amgx::thrust::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
+        thrust_wrapper::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
         //printf("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));fflush(stdout);
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
@@ -536,7 +536,7 @@ void random_add_zeros(Matrix<TConfig> &A, int max_zeros)
         if (rowidx == A.col_indices[A.row_offsets[rowidx]]) { continue; }
 
         int validx = A.row_offsets[rowidx];
-        amgx::thrust::fill(A.values.begin() + validx, A.values.begin() + validx + A.get_block_size(), static_cast<ValueTypeA>(0.0));
+        thrust_wrapper::fill(A.values.begin() + validx, A.values.begin() + validx + A.get_block_size(), static_cast<ValueTypeA>(0.0));
         --zero_num;
     }
 }

@@ -76,7 +76,7 @@ void mis_to_aggregates(const cusp::coo_matrix<IndexType,ValueType,MemorySpace>& 
 
   // enumerate the MIS nodes
   cusp::array1d<IndexType,MemorySpace> mis_enum(N);
-  amgx::thrust::exclusive_scan(mis.begin(), mis.end(), mis_enum.begin());
+  thrust_wrapper::exclusive_scan(mis.begin(), mis.end(), mis_enum.begin());
 
   amgx::thrust::gather(idx2.begin(), idx2.end(),
                  mis_enum.begin(),
@@ -113,7 +113,7 @@ void standard_aggregation(const cusp::csr_matrix<IndexType,ValueType,cusp::host_
   IndexType next_aggregate = 1; // number of aggregates + 1
 
   // initialize aggregates to 0
-  amgx::thrust::fill(aggregates.begin(), aggregates.end(), 0);
+  thrust_wrapper::fill(aggregates.begin(), aggregates.end(), 0);
 
   IndexType n_row = C.num_rows;
 
@@ -210,7 +210,7 @@ void standard_aggregation(const cusp::csr_matrix<IndexType,ValueType,cusp::host_
 
   if( next_aggregate == 0 )
   {
-      amgx::thrust::fill( aggregates.begin(), aggregates.end(), 0 );
+      thrust_wrapper::fill( aggregates.begin(), aggregates.end(), 0 );
   }
   else
   {

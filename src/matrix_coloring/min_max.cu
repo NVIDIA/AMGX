@@ -410,7 +410,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
     const int warps_per_block = threads_per_block / 32;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
     this->m_num_colors = 1;
-    amgx::thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
+    thrust_wrapper::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
     cudaCheckError();
 
     for ( int num_uncolored = num_rows; num_uncolored > max_uncolored_rows ; )
@@ -479,7 +479,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
 #endif
     this->m_num_colors = 1;
-    amgx::thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
+    thrust_wrapper::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
     cudaCheckError();
     IVector max_hash_array(num_rows);
     IVector min_hash_array(num_rows);

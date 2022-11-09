@@ -256,7 +256,7 @@ void GEO_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     //initialize the aggregates vector
     int n = A.get_num_rows();
     aggregates.resize(n);
-    amgx::thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
     int nlevel;
 

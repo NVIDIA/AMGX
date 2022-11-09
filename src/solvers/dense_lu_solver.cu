@@ -813,11 +813,11 @@ solver_setup(bool reuse_matrix_structure)
 
             // Turn the non-zero counts into displacements
             nz_displs.resize(nranks);
-            amgx::thrust::exclusive_scan(nz_all.begin(), nz_all.end(), nz_displs.begin());
+            thrust_wrapper::exclusive_scan(nz_all.begin(), nz_all.end(), nz_displs.begin());
 
             // Turn the number of rows into displacements
             row_displs.resize(nranks);
-            amgx::thrust::exclusive_scan(row_all.begin(), row_all.end(), row_displs.begin());
+            thrust_wrapper::exclusive_scan(row_all.begin(), row_all.end(), row_displs.begin());
 
             IVector_d local_Acols_d(nnz);
             IVector_d local_Arows_d(num_rows);

@@ -131,7 +131,7 @@ void __spmv_dia(const Matrix&    A,
     if (num_diagonals == 0)
     {
         // empty matrix
-        amgx::thrust::fill(amgx::thrust::device_pointer_cast(y), amgx::thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
+        thrust_wrapper::fill(amgx::thrust::device_pointer_cast(y), amgx::thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
         return;
     }
 

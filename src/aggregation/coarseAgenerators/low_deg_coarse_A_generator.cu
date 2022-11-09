@@ -1216,7 +1216,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
 
     cudaCheckError();
     // Compute the number of non-zeroes.
-    thrust_wrapper::exclusive_scan( Ac.row_offsets.begin(), Ac.row_offsets.end(), Ac.row_offsets.begin() );
+    thrust_wrapper::exclusive_scan<AMGX_device>( Ac.row_offsets.begin(), Ac.row_offsets.end(), Ac.row_offsets.begin() );
     cudaCheckError();
     int nonzero_blocks = Ac.row_offsets[num_aggregates];
 
@@ -1274,7 +1274,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
     // Reset values if needed.
     if ( A.get_block_dimy() != 1 )
     {
-        amgx::thrust::fill( Ac.values.begin(), Ac.values.end(), types::util<ValueType>::get_zero() );
+        thrust_wrapper::fill<AMGX_device>( Ac.values.begin(), Ac.values.end(), types::util<ValueType>::get_zero() );
         cudaCheckError();
     }
 

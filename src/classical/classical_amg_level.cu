@@ -269,11 +269,11 @@ void Classical_AMG_Level_Base<T_Config>::createCoarseVertices()
     this->m_cf_map.resize(size_all);
     this->m_s_con.resize(nnz_full);
     this->m_scratch.resize(size_full);
-    amgx::thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
+    thrust_wrapper::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
     cudaCheckError();
-    amgx::thrust::fill(this->m_s_con.begin(), this->m_s_con.end(), false);
+    thrust_wrapper::fill(this->m_s_con.begin(), this->m_s_con.end(), false);
     cudaCheckError();
-    amgx::thrust::fill(this->m_scratch.begin(), this->m_scratch.end(), 0);
+    thrust_wrapper::fill(this->m_scratch.begin(), this->m_scratch.end(), 0);
     cudaCheckError();
     markCoarseFinePoints();
 }
@@ -391,7 +391,7 @@ void Classical_AMG_Level_Base<T_Config>::markCoarseFinePoints()
         weights.resize(A.get_num_rows());
     }
 
-    amgx::thrust::fill(weights.begin(), weights.end(), 0.0);
+    thrust_wrapper::fill(weights.begin(), weights.end(), 0.0);
     cudaCheckError();
 
     // extend A to include 1st ring nodes

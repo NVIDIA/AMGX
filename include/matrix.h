@@ -67,6 +67,7 @@ enum MatrixProps
 #include <matrix_coloring/matrix_coloring.h>
 #include <distributed/distributed_manager.h>
 #include <resources.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -1094,7 +1095,7 @@ class Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : pub
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                amgx::thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                thrust_wrapper::sequence<AMGX_host>(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1264,7 +1265,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                amgx::thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                thrust_wrapper::sequence<AMGX_device>(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1312,7 +1313,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                amgx::thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                thrust_wrapper::sequence<AMGX_device>(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 

@@ -1581,7 +1581,7 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         // TODO: Should probably store the inverse mapping of AtoLUmapping instead
         //       This will allow to use unpermuteVector and have coalesced writes
         //       instead of coalesced reads
-        amgx::thrust::fill(this->m_LU.values.begin(), this->m_LU.values.end(), 0.);
+        thrust_wrapper::fill(this->m_LU.values.begin(), this->m_LU.values.end(), 0.);
         cudaCheckError();
 
         if (this->m_explicit_A->hasProps(DIAG))
@@ -2201,7 +2201,7 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     Cusparse::bsrmv((ValueTypeA) - 1.0, m_A, x, (ValueTypeA)1.0, this->m_delta);
     cudaCheckError();
     // Setting Delta to zero
-    amgx::thrust::fill(this->m_Delta.begin(), this->m_Delta.end(), (ValueTypeB)0.0f);
+    thrust_wrapper::fill(this->m_Delta.begin(), this->m_Delta.end(), (ValueTypeB)0.0f);
     cudaCheckError();
     bool skipped_end = false;
 

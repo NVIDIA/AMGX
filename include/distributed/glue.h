@@ -54,6 +54,7 @@
 #include <thrust/unique.h>
 #include <thrust/binary_search.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust_wrapper.h>
 
 #define COARSE_CLA_CONSO 0 // used enable / disable coarse level consolidation (used in cycles files)
 
@@ -334,7 +335,7 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
                 start = di[i] - 1;
                 end   = di[i] + rc[i] - 1;
                 shift = hAp[start];
-                thrust_wrapper::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                thrust_wrapper::transform<TConfig::memSpace>(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];
@@ -870,7 +871,7 @@ int unglue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv
 
         // We should avoid copies between nv_vec and hv here
         nv_vec_unglued.resize( nv_mtx.manager->inverse_renumbering_before_glue.size());
-        amgx::thrust::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
+        thrust_wrapper::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
         amgx::thrust::copy(hv.begin(), hv.end(), nv_vec_unglued.begin());
         hv.resize( nv_mtx.manager->inverse_renumbering_before_glue.size());
         cudaCheckError();
@@ -880,7 +881,7 @@ int unglue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv
                      amgx::thrust::make_permutation_iterator(nv_vec_unglued.begin(), nv_mtx.manager->inverse_renumbering_before_glue.begin() + nv_mtx.manager->inverse_renumbering_before_glue.size()),
                      hv.begin());
         cudaCheckError();
-        amgx::thrust::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
+        thrust_wrapper::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
         amgx::thrust::copy(hv.begin(), hv.end(), nv_vec_unglued.begin());
     }
     else

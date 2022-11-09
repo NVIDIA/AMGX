@@ -397,7 +397,7 @@ size_t maximal_independent_set(const Matrix& A, Array& stencil, size_t k)
     if (k == 0)
     {
         stencil.resize(A.num_rows);
-        amgx::thrust::fill(stencil.begin(), stencil.end(), typename Array::value_type(1));
+        thrust_wrapper::fill(stencil.begin(), stencil.end(), typename Array::value_type(1));
         return stencil.size();
     }
     else

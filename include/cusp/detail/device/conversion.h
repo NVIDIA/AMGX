@@ -525,7 +525,7 @@ void coo_to_dia(const Matrix1& src, Matrix2& dst,
     dst.resize(src.num_rows, src.num_cols, src.num_entries, num_diagonals, alignment);
 
     // fill in values array
-    amgx::thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
+    thrust_wrapper::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
 
     // fill in diagonal_offsets array
     amgx::thrust::copy_if(amgx::thrust::counting_iterator<IndexType>(0),
@@ -585,7 +585,7 @@ void csr_to_dia(const Matrix1& src, Matrix2& dst,
     dst.resize(src.num_rows, src.num_cols, src.num_entries, num_diagonals, alignment);
 
     // fill in values array
-    amgx::thrust::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
+    thrust_wrapper::fill(dst.values.values.begin(), dst.values.values.end(), ValueType(0));
 
     // fill in diagonal_offsets array
     amgx::thrust::copy_if(amgx::thrust::counting_iterator<IndexType>(0),
@@ -640,7 +640,7 @@ void coo_to_ell(const Matrix1& src, Matrix2& dst,
   // first enumerate the entries within each row, e.g. [0, 1, 2, 0, 1, 2, 3, ...]
   cusp::array1d<IndexType, cusp::device_memory> permutation(src.num_entries);
 
-  amgx::thrust::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
+  thrust_wrapper::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
                                 amgx::thrust::constant_iterator<IndexType>(1),
                                 permutation.begin(),
                                 IndexType(0));
@@ -652,8 +652,8 @@ void coo_to_ell(const Matrix1& src, Matrix2& dst,
                     IndexType(1));
 
   // fill output with padding
-  amgx::thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
-  amgx::thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
+  thrust_wrapper::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
+  thrust_wrapper::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
 
   // scatter COO entries to ELL
   amgx::thrust::scatter(src.column_indices.begin(), src.column_indices.end(),
@@ -681,7 +681,7 @@ void csr_to_ell(const Matrix1& src, Matrix2& dst,
   // compute permutation from CSR index to ELL index
   // first enumerate the entries within each row, e.g. [0, 1, 2, 0, 1, 2, 3, ...]
   cusp::array1d<IndexType, cusp::device_memory> permutation(src.num_entries);
-  amgx::thrust::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
+  thrust_wrapper::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
                                 amgx::thrust::constant_iterator<IndexType>(1),
                                 permutation.begin(),
                                 IndexType(0));
@@ -693,8 +693,8 @@ void csr_to_ell(const Matrix1& src, Matrix2& dst,
                     IndexType(1));
 
   // fill output with padding
-  amgx::thrust::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
-  amgx::thrust::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
+  thrust_wrapper::fill(dst.column_indices.values.begin(), dst.column_indices.values.end(), IndexType(-1));
+  thrust_wrapper::fill(dst.values.values.begin(),         dst.values.values.end(),         ValueType(0));
 
   // scatter CSR entries to ELL
   amgx::thrust::scatter(src.column_indices.begin(), src.column_indices.end(),
@@ -718,7 +718,7 @@ void coo_to_hyb(const Matrix1& src, Matrix2& dst,
   typedef typename Matrix2::value_type ValueType;
 
   cusp::array1d<IndexType, cusp::device_memory> indices(src.num_entries);
-  amgx::thrust::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
+  thrust_wrapper::exclusive_scan_by_key(src.row_indices.begin(), src.row_indices.end(),
                                 amgx::thrust::constant_iterator<IndexType>(1),
                                 indices.begin(),
                                 IndexType(0));
@@ -730,8 +730,8 @@ void coo_to_hyb(const Matrix1& src, Matrix2& dst,
   dst.resize(src.num_rows, src.num_cols, num_ell_entries, num_coo_entries, num_entries_per_row, alignment);
 
   // fill output with padding
-  amgx::thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
-  amgx::thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
+  thrust_wrapper::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
+  thrust_wrapper::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
 
   // write tail of each row to COO portion
   amgx::thrust::copy_if
@@ -785,7 +785,7 @@ void csr_to_hyb(const Matrix1& src, Matrix2& dst,
   // TODO call coo_to_hyb with a coo_matrix_view
 
   cusp::array1d<IndexType, cusp::device_memory> indices(src.num_entries);
-  amgx::thrust::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
+  thrust_wrapper::exclusive_scan_by_key(row_indices.begin(), row_indices.end(),
                                 amgx::thrust::constant_iterator<IndexType>(1),
                                 indices.begin(),
                                 IndexType(0));
@@ -797,8 +797,8 @@ void csr_to_hyb(const Matrix1& src, Matrix2& dst,
   dst.resize(src.num_rows, src.num_cols, num_ell_entries, num_coo_entries, num_entries_per_row, alignment);
 
   // fill output with padding
-  amgx::thrust::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
-  amgx::thrust::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
+  thrust_wrapper::fill(dst.ell.column_indices.values.begin(), dst.ell.column_indices.values.end(), IndexType(-1));
+  thrust_wrapper::fill(dst.ell.values.values.begin(),         dst.ell.values.values.end(),         ValueType(0));
 
   amgx::thrust::copy_if(amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.begin(), src.column_indices.begin(), src.values.begin() ) ),
 		  amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( row_indices.end()  , src.column_indices.end()  , src.values.end()   ) ),

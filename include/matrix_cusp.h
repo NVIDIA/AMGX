@@ -113,7 +113,7 @@ class MatrixCusp
             }
 
             column_indices_array_type element_permutation(num_entries);
-            amgx::thrust::sequence(element_permutation.begin(), element_permutation.end());
+            thrust_wrapper::sequence(element_permutation.begin(), element_permutation.end());
             cusp::detail::sort_by_row_and_column(pM->row_indices, pM->col_indices, element_permutation);
             cudaCheckError();
             MVector temp_values;

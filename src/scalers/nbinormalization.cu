@@ -29,6 +29,7 @@
 #include <sm_utils.inl>
 #include <thrust/inner_product.h>
 #include <solvers/block_common_solver.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -453,7 +454,7 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         // x = sum1 ./ beta
         setOneOverVector <<< 4096, 256>>>(rows, x.raw(), sum1, beta.raw());
         // gamma = C*x := B'*x
-        amgx::thrust::fill(gamma.begin(), gamma.end(), ValueTypeB(0.));
+        thrust_wrapper::fill(gamma.begin(), gamma.end(), ValueTypeB(0.));
         computeGammaDevice<256, 8> <<< 4096, 256>>>(rows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), x.raw(), gamma.raw());
         // gamma = 1 ./ beta
         setOneOverVector <<< 4096, 256>>>(cols, y.raw(), sum2, gamma.raw());
@@ -513,8 +514,8 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             thrust_wrapper::transform(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
             thrust_wrapper::transform(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
             cudaCheckError();
-            /*amgx::thrust::fill(rownorms.begin(), rownorms.end(), 0.);
-              amgx::thrust::fill(colnorms.begin(), colnorms.end(), 0.);
+            /*thrust_wrapper::fill(rownorms.begin(), rownorms.end(), 0.);
+              thrust_wrapper::fill(colnorms.begin(), colnorms.end(), 0.);
             getColRowNorms<<<4096,256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), rownorms.raw(), colnorms.raw());
             cudaCheckError();
             row_max = *(amgx::thrust::max_element(rownorms.begin(), rownorms.end()));

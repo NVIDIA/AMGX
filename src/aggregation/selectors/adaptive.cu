@@ -186,7 +186,7 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
             VVector& rhs = *Allocator<VVector>::allocate( numRows );
 
             // initialize rhs
-            amgx::thrust::fill( rhs.begin(), rhs.end(), 0.0 );
+            thrust_wrapper::fill( rhs.begin(), rhs.end(), 0.0 );
 
             //compute random numbers
             curandGenerator_t generator;

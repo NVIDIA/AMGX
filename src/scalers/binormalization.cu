@@ -402,8 +402,8 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     thrust_wrapper::transform(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / C_norm) );
     thrust_wrapper::transform(scale_vector.begin(), scale_vector.end(), scale_vector.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / C_norm)) );
     cudaCheckError();
-    /*amgx::thrust::fill(rownorms.begin(), rownorms.end(), 0.);
-      amgx::thrust::fill(colnorms.begin(), colnorms.end(), 0.);
+    /*thrust_wrapper::fill(rownorms.begin(), rownorms.end(), 0.);
+      thrust_wrapper::fill(colnorms.begin(), colnorms.end(), 0.);
     getColRowNorms<<<4096,256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), rownorms.raw(), colnorms.raw());
     cudaCheckError();
     row_max = *(amgx::thrust::max_element(rownorms.begin(), rownorms.end()));

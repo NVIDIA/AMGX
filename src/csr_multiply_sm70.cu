@@ -1542,7 +1542,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
     for (int i = 0; i < num_neighbors; i++)
     {
         flagArray[i].resize(RAP_size);
-        amgx::thrust::fill(flagArray[i].begin(), flagArray[i].end(), -1);
+        thrust_wrapper::fill(flagArray[i].begin(), flagArray[i].end(), -1);
     }
 
     cudaCheckError();
@@ -1724,7 +1724,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( 
 {
     amgx::thrust::device_ptr<int> offsets_begin(C.row_offsets.raw());
     amgx::thrust::device_ptr<int> offsets_end  (C.row_offsets.raw() + C.get_num_rows() + 1);
-    amgx::thrust::exclusive_scan( offsets_begin, offsets_end, offsets_begin );
+    thrust_wrapper::exclusive_scan( offsets_begin, offsets_end, offsets_begin );
     cudaCheckError();
 }
 
@@ -2054,7 +2054,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
     for (int i = 0; i < num_neighbors; i++)
     {
         flagArray[i].resize(RAP_size);
-        amgx::thrust::fill(flagArray[i].begin(), flagArray[i].end(), -1);
+        thrust_wrapper::fill(flagArray[i].begin(), flagArray[i].end(), -1);
     }
 
     cudaCheckError();

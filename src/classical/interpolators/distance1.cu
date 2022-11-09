@@ -314,7 +314,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 
     // Count the number of non-zero elements per row of P.
     IntVector nnz_per_row( A.get_num_rows() + 1 );
-    thrust_wrapper::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
+    amgx::thrust::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
                        amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                        nnz_per_row.begin( ),
                        detail::count_nnz_per_row<Matrix_h>( A, are_sc, cf_map ) );
@@ -328,7 +328,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     P.addProps(CSR);
     P.resize( A.get_num_rows(), n_coarse, nnz );
     // Compute row offsets of P.
-    amgx::thrust::exclusive_scan( nnz_per_row.begin( ),
+    thrust_wrapper::exclusive_scan( nnz_per_row.begin( ),
                             nnz_per_row.end( ),
                             P.row_offsets.begin( ) );
     cudaCheckError();

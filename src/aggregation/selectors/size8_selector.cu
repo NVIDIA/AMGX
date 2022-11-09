@@ -615,7 +615,7 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     }
 
     // Initially, put each vertex in its own aggregate
-    amgx::thrust::sequence(aggregates.begin(), aggregates.begin() + num_block_rows);
+    thrust_wrapper::sequence<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows);
     cudaCheckError();
     IndexType *aggregates_ptr = aggregates.raw();
     // Create row_indices array
@@ -785,9 +785,9 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     // -------------------------------------------------
     // Merge aggregates to create aggregates of size 8
     // -------------------------------------------------
-    amgx::thrust::fill(aggregated.begin(), aggregated.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregated.begin(), aggregated.end(), -1);
     cudaCheckError();
-    amgx::thrust::fill(weight_strongest_neighbour.begin(), weight_strongest_neighbour.end(), -1.);
+    thrust_wrapper::fill<AMGX_device>(weight_strongest_neighbour.begin(), weight_strongest_neighbour.end(), -1.);
     cudaCheckError();
     icount = 0;
     numUnassigned = num_block_rows;

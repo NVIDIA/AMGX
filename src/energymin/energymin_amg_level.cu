@@ -97,7 +97,7 @@ void Energymin_AMG_Level_Base<T_Config>
     int size_all;
     size_all  = A.get_num_rows();
     this->m_cf_map.resize(size_all);
-    amgx::thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
+    thrust_wrapper::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
     cudaCheckError();
     markCoarseFinePoints();
 }
@@ -180,13 +180,13 @@ void Energymin_AMG_Level_Base<T_Config>
     this->m_cf_map.resize(size_all);
     m_s_con.resize(nnz_full);
     m_scratch.resize(size_full);
-    amgx::thrust::fill(weights.begin(), weights.end(), 0.0);
+    thrust_wrapper::fill(weights.begin(), weights.end(), 0.0);
     cudaCheckError();
-    amgx::thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
+    thrust_wrapper::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
     cudaCheckError();
-    amgx::thrust::fill(m_s_con.begin(), m_s_con.end(), false);
+    thrust_wrapper::fill(m_s_con.begin(), m_s_con.end(), false);
     cudaCheckError();
-    amgx::thrust::fill(m_scratch.begin(), m_scratch.end(), 0);
+    thrust_wrapper::fill(m_scratch.begin(), m_scratch.end(), 0);
     cudaCheckError();
 
     if (strength != NULL)

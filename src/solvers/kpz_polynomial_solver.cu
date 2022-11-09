@@ -32,6 +32,7 @@
 #include <multiply.h>
 #include <miscmath.h>
 #include <transpose.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/transform_reduce.h>
 

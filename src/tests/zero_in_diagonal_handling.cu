@@ -143,7 +143,7 @@ struct generateMatrixRandomStructCustom<TemplateConfig<AMGX_host, t_vecPrec, t_m
         newA.set_num_nz(cur_nnz);
         int new_vals = (newA.get_num_nz() + 1) * bsize_sq;
         newA.values.resize(new_vals);
-        amgx::thrust::fill(newA.values.begin() + (newA.get_num_nz()*newA.get_block_size()), newA.values.end(), 0.0);
+        thrust_wrapper::fill(newA.values.begin() + (newA.get_num_nz()*newA.get_block_size()), newA.values.end(), 0.0);
         newA.computeDiagonal();
         A = newA;
         A.set_initialized(1);
@@ -363,7 +363,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
     {
         //std::cout << "solver=" << iter->first << std::endl;
         solver = NULL;
-        amgx::thrust::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
+        thrust_wrapper::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
         solver = iter->second->create(cfg, cfg_scope);

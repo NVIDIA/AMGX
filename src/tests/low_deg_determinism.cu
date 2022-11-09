@@ -81,7 +81,7 @@ void run()
         IVector R_row_indices(aggregates);
         R_row_offsets.resize(numAggregates + 1);
         R_col_indices.resize(numRows);
-        amgx::thrust::sequence(R_col_indices.begin(), R_col_indices.end());
+        thrust_wrapper::sequence(R_col_indices.begin(), R_col_indices.end());
         amgx::thrust::sort_by_key(R_row_indices.begin(), R_row_indices.end(), R_col_indices.begin());
         cusp::detail::indices_to_offsets(R_row_indices, R_row_offsets);
         //restriction ready

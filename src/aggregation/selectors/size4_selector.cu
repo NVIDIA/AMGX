@@ -128,7 +128,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     }
 
     // Initially, put each vertex in its own aggregate
-    amgx::thrust::sequence(aggregates.begin(), aggregates.begin() + num_block_rows);
+    thrust_wrapper::sequence<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows);
     cudaCheckError();
     IndexType *aggregates_ptr = aggregates.raw();
     // Create row_indices array

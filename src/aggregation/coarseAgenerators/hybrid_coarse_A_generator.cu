@@ -362,7 +362,7 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     cudaCheckError();
     // Sort (I,J) by rows and columns (I,J)
     IVector permutation(A.get_num_nz());
-    amgx::thrust::sequence(permutation.begin(), permutation.end());
+    thrust_wrapper::sequence<AMGX_device>(permutation.begin(), permutation.end());
     cudaCheckError();
     // compute permutation and sort by (I,J)
     {
@@ -371,13 +371,13 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         cudaCheckError();
         temp = I;
         //I = temp;
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), I.begin());
+        thrust_wrapper::gather<AMGX_device>(permutation.begin(), permutation.end(), temp.begin(), I.begin());
         cudaCheckError();
         amgx::thrust::stable_sort_by_key(I.begin(), I.end(), permutation.begin());
         cudaCheckError();
         temp = J;
         //J = temp;
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), J.begin());
+        thrust_wrapper::gather<AMGX_device>(permutation.begin(), permutation.end(), temp.begin(), J.begin());
         cudaCheckError();
     }
     // Remove duplicate tuples
@@ -432,8 +432,8 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     IndexType *Ac_dia_values_ptr = Ac.diag.raw();
     ValueType *Ac_nonzero_values_ptr = Ac.values.raw();
     // Now create Ac.dia_values and Ac.nonzero_values
-    //amgx::thrust::fill(Ac.diag.begin(),Ac.diag.end(),0.);
-    amgx::thrust::fill(Ac.values.begin(), Ac.values.end(), 0.);
+    //thrust_wrapper::fill<AMGX_device>(Ac.diag.begin(),Ac.diag.end(),0.);
+    thrust_wrapper::fill<AMGX_device>(Ac.values.begin(), Ac.values.end(), 0.);
     cudaCheckError();
     // Coalesced version of kernel to fill A
     const int num_threads = ( ( num_aggregates + 15) / 16 ) * 16;

@@ -479,7 +479,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     C.row_offsets.resize( A.get_num_rows() + 1 );
     C.col_indices.resize( C_num_nnz1 );
     C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    amgx::thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    thrust_wrapper::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     C.set_num_rows( A.get_num_rows() );
     C.set_num_cols( B.get_num_cols() );
     C.diag.resize(C.get_num_rows());
@@ -550,7 +550,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     C.set_initialized(0);
     C.row_offsets.resize( A.get_num_rows() + 1 );
     C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    amgx::thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    thrust_wrapper::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     C.set_num_rows( A.get_num_rows() );
     C.set_num_cols( B.get_num_cols() );
     C.diag.resize(C.get_num_rows());
@@ -610,7 +610,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
     C.set_num_cols( B.get_num_cols() );
     C.row_offsets.resize( A.get_num_rows() + 1 );
     C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    amgx::thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    thrust_wrapper::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     cudaCheckError();
     bool done = false;
 
@@ -695,7 +695,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
     // Make C "mutable".
     RAP.set_initialized(0);
     RAP.m_seq_offsets.resize( RAP.get_num_rows() + 1 );
-    amgx::thrust::sequence(RAP.m_seq_offsets.begin(), RAP.m_seq_offsets.end());
+    thrust_wrapper::sequence(RAP.m_seq_offsets.begin(), RAP.m_seq_offsets.end());
     cudaCheckError();
     int attempt = 0;
 

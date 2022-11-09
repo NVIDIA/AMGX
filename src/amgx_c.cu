@@ -315,10 +315,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            thrust_wrapper::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            thrust_wrapper::transform<AMGX_host>(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
             //amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
-            thrust_wrapper::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
+            thrust_wrapper::transform<AMGX_host>(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
             cudaCheckError();
         }
 
@@ -354,7 +354,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 end  = nv_mtx->manager->part_offsets_h[i + 1];
                 shift = hAp[start];
                 //if (rank == 0) printf("# %d %d %d\n",start,end,shift);
-                thrust_wrapper::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                thrust_wrapper::transform<AMGX_host>(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];
@@ -550,7 +550,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            thrust_wrapper::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            thrust_wrapper::transform<AMGX_host>(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
             amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();
@@ -1121,7 +1121,7 @@ inline AMGX_RC vector_set_zero(AMGX_vector_handle vec,
 
     v.resize(n * block_dim);
     v.set_block_dimy(block_dim);
-    amgx::thrust::fill(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
+    thrust_wrapper::fill<MemorySpaceMap<AMGX_GET_MODE_VAL(AMGX_MemorySpace, CASE)>::id>(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
     cudaCheckError();
     return AMGX_RC_OK;
 }
@@ -1557,7 +1557,7 @@ inline AMGX_RC read_system_distributed(AMGX_matrix_handle mtx,
         else
         {
             int partsPerRank = num_partitions / num_ranks;
-            amgx::thrust::fill(partSize.begin(), partSize.end(), 0);
+            thrust_wrapper::fill<AMGX_host>(partSize.begin(), partSize.end(), 0);
             cudaCheckError();
 
             for (int i = 0; i < partitionVec.size(); i++)
@@ -1705,9 +1705,9 @@ inline AMGX_RC generate_distributed_poisson_7pt(AMGX_matrix_handle mtx,
     A_part.set_initialized(1);
     /* Create rhs and solution */
     rhs.resize(A_part.get_num_rows());
-    amgx::thrust::fill(rhs.begin(), rhs.end(), types::util<ValueTypeB>::get_one());
+    thrust_wrapper::fill<MemorySpaceMap<AMGX_GET_MODE_VAL(AMGX_MemorySpace, CASE)>::id>(rhs.begin(), rhs.end(), types::util<ValueTypeB>::get_one());
     sol.resize(A_part.get_num_rows());
-    amgx::thrust::fill(sol.begin(), sol.end(), types::util<ValueTypeB>::get_one());
+    thrust_wrapper::fill<MemorySpaceMap<AMGX_GET_MODE_VAL(AMGX_MemorySpace, CASE)>::id>(sol.begin(), sol.end(), types::util<ValueTypeB>::get_one());
     cudaCheckError();
     return AMGX_RC_OK;
 }

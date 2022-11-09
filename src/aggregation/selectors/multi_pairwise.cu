@@ -890,7 +890,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     cusp::detail::offsets_to_indices(A.row_offsets, row_indices);
     IndexType total_rows = (A.is_matrix_singleGPU()) ? A.get_num_rows() : A.manager->num_rows_all();
     aggregates.resize(total_rows);
-    amgx::thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
 
     if ( this->merge_singletons == 2 && sizes.size() == 0 )
@@ -1716,7 +1716,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
                 IVector R_row_indices(aggregates_current);
                 R_row_offsets.resize(num_aggregates + 2);
                 R_col_indices.resize(numRows);
-                amgx::thrust::sequence(R_col_indices.begin(), R_col_indices.end());
+                thrust_wrapper::sequence<TConfig::memSpace>(R_col_indices.begin(), R_col_indices.end());
                 cudaCheckError();
                 amgx::thrust::sort_by_key(R_row_indices.begin(), R_row_indices.end(), R_col_indices.begin());
                 cudaCheckError();

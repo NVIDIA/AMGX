@@ -57,7 +57,7 @@ void Selector<T_Config>::renumberAndCountAggregates(IVector &aggregates, IVector
     thrust::fill(amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
                  amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows), 1);
     // do prefix sum on scratch
-    amgx::thrust::exclusive_scan(scratch.begin(), scratch.end(), scratch.begin());
+    thrust_wrapper::exclusive_scan<T_Config::memSpace>(scratch.begin(), scratch.end(), scratch.begin());
     // aggregates[i] = scratch[aggregates[i]]
     amgx::thrust::copy(amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
                  amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows),
@@ -108,7 +108,7 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     P.values.resize( num_rows, types::util<typename MVector::value_type>::get_one());
     P.col_indices.resize( num_rows );
     //setup offset array.
-    amgx::thrust::sequence( P.row_offsets.begin(), P.row_offsets.end() );
+    thrust_wrapper::sequence<TConfig::memSpace>( P.row_offsets.begin(), P.row_offsets.end() );
     //swap in aggregates
     amgx::thrust::copy( aggregates.begin(), aggregates.end(), P.col_indices.begin() );
     cudaCheckError();

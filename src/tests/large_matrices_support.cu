@@ -203,7 +203,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
     while (!SolverFactory<T_Config>::isIteratorLast(iter))
     {
         solver = NULL;
-        amgx::thrust::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
+        thrust_wrapper::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
         solver = iter->second->create(cfg, cfg_scope);

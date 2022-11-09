@@ -501,7 +501,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     }
 
     // get the offsets with an exclusive scan
-    amgx::thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[A.get_num_rows()] = nonZeros;
     // resize P

@@ -105,7 +105,7 @@ void fit_candidates(const Array1& aggregates,
   R.resize(num_aggregates);
 
   // gather values into Q
-  amgx::thrust::sequence(Q.row_indices.begin(), Q.row_indices.end());
+  thrust_wrapper::sequence(Q.row_indices.begin(), Q.row_indices.end());
   amgx::thrust::copy(aggregates.begin(), aggregates.end(), Q.column_indices.begin());
   amgx::thrust::copy(B.begin(), B.end(), Q.values.begin());
                         
@@ -153,7 +153,7 @@ void fit_candidates(const Array1& aggregates,
   R.resize(num_aggregates);
 
   // gather values into Q
-  amgx::thrust::sequence(Q.row_indices.begin(), Q.row_indices.end());
+  thrust_wrapper::sequence(Q.row_indices.begin(), Q.row_indices.end());
   amgx::thrust::copy(aggregates.begin(), aggregates.end(), Q.column_indices.begin());
   amgx::thrust::copy(B.begin(), B.end(), Q.values.begin());
                         

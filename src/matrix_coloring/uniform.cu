@@ -105,7 +105,7 @@ void UniformMatrixColoringBase<T_Config>::colorMatrix(Matrix<T_Config> &A)
 
         if (A.get_num_rows() < this->m_num_colors)
         {
-            amgx::thrust::sequence(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows);
+            thrust_wrapper::sequence(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows);
             cudaCheckError();
             this->m_num_colors = A.get_num_rows();
         }

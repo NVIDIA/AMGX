@@ -703,7 +703,7 @@ struct generateMatrixRandomStruct<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec
         {
             int new_vals = (newA.get_num_nz() + 1) * bsize_sq;
             newA.values.resize(new_vals);
-            amgx::thrust::fill(newA.values.begin() + (newA.diagOffset()*newA.get_block_size()), newA.values.end(), 0.0);
+            thrust_wrapper::fill(newA.values.begin() + (newA.diagOffset()*newA.get_block_size()), newA.values.end(), 0.0);
         }
 
         newA.computeDiagonal();

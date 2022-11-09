@@ -232,7 +232,7 @@ void DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
 
     int partsPerRank = read_partitions / partitions;
     partSize.resize(partitions);
-    amgx::thrust::fill(partSize.begin(), partSize.end(), 0);
+    thrust_wrapper::fill(partSize.begin(), partSize.end(), 0);
     cudaCheckError();
 
     for (int i = 0; i < partitionVec.size(); i++)
@@ -476,7 +476,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         }
 
         xh_part.resize(num_rows * A.get_block_dimx());
-        amgx::thrust::fill(xh_part.begin(), xh_part.end(), types::util<ValueTypeB>::get_zero());
+        thrust_wrapper::fill(xh_part.begin(), xh_part.end(), types::util<ValueTypeB>::get_zero());
     }
 
     if (A.manager == NULL )

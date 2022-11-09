@@ -563,7 +563,7 @@ void LocallyDownwindColoringBase<TConfig>::colorMatrixUsingAggregates(Matrix<TCo
         const int num_blocks = (numAggregates - 1) / threads_per_block + 1;
         const int smem_size = max_aggregate_size * threads_per_block * sizeof(IndexType);
         this->m_row_colors.resize( numRows );
-        amgx::thrust::fill( this->m_row_colors.begin(), this->m_row_colors.end(), -1 );
+        thrust_wrapper::fill( this->m_row_colors.begin(), this->m_row_colors.end(), -1 );
         cudaCheckError();
         std::cout << "start coloring kernel" << std::endl;
         locally_downwind_kernels::traverse <<< num_blocks, threads_per_block, smem_size>>>( A.row_offsets.raw(),

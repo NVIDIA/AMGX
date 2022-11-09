@@ -113,7 +113,7 @@ void RoundRobinMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, 
     IVector row_colors(num_owned_rows);
     amgx::thrust::copy(A.row_colors.begin(), A.row_colors.begin()+num_owned_rows, row_colors.begin());
 
-    amgx::thrust::sequence(A.sorted_rows_by_color.begin(),A.sorted_rows_by_color.end());
+    thrust_wrapper::sequence(A.sorted_rows_by_color.begin(),A.sorted_rows_by_color.end());
     amgx::thrust::sort_by_key(row_colors.begin(),row_colors.end(),A.sorted_rows_by_color.begin());
     cudaCheckError();
 

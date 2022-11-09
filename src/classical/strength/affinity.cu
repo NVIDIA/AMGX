@@ -40,6 +40,7 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/logical.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/random.h>

@@ -410,7 +410,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMatri
     const int NUM_WARPS_PER_CTA = CTA_SIZE / 32;
     const int GRID_SIZE = std::min( 2048, (num_rows + NUM_WARPS_PER_CTA - 1) / NUM_WARPS_PER_CTA );
     this->m_num_colors = 1;
-    thrust_wrapper::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
+    thrust_wrapper::fill<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
     cudaCheckError();
     device_vector_alloc<int> gtlt_count( num_rows );
 
@@ -460,7 +460,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMatri
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
     cudaCheckError();
 #if 0
     device_vector_alloc<int> error_found( 1, 0 );
@@ -806,7 +806,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::color_step
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
 }
 
 
@@ -824,7 +824,7 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     else { A.setViewExterior(); }
 
     this->m_num_colors = 1;
-    thrust_wrapper::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
+    thrust_wrapper::fill<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
     cudaCheckError();
     color_step(A, 0);
 

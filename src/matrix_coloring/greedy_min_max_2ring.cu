@@ -801,8 +801,8 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
                         //reset buffers
                         for (int i = 1; i < this->m_coloring_level; i++)
                         {
-                            thrust_wrapper::fill(max_id_per_level[i].begin(), max_id_per_level[i]    .end(), 0);
-                            thrust_wrapper::fill(used_colors_per_level[i].begin(), used_colors_per_level[i].end(), 0);
+                            thrust_wrapper::fill<AMGX_device>(max_id_per_level[i].begin(), max_id_per_level[i]    .end(), 0);
+                            thrust_wrapper::fill<AMGX_device>(used_colors_per_level[i].begin(), used_colors_per_level[i].end(), 0);
                         }
 
                         cudaCheckError();
@@ -816,7 +816,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
         }
     }
 
-    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
     cudaCheckError();
 }
 
@@ -834,7 +834,7 @@ Greedy_Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::col
     else { A.setViewExterior(); }
 
     this->m_num_colors = 1;
-    thrust_wrapper::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
+    thrust_wrapper::fill<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
     cudaCheckError();
     float avg_nnz_per_row = A.get_num_nz() / float(A.get_num_rows());
     //Choose subwarp (group of threads processing a row) size

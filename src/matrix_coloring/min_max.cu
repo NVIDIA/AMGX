@@ -410,7 +410,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
     const int warps_per_block = threads_per_block / 32;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
     this->m_num_colors = 1;
-    thrust_wrapper::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
+    thrust_wrapper::fill<AMGX_device>(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
     cudaCheckError();
 
     for ( int num_uncolored = num_rows; num_uncolored > max_uncolored_rows ; )
@@ -431,7 +431,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
     cudaCheckError();
 }
 
@@ -479,7 +479,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
 #endif
     this->m_num_colors = 1;
-    thrust_wrapper::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
+    thrust_wrapper::fill<AMGX_device>(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
     cudaCheckError();
     IVector max_hash_array(num_rows);
     IVector min_hash_array(num_rows);
@@ -513,7 +513,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         cudaCheckError();
     }
 
-    this->m_num_colors = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
+    this->m_num_colors = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() ) + 1;
     cudaCheckError();
 #if 0
     std::cout << "Num colors=" << this->m_num_colors << std::endl;

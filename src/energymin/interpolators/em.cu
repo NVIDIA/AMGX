@@ -744,7 +744,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     IntVector PnzOffsets(numCoarse + 1);
     PnzOffsets[0] = 0;
     // get the offsets in P with an inclusive scan
-    thrust_wrapper::inclusive_scan(PnnzPerCol.begin(), PnnzPerCol.end(), PnzOffsets.begin() + 1);
+    thrust_wrapper::inclusive_scan<AMGX_device>(PnnzPerCol.begin(), PnnzPerCol.end(), PnzOffsets.begin() + 1);
     cudaCheckError();
     // get total num of non-zeros in P
     const int Pnnz = PnzOffsets[numCoarse];
@@ -912,7 +912,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     cudaCheckError();
     // 2. Resize Ma and assign MaRowOffsets by performing a scan on Ma_nnzPerRow.
     // Get the offsets in Ma with an inclusive scan (in-place)
-    thrust_wrapper::inclusive_scan(Ma_nnzPerRow.begin(), Ma_nnzPerRow.end(), Ma_nnzPerRow.begin());
+    thrust_wrapper::inclusive_scan<AMGX_device>(Ma_nnzPerRow.begin(), Ma_nnzPerRow.end(), Ma_nnzPerRow.begin());
     cudaCheckError();
     // Get total num of non-zeros in Ma
     const int Ma_nnz = Ma_nnzPerRow[AnumRows - 1];
@@ -941,7 +941,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
 
         if (MaRowEnd - MaRowBegin > 1)
         {
-            thrust_wrapper::sort( Ma.col_indices.begin() + Ma.row_offsets[MaRow],
+            thrust_wrapper::sort<AMGX_device>( Ma.col_indices.begin() + Ma.row_offsets[MaRow],
                           Ma.col_indices.begin() + Ma.row_offsets[MaRow + 1] );
         }
     }

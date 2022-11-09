@@ -16,15 +16,18 @@
 namespace thrust_wrapper
 {
   template<int MemSpace, typename InputIterator, typename OutputIterator>
-    inline void exclusive_scan(InputIterator first, InputIterator last, OutputIterator result)
+    inline typename std::enable_if<MemSpace == AMGX_host, void>::type 
+    exclusive_scan(InputIterator first, InputIterator last, OutputIterator result)
     {
-        if(MemSpace == AMGX_host) {
-            amgx::thrust::exclusive_scan(first, last, result);
-        }
-        else {
-            amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
-            amgx::thrust::exclusive_scan(amgx::thrust::cuda::par_nosync(alloc), first, last, result);
-        }
+        amgx::thrust::exclusive_scan(first, last, result);
+    }
+
+  template<int MemSpace, typename InputIterator, typename OutputIterator>
+    inline typename std::enable_if<MemSpace == AMGX_device, void>::type 
+    exclusive_scan(InputIterator first, InputIterator last, OutputIterator result)
+    {
+        amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
+        amgx::thrust::exclusive_scan(amgx::thrust::cuda::par_nosync(alloc), first, last, result);
     }
 
   template<int MemSpace, typename InputIterator, typename OutputIterator, typename T>
@@ -136,27 +139,33 @@ namespace thrust_wrapper
     }
 
   template<int MemSpace, typename InputIterator, typename OutputIterator, typename UnaryFunction>
-    inline OutputIterator transform(InputIterator first, InputIterator last, OutputIterator result, UnaryFunction op)
+    inline typename std::enable_if<MemSpace == AMGX_host, OutputIterator>::type 
+    transform(InputIterator first, InputIterator last, OutputIterator result, UnaryFunction op)
     {
-        if(MemSpace == AMGX_host) {
-          return amgx::thrust::transform(first, last, result, op);
-        }
-        else {
-          amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
-          return amgx::thrust::transform(amgx::thrust::cuda::par_nosync(alloc), first, last, result, op);
-        }
+        return amgx::thrust::transform(first, last, result, op);
+    }
+
+  template<int MemSpace, typename InputIterator, typename OutputIterator, typename UnaryFunction>
+    inline typename std::enable_if<MemSpace == AMGX_device, OutputIterator>::type 
+    transform(InputIterator first, InputIterator last, OutputIterator result, UnaryFunction op)
+    {
+        amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator>::value_type> alloc;
+        return amgx::thrust::transform(amgx::thrust::cuda::par_nosync(alloc), first, last, result, op);
     }
 
   template<int MemSpace, typename InputIterator1, typename InputIterator2, typename OutputIterator, typename UnaryFunction>
-    inline OutputIterator transform(InputIterator1 first1, InputIterator1 last1, InputIterator2 first2, OutputIterator result, UnaryFunction op)
+    inline typename std::enable_if<MemSpace == AMGX_host, OutputIterator>::type 
+    transform(InputIterator1 first1, InputIterator1 last1, InputIterator2 first2, OutputIterator result, UnaryFunction op)
     {
-        if(MemSpace == AMGX_host) {
-            return amgx::thrust::transform(first1, last1, first2, result, op);
-        }
-        else {
-            amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator1>::value_type> alloc;
-            return amgx::thrust::transform(amgx::thrust::cuda::par_nosync(alloc), first1, last1, first2, result, op);
-        }
+        return amgx::thrust::transform(first1, last1, first2, result, op);
+    }
+
+  template<int MemSpace, typename InputIterator1, typename InputIterator2, typename OutputIterator, typename UnaryFunction>
+    inline typename std::enable_if<MemSpace == AMGX_device, OutputIterator>::type 
+    transform(InputIterator1 first1, InputIterator1 last1, InputIterator2 first2, OutputIterator result, UnaryFunction op)
+    {
+        amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<InputIterator1>::value_type> alloc;
+        return amgx::thrust::transform(amgx::thrust::cuda::par_nosync(alloc), first1, last1, first2, result, op);
     }
 
   template<int MemSpace, typename InputIterator, typename OutputIterator, typename RandomAccessIterator>
@@ -261,26 +270,32 @@ namespace thrust_wrapper
       }
 
   template<int MemSpace, typename ForwardIterator>
-      void sequence(ForwardIterator first, ForwardIterator last)
+      inline typename std::enable_if<MemSpace == AMGX_host, void>::type 
+      sequence(ForwardIterator first, ForwardIterator last)
       {
-          if(MemSpace == AMGX_host) {
-              amgx::thrust::sequence(first, last);
-          }
-          else {
-              amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<ForwardIterator>::value_type> alloc;
-              amgx::thrust::sequence(amgx::thrust::cuda::par_nosync(alloc), first, last);
-          }
+          amgx::thrust::sequence(first, last);
+      }
+
+  template<int MemSpace, typename ForwardIterator>
+      inline typename std::enable_if<MemSpace == AMGX_device, void>::type 
+      sequence(ForwardIterator first, ForwardIterator last)
+      {
+          amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<ForwardIterator>::value_type> alloc;
+          amgx::thrust::sequence(amgx::thrust::cuda::par_nosync(alloc), first, last);
       }
 
   template<int MemSpace, typename ForwardIterator, typename T>
-      void sequence(ForwardIterator first, ForwardIterator last, T init)
+      inline typename std::enable_if<MemSpace == AMGX_host, void>::type 
+      sequence(ForwardIterator first, ForwardIterator last, T init)
       {
-          if(MemSpace == AMGX_host) {
-              amgx::thrust::sequence(first, last, init);
-          }
-          else {
-              amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<ForwardIterator>::value_type> alloc;
-              amgx::thrust::sequence(amgx::thrust::cuda::par_nosync(alloc), first, last, init);
-          }
+          amgx::thrust::sequence(first, last, init);
+      }
+
+  template<int MemSpace, typename ForwardIterator, typename T>
+      inline typename std::enable_if<MemSpace == AMGX_device, void>::type 
+      sequence(ForwardIterator first, ForwardIterator last, T init)
+      {
+          amgx::thrust_amgx_allocator<typename amgx::thrust::iterator_traits<ForwardIterator>::value_type> alloc;
+          amgx::thrust::sequence(amgx::thrust::cuda::par_nosync(alloc), first, last, init);
       }
 }

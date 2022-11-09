@@ -56,12 +56,12 @@ distributed_gemm_TN(typename TConfig::VecPrec alpha, const Vector<TConfig> &lhs,
     // Perform distributed reduction of each local result.
     std::vector<Vector_h> gathered;
     A.getManager()->getComms()->global_reduce(gathered, h_res, A, 0);
-    thrust_wrapper::fill(h_res.begin(), h_res.end(), 0);
+    thrust_wrapper::fill<AMGX_host>(h_res.begin(), h_res.end(), 0);
     cudaCheckError();
 
     for (int i = 0; i < gathered.size(); ++i)
     {
-        thrust_wrapper::transform(gathered[i].begin(), gathered[i].end(),
+        thrust_wrapper::transform<AMGX_host>(gathered[i].begin(), gathered[i].end(),
                           h_res.begin(), h_res.begin(), amgx::thrust::plus<ValueTypeVec>());
     }
 
@@ -95,7 +95,7 @@ multivector_column_norms(const Vector<TConfig> &v,
     {
         std::vector<Vector_h> gathered;
         A.getManager()->getComms()->global_reduce(gathered, results, A, 0);
-        thrust_wrapper::fill(results.begin(), results.end(), 0);
+        thrust_wrapper::fill<AMGX_host>(results.begin(), results.end(), 0);
         cudaCheckError();
 
         for (int i = 0; i < gathered.size(); ++i)

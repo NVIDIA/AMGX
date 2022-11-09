@@ -809,15 +809,15 @@ solver_setup(bool reuse_matrix_structure)
             A->manager->getComms()->all_gather(num_rows, row_all, nranks);
 
             // Get the number of non zeros on all ranks
-            m_nnz_global = amgx::thrust::reduce(nz_all.begin(), nz_all.end());
+            m_nnz_global = thrust_wrapper::reduce<AMGX_host>(nz_all.begin(), nz_all.end());
 
             // Turn the non-zero counts into displacements
             nz_displs.resize(nranks);
-            thrust_wrapper::exclusive_scan(nz_all.begin(), nz_all.end(), nz_displs.begin());
+            thrust_wrapper::exclusive_scan<AMGX_host>(nz_all.begin(), nz_all.end(), nz_displs.begin());
 
             // Turn the number of rows into displacements
             row_displs.resize(nranks);
-            thrust_wrapper::exclusive_scan(row_all.begin(), row_all.end(), row_displs.begin());
+            thrust_wrapper::exclusive_scan<AMGX_host>(row_all.begin(), row_all.end(), row_displs.begin());
 
             IVector_d local_Acols_d(nnz);
             IVector_d local_Arows_d(num_rows);

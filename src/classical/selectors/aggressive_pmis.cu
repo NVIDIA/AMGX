@@ -102,7 +102,7 @@ void Aggressive_PMIS_SelectorBase< T_Config>::markCoarseFinePoints(Matrix< T_Con
             weights_S2.resize(S2.get_num_rows());
         }
 
-        thrust_wrapper::fill(weights_S2.begin(), weights_S2.end(), 0.0);
+        thrust_wrapper::fill<TConfig::memSpace>(weights_S2.begin(), weights_S2.end(), 0.0);
         cudaCheckError();
         AMG_Config cfg;
         cfg.parseParameterString("");
@@ -136,17 +136,17 @@ void Aggressive_PMIS_SelectorBase< T_Config>::markCoarseFinePoints(Matrix< T_Con
 
         BVector s_con_S2;
         s_con_S2.resize(nnz_owned);
-        thrust_wrapper::fill(s_con_S2.begin(), s_con_S2.end(), true);
+        thrust_wrapper::fill<TConfig::memSpace>(s_con_S2.begin(), s_con_S2.end(), true);
         cudaCheckError();
         // Allocate some scratch space required by PMIS selector
         IVector scratch_S2;
         scratch_S2.resize(size_full);
-        thrust_wrapper::fill(scratch_S2.begin(), scratch_S2.end(), 0);
+        thrust_wrapper::fill<TConfig::memSpace>(scratch_S2.begin(), scratch_S2.end(), 0);
         cudaCheckError();
         // Initialize cf_map_S2
         IVector cf_map_S2;
         cf_map_S2.resize(size_full);
-        thrust_wrapper::fill(cf_map_S2.begin(), cf_map_S2.end(), 0);
+        thrust_wrapper::fill<TConfig::memSpace>(cf_map_S2.begin(), cf_map_S2.end(), 0);
         cudaCheckError();
         // Step 6:
         // Apply PMIS algorithm on S2 matrix to identify new set of coarse points

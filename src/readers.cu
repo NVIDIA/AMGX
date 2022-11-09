@@ -486,7 +486,7 @@ struct ReadAndConvert<TReal, TComplex, PartVec, false>
             A.resize(nrows, nrows, nnz, bdimx, bdimy, 1);
             amgx::thrust::copy(Ac.row_offsets.begin(), Ac.row_offsets.end(), A.row_offsets.begin());
             amgx::thrust::copy(Ac.col_indices.begin(), Ac.col_indices.end(), A.col_indices.begin());
-            thrust_wrapper::fill(A.values.begin(), A.values.end(), amgx::types::util<RValueTypeA>::get_zero());
+            thrust_wrapper::fill<TReal::memSpace>(A.values.begin(), A.values.end(), amgx::types::util<RValueTypeA>::get_zero());
             std::cout << "Input block system " << Ac.get_block_dimx() << "x" << Ac.get_block_dimy() << " will be converted to system with blocks " << bdimx << "x" << bdimy << std::endl;
             std::cout << "Converting values...\n";
 
@@ -1743,7 +1743,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     if (rank_rows.size() == 0)
     {
         partRowVec_p = new IVector_h(num_rows);
-        thrust_wrapper::sequence(partRowVec_p->begin(), partRowVec_p->end());
+        thrust_wrapper::sequence<AMGX_host>(partRowVec_p->begin(), partRowVec_p->end());
         cudaCheckError();
     }
     else
@@ -1891,7 +1891,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     }
     else // fill last values item with zeros
     {
-        thrust_wrapper::fill(A.values.begin() + A.get_num_nz() * block_dimy * block_dimx, A.values.end(), types::util<ValueTypeA>::get_zero());
+        thrust_wrapper::fill<AMGX_host>(A.values.begin() + A.get_num_nz() * block_dimy * block_dimx, A.values.end(), types::util<ValueTypeA>::get_zero());
         cudaCheckError();
     }
 
@@ -1927,7 +1927,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     }
     else
     {
-        thrust_wrapper::fill(b.begin(), b.end(), types::util<ValueTypeB>::get_one());
+        thrust_wrapper::fill<AMGX_host>(b.begin(), b.end(), types::util<ValueTypeB>::get_one());
         cudaCheckError();
     }
 

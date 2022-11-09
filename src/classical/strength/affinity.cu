@@ -128,7 +128,7 @@ void initRandom(Vector &vec, int size)
 {
     vec.resize(size);
     amgx::thrust::counting_iterator<unsigned int> index_sequence_begin(0);
-    thrust_wrapper::transform(index_sequence_begin,
+    thrust_wrapper::transform<Vector::TConfig::memSpace>(index_sequence_begin,
                       index_sequence_begin + size,
                       vec.begin(),
                       prg(-1.f, 1.f));

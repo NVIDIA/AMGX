@@ -188,7 +188,7 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
     device_vector_alloc<int> task_queue_in(num_nonzero);//num_edges
     device_vector_alloc<int> task_queue_out(num_nonzero);//num_edges
     device_vector_alloc<int> task_queue_out_tail(1);//num_edges
-    thrust_wrapper::fill(distances.begin(), distances.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(distances.begin(), distances.end(), -1);
     cudaCheckError();
     int *distances_ptr = amgx::thrust::raw_pointer_cast( &distances.front() );
     int *task_queue_in_ptr = amgx::thrust::raw_pointer_cast( &task_queue_in.front() );;
@@ -218,7 +218,7 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
         task_queue_n = task_queue_out_tail[0];
         cudaCheckError();
         //contract duplicates using amgx::thrust::
-        thrust_wrapper::sort(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
+        thrust_wrapper::sort<AMGX_device>(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
         cudaCheckError();
         task_queue_n = amgx::thrust::unique(task_queue_out.begin(), task_queue_out.begin() + task_queue_n) - task_queue_out.begin();
         cudaCheckError();
@@ -382,8 +382,8 @@ void block_seeded_bfs(const int num_rows, const int num_nonzero, const int *row_
     device_vector_alloc<int> task_queue_out(num_nonzero);//num_edges
     device_vector_alloc<int> task_queue_out_tail(1);//num_edges
     device_vector_alloc<int> task_queue_visited_by(num_nonzero);//num_edges
-    thrust_wrapper::fill(distances.begin(), distances.end(), -1);
-    thrust_wrapper::fill(visited_by.begin(), visited_by.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(distances.begin(), distances.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(visited_by.begin(), visited_by.end(), -1);
     cudaCheckError();
     int num_blocks = 1;
     device_vector_alloc<int> task_queue_block_counts(num_blocks);

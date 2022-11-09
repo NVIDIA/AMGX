@@ -710,7 +710,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     }
 
     const int GRID_SIZE = std::min( MAX_GRID_SIZE, (num_rows + CTA_SIZE - 1) / CTA_SIZE);
-    thrust_wrapper::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
+    thrust_wrapper::fill<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
     cudaCheckError();
     typedef typename Matrix_d::IVector IVector_d;
     cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();

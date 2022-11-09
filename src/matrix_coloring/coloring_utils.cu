@@ -51,7 +51,7 @@ void coloring_histogram(int *out_hist_host, int num_rows, int max_color, int *ro
     if (false) //TODO: enable, since almost always faster
     {
         device_vector_alloc<int> histogram(num_rows);
-        thrust_wrapper::sort(data, data + num_rows);
+        thrust_wrapper::sort<AMGX_device>(data, data + num_rows);
         cudaCheckError();
         amgx::thrust::counting_iterator<int> search_begin(0);
         amgx::thrust::upper_bound(data, data + num_rows,

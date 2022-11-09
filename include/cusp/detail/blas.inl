@@ -342,7 +342,8 @@ namespace detail
 	    ForwardIterator last,
 	    ScalarType alpha)
   {
-      thrust_wrapper::fill(first, last, alpha);
+      typedef typename amgx::thrust::iterator_value<ForwardIterator>::memory_space MemorySpace;
+      thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(first, last, alpha);
   }
   
   template <typename InputIterator>
@@ -351,13 +352,14 @@ namespace detail
        InputIterator last)
   {
     typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_value<InputIterator>::memory_space MemorySpace;
     
     detail::absolute<ValueType> unary_op;
     amgx::thrust::plus<ValueType>     binary_op;
     
     ValueType init = 0;
     
-    return abs(thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op));
+    return abs(thrust_wrapper::transform_reduce<CuspMemMap<MemorySpace>::value>(first, last, unary_op, init, binary_op));
   }
 
   template <typename InputIterator>
@@ -366,13 +368,14 @@ namespace detail
        InputIterator last)
   {
     typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_value<InputIterator>::memory_space MemorySpace;
 
     detail::norm_squared<ValueType> unary_op;
     amgx::thrust::plus<ValueType>   binary_op;
 
     ValueType init = 0;
 
-    return std::sqrt( abs(thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op)) );
+    return std::sqrt( abs(thrust_wrapper::transform_reduce<CuspMemMap<MemorySpace>::value>(first, last, unary_op, init, binary_op)) );
   }
 
   template <typename InputIterator>
@@ -381,13 +384,14 @@ namespace detail
 	 InputIterator last)
   {
     typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_value<InputIterator>::memory_space MemorySpace;
 
     detail::absolute<ValueType>  unary_op;
     detail::maximum<ValueType>   binary_op;
 
     ValueType init = 0;
 
-    return thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
+    return thrust_wrapper::transform_reduce<CuspMemMap<MemorySpace>::value>(first, last, unary_op, init, binary_op);
   }
 
   template <typename ForwardIterator,
@@ -553,7 +557,8 @@ void xmy(InputIterator1 first1,
          OutputIterator output)
 {
     typedef typename amgx::thrust::iterator_value<OutputIterator>::type ScalarType;
-    thrust_wrapper::transform(first1, last1, first2, output, detail::XMY<ScalarType>());
+    typedef typename amgx::thrust::iterator_value<InputIterator1>::memory_space MemorySpace;
+    thrust_wrapper::transform<CuspMemMap<MemorySpace>::value>(first1, last1, first2, output, detail::XMY<ScalarType>());
 }
 
 template <typename Array1,

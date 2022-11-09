@@ -268,7 +268,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
 
     if (m_halo_coloring == LAST)
     {
-        thrust_wrapper::fill(m_row_colors.begin() + num_rows, m_row_colors.end(), m_num_colors);
+        thrust_wrapper::fill<TConfig::memSpace>(m_row_colors.begin() + num_rows, m_row_colors.end(), m_num_colors);
         cudaCheckError();
     }
 
@@ -280,7 +280,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
         m_sorted_rows_by_color.resize(num_rows);
         // Copy row colors
         IVector row_colors(m_row_colors);
-        thrust_wrapper::sequence(m_sorted_rows_by_color.begin(), m_sorted_rows_by_color.end());
+        thrust_wrapper::sequence<TConfig::memSpace>(m_sorted_rows_by_color.begin(), m_sorted_rows_by_color.end());
         amgx::thrust::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, m_sorted_rows_by_color.begin());
         cudaCheckError();
         // Compute the offset for each color

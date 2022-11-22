@@ -41,4 +41,11 @@ cudaDeviceProp getDeviceProperties()
     return deviceProps;
 }
 
+// Return the number of Streaming Multiprocessors on the current device
+int getSMCount()
+{
+    auto devProp = getDeviceProperties();
+    return devProp.multiProcessorCount;
+}
+
 }

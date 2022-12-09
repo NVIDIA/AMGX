@@ -153,7 +153,7 @@ void test_selectors(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg
 
     while (!aggregation::SelectorFactory<T_Config>::isIteratorLast(iter))
     {
-        string m_name = iter->first.c_str();
+        std::string m_name = iter->first.c_str();
 
         if ((m_name.compare("GEO") == 0) || (m_name.compare("GEO_ONE_PHASE_HANDSHAKING") == 0) || (m_name.compare("PARALLEL_GREEDY_SELECTOR") == 0))
         {
@@ -397,7 +397,7 @@ void test_selectors(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg
     while (!classical::SelectorFactory<T_Config>::isIteratorLast(iter))
     {
         selector = NULL;
-        string m_name = iter->first.c_str();
+        std::string m_name = iter->first.c_str();
 
         if ((m_name.compare("GEO") == 0) || (m_name.compare("GEO_ONE_PHASE_HANDSHAKING") == 0))
         {

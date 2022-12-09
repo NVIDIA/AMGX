@@ -79,14 +79,14 @@ ScalerFactory<TConfig>::getFactories( )
 }
 
 template<class TConfig>
-void ScalerFactory<TConfig>::registerFactory(string name, ScalerFactory<TConfig> *f)
+void ScalerFactory<TConfig>::registerFactory(std::string name, ScalerFactory<TConfig> *f)
 {
     std::map<std::string, ScalerFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, ScalerFactory<TConfig> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, ScalerFactory<TConfig> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "ScalerFactory '" + name + "' has already been registered\n";
+        std::string error = "ScalerFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -97,11 +97,11 @@ template<class TConfig>
 void ScalerFactory<TConfig>::unregisterFactory(std::string name)
 {
     std::map<std::string, ScalerFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, ScalerFactory<TConfig> *>::iterator it = factories.find(name);
+    typename std::map<std::string, ScalerFactory<TConfig> *>::iterator it = factories.find(name);
 
     if (it == factories.end())
     {
-        string error = "ScalerFactory '" + name + "' has not been registered\n";
+        std::string error = "ScalerFactory '" + name + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -115,7 +115,7 @@ template<class TConfig>
 void ScalerFactory<TConfig>::unregisterFactories( )
 {
     std::map<std::string, ScalerFactory<TConfig>*> &factories = getFactories( );
-    typename map<std::string, ScalerFactory<TConfig> *>::iterator it = factories.begin( );
+    typename std::map<std::string, ScalerFactory<TConfig> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -132,12 +132,12 @@ template<class TConfig>
 Scaler<TConfig> *ScalerFactory<TConfig>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, ScalerFactory<TConfig>*> &factories = getFactories( );
-    string scaler = cfg.getParameter<string>("scaling", cfg_scope);
-    typename map<string, ScalerFactory<TConfig> *>::const_iterator it = factories.find(scaler);
+    std::string scaler = cfg.getParameter<std::string>("scaling", cfg_scope);
+    typename std::map<std::string, ScalerFactory<TConfig> *>::const_iterator it = factories.find(scaler);
 
     if (it == factories.end())
     {
-        string error = "ScalerFactory '" + scaler + "' has not been registered\n";
+        std::string error = "ScalerFactory '" + scaler + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

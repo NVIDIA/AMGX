@@ -429,7 +429,7 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
 
         if (verbose_output)
         {
-            text_output << setw(28) << coloring_schemes[i] << " : num_colors=" << setw(6) << A_d.getMatrixColoring().getNumColors() << " , runtime= " << setw(8) << std::fixed << setprecision(5) << elapsed_time << " mM(" << mincol << "," << maxcol << ")"; // << std::endl;;
+            text_output << std::setw(28) << coloring_schemes[i] << " : num_colors=" << std::setw(6) << A_d.getMatrixColoring().getNumColors() << " , runtime= " << std::setw(8) << std::fixed << std::setprecision(5) << elapsed_time << " mM(" << mincol << "," << maxcol << ")"; // << std::endl;;
         }
 
         if (num_bad == 0 && num_uncolored == 0)
@@ -530,9 +530,9 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
             }
 
             std::string name = coloring_schemes[i];
-            std::cout << setw(80) << coloring_schemes[i];
-            std::cout << " runtime=" << setw(8) << std::fixed << setprecision(5) << total_runtime[name];
-            std::cout << " inefficiency=" << setw(6) << std::fixed << setprecision(3) << coloring_score[name] / coloring_runs[name]; // << std::endl;;
+            std::cout << std::setw(80) << coloring_schemes[i];
+            std::cout << " runtime=" << std::setw(8) << std::fixed << std::setprecision(5) << total_runtime[name];
+            std::cout << " inefficiency=" << std::setw(6) << std::fixed << std::setprecision(3) << coloring_score[name] / coloring_runs[name]; // << std::endl;;
             std::cout << "\n";
         }
 

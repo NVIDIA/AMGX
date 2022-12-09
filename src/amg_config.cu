@@ -44,7 +44,6 @@
 #include "rapidjson/filestream.h"
 #endif
 
-using namespace std;
 namespace amgx
 {
 
@@ -94,7 +93,7 @@ AMGX_ERROR AMG_Config::parseParameterString(const char *str)
         {
 #endif
             //copy to a temporary array to avoid destroying the string
-            string params(str);
+            std::string params(str);
             // Read the config version
             int config_version = getConfigVersion(params);
 
@@ -178,7 +177,7 @@ int AMG_Config::getConfigVersion(std::string &params)
     if (param.length() > 2 && param.find_first_not_of(' ') != std::string::npos) /* check that param is not empty and check length: one for parameter name, one for the equal sign, one for the parameter value. otherwise - this is error */
     {
         // Extract the name, value, current_scope, new_scope
-        string name, value, current_scope, new_scope;
+        std::string name, value, current_scope, new_scope;
         extractParamInfo(param, name, value, current_scope, new_scope);
         int config_version;
 
@@ -288,7 +287,7 @@ AMGX_ERROR AMG_Config::parseString(std::string &params, int &config_version)
 
             while (params[pos] == ' ') { pos++; }  // skip spaces
 
-            bool print = (pos == string::npos) || (params[pos] > '2');
+            bool print = (pos == std::string::npos) || (params[pos] > '2');
             std::string ss = "Converting config string to current config version\n";
 
             if (print)
@@ -343,7 +342,7 @@ AMGX_ERROR AMG_Config::parseString(std::string &params, int &config_version)
 
 AMGX_ERROR AMG_Config::getParameterStringFromFile(const char *filename, std::string &params)
 {
-    ifstream fin;
+    std::ifstream fin;
 
     try
     {
@@ -360,7 +359,7 @@ AMGX_ERROR AMG_Config::getParameterStringFromFile(const char *filename, std::str
 
         while (!fin.eof())
         {
-            string line;
+            std::string line;
             std::getline(fin, line);
             line = trim(line);
 
@@ -435,14 +434,14 @@ std::string AMG_Config::getParamTypeName(const std::type_info *param_type)
 }
 
 template<typename T>
-void AMG_Config::setNamedParameter(const string &name, const T &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
+void AMG_Config::setNamedParameter(const std::string &name, const T &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
 {
-    string err = "Parameter " + name + "(" + current_scope + ") is of unknown type, cannot import value.";
+    std::string err = "Parameter " + name + "(" + current_scope + ") is of unknown type, cannot import value.";
     FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
 }
 
 template<>
-void AMG_Config::setNamedParameter(const string &name, const std::string &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
+void AMG_Config::setNamedParameter(const std::string &name, const std::string &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
 {
     if (*(param_desc_iter->second.type) == typeid(AlgorithmType))
     {
@@ -470,13 +469,13 @@ void AMG_Config::setNamedParameter(const string &name, const std::string &c_valu
     }
     else
     {
-        string err = "Incorrect config entry. Type of the parameter \"" + name + "\" in the config is string, but " + getParamTypeName(param_desc_iter->second.type) + " is expected";
+        std::string err = "Incorrect config entry. Type of the parameter \"" + name + "\" in the config is string, but " + getParamTypeName(param_desc_iter->second.type) + " is expected";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 }
 
 template<>
-void AMG_Config::setNamedParameter(const string &name, const double &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
+void AMG_Config::setNamedParameter(const std::string &name, const double &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
 {
     if (typeid(double) == *(param_desc_iter->second.type))
     {
@@ -489,13 +488,13 @@ void AMG_Config::setNamedParameter(const string &name, const double &c_value, co
     }
     else
     {
-        string err = "Incorrect config entry. Type of the parameter \"" + name + "\" in the config is double, but " + getParamTypeName(param_desc_iter->second.type) + " is expected";
+        std::string err = "Incorrect config entry. Type of the parameter \"" + name + "\" in the config is double, but " + getParamTypeName(param_desc_iter->second.type) + " is expected";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 }
 
 template<>
-void AMG_Config::setNamedParameter(const string &name, const int &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
+void AMG_Config::setNamedParameter(const std::string &name, const int &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter)
 {
     if (typeid(int) == *(param_desc_iter->second.type))
     {
@@ -508,7 +507,7 @@ void AMG_Config::setNamedParameter(const string &name, const int &c_value, const
     }
     else
     {
-        string err = "Incorrect config entry. Type of the parameter \"" + name + "\" in the config is int, but " + getParamTypeName(param_desc_iter->second.type) + " is expected";
+        std::string err = "Incorrect config entry. Type of the parameter \"" + name + "\" in the config is int, but " + getParamTypeName(param_desc_iter->second.type) + " is expected";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 }
@@ -532,24 +531,24 @@ void AMG_Config::importNamedParameter(const char *c_name, const T &c_value, cons
 
     // extract the name, value, new_scope and old_scope
     //verify parameter was registered
-    ParamDesc::iterator iter = param_desc.find(string(name));
+    ParamDesc::iterator iter = param_desc.find(std::string(name));
 
     if (iter == param_desc.end())
     {
-        string err = "Variable '" + string(name) + "' not registered";
+        std::string err = "Variable '" + std::string(name) + "' not registered";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     if ( (name == "determinism_flag" || name == "block_format" || name == "separation_interior" || name == "separation_exterior" || name == "min_rows_latency_hiding" || name == "fine_level_consolidation" || name == "use_cuda_ipc_consolidation") && current_scope != "default" )
     {
-        string err = "Incorrect config entry. Parameter " + name + " can only be specified with default scope.";
+        std::string err = "Incorrect config entry. Parameter " + name + " can only be specified with default scope.";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     // Check that new scope is only associated with a solver
     if (new_scope != "default" && find(m_solver_list.begin(), m_solver_list.end(), name) == m_solver_list.end() )
     {
-        string err = "Incorrect config entry. New scope can only be associated with a solver. new_scope=" + new_scope + ", name=" + name + ".";
+        std::string err = "Incorrect config entry. New scope can only be associated with a solver. new_scope=" + new_scope + ", name=" + name + ".";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
@@ -631,7 +630,7 @@ void AMG_Config::import_json_object(rapidjson::Value &obj, bool outer)
 
 AMGX_ERROR AMG_Config::parse_json_file(const char *filename)
 {
-    ifstream fin;
+    std::ifstream fin;
 
     try
     {
@@ -648,7 +647,7 @@ AMGX_ERROR AMG_Config::parse_json_file(const char *filename)
 
         while (!fin.eof())
         {
-            string line;
+            std::string line;
             std::getline(fin, line);
 
             //line=trim(line);
@@ -984,7 +983,7 @@ AMGX_ERROR AMG_Config::parseFile(const char *filename)
 }
 
 template <typename Type>
-void AMG_Config::getParameter(const string &name, Type &value, const string &current_scope, string &new_scope) const
+void AMG_Config::getParameter(const std::string &name, Type &value, const std::string &current_scope, std::string &new_scope) const
 {
     //verify the parameter has been registered
     ParamDesc::const_iterator desc_iter = param_desc.find(name);
@@ -992,14 +991,14 @@ void AMG_Config::getParameter(const string &name, Type &value, const string &cur
 
     if (desc_iter == param_desc.end())
     {
-        err = "getParameter error: '" + string(name) + "' not found\n";
+        err = "getParameter error: '" + std::string(name) + "' not found\n";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     //verify the types match
     if (desc_iter->second.type != &typeid(Type))
     {
-        err = "getParameter error: '" + string(name) + "' type miss match\n";
+        err = "getParameter error: '" + std::string(name) + "' type miss match\n";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
@@ -1020,7 +1019,7 @@ void AMG_Config::getParameter(const string &name, Type &value, const string &cur
 }
 
 template <typename Type>
-Type AMG_Config::getParameter(const string &name, const string &current_scope) const
+Type AMG_Config::getParameter(const std::string &name, const std::string &current_scope) const
 {
     Type value;
     std::string new_scope;
@@ -1040,13 +1039,13 @@ void AMG_Config::setParameter(std::string name, Type value, const std::string &c
 
     if (iter == param_desc.end())
     {
-        err = "setParameter error: '" + string(name) + "' not found\n";
+        err = "setParameter error: '" + std::string(name) + "' not found\n";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     if (iter->second.type != &typeid(Type))
     {
-        err = "setParameter error: '" + string(name) + "' type miss match\n";
+        err = "setParameter error: '" + std::string(name) + "' type miss match\n";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
@@ -1078,13 +1077,13 @@ void AMG_Config::setParameter(std::string name, void *value, const std::string &
 
     if (iter == param_desc.end())
     {
-        err = "setParameter error: '" + string(name) + "' not found\n";
+        err = "setParameter error: '" + std::string(name) + "' not found\n";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     if (iter->second.type != &typeid(void *))
     {
-        err = "setParameter error: '" + string(name) + "' type miss match\n";
+        err = "setParameter error: '" + std::string(name) + "' type miss match\n";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
@@ -1099,9 +1098,9 @@ void AMG_Config::setParameter(std::string name, void *value, const std::string &
 
 std::string AMG_Config::getParameterString(Parameter &parameter, ParameterDescription &param_desc)
 {
-    stringstream ss;
+    std::stringstream ss;
 
-    if (*(param_desc.type) == typeid(string))
+    if (*(param_desc.type) == typeid(std::string))
     {
         ss << parameter.get<std::string>() ;
     }
@@ -1147,7 +1146,7 @@ std::string AMG_Config::getParameterString(Parameter &parameter, ParameterDescri
     }
     else
     {
-        string err = "getParameterString is not implemented for the datatype of value'" + param_desc.name + "'";
+        std::string err = "getParameterString is not implemented for the datatype of value'" + param_desc.name + "'";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
@@ -1161,7 +1160,7 @@ void AMG_Config::printOptions()
 
     for (ParamDesc::iterator iter = param_desc.begin(); iter != param_desc.end(); iter++)
     {
-        ss << "           " << iter->second.name << ": " << iter->second.description << endl;
+        ss << "           " << iter->second.name << ": " << iter->second.description << std::endl;
     }
 
     amgx_output(ss.str().c_str(), ss.str().length());
@@ -1174,11 +1173,11 @@ void AMG_Config::printAMGConfig()
     int devId;
     cudaGetDevice(&devId);
     cudaDeviceProp deviceProp = getDeviceProperties();
-    //ss << "HP Scalar Type: " << scalar_hp << endl;
-    //ss << "LP Scalar Type: " << scalar_lp << endl;
-    ss << "Device " << devId << ": " << deviceProp.name << endl;
-    ss << "AMG Configuration: "  << endl;
-    config_ss << endl;
+    //ss << "HP Scalar Type: " << scalar_hp << std::endl;
+    //ss << "LP Scalar Type: " << scalar_lp << std::endl;
+    ss << "Device " << devId << ": " << deviceProp.name << std::endl;
+    ss << "AMG Configuration: "  << std::endl;
+    config_ss << std::endl;
     config_ss << "Default values:" << std::endl ;
     config_ss << std::endl;
 
@@ -1186,7 +1185,7 @@ void AMG_Config::printAMGConfig()
     {
         config_ss << "            " << iter->second.name << " = ";
         config_ss << getParameterString(iter->second.default_value, iter->second);
-        config_ss << endl;
+        config_ss << std::endl;
     }
 
     config_ss << std::endl;
@@ -1210,17 +1209,17 @@ void AMG_Config::printAMGConfig()
 
         config_ss << " = " ;
         config_ss << getParameterString(iter->second.second, desc_iter->second);
-        config_ss << endl;
+        config_ss << std::endl;
     }
 
-    config_ss << endl;
+    config_ss << std::endl;
     amgx_output(ss.str().c_str(), ss.str().length());
     amgx_output(config_ss.str().c_str(), config_ss.str().length());
 }
 
 AMGX_ERROR AMG_Config::checkString(std::string &str)
 {
-    string::iterator it;
+    std::string::iterator it;
 
     for (it = str.begin(); it < str.end(); it++)
     {
@@ -1240,9 +1239,9 @@ AMGX_ERROR AMG_Config::checkString(std::string &str)
     return AMGX_OK;
 }
 
-void AMG_Config::extractParamInfo(const string &str, string &name, string &value, string &current_scope, string &new_scope)
+void AMG_Config::extractParamInfo(const std::string &str, std::string &name, std::string &value, std::string &current_scope, std::string &new_scope)
 {
-    string tmp(str);
+    std::string tmp(str);
 
     //locate the split
     if ( std::count(tmp.begin(), tmp.end(), '=') != 1)
@@ -1327,10 +1326,10 @@ void AMG_Config::extractParamInfo(const string &str, string &name, string &value
 }
 
 
-void AMG_Config::setParameter(const string &str)
+void AMG_Config::setParameter(const std::string &str)
 {
-    string name, value, current_scope, new_scope;
-    string tmp;
+    std::string name, value, current_scope, new_scope;
+    std::string tmp;
     extractParamInfo(str, name, value, current_scope, new_scope);
 
     // Add new_scope to scope vector
@@ -1346,29 +1345,29 @@ void AMG_Config::setParameter(const string &str)
 
     // extract the name, value, new_scope and old_scope
     //verify parameter was registered
-    ParamDesc::iterator iter = param_desc.find(string(name));
+    ParamDesc::iterator iter = param_desc.find(std::string(name));
 
     if (iter == param_desc.end())
     {
-        string err = "Variable '" + string(name) + "' not registered";
+        std::string err = "Variable '" + std::string(name) + "' not registered";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     if ( (name == "determinism_flag" || name == "block_format" || name == "separation_interior" || name == "separation_exterior" || name == "min_rows_latency_hiding" || name == "fine_level_consolidation" || name == "use_cuda_ipc_consolidation") && current_scope != "default" )
     {
-        string err = "Incorrect config entry. Parameter " + name + " can only be specified with default scope.";
+        std::string err = "Incorrect config entry. Parameter " + name + " can only be specified with default scope.";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     // Check that new scope is only associated with a solver
     if (new_scope != "default" && find(m_solver_list.begin(), m_solver_list.end(), name) == m_solver_list.end() )
     {
-        string err = "Incorrect config entry. New scope can only be associated with a solver. new_scope=" + new_scope + ", name=" + name + ".";
+        std::string err = "Incorrect config entry. New scope can only be associated with a solver. new_scope=" + new_scope + ", name=" + name + ".";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 
     // Set the new parameter name, value
-    if (*(iter->second.type) == typeid(string))
+    if (*(iter->second.type) == typeid(std::string))
     {
         setParameter(name, value, current_scope, new_scope);
     }
@@ -1410,7 +1409,7 @@ void AMG_Config::setParameter(const string &str)
     }
     else
     {
-        string err = "getValue is not implemented for the datatype of variable '" + name + "'";
+        std::string err = "getValue is not implemented for the datatype of variable '" + name + "'";
         FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
     }
 }
@@ -1435,7 +1434,7 @@ void AMG_Config::clear()
 
 
 // Template specialization
-template string AMG_Config::getParameter(const std::string &, const std::string &) const;
+template std::string AMG_Config::getParameter(const std::string &, const std::string &) const;
 template AlgorithmType AMG_Config::getParameter(const std::string &, const std::string &) const;
 template ViewType AMG_Config::getParameter(const std::string &, const std::string &) const;
 template ColoringType AMG_Config::getParameter(const std::string &, const std::string &) const;

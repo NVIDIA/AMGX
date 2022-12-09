@@ -47,7 +47,6 @@
 
 #define AMGX_ILU_COLORING
 
-using namespace std;
 namespace amgx
 {
 namespace multicolor_dilu_solver

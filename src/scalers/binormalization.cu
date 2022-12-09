@@ -277,7 +277,7 @@ void computeBetaDevice(const int nrows, IndexType *offsets, IndexType *indices, 
 
 
 template<typename T>
-struct square_value : public unary_function<T, T>
+struct square_value : public thrust::unary_function<T, T>
 {
     __host__ __device__ T operator()(const T &x) const
     {

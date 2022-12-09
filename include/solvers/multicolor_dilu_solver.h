@@ -35,8 +35,6 @@
 
 #include <amgx_types/util.h>
 
-using namespace std;
-
 namespace amgx
 {
 namespace multicolor_dilu_solver

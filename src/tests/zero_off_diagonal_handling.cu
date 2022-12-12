@@ -207,7 +207,7 @@ void test_matrix_coloring(Matrix<T_Config> &A, AMG_Config &cfg, const std::strin
 void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_scope)
 {
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
     b.set_block_dimx(1);
     b.set_block_dimy(A.get_block_dimy());
     x.set_block_dimx(1);
@@ -282,8 +282,8 @@ void generatePoissonForTest(Matrix<TConfig > &Aout, int block_size, bool diag_pr
 void test_levels(Resources *res, Matrix<T_Config> &A)
 {
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     int bsize = A.get_block_dimy();
     b.set_block_dimx(1);
     b.set_block_dimy(bsize);
@@ -314,7 +314,7 @@ void test_levels(Resources *res, Matrix<T_Config> &A)
         }
     }
 
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     {
         AMG_Configuration cfg;
         AMGX_ERROR err = AMGX_OK;

@@ -712,7 +712,7 @@ void Truncate<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::tr
     A_trunc.resize(A.get_num_rows(), A.get_num_cols(), 0);
     cudaCheckError();
 
-    thrust_wrapper::exclusive_scan(row_counts.begin(), row_counts.end(), A_trunc.row_offsets.begin());
+    thrust_wrapper::exclusive_scan<IVector::TConfig::memSpace>(row_counts.begin(), row_counts.end(), A_trunc.row_offsets.begin());
     cudaCheckError();
     
     const int nnz = A_trunc.row_offsets[A.get_num_rows() - 1] + row_counts[A.get_num_rows() - 1];
@@ -839,7 +839,7 @@ void Truncate<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::tr
     // initial definition
     Matrix_d A_trunc(A.get_num_rows(), A.get_num_cols(), 0, CSR); // add CSR prop
     // exclusive scan to get new row structure
-    thrust_wrapper::exclusive_scan(row_lengths.begin(), row_lengths.end(), A_trunc.row_offsets.begin());
+    thrust_wrapper::exclusive_scan<IVector::TConfig::memSpace>(row_lengths.begin(), row_lengths.end(), A_trunc.row_offsets.begin());
     int nnz = A_trunc.row_offsets[A.get_num_rows() - 1] + row_lengths[A.get_num_rows() - 1];
     A_trunc.row_offsets[A.get_num_rows()] = nnz;
     // set final size of truncated matrix

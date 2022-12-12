@@ -220,7 +220,7 @@ void color_histogram(const Vector1 &row_colors, Vector2 &histogram)
     // copy input data (could be skipped if input is allowed to be modified)
     device_vector_alloc<ValueType> data(row_colors);
     // sort data to bring equal elements together
-    thrust_wrapper::sort(data.begin(), data.end());
+    thrust_wrapper::sort<AMGX_device>(data.begin(), data.end());
     // number of histogram bins is equal to the maximum value plus one
     IndexType num_bins = data.back() + 1;
     // resize histogram storage
@@ -412,13 +412,13 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
             //order +1
             CheckColoring<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, 1 + A_d.getMatrixColoring().getColoringLevel());
             num_bad_plus =
-                thrust_wrapper::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
+                thrust_wrapper::transform_reduce<AMGX_device>(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
                                          checker, (IndexType)0, amgx::thrust::plus<IndexType>());
         }
         {
             CheckColoring<IndexType> checker(A_row_offsets_ptr, A_column_indices_ptr, row_colors_ptr, A_d.getMatrixColoring().getColoringLevel());
             num_bad =
-                thrust_wrapper::transform_reduce(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
+                thrust_wrapper::transform_reduce<AMGX_device>(amgx::thrust::counting_iterator<IndexType>(0), amgx::thrust::counting_iterator<IndexType>(A_d.get_num_rows()),
                                          checker, (IndexType)0, amgx::thrust::plus<IndexType>());
         }
         int num_uncolored = (int) amgx::thrust::count_if( A_d.getMatrixColoring().getRowColors().begin(), A_d.getMatrixColoring().getRowColors().begin() + A_d.get_num_rows(), is_zero() );

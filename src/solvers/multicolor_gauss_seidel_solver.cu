@@ -1469,7 +1469,7 @@ MulticolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector
 
     if (xIsZero)
     {
-        thrust_wrapper::fill(x.begin(), x.end(), 0.);
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 0.);
         cudaCheckError();
     }
 

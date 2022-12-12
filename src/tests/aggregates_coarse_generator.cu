@@ -67,7 +67,7 @@ void build_sort_permutation( const Matrix &M, Vector &permutation )
     amgx::thrust::inclusive_scan( row_indices.begin(), row_indices.begin() + M.get_num_nz(), row_indices.begin(), amgx::thrust::maximum<int>() );
     cudaCheckError();
     permutation.resize( num_nz );
-    thrust_wrapper::sequence( permutation.begin(), permutation.end() );
+    thrust_wrapper::sequence<Vector::TConfig::memSpace>( permutation.begin(), permutation.end() );
     cudaCheckError();
     Vector tmp( M.col_indices );
     amgx::thrust::stable_sort_by_key( tmp.begin(), tmp.end(), permutation.begin() );

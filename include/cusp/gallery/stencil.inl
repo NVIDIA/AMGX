@@ -154,7 +154,7 @@ void generate_matrix_from_stencil(      cusp::dia_matrix<IndexType,ValueType,Mem
     IndexType num_diagonals = stencil.size();
 
     cusp::array1d<IndexType,cusp::host_memory> strides(grid_indices.size());
-    thrust_wrapper::exclusive_scan(grid_indices.begin(), grid_indices.end(), strides.begin(), IndexType(1), amgx::thrust::multiplies<IndexType>());
+    amgx::thrust::exclusive_scan(grid_indices.begin(), grid_indices.end(), strides.begin(), IndexType(1), amgx::thrust::multiplies<IndexType>());
 
     cusp::array1d<IndexType,cusp::host_memory> offsets(stencil.size(), 0);
     for(size_t i = 0; i < offsets.size(); i++)
@@ -176,7 +176,7 @@ void generate_matrix_from_stencil(      cusp::dia_matrix<IndexType,ValueType,Mem
     // ideally we'd have row views and column views here
     for(IndexType i = 0; i < num_diagonals; i++)
     {
-        thrust_wrapper::transform(amgx::thrust::counting_iterator<IndexType>(0),
+        amgx::thrust::transform(amgx::thrust::counting_iterator<IndexType>(0),
                           amgx::thrust::counting_iterator<IndexType>(num_rows),
                           matrix.values.values.begin() + matrix.values.pitch * i, 
                           detail::fill_diagonal_entries<IndexType,ValueType,StencilPoint,GridDimension>(stencil[i], grid));

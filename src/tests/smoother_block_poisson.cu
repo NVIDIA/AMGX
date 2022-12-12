@@ -85,7 +85,7 @@ void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz
     // Fill b with ones
     scalarb.resize(scalarA.get_num_rows());
     scalarb.set_block_dimy(scalarA.get_block_dimy());
-    cusp::blas::fill(scalarb, 1);
+    thrust_wrapper::fill<AMGX_host>(scalarb.begin(), scalarb.end(), 1);
     // Initialize x to zeros
     scalarx.resize(scalarA.get_num_rows(), 0.);
     // Copy to device if necessary
@@ -124,7 +124,7 @@ void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz
     Vector_hd x_fin_hd = blockx;
     Vector_h b;
     b.resize(A.get_num_rows() * A.get_block_dimy());
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<AMGX_host>(b.begin(), b.end(), 1);
     b.set_block_dimy(A.get_block_dimy());
     b_hd = b;
     // smooth block matrix

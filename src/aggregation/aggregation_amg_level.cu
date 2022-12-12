@@ -476,7 +476,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::restrictResidual_1x1(const VVector &r, VVector &rr)
 {
     AMGX_CPU_PROFILER("Aggregation_AMG_Level::restrict_residual_1x1 ");
-    int block_size = 64;
+    int block_size = 128;
     int max_threads;;
 
     if (!this->isConsolidationLevel())
@@ -488,7 +488,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         max_threads = this->m_num_all_aggregates;
     }
 
-    int num_blocks = min( AMGX_GRID_MAX_SIZE, (max_threads - 1) / block_size + 1);
+    int num_blocks = max_threads / block_size + 1;
     const IndexType *R_row_offsets_ptr = this->m_R_row_offsets.raw();
     const IndexType *R_column_indices_ptr = this->m_R_column_indices.raw();
     const ValueTypeB *r_ptr = r.raw();
@@ -502,7 +502,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::restrictResidual_4x4(const VVector &r, VVector &rr)
 {
     AMGX_CPU_PROFILER("Aggregation_AMG_Level::restrict_residual_4x4 ");
-    int block_size = 64;
+    int block_size = 128;
     int max_threads;
 
     if (!this->isConsolidationLevel())
@@ -514,7 +514,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         max_threads = this->m_num_all_aggregates;
     };
 
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (max_threads + block_size - 1) / block_size);
+    const int num_blocks = max_threads / block_size + 1;
 
     const IndexType *R_row_offsets_ptr = this->m_R_row_offsets.raw();
 
@@ -721,8 +721,8 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 {
     AMGX_CPU_PROFILER("Aggregation_AMG_Level::prolongate_and_apply_correction_1x1 ");
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
-    const int block_size = 64;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ( (this->A->get_num_rows() + block_size - 1) / block_size ) );
+    const int block_size = 128;
+    const int num_blocks = (this->A->get_num_rows() + block_size - 1) / block_size );
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = x.raw();
     const ValueTypeB *e_ptr = e.raw();
@@ -752,8 +752,8 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
             const IndexType *aggregates_ptr = this->m_aggregates.raw();
             ValueTypeB *x_ptr = xf.raw();
             const ValueTypeB *e_ptr = ec.raw();
-            const int block_size = 64;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
+            const int block_size = 128;
+            const int num_blocks = (this->A->get_num_rows() - 1) / block_size + 1;
             prolongateAndApplyCorrectionBlockDiaCsrKernel <<< num_blocks, block_size>>>(this->scale, (int)this->getA().get_num_rows(), x_ptr, e_ptr, aggregates_ptr, this->m_num_aggregates, this->getA().get_block_dimy());
             cudaCheckError();
             this->scale_counter--;
@@ -869,8 +869,8 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     }
 
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
-    const int block_size = 64;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
+    const int block_size = 128;
+    const int num_blocks = this->A->get_num_rows() / block_size + 1;
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = xf.raw();
     const ValueTypeB *e_ptr = ec.raw();

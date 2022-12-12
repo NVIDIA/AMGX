@@ -152,10 +152,10 @@ PolynomialSolverBase<T_Config>::solver_setup(bool reuse_matrix_structure)
     aux_norm1_csr <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ptr, A_nonzero_values_ptr,
             N, this->m_explicit_A->get_block_dimy(), row_sum_ptr);
     cudaCheckError();
-    mu0 = cusp::blas::nrmmax(row_sum);
+    mu0 = nrmmax(row_sum);
     cudaCheckError();
 
-    if (mu0 == 0) { mu0 = cusp::blas::nrmmax(this->m_explicit_A->values); }
+    if (mu0 == 0) { mu0 = nrmmax(this->m_explicit_A->values); }
 
     cudaCheckError();
     mu0 = 1.0 / mu0;

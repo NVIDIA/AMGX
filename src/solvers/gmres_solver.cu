@@ -251,7 +251,7 @@ GMRES_Solver<T_Config>::solve_one_iteration( VVector &b, VVector &x )
     axpy( b, m_V_vectors[0], types::util<ValueTypeB>::get_minus_one(), offset, size);       // V(0) = V(0) - b
     PodTypeB beta = get_norm(A, m_V_vectors[0], L2);         // beta = norm(V(0))
     Cublas::scal( size, PodTypeB(-1.0 / beta), m_V_vectors[0].raw() + offset, 1 );   // V(0) = -V(0)/beta //
-    cusp::blas::fill( m_s, types::util<ValueTypeB>::get_zero() );
+    thrust_wrapper::fill<AMGX_host>( m_s.begin(), m_s.end(), types::util<ValueTypeB>::get_zero() );
     m_s[0] = types::util<ValueTypeB>::get_one() * beta;
 
     // Run one iteration of preconditioner with zero initial guess
@@ -325,7 +325,7 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         }
 
         Cublas::scal( size, PodTypeB(-1.0 / beta), m_V_vectors[0].raw() + offset, 1 );                // V(0) = -V(0)/beta //
-        cusp::blas::fill( m_s, types::util<ValueTypeB>::get_zero() );
+        thrust_wrapper::fill<AMGX_host>(m_s.begin(), m_s.end(), types::util<ValueTypeB>::get_zero());
         m_s[0] = types::util<ValueTypeB>::get_one() * beta;
     }
 
@@ -382,7 +382,7 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         }
 
         // Accumulate sum_n V_m*y_m into m_Z_vector
-        thrust_wrapper::fill(m_Z_vector.begin(), m_Z_vector.end(), types::util<ValueTypeB>::get_zero());
+        thrust_wrapper::fill<T_Config::memSpace>(m_Z_vector.begin(), m_Z_vector.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
 
         for (int j = 0; j <= i; j++)

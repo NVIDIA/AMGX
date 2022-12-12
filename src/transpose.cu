@@ -94,7 +94,7 @@ void transpose(const Matrix &A, Matrix &B)
 
         if (types::util<ValueTypeA>::is_complex)
         {
-            thrust_wrapper::transform(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
+            thrust_wrapper::transform<Matrix::TConfig::memSpace>(B.values.begin(), B.values.end(), B.values.begin(), conjugate());
         }
 
         B.set_initialized(1);

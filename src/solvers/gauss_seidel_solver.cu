@@ -273,7 +273,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::smooth_with_0_initial_guess_1x1(const Matrix_d &A, const VVector &b, VVector &x)
 {
-    thrust_wrapper::fill(x.begin(), x.end(), ValueTypeB(0));
+    thrust_wrapper::fill<AMGX_device>(x.begin(), x.end(), ValueTypeB(0));
     cudaCheckError();
     smooth_1x1(A, b, x);
 }

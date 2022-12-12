@@ -1329,9 +1329,14 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     this->y.dirtybit = 0;
+
     multiply( A, x, this->y, separation_flags );
-    amgx::thrust::transform( amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple( x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
-                       amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple( x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(),   this->y.begin() + A.get_num_rows())),
+
+    thrust_wrapper::transform<AMGX_device>( 
+            amgx::thrust::make_zip_iterator(
+                amgx::thrust::make_tuple(x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)), 
+            amgx::thrust::make_zip_iterator(
+                amgx::thrust::make_tuple(x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(), this->y.begin() + A.get_num_rows())),
                        x.begin() + offset,
                        jacobi_postsmooth_functor<ValueTypeA, ValueTypeB>( this->weight ));
     cudaCheckError();
@@ -1357,7 +1362,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     int num_rows = A.get_num_rows();
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    amgx::thrust::transform( b.begin( ) + offset,
+    thrust_wrapper::transform<AMGX_device>( b.begin( ) + offset,
                        b.begin( ) + A.get_num_rows(),
                        this->Dinv.begin( ) + offset,
                        x.begin( ) + offset,

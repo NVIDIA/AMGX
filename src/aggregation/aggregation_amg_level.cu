@@ -722,7 +722,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     AMGX_CPU_PROFILER("Aggregation_AMG_Level::prolongate_and_apply_correction_1x1 ");
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
     const int block_size = 128;
-    const int num_blocks = (this->A->get_num_rows() + block_size - 1) / block_size );
+    const int num_blocks = this->A->get_num_rows() / block_size + 1;
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = x.raw();
     const ValueTypeB *e_ptr = e.raw();

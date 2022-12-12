@@ -183,7 +183,8 @@ void thrust_axpy(ForwardIterator1 first1,
                      AXPY<ScalarType>(alpha));
 }
 
-template <typename InputIterator1,
+template <int MemSpace,
+          typename InputIterator1,
           typename InputIterator2,
           typename OutputIterator,
           typename ScalarType1,
@@ -196,7 +197,7 @@ void thrust_axpby(InputIterator1 first1,
                   ScalarType2 beta)
 {
     size_t N = last1 - first1;
-    amgx::thrust::for_each(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, output)),
+    thrust_wrapper::for_each<MemSpace>(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, output)),
                      amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, output)) + N,
                      AXPBY<ScalarType1, ScalarType2>(alpha, beta));
 }
@@ -334,7 +335,7 @@ void axpby(const Vector &x, const Vector &y, Vector &out, Scalar a, Scalar b, in
     if (out.get_block_dimx() == -1) { FatalError("out block dims not set", AMGX_ERR_NOT_IMPLEMENTED); }
 
 #endif
-    thrust_axpby(x.begin() + offset * x.get_block_size(),
+    thrust_axpby<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                  x.begin() + (offset + size) * x.get_block_size(),
                  y.begin() + offset * x.get_block_size(),
                  out.begin() + offset * x.get_block_size(),
@@ -637,7 +638,8 @@ void axmb(Matrix &A, Vector &x, Vector &b, Vector &r, int offset, int size)
 #endif
     typedef typename Matrix::value_type ValueType;
     A.apply(x, r);
-    thrust_axpby(r.begin() + offset * x.get_block_size(),
+    thrust_axpby<Vector::TConfig::memSpace>(
+                 r.begin() + offset * x.get_block_size(),
                  r.begin() + (offset + size) * x.get_block_size(),
                  b.begin() + offset * x.get_block_size(),
                  r.begin() + offset * x.get_block_size(),

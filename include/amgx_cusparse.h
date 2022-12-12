@@ -334,7 +334,8 @@ class Cusparse
                                   const float *x,
                                   const float *beta,
                                   float *y,
-                                  const cudaStream_t& stream);
+                                  const cudaStream_t& stream,
+                                  const int row_off);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -348,7 +349,8 @@ class Cusparse
                                   const double *x,
                                   const double *beta,
                                   double *y,
-                                  const cudaStream_t& stream);
+                                  const cudaStream_t& stream,
+                                  const int row_off);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -362,7 +364,8 @@ class Cusparse
                                   const double *x,
                                   const double *beta,
                                   double *y,
-                                  const cudaStream_t& stream);
+                                  const cudaStream_t& stream,
+                                  const int row_off);
 
         // overloaded C++ wrappers for cusparse?bsrxmv
         // bsrxmv
@@ -429,7 +432,8 @@ class Cusparse
                                   const cuComplex *x,
                                   const cuComplex *beta,
                                   cuComplex *y,
-                                  const cudaStream_t& stream);
+                                  const cudaStream_t& stream,
+                                  const int row_off);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -443,7 +447,8 @@ class Cusparse
                                   const cuDoubleComplex *x,
                                   const cuDoubleComplex *beta,
                                   cuDoubleComplex *y,
-                                  const cudaStream_t& stream);
+                                  const cudaStream_t& stream,
+                                  const int row_off);
 
         static inline void bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                                   int mb, int nb, int nnzb,
@@ -457,7 +462,8 @@ class Cusparse
                                   const cuDoubleComplex *x,
                                   const cuDoubleComplex *beta,
                                   cuDoubleComplex *y,
-                                  const cudaStream_t& stream);
+                                  const cudaStream_t& stream,
+                                  const int row_off);
 
         // overloaded C++ wrappers for cusparse?bsrxmv
         // bsrxmv

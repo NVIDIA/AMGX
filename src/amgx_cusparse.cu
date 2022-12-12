@@ -592,7 +592,8 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
                A.get_block_dimx(),
                x.raw(), &betaConst,
                y.raw() + row_off * A.get_block_dimx(),
-               stream);
+               stream,
+               row_off);
     }
 
     if (A.hasProps(DIAG))
@@ -617,7 +618,8 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
                A.get_block_dimx(),
                x.raw(), &beta,
                y.raw() + row_off * A.get_block_dimx(),
-               stream);
+               stream,
+               row_off);
     }
 }
 
@@ -738,7 +740,8 @@ void Cusparse::bsrmv_internal_with_mask_restriction( const typename TConfig::Vec
                R.get_block_dimx(),
                x.raw(), &betaConst,
                y.raw() + row_off * R.get_block_dimx(),
-               stream);
+               stream,
+               row_off);
     }
 
     if (R.hasProps(DIAG))
@@ -773,7 +776,8 @@ void Cusparse::bsrmv_internal( const typename TConfig::VecPrec alphaConst,
            A.get_block_dimx(),
            x.raw(), &betaConst,
            y.raw() + row_off * A.get_block_dimx(),
-           stream);
+           stream,
+           row_off);
 }
 
 
@@ -1006,23 +1010,29 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              VecType *y,
                              cudaDataType matType,
                              cudaDataType vecType,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
-    int col_off;
-    cudaMemcpyAsync(&col_off, &rowPtr[0], sizeof(int), cudaMemcpyDefault, stream);
-    cudaStreamSynchronize(stream);
-
     IndType* rows = const_cast<IndType*>(rowPtr);
-    IndType* cols = const_cast<IndType*>(colInd) + col_off;
-    MatType* vals = const_cast<MatType*>(val) + col_off;
+    IndType* cols = const_cast<IndType*>(colInd);
+    MatType* vals = const_cast<MatType*>(val);
 
-    if(col_off > 0)
+    if(row_off > 0)
     {
+        // XXX This needs improving. We can cache this in setup but need to make
+        // sure that it is kept up to date properly.
+        int nz_off;
+        cudaMemcpyAsync(&nz_off, &rowPtr[0], sizeof(int), cudaMemcpyDefault, stream);
         amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
 
         constexpr int nthreads = 128;
         const int nblocks = (mb + 1) / nthreads + 1;
         offset_by_col_off<<<nblocks, nthreads, 0, stream>>>(mb, rows, rowPtr);
+
+        cudaStreamSynchronize(stream);
+
+        cols += nz_off;
+        vals += nz_off;
     }
 
     cusparseSpMatDescr_t matA_descr;
@@ -1054,7 +1064,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         amgx::memory::cudaFreeAsync(dBuffer);
     }
 
-    if(col_off > 0)
+    if(row_off > 0)
     {
         amgx::memory::cudaFreeAsync(rows);
     }
@@ -1073,7 +1083,8 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const float *x,
                              const float *beta,
                              float *y,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
     // Run cuSparse on selected stream
     cusparseSetStream(handle, stream);
@@ -1081,7 +1092,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     if (blockDim == 1)
     {
         #ifdef CUSPARSE_GENERIC_INTERFACES
-            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_R_32F, CUDA_R_32F, stream);
+            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_R_32F, CUDA_R_32F, stream, row_off);
         #else
             cusparseCheckError(cusparseScsrmv(handle, trans, mb, nb, nnzb, alpha, descr, bsrVal, bsrRowPtr, bsrColInd, x, beta, y));
         #endif
@@ -1107,7 +1118,8 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const double *x,
                              const double *beta,
                              double *y,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
     // Run cuSparse on selected stream
     cusparseSetStream(handle, stream);
@@ -1115,7 +1127,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     if (blockDim == 1)
     {
         #ifdef CUSPARSE_GENERIC_INTERFACES
-            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_R_64F, CUDA_R_64F, stream);
+            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_R_64F, CUDA_R_64F, stream, row_off);
 
         #else
             cusparseCheckError(cusparseDcsrmv(handle, trans, mb, nb, nnzb, alpha, descr, bsrVal, bsrRowPtr, bsrColInd, x, beta, y));
@@ -1142,7 +1154,8 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const double *x,
                              const double *beta,
                              double *y,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
     // Run cuSparse on selected stream
     cusparseSetStream(handle, stream);
@@ -1354,7 +1367,8 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cuComplex *x,
                              const cuComplex *beta,
                              cuComplex *y,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
     // Run cuSparse on selected stream
     cusparseSetStream(handle, stream);
@@ -1362,7 +1376,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     if (blockDim == 1)
     {
         #ifdef CUSPARSE_GENERIC_INTERFACES
-            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_C_32F, CUDA_C_32F, stream);
+            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_C_32F, CUDA_C_32F, stream, row_off);
         #else
             cusparseCheckError(cusparseCcsrmv(handle, trans, mb, nb, nnzb, alpha, descr, bsrVal, bsrRowPtr, bsrColInd, x, beta, y));
         #endif
@@ -1388,7 +1402,8 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cuDoubleComplex *x,
                              const cuDoubleComplex *beta,
                              cuDoubleComplex *y,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
     // Run cuSparse on selected stream
     cusparseSetStream(handle, stream);
@@ -1396,7 +1411,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     if (blockDim == 1)
     {
         #ifdef CUSPARSE_GENERIC_INTERFACES
-            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_C_64F, CUDA_C_64F, stream);
+            generic_SpMV(handle, trans, mb, nb, nnzb, alpha, bsrVal, bsrRowPtr, bsrColInd, x, beta, y, CUDA_C_64F, CUDA_C_64F, stream, row_off);
         #else
             cusparseCheckError(cusparseZcsrmv(handle, trans, mb, nb, nnzb, alpha, descr, bsrVal, bsrRowPtr, bsrColInd, x, beta, y));
         #endif
@@ -1422,7 +1437,8 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cuDoubleComplex *x,
                              const cuDoubleComplex *beta,
                              cuDoubleComplex *y,
-                             const cudaStream_t& stream)
+                             const cudaStream_t& stream,
+                             const int row_off)
 {
     // Run cuSparse on selected stream
     cusparseSetStream(handle, stream);

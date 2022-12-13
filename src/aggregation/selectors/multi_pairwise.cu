@@ -265,7 +265,7 @@ void findStrongestNeighbourBlockDiaCsr_V3(const IndexType *row_offsets,
 
                 weight = edge_weights[j];
 
-                if (!(weight > 0.0)) { continue; }
+                if (weight <= 0.0) { continue; }
 
                 if ( aggregates[jcol] != -1 ) //aggregated neighbor
                 {

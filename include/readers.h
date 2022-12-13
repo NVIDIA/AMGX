@@ -34,8 +34,6 @@
 #include <amg_config.h>
 #include <matrix_io.h>
 
-using namespace std;
-
 namespace amgx
 {
 

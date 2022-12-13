@@ -53,7 +53,6 @@
 #define EXPERIMENTAL_LU_FORWARD
 #define EXPERIMENTAL_LU_BACKWARD
 
-using namespace std;
 namespace amgx
 {
 

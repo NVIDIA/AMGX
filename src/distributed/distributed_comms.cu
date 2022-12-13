@@ -31,7 +31,6 @@
 #include <types.h>
 #include <assert.h>
 
-using namespace std;
 namespace amgx
 {
 

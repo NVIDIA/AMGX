@@ -32,7 +32,6 @@
 
 namespace amgx
 {
-using namespace std;
 namespace energymin
 {
 
@@ -47,14 +46,14 @@ SelectorFactory<TConfig>
 
 template<class TConfig>
 void SelectorFactory<TConfig>
-::registerFactory(string name, SelectorFactory<TConfig> *f)
+::registerFactory(std::string name, SelectorFactory<TConfig> *f)
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "SelectorFactory '" + name + "' has already been registered\n";
+        std::string error = "SelectorFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -66,11 +65,11 @@ void SelectorFactory<TConfig>
 ::unregisterFactory(std::string name)
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, SelectorFactory<TConfig> *>::iterator it = factories.find(name);
+    typename std::map<std::string, SelectorFactory<TConfig> *>::iterator it = factories.find(name);
 
     if (it == factories.end())
     {
-        string error = "SelectorFactory '" + name + "' has not been registered\n";
+        std::string error = "SelectorFactory '" + name + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -85,7 +84,7 @@ void SelectorFactory<TConfig>
 ::unregisterFactories( )
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    typename map<std::string, SelectorFactory<TConfig> *>::iterator it = factories.begin( );
+    typename std::map<std::string, SelectorFactory<TConfig> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ); )
     {
@@ -103,12 +102,12 @@ Selector<TConfig> *SelectorFactory<TConfig>
 ::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    string selector = cfg.getParameter<string>("energymin_selector", cfg_scope);
-    typename map<string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(selector);
+    std::string selector = cfg.getParameter<std::string>("energymin_selector", cfg_scope);
+    typename std::map<std::string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(selector);
 
     if (it == factories.end())
     {
-        string error = "SelectorFactory '" + selector + "' has not been registered\n";
+        std::string error = "SelectorFactory '" + selector + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

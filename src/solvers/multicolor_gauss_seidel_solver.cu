@@ -41,7 +41,6 @@
 
 #include "sm_utils.inl"
 
-using namespace std;
 namespace amgx
 {
 namespace multicolor_gauss_seidel_solver

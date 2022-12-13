@@ -35,8 +35,6 @@
 
 namespace amgx
 {
-using namespace std;
-
 template<class TConfig>
 std::map<std::string, StrengthFactory<TConfig>*> &
 StrengthFactory<TConfig>::getFactories( )
@@ -46,14 +44,14 @@ StrengthFactory<TConfig>::getFactories( )
 }
 
 template<class TConfig>
-void StrengthFactory<TConfig>::registerFactory(string name, StrengthFactory<TConfig> *f)
+void StrengthFactory<TConfig>::registerFactory(std::string name, StrengthFactory<TConfig> *f)
 {
     std::map<std::string, StrengthFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, StrengthFactory<TConfig> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, StrengthFactory<TConfig> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "StrengthFactory '" + name + "' has already been registered\n";
+        std::string error = "StrengthFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -82,7 +80,7 @@ template<class TConfig>
 void StrengthFactory<TConfig>::unregisterFactories( )
 {
     std::map<std::string, StrengthFactory<TConfig>*> &factories = getFactories( );
-    typename map<std::string, StrengthFactory<TConfig> *>::iterator it = factories.begin( );
+    typename std::map<std::string, StrengthFactory<TConfig> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -99,12 +97,12 @@ template<class TConfig>
 Strength<TConfig> *StrengthFactory<TConfig>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, StrengthFactory<TConfig>*> &factories = getFactories( );
-    string strength = cfg.getParameter<string>("strength", cfg_scope);
-    typename map<string, StrengthFactory<TConfig> *>::const_iterator it = factories.find(strength);
+    std::string strength = cfg.getParameter<std::string>("strength", cfg_scope);
+    typename std::map<std::string, StrengthFactory<TConfig> *>::const_iterator it = factories.find(strength);
 
     if (it == factories.end())
     {
-        string error = "StrengthFactory '" + strength + "' has not been registered\n";
+        std::string error = "StrengthFactory '" + strength + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

@@ -40,7 +40,6 @@
 
 #undef DEBUG_CHEBYSHEV_OUTPUT
 
-using namespace std;
 namespace amgx
 {
 namespace chebyshev_poly_smoother

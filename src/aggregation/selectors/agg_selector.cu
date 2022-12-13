@@ -36,7 +36,6 @@
 namespace amgx
 {
 
-using namespace std;
 namespace aggregation
 {
 
@@ -239,14 +238,14 @@ SelectorFactory<T_Config>::getFactories( )
 }
 
 template<class T_Config>
-void SelectorFactory<T_Config>::registerFactory(string name, SelectorFactory<T_Config> *f)
+void SelectorFactory<T_Config>::registerFactory(std::string name, SelectorFactory<T_Config> *f)
 {
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
-    typename map<string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "SelectorFactory '" + name + "' has already been registered\n";
+        std::string error = "SelectorFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -275,7 +274,7 @@ template<class T_Config>
 void SelectorFactory<T_Config>::unregisterFactories( )
 {
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
-    typename map<std::string, SelectorFactory<T_Config> *>::iterator it = factories.begin( );
+    typename std::map<std::string, SelectorFactory<T_Config> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -294,12 +293,12 @@ Selector<T_Config> *SelectorFactory<T_Config>::allocate(AMG_Config &cfg, const s
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
     int agg_lvl_change = cfg.AMG_Config::getParameter<int>("fine_levels", current_scope);
     std::string selector;
-    selector = cfg.getParameter<string>("selector", current_scope);
-    typename map<string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(selector);
+    selector = cfg.getParameter<std::string>("selector", current_scope);
+    typename std::map<std::string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(selector);
 
     if (it == factories.end())
     {
-        string error = "SelectorFactory '" + selector + "' has not been registered\n";
+        std::string error = "SelectorFactory '" + selector + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

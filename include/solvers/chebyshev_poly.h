@@ -28,7 +28,6 @@
 #pragma once
 
 #include <solvers/solver.h>
-using namespace std;
 
 namespace amgx
 {

@@ -38,7 +38,6 @@
 
 #include <thrust/partition.h>
 
-using namespace std;
 namespace amgx
 {
 namespace cf_jacobi_solver

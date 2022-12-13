@@ -35,7 +35,6 @@
 #include <sstream>
 #include <curand.h>
 
-using namespace std;
 namespace amgx
 {
 namespace idr_solver
@@ -338,7 +337,7 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
 
     if (this->omega == 0)
     {
-        cout << "Error happened in this->omega==0" << endl;
+        std::cout << "Error happened in this->omega==0" << std::endl;
         exit(1);
     }
 

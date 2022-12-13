@@ -1114,11 +1114,6 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
             amgx::memory::cudaMalloc(&dBuffer, bufferSize);
         }
 
-<<<<<<< HEAD
-    if(row_off > 0)
-    {
-        amgx::memory::cudaFreeAsync(rows);
-=======
         cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
 
         cusparseCheckError(cusparseDestroySpMat(matA_descr));
@@ -1130,11 +1125,10 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
             amgx::memory::cudaFreeAsync(dBuffer);
         }
 
-        if(col_off > 0)
+        if(row_off > 0)
         {
             amgx::memory::cudaFreeAsync(rows);
         }
->>>>>>> main
     }
 }
 #endif

@@ -3206,7 +3206,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::unpack_partition(index_type *Bp, index_type *Bc, mat_value_type *Bv)
 {
-    index_type l, n, nnz, offset;
+    index_type l, n, nnz, offset, block_dimx, block_dimy;
     index_type     *ir;
     index_type     *Ap;
     index_type     *Ac;
@@ -3215,6 +3215,10 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //some initializations
     this->A->getOffsetAndSizeForView(OWNED, &offset, &n);
     this->A->getNnzForView(OWNED, &nnz);
+
+    block_dimx = this->A->get_block_dimx();
+    block_dimy = this->A->get_block_dimy();
+
     l  = this->inverse_renumbering.size();
     ir = this->inverse_renumbering.raw();
     Ap = this->A->row_offsets.raw();
@@ -3223,7 +3227,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //(i) reorder the matrix back (into mixed interior-boundary nodes)
     //applies to rows and columns (out-of-place)
     reorder_partition<index_type, mat_value_type, true, true>
-    (n, nnz, Ap, Ac, Av, Bp, Bc, Bv, l, ir);
+	(n, nnz, Ap, Ac, Av, Bp, Bc, Bv, l, ir, block_dimx, block_dimy);
     cudaCheckError();
     //obtain reordering q that combines the shift of the diagonal block with the off-diagonal block indices conversion from local to global
     this->obtain_shift_l2g_reordering(n, this->local_to_global_map, this->inverse_renumbering, q);
@@ -3231,7 +3235,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //(ii) reorder the matrix back (shift the diagonal block and convert off-diagonal block column indices from local to global)
     //applies columns only (in-place)
     reorder_partition<index_type, mat_value_type, false, true>
-    (n, nnz, Bp, Bc, Bv, Bp, Bc, Bv, q.size(), q.raw());
+    (n, nnz, Bp, Bc, Bv, Bp, Bc, Bv, q.size(), q.raw(), block_dimx, block_dimy);
     cudaCheckError();
 }
 

@@ -327,6 +327,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
 
                     for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                     {
+			int loc = ii * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim;
                         a = this->values[ii * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
                         fprintf(fid, "%d %d ", i + 1, j + 1);
                         types::util<value_type>::fprintf(fid, "%20.16f", a);

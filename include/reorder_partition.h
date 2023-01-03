@@ -64,7 +64,6 @@ void reorder_partition_host(index_type n, index_type nnz, index_type *Ap, index_
             Bc[k] = reorder_cols ? p[col] : col;
 	    for (int kx = 0; kx < block_dimx; kx++)
 		for (int ky = 0; ky < block_dimy; ky++){
-		    int loc = j * block_size + kx * block_dimy + k;
 		    Bv[k * block_size + kx * block_dimy + ky] = Av[j * block_size + kx * block_dimy + ky];
 		}
         }

@@ -36,8 +36,6 @@
 namespace amgx
 {
 
-using namespace std;
-
 template <class T_config> class Scaler;
 
 enum ScaleDirection {SCALE, UNSCALE};

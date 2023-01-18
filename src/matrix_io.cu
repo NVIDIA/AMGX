@@ -51,8 +51,6 @@
 #include "amgx_types/util.h"
 #include "amgx_types/io.h"
 
-using namespace std;
-
 namespace amgx
 {
 
@@ -64,7 +62,7 @@ MatrixIO<T_Config>::readerMap &MatrixIO<T_Config>::getReaderMap()
 }
 
 template<class T_Config>
-void MatrixIO<T_Config>::registerReader(string key, readerFunc func)
+void MatrixIO<T_Config>::registerReader(std::string key, readerFunc func)
 {
     readerMap &readers_map = getReaderMap();
     typename readerMap::const_iterator iter = readers_map.find(key);
@@ -93,7 +91,7 @@ MatrixIO<T_Config>::writerMap &MatrixIO<T_Config>::getWriterMap()
 }
 
 template<class T_Config>
-void MatrixIO<T_Config>::registerWriter(string key, writerFunc func)
+void MatrixIO<T_Config>::registerWriter(std::string key, writerFunc func)
 {
     writerMap &writer_map = getWriterMap();
     typename writerMap::const_iterator iter = writer_map.find(key);
@@ -131,7 +129,7 @@ bool MatrixIO<T_Config>::writeSystemMatrixMarket(const char *fname, const Matrix
     }
 
     std::ofstream fout;
-    std::string err = "Writing system to file " + string(fname) + "\n";
+    std::string err = "Writing system to file " + std::string(fname) + "\n";
     amgx_output(err.c_str(), err.length());
     fout.open(fname);
 
@@ -292,7 +290,7 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
 
     FILE *fout;
     const char header [] = "%%NVAMGBinary\n";
-    std::string err = "Writing system to file " + string(fname) + "\n";
+    std::string err = "Writing system to file " + std::string(fname) + "\n";
     amgx_output(err.c_str(), err.length());
     fout = fopen(fname, "wb");
 
@@ -420,11 +418,11 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 
         if (io_config::hasProps(io_config::SIZE, props))
         {
-            err = "Reading matrix dimensions in file: " + string(fname) + "\n";
+            err = "Reading matrix dimensions in file: " + std::string(fname) + "\n";
         }
         else if (io_config::hasProps(io_config::PRINT, props))
         {
-            err = "Reading matrix in file: " + string(fname) + "\n";
+            err = "Reading matrix in file: " + std::string(fname) + "\n";
         }
 
         amgx_output(err.c_str(), err.length());
@@ -432,7 +430,7 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 
         if (!fin)
         {
-            err = "Error opening file '" + string(fname) + "'\n";
+            err = "Error opening file '" + std::string(fname) + "'\n";
             FatalError(err.c_str(), AMGX_ERR_IO);
         }
 
@@ -442,7 +440,7 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 
         if (fformat.substr(0, 2) != "%%")
         {
-            err = "Invalid header line in file " + string(fname) + " First line should begin with: %%MatrixFormat\n";
+            err = "Invalid header line in file " + std::string(fname) + " First line should begin with: %%MatrixFormat\n";
             FatalError(err.c_str(), AMGX_ERR_IO);
         }
         else
@@ -592,17 +590,17 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 }
 
 template<class T_Config>
-string MatrixIO<T_Config>::readSystemFormat(const char *fname)
+std::string MatrixIO<T_Config>::readSystemFormat(const char *fname)
 {
     readerMap &readers_map = getReaderMap();
     //open file
-    std::string out = "Reading matrix format in file: " + string(fname) + "\n";
+    std::string out = "Reading matrix format in file: " + std::string(fname) + "\n";
     amgx_output(out.c_str(), out.length());
     std::ifstream fin(fname);
 
     if (!fin)
     {
-        out = "Error opening file: " + string(fname) + "\n";
+        out = "Error opening file: " + std::string(fname) + "\n";
         FatalError(out.c_str(), AMGX_ERR_IO);
     }
 
@@ -627,12 +625,12 @@ string MatrixIO<T_Config>::readSystemFormat(const char *fname)
 AMGX_ERROR MatrixIO<T_Config>::readGeometry( AuxData* obj, const char* fname)
 {
   std::string err;
-  err = "Reading matrix in file: " + string(fname) + "\n";
+  err = "Reading matrix in file: " + std::string(fname) + "\n";
   amgx_output(err.c_str(), err.length());
 
   std::ifstream fin(fname);
   if(!fin) {
-    err = "Error opening file '" + string(fname) + "'\n";
+    err = "Error opening file '" + std::string(fname) + "'\n";
       FatalError(err.c_str(), AMGX_ERR_IO);
   }
 
@@ -676,12 +674,12 @@ template<class T_Config>
 AMGX_ERROR MatrixIO<T_Config>::readColoring( AuxData* obj, const char* fname)
 {
   std::string err;
-  err = "Reading matrix in file: " + string(fname) + "\n";
+  err = "Reading matrix in file: " + std::string(fname) + "\n";
   amgx_output(err.c_str(), err.length());
 
   std::ifstream fin(fname);
   if(!fin) {
-    err = "Error opening file '" + string(fname) + "'\n";
+    err = "Error opening file '" + std::string(fname) + "'\n";
       FatalError(err.c_str(), AMGX_ERR_IO);
   }
 

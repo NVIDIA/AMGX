@@ -33,8 +33,6 @@
 #include <basic_types.h>
 #include <matrix.h>
 
-using namespace std;
-
 namespace amgx
 {
 namespace fixcolor_gauss_seidel_solver

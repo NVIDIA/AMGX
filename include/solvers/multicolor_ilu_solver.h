@@ -32,8 +32,6 @@
 #include <basic_types.h>
 #include <matrix.h>
 
-using namespace std;
-
 namespace amgx
 {
 namespace multicolor_ilu_solver

@@ -31,7 +31,6 @@
 #include <basic_types.h>
 #include <matrix.h>
 #include <profile.h>
-using namespace std;
 
 namespace amgx
 {

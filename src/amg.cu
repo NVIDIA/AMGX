@@ -1257,7 +1257,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
     int64_t total_nnz = 0;
     float total_size = 0;
     ss << "AMG Grid:\n";
-    ss << "         Number of Levels: " << this->num_levels << endl;
+    ss << "         Number of Levels: " << this->num_levels << std::endl;
     ss << std::setw(15) << "LVL" << std::setw(13) << "ROWS" << std::setw(18) << "NNZ"
        << std::setw(10) << "SPRSTY" << std::setw(15) << "Mem (GB)" << std::endl;
     ss << "         --------------------------------------------------------------\n";
@@ -1421,14 +1421,14 @@ using std::fixed;
 void printLine(const int l, const int s)
 {
     std::stringstream ss;
-    ss << setw(s) << " ";
+    ss << std::setw(s) << " ";
 
     for (int i = 0; i < l; i++)
     {
         ss << "-";
     }
 
-    ss << endl;
+    ss << std::endl;
     amgx_output(ss.str().c_str(), static_cast<int>(ss.str().length()));
 }
 
@@ -1452,11 +1452,11 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printCoarsePoints()
             break;
         }
 
-        coarsePoints << level_d->level_id << " " << level_d->getNumRows() << endl;
+        coarsePoints << level_d->level_id << " " << level_d->getNumRows() << std::endl;
 
         for (iVecIter it = originalRows.begin(); it != originalRows.end(); ++it)
         {
-            coarsePoints << *it << endl;
+            coarsePoints << *it << std::endl;
         }
     }
 
@@ -1472,11 +1472,11 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printCoarsePoints()
             break;
         }
 
-        coarsePoints << level_h->level_id << " " << level_h->getNumRows() << endl;
+        coarsePoints << level_h->level_id << " " << level_h->getNumRows() << std::endl;
 
         for (iVecIter it = originalRows.begin(); it != originalRows.end(); ++it)
         {
-            coarsePoints << *it << endl;
+            coarsePoints << *it << std::endl;
         }
     }
 
@@ -1494,7 +1494,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
 
     while (level_d != NULL)
     {
-        connFile << level_d->level_id << " " << level_d->getNumRows() << endl;
+        connFile << level_d->level_id << " " << level_d->getNumRows() << std::endl;
         ATemp_d = level_d->getA();
 
         for (int i = 0; i < ATemp_d.get_num_rows(); i++)
@@ -1518,7 +1518,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
                 }
             }
 
-            connFile << endl;
+            connFile << std::endl;
         }
 
         level_d = level_d->next_d;
@@ -1529,7 +1529,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
 
     while (level_h != NULL)
     {
-        connFile << level_h->level_id << " " << level_h->getNumRows() << endl;
+        connFile << level_h->level_id << " " << level_h->getNumRows() << std::endl;
         ATemp_d = level_h->getA();
 
         for (int i = 0; i < ATemp_h.get_num_rows(); i++)
@@ -1553,7 +1553,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
                 }
             }
 
-            connFile << endl;
+            connFile << std::endl;
         }
 
         level_h = level_h->next_h;

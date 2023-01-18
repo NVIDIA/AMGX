@@ -36,8 +36,6 @@
 
 namespace amgx
 {
-using namespace std;
-
 
 // Methods to check if Ax=b is easily invertible
 template <class T_Config>
@@ -117,14 +115,14 @@ CycleFactory<T_Config>::getFactories( )
 }
 
 template<class T_Config>
-void CycleFactory<T_Config>::registerFactory(string name, CycleFactory<T_Config> *f)
+void CycleFactory<T_Config>::registerFactory(std::string name, CycleFactory<T_Config> *f)
 {
     std::map<std::string, CycleFactory<T_Config>*> &factories = getFactories( );
-    typename map<string, CycleFactory<T_Config> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, CycleFactory<T_Config> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "CycleFactory '" + name + "' has already been registered\n";
+        std::string error = "CycleFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -153,7 +151,7 @@ template<class T_Config>
 void CycleFactory<T_Config>::unregisterFactories( )
 {
     std::map<std::string, CycleFactory<T_Config>*> &factories = getFactories( );
-    typename map<std::string, CycleFactory<T_Config> *>::iterator it = factories.begin( );
+    typename std::map<std::string, CycleFactory<T_Config> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -170,12 +168,12 @@ template<class T_Config>
 Cycle<T_Config> *CycleFactory<T_Config>::allocate(AMG_Class *amg, AMG_Level<T_Config> *level, VVector &b, VVector &c)
 {
     std::map<std::string, CycleFactory<T_Config>*> &factories = getFactories( );
-    std::string cycle_name = amg->m_cfg->AMG_Config::getParameter<string>("cycle", amg->m_cfg_scope);
-    typename map<string, CycleFactory<T_Config> *>::const_iterator it = factories.find(cycle_name);
+    std::string cycle_name = amg->m_cfg->AMG_Config::getParameter<std::string>("cycle", amg->m_cfg_scope);
+    typename std::map<std::string, CycleFactory<T_Config> *>::const_iterator it = factories.find(cycle_name);
 
     if (it == factories.end())
     {
-        string error = "CycleFactory '" + cycle_name + "' has not been registered\n";
+        std::string error = "CycleFactory '" + cycle_name + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

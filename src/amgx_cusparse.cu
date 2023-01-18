@@ -1095,7 +1095,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                     const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
 
         size_t bufferSize = 0;
-        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
+        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_CSR_ALG2, &bufferSize));
 
         void* dBuffer = NULL;
         if(bufferSize > 0)
@@ -1103,7 +1103,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
             amgx::memory::cudaMalloc(&dBuffer, bufferSize);
         }
 
-        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
+        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_CSR_ALG2, dBuffer) );
 
         cusparseCheckError(cusparseDestroySpMat(matA_descr));
         cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
@@ -1788,7 +1788,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
     size_t bufferSize;
     cusparseCheckError(cusparseCsr2cscEx2_bufferSize(
         handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, valType,
-        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG2, &bufferSize));
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, &bufferSize));
 
     void *buffer = nullptr;
     if (bufferSize > 0)
@@ -1798,7 +1798,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
 
     cusparseCheckError(cusparseCsr2cscEx2(
         handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, valType,
-        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG2, buffer));
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, buffer));
 
     if(bufferSize > 0)
     {

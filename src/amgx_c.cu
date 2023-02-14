@@ -236,6 +236,8 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
     int n, nnz, offset, l, k, i;
     int start, end, shift;
     int mpist;
+    int block_dimx, block_dimy;
+
     MPI_Comm mpicm;
     //MPI call parameters
     t_IndPrec *rc_ptr, *di_ptr;
@@ -273,6 +275,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
 
         nv_mtx->getOffsetAndSizeForView(OWNED, &offset, &n);
         nv_mtx->getNnzForView(OWNED, &nnz);
+	block_dimx = nv_mtx->get_block_dimx();
+	block_dimy = nv_mtx->get_block_dimy();
+	gA.set_block_dimx(block_dimx);
+	gA.set_block_dimy(block_dimy);
 
         if (nv_mtx->manager->part_offsets_h.size() == 0)   // create part_offsets_h & part_offsets
         {
@@ -284,10 +290,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         //some allocations/resizing
         Bp.resize(n + 1);
         Bi.resize(nnz);
-        Bv.resize(nnz);
+        Bv.resize(nnz * block_dimx * block_dimy);
         hBp.resize(n + 1);
         hBi.resize(nnz);
-        hBv.resize(nnz);
+        hBv.resize(nnz * block_dimx * block_dimy);
 
         if (rank == root)
         {
@@ -303,6 +309,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         nv_mtx->manager->unpack_partition(thrust::raw_pointer_cast(Bp.data()),
                                           thrust::raw_pointer_cast(Bi.data()),
                                           thrust::raw_pointer_cast(Bv.data()));
+
         cudaCheckError();
         //copy to host (should be able to optimize this out later on)
         hBp = Bp;
@@ -363,7 +370,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
 
             //some allocations/resizing
             hAi.resize(hAp[k]); //now we know global nnz and can allocate storage
-            hAv.resize(hAp[k]); //now we know global nnz and can allocate storage
+            hAv.resize(hAp[k] * block_dimx * block_dimy); //now we know global nnz and can allocate storage
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
@@ -392,13 +399,22 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         }
 
         //values
+	if(rank == root) {
+	    for (i = 0; i < l; i++) {
+		rc[i] *= block_dimx * block_dimy;
+		di[i] *= block_dimx * block_dimy;
+	    }
+	}
+        rc_ptr = thrust::raw_pointer_cast(rc.data());
+        di_ptr = thrust::raw_pointer_cast(di.data());
+
         if      (typeid(t_MatPrec) == typeid(float))
         {
-            mpist = MPI_Gatherv(hlv_ptr, nnz, MPI_FLOAT,  hgv_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
+            mpist = MPI_Gatherv(hlv_ptr, nnz * block_dimx * block_dimy, MPI_FLOAT,  hgv_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
         }
         else if (typeid(t_MatPrec) == typeid(double))
         {
-            mpist = MPI_Gatherv(hlv_ptr, nnz, MPI_DOUBLE, hgv_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
+            mpist = MPI_Gatherv(hlv_ptr, nnz * block_dimx * block_dimy, MPI_DOUBLE, hgv_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
         }
         else
         {
@@ -447,10 +463,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                  thrust::raw_pointer_cast(hBp.data()),
                  thrust::raw_pointer_cast(hBi.data()),
                  thrust::raw_pointer_cast(hBv.data()),
-                 imap.size(), thrust::raw_pointer_cast(imap.data()));
+                 imap.size(), thrust::raw_pointer_cast(imap.data()), block_dimx, block_dimy);
                 cudaCheckError();
                 gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
-                gA.resize(hBp.size() - 1, hBp.size() - 1, hBi.size());
+                gA.resize(hBp.size() - 1, hBp.size() - 1, hBi.size(), block_dimx, block_dimy);
                 thrust::copy(hBp.begin(), hBp.end(), gA.row_offsets.begin());
                 thrust::copy(hBi.begin(), hBi.end(), gA.col_indices.begin());
                 thrust::copy(hBv.begin(), hBv.end(), gA.values.begin());
@@ -460,7 +476,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
             {
                 //copy (host -> host or device depending on matrix type)
                 gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
-                gA.resize(hAp.size() - 1, hAp.size() - 1, hAi.size());
+                gA.resize(hAp.size() - 1, hAp.size() - 1, hAi.size(), block_dimx, block_dimy);
                 thrust::copy(hAp.begin(), hAp.end(), gA.row_offsets.begin());
                 thrust::copy(hAi.begin(), hAi.end(), gA.col_indices.begin());
                 thrust::copy(hAv.begin(), hAv.end(), gA.values.begin());
@@ -472,7 +488,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
     {
         /* ASSUMPTION: when manager has not been allocated you are running on a single rank */
         gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
-        gA.resize(nv_mtx->row_offsets.size() - 1, nv_mtx->row_offsets.size() - 1, nv_mtx->col_indices.size());
+        gA.resize(nv_mtx->row_offsets.size() - 1, nv_mtx->row_offsets.size() - 1, nv_mtx->col_indices.size(), nv_mtx->get_block_dimx(), nv_mtx->get_block_dimy());
         thrust::copy(nv_mtx->row_offsets.begin(), nv_mtx->row_offsets.end(), gA.row_offsets.begin());
         thrust::copy(nv_mtx->col_indices.begin(), nv_mtx->col_indices.end(), gA.col_indices.begin());
         thrust::copy(nv_mtx->values.begin(),     nv_mtx->values.end(),      gA.values.begin());
@@ -488,7 +504,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 {
     typedef typename TConfig::IndPrec t_IndPrec;
     typedef typename TConfig::VecPrec t_VecPrec;
-    int n, nnz, offset, l;
+    int n, nnz, offset, l, block_dim;
     int mpist;
     MPI_Comm mpicm;
     //MPI call parameters
@@ -519,6 +535,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 
         nv_mtx->getOffsetAndSizeForView(OWNED, &offset, &n);
         nv_mtx->getNnzForView(OWNED, &nnz);
+	block_dim = nv_mtx->get_block_dimx(); // assume square blocks
 
         if (nv_mtx->manager->part_offsets_h.size() == 0)   // create part_offsets_h & part_offsets
         {
@@ -527,11 +544,11 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 
         l = nv_mtx->manager->part_offsets_h.size() - 1;    // number of partitions
         //some allocations/resizing
-        hv.resize(nv_vec->size());                         // host copy of nv_vec
+        hv.resize(nv_vec->size() * block_dim);                         // host copy of nv_vec
 
         if (rank == root)
         {
-            hg.resize(nv_mtx->manager->part_offsets_h[l]); // host copy of gvec
+            hg.resize(nv_mtx->manager->part_offsets_h[l] * block_dim); // host copy of gvec
             rc.resize(l);
             di.resize(l);
         }
@@ -554,6 +571,11 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
             cudaCheckError();
             thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();
+
+            for(int i = 0; i<l; ++i) {
+                rc[i] *= block_dim;
+                di[i] *= block_dim;
+            }
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
@@ -566,11 +588,11 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         //gather (on the host)
         if      (typeid(t_VecPrec) == typeid(float))
         {
-            mpist = MPI_Gatherv(hv_ptr, n, MPI_FLOAT,  hg_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
+            mpist = MPI_Gatherv(hv_ptr, n * block_dim, MPI_FLOAT,  hg_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
         }
         else if (typeid(t_VecPrec) == typeid(double))
         {
-            mpist = MPI_Gatherv(hv_ptr, n, MPI_DOUBLE, hg_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
+            mpist = MPI_Gatherv(hv_ptr, n * block_dim, MPI_DOUBLE, hg_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
         }
         else
         {
@@ -587,24 +609,26 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
             if (partition_vector != NULL)
             {
                 //sanity check
-                if (partition_vector_size != hg.size())
+                if (partition_vector_size * block_dim != hg.size())
                 {
                     FatalError("partition_vector_size does not match the global vector size", AMGX_ERR_CORE);
                 }
 
                 //construct a map (based on partition vector)
-                int i, j, nranks;
+                int i, j, k, nranks;
                 MPI_Comm_size(mpicm, &nranks);
                 thrust::host_vector<t_IndPrec> c(nranks, 0);
                 thrust::host_vector<t_IndPrec> map(hg.size());
                 thrust::host_vector<t_IndPrec> imap(hg.size());
 
-                for (i = 0; i < hg.size(); i++)
+                for (i = 0; i < nv_mtx->manager->part_offsets_h[l]; i++)
                 {
                     j = partition_vector[i];
-                    map[i] = nv_mtx->manager->part_offsets_h[j] + c[j];
-                    imap[map[i]] = i;
-                    c[j]++;
+		    for(k = 0 ; k < block_dim; ++k) {
+			map[i * block_dim + k] = nv_mtx->manager->part_offsets_h[j] + c[j];
+			imap[map[i * block_dim + k]] = i * block_dim + k;
+			c[j]++;
+		    }
                 }
 
                 //permute according to map during copy (host -> host or device depending on vector type)

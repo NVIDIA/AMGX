@@ -290,7 +290,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
         cudaCheckError();
         printRowsStart = (srows < 0) ? 0                    : srows;
         printRowsEnd  = (erows < 0) ? this->get_num_rows() : erows;
-        tnnz = this->get_num_nz();
+        tnnz = this->get_num_nz() * this->get_block_size();
 
         //matrix might have separate diagonal (need to accoutn for it in nnz)
         if (this->hasProps(DIAG, this->props))
@@ -299,9 +299,12 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
             tnnz += min(this->get_num_rows(), this->get_num_cols());
         }
 
+        auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
+        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
+
         fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
         fprintf(fid, "%% %s\n", s);
-        fprintf(fid, "%d %d %d\n", this->get_num_rows(), this->get_num_cols(), tnnz);
+        fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
@@ -314,7 +317,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
                             a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                            fprintf(fid, "%d %d ", i + 1, i + 1);
+                            fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
                         }
@@ -328,7 +331,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
                     for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                     {
                         a = this->values[ii * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                        fprintf(fid, "%d %d ", i + 1, j + 1);
+                        fprintf(fid, "%d %d ", trafI(i, ydim), trafJ(j, xdim));
                         types::util<value_type>::fprintf(fid, "%20.16f", a);
                         fprintf(fid, "\n");
                     }
@@ -398,18 +401,21 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
         cudaCheckError();
         printRowsStart = (srows < 0) ? 0                    : srows;
         printRowsEnd  = (erows < 0) ? this->get_num_rows() : erows;
-        tnnz = this->get_num_nz();
+        tnnz = this->get_num_nz() * this->get_block_size();
 
         //matrix might have separate diagonal (need to accoutn for it in nnz)
         if (this->hasProps(DIAG, this->props))
         {
             //matrix might be non-square so take min of # of rows and cols
-            tnnz += min(this->get_num_rows(), this->get_num_cols());
+            tnnz += min(this->get_num_rows(), this->get_num_cols()) * this->get_block_size();
         }
 
         fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
         fprintf(fid, "%% %s\n", s);
-        fprintf(fid, "%d %d %d\n", this->get_num_rows(), this->get_num_cols(), tnnz);
+        fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
+
+        auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
+        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
@@ -422,7 +428,7 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
                             a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                            fprintf(fid, "%d %d ", i + 1, i + 1);
+                            fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
                         }

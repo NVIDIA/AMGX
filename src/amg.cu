@@ -1258,7 +1258,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
     float total_size = 0;
     ss << "AMG Grid:\n";
     ss << "         Number of Levels: " << this->num_levels << std::endl;
-    ss << std::setw(15) << "LVL" << std::setw(13) << "ROWS" << std::setw(18) << "NNZ"
+    ss << std::setw(15) << "LVL" << std::setw(13) << "PARTITIONS" << std::setw(13) << "ROWS" << std::setw(18) << "NNZ"
        << std::setw(10) << "SPRSTY" << std::setw(15) << "Mem (GB)" << std::endl;
     ss << "         --------------------------------------------------------------\n";
 
@@ -1286,6 +1286,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         total_size += size;
         double sparsity = nnz / (double) ( num_rows * num_rows);
         ss  << std::setw(12) << level_d->getLevelIndex( ) << "(D)"
+            << std::setw(13) << num_parts
             << std::setw(13) << num_rows
             << std::setw(18) << nnz
             << std::setw(10) << std::setprecision(3) << sparsity

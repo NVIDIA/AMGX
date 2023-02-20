@@ -58,7 +58,7 @@ template <class T_Config> class DistributedArrangerBase
         typedef typename TConfig::MatPrec  value_type;
         typedef typename TConfig::IndPrec  index_type;
 
-        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig::mode)>::Type vvec_value_type;
+        typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type vvec_value_type;
         typedef typename TConfig::template setVecPrec<AMGX_vecInt>::Type ivec_value_type;
         typedef typename TConfig_h::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_h;
 

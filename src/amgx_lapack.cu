@@ -1138,9 +1138,7 @@ void Lapack< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::org
 }
 
 
-#define AMGX_CASE_LINE(CASE) \
-    template class Lapack<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Lapack<TConfigGeneric_d>;
+template class Lapack<TConfigGeneric_h>;
 
 }

@@ -1180,14 +1180,10 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     A.setView(oldView);
 }
 
+template class Greedy_Recolor_MatrixColoring_Base<TConfigGeneric_d>;
+template class Greedy_Recolor_MatrixColoring_Base<TConfigGeneric_h>;
 
-
-#define AMGX_CASE_LINE(CASE) template class Greedy_Recolor_MatrixColoring_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template class Greedy_Recolor_MatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Greedy_Recolor_MatrixColoring<TConfigGeneric_d>;
+template class Greedy_Recolor_MatrixColoring<TConfigGeneric_h>;
 
 } // end namespace amgx

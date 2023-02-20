@@ -231,10 +231,8 @@ void ConvergenceAnalysis<T_Config>::printConvergenceAnalysis(Matrix &A, VVector 
 /////////////////////////////////////
 //     Explicit instantiations     //
 /////////////////////////////////////
-#define AMGX_CASE_LINE(CASE) template class ConvergenceAnalysis<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
+template class ConvergenceAnalysis<TConfigGeneric_d>;
+template class ConvergenceAnalysis<TConfigGeneric_h>;
 
 }//namespace amgx
 

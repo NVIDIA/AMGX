@@ -835,13 +835,9 @@ Min_Max_2Ring_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
 #endif
 
 
-#define AMGX_CASE_LINE(CASE) template class Min_Max_2Ring_Matrix_Coloring_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Min_Max_2Ring_Matrix_Coloring_Base<TConfigGeneric_d>;
 
-#define AMGX_CASE_LINE(CASE) template class Min_Max_2Ring_Matrix_Coloring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Min_Max_2Ring_Matrix_Coloring<TConfigGeneric_d>;
 
 } // end namespace amgx
 

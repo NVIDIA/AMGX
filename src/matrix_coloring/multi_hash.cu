@@ -432,13 +432,9 @@ void MultiHashMatrixColoring<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_i
     FatalError("Haven't implemented MultiHash matrix coloring for host format", AMGX_ERR_NOT_SUPPORTED_TARGET);
 }
 
-#define AMGX_CASE_LINE(CASE) template class MultiHashMatrixColoringBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MultiHashMatrixColoringBase<TConfigGeneric_d>;
 
-#define AMGX_CASE_LINE(CASE) template class MultiHashMatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MultiHashMatrixColoring<TConfigGeneric_d>;
 
 } // end namespace amgx
 

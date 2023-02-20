@@ -191,9 +191,8 @@ void Lanczos_EigenSolver<TConfig>::solve_finalize()
 }
 
 // Explicit template instantiation.
-#define AMGX_CASE_LINE(CASE) template class Lanczos_EigenSolver<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Lanczos_EigenSolver<TConfigGeneric_d>;
+template class Lanczos_EigenSolver<TConfigGeneric_h>;
 
 };
 

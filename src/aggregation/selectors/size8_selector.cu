@@ -918,14 +918,11 @@ void Size8SelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 // -------------------------
 //  Explict instantiations
 // -------------------------
-#define AMGX_CASE_LINE(CASE) template class Size8SelectorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class Size8Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Size8SelectorBase<TConfigGeneric_d>;
+template class Size8SelectorBase<TConfigGeneric_h>;
+template class Size8Selector<TConfigGeneric_d>;
+template class Size8Selector<TConfigGeneric_h>;
+
 }
 }
 }

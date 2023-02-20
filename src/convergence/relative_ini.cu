@@ -68,10 +68,8 @@ bool RelativeIniConvergence<TConfig>::convergence_update_and_check(const PODVec_
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class RelativeIniConvergence<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class RelativeIniConvergence<TConfigGeneric_d>;
+template class RelativeIniConvergence<TConfigGeneric_h>;
 
 } // end namespace
 

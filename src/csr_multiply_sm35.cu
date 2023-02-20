@@ -2110,10 +2110,8 @@ void CSR_Multiply_Sm35<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class CSR_Multiply_Sm35<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class CSR_Multiply_Sm35<TConfigGeneric_d>;
+template class CSR_Multiply_Sm35<TConfigGeneric_h>;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

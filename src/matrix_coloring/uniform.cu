@@ -136,13 +136,11 @@ void UniformMatrixColoringBase<T_Config>::colorMatrix(Matrix<T_Config> &A)
 }
 
 
-#define AMGX_CASE_LINE(CASE) template class UniformMatrixColoringBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class UniformMatrixColoringBase<TConfigGeneric_d>;
+template class UniformMatrixColoringBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class UniformMatrixColoring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class UniformMatrixColoring<TConfigGeneric_d>;
+template class UniformMatrixColoring<TConfigGeneric_h>;
 
 
 } // end namespace amgx

@@ -837,19 +837,10 @@ void MatrixAnalysis<T_Config>::visualizeAggregates(typename Matrix<TConfig>::IVe
     std::cout << "done closing file" << std::endl;
 }
 
-
-
-
-
-
-
-
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class MatrixAnalysis<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class MatrixAnalysis<TConfigGeneric_d>;
+template class MatrixAnalysis<TConfigGeneric_h>;
 
 }//end namespace amgx

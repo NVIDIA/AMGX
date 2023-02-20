@@ -73,10 +73,8 @@ bool RelativeAbsoluteCombinedConvergence<TConfig>::convergence_update_and_check(
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class RelativeAbsoluteCombinedConvergence<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class RelativeAbsoluteCombinedConvergence<TConfigGeneric_d>;
+template class RelativeAbsoluteCombinedConvergence<TConfigGeneric_h>;
 
 } // end namespace
 

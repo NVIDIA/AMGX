@@ -574,11 +574,11 @@ void Cublas::gerc(int m, int n, const T *alpha,
     cublasCheckError(cublas_gerc(handle, m, n, alpha, x, incx, y, incy, A, lda));
 }
 
-#define AMGX_CASE_LINE(CASE) \
-    template void Cublas::gemm(typename TemplateMode<CASE>::Type::VecPrec, const Vector<TemplateMode<CASE>::Type>&, const Vector<TemplateMode<CASE>::Type>&, typename TemplateMode<CASE>::Type::VecPrec, Vector<TemplateMode<CASE>::Type>&, bool, bool);
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+typedef TemplateConfig<AMGX_device, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfig_d;
+typedef TemplateConfig<AMGX_host, AMGX_VecPrec, AMGX_MatPrec, AMGX_IndPrec> TConfig_h;
+
+template void Cublas::gemm(typename TConfig_d::VecPrec, const Vector<TConfig_d>&, const Vector<TConfig_d>&, typename TConfig_d::VecPrec, Vector<TConfig_d>&, bool, bool);
+template void Cublas::gemm(typename TConfig_h::VecPrec, const Vector<TConfig_h>&, const Vector<TConfig_h>&, typename TConfig_h::VecPrec, Vector<TConfig_h>&, bool, bool);
 
 // real valued instantiaions
 template void Cublas::axpy(int n, float alpha,

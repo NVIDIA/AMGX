@@ -89,9 +89,7 @@ AMGX_ERROR initialize()
     //Call registration of classes and parameters here
     try
     {
-#define AMGX_CASE_LINE(CASE) registerClasses<TemplateMode<CASE>::Type>();
-        AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+        registerClasses<TConfigGeneric>();
         registerParameters();
     }
     catch (amgx_exception e)
@@ -107,9 +105,8 @@ AMGX_ERROR initialize()
 
 void finalize()
 {
-#define AMGX_CASE_LINE(CASE) unregisterClasses<TemplateMode<CASE>::Type>();
-    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+    unregisterClasses<TConfigGeneric>();
+
     AMG_Config::unregisterParameter("eig_solver");
     AMG_Config::unregisterParameter("eig_tolerance");
     AMG_Config::unregisterParameter("eig_shift");

@@ -501,14 +501,10 @@ EigenSolver<TConfig> *EigenSolverFactory<TConfig>::allocate(AMG_Config &cfg,
 }
 
 // Explicit template instantiation.
-#define AMGX_CASE_LINE(CASE) template class EigenSolver<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class EigenSolver<TConfigGeneric_d>;
+template class EigenSolver<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class EigenSolverFactory<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class EigenSolverFactory<TConfigGeneric_d>;
+template class EigenSolverFactory<TConfigGeneric_h>;
 
 };

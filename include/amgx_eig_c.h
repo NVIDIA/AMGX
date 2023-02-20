@@ -38,7 +38,7 @@ extern "C" {
 
 typedef struct AMGX_eigensolver_handle_struct {char AMGX_eigensolver_handle_dummy;} *AMGX_eigensolver_handle;
 
-AMGX_RC AMGX_API AMGX_eigensolver_create(AMGX_eigensolver_handle *ret, AMGX_resources_handle rsc, AMGX_Mode mode, const AMGX_config_handle config_eigensolver);
+AMGX_RC AMGX_API AMGX_eigensolver_create(AMGX_eigensolver_handle *ret, AMGX_resources_handle rsc, const AMGX_config_handle config_eigensolver);
 
 AMGX_RC AMGX_API AMGX_eigensolver_setup(AMGX_eigensolver_handle eigensolver, AMGX_matrix_handle mtx);
 

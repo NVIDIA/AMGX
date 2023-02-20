@@ -220,12 +220,11 @@ void GaussianElimination<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         FatalError("gaussElimination: Blocksize is unsupported", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);
     }
 }
+
 // -------------------------------
 //  Explict instantiations
 // -------------------------------
-#define AMGX_CASE_LINE(CASE) template class GaussianElimination<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class GaussianElimination<TConfigGeneric_d>;
+template class GaussianElimination<TConfigGeneric_h>;
 
 } // namespace amgx

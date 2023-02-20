@@ -538,12 +538,10 @@ void HybridCoarseAGeneratorBase<T_Config>::computeAOperator(const Matrix<T_Confi
 // ---------------------------
 // Explict instantiations
 // ---------------------------
-#define AMGX_CASE_LINE(CASE) template class HybridCoarseAGeneratorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-#define AMGX_CASE_LINE(CASE) template class HybridCoarseAGenerator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class HybridCoarseAGeneratorBase<TConfigGeneric_d>;
+template class HybridCoarseAGeneratorBase<TConfigGeneric_h>;
+template class HybridCoarseAGenerator<TConfigGeneric_d>;
+template class HybridCoarseAGenerator<TConfigGeneric_h>;
 
 }
 }

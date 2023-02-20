@@ -3426,15 +3426,11 @@ void DistributedArranger<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPr
 /****************************************
  * Explict instantiations
  ***************************************/
-#define AMGX_CASE_LINE(CASE) template class DistributedArrangerBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class DistributedArrangerBase<TConfigGeneric_d>;
+template class DistributedArrangerBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class DistributedArranger<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class DistributedArranger<TConfigGeneric_d>;
+template class DistributedArranger<TConfigGeneric_h>;
 
 } // namespace amgx
 

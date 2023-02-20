@@ -80,9 +80,8 @@ void DUMMY_Selector<T_Config>::setAggregates(Matrix<T_Config> &A,
 // ---------------------------
 //  Explict instantiations
 // ---------------------------
-#define AMGX_CASE_LINE(CASE) template class DUMMY_Selector<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class DUMMY_Selector<TConfigGeneric_d>;
+template class DUMMY_Selector<TConfigGeneric_h>;
 
 }
 }

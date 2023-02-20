@@ -1287,13 +1287,11 @@ void EM_InterpolatorBase<T_Config>
     P.set_initialized(1);
 }
 
-#define AMGX_CASE_LINE(CASE) template class EM_InterpolatorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class EM_InterpolatorBase<TConfigGeneric_d>;
+template class EM_InterpolatorBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class EM_Interpolator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class EM_Interpolator<TConfigGeneric_d>;
+template class EM_Interpolator<TConfigGeneric_h>;
 
 } // namespace energymin
 } // namespace amgx

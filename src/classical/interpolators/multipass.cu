@@ -1514,12 +1514,10 @@ void Multipass_InterpolatorBase<T_Config>::generateInterpolationMatrix(Matrix<T_
 #endif
 }
 
-#define AMGX_CASE_LINE(CASE) template class Multipass_InterpolatorBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Multipass_InterpolatorBase<TConfigGeneric_d>;
+template class Multipass_InterpolatorBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Multipass_Interpolator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Multipass_Interpolator<TConfigGeneric_d>;
+template class Multipass_Interpolator<TConfigGeneric_h>;
 
 } // namespace amgx

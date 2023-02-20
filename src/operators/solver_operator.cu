@@ -38,9 +38,7 @@ template <class T_Config> class Operator;
 namespace amgx
 {
 
-#define AMGX_CASE_LINE(CASE) template class SolverOperator<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class SolverOperator<TConfigGeneric_d>;
+template class SolverOperator<TConfigGeneric_h>;
 
 }

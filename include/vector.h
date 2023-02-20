@@ -727,7 +727,7 @@ extern "C" {
 #define DEFINE_VECTOR_TYPES \
 \
 typedef Vector<TConfig> VVector;\
-typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig::mode)>::Type mvec_value_type;\
+typedef typename TConfig::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type mvec_value_type;\
 typedef Vector<mvec_value_type> MVector;\
 typedef typename TConfig::template setVecPrec<AMGX_vecInt>::Type ivec_value_type;\
 typedef Vector<ivec_value_type> IVector;\
@@ -736,14 +736,14 @@ typedef Vector<i64vec_value_type> I64Vector;\
 typedef TemplateConfig<AMGX_host,TConfig::vecPrec,TConfig::matPrec,TConfig::indPrec> TConfig_h;\
 typedef TemplateConfig<AMGX_device,TConfig::vecPrec,TConfig::matPrec,TConfig::indPrec> TConfig_d;\
 typedef Vector<TConfig_d> VVector_d;\
-typedef typename TConfig_d::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig_d::mode)>::Type mvec_value_type_d;\
+typedef typename TConfig_d::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type mvec_value_type_d;\
 typedef Vector<mvec_value_type_d> MVector_d;\
 typedef typename TConfig_d::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_d;\
 typedef Vector<ivec_value_type_d> IVector_d;\
 typedef typename TConfig_d::template setVecPrec<AMGX_vecInt64>::Type i64vec_value_type_d;\
 typedef Vector<i64vec_value_type_d> I64Vector_d;\
 typedef Vector<TConfig_h> VVector_h;\
-typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig_h::mode)>::Type mvec_value_type_h;\
+typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type mvec_value_type_h;\
 typedef Vector<mvec_value_type_h> MVector_h;\
 typedef typename TConfig_h::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_h;\
 typedef Vector<ivec_value_type_h> IVector_h;\

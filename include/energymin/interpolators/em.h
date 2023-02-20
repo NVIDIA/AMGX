@@ -112,7 +112,7 @@ class EM_Interpolator< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
         typedef typename TConfig_h::template setVecPrec<AMGX_vecInt>::Type ivec_value_type_h;
         typedef Vector<ivec_value_type_h> IVector_h;
 
-        typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_GET_MODE_VAL(AMGX_MatPrecision, TConfig_h::mode)>::Type hmvec_value_type;
+        typedef typename TConfig_h::template setVecPrec<(AMGX_VecPrecision)AMGX_MatPrec>::Type hmvec_value_type;
         typedef Vector<hmvec_value_type> VVector_h;
 
 

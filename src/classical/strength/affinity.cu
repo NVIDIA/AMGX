@@ -538,13 +538,11 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
  * Explict instantiations
  ***************************************/
 
-#define AMGX_CASE_LINE(CASE) template class Strength_AffinityBase<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Strength_AffinityBase<TConfigGeneric_d>;
+template class Strength_AffinityBase<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Strength_Affinity<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Strength_Affinity<TConfigGeneric_d>;
+template class Strength_Affinity<TConfigGeneric_h>;
 
 } // namespace amgx
 

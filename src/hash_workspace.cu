@@ -100,15 +100,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define AMGX_CASE_LINE(CASE) template class Hash_Workspace<TemplateMode<CASE>::Type, int>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Hash_Workspace<TConfigGeneric_d, int>;
+template class Hash_Workspace<TConfigGeneric_h, int>;
 
-#define AMGX_CASE_LINE(CASE) template class Hash_Workspace<TemplateMode<CASE>::Type, int64_t>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Hash_Workspace<TConfigGeneric_d, int64_t>;
+template class Hash_Workspace<TConfigGeneric_h, int64_t>;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 

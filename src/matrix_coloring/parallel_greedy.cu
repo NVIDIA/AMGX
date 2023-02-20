@@ -839,14 +839,11 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     A.setView(oldView);
 }
 
+template class Parallel_Greedy_Matrix_Coloring_Base<TConfigGeneric_d>;
+template class Parallel_Greedy_Matrix_Coloring_Base<TConfigGeneric_h>;
 
-#define AMGX_CASE_LINE(CASE) template class Parallel_Greedy_Matrix_Coloring_Base<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
-
-#define AMGX_CASE_LINE(CASE) template class Parallel_Greedy_Matrix_Coloring<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class Parallel_Greedy_Matrix_Coloring<TConfigGeneric_d>;
+template class Parallel_Greedy_Matrix_Coloring<TConfigGeneric_h>;
 
 } // end namespace amgx
 

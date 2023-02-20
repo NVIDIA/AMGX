@@ -237,8 +237,7 @@ void SubspaceIteration_EigenSolver<TConfig>::solve_finalize()
 }
 
 // Explicit template instantiation.
-#define AMGX_CASE_LINE(CASE) template class SubspaceIteration_EigenSolver<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class SubspaceIteration_EigenSolver<TConfigGeneric_d>;
+template class SubspaceIteration_EigenSolver<TConfigGeneric_h>;
 
 };

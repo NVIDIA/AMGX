@@ -1983,13 +1983,19 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
 /****************************************
 * Explict instantiations
 ***************************************/
-#define AMGX_CASE_LINE(CASE) template class ReadMatrixMarket<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+typedef TemplateConfig<AMGX_device, AMGX_vecComplex, AMGX_matComplex, AMGX_IndPrec> TCGeneric_d;
+typedef TemplateConfig<AMGX_host, AMGX_vecComplex, AMGX_matComplex, AMGX_IndPrec> TCGeneric_h;
+typedef TemplateConfig<AMGX_device, AMGX_vecDoubleComplex, AMGX_matDoubleComplex, AMGX_IndPrec> TZGeneric_d;
+typedef TemplateConfig<AMGX_host, AMGX_vecDoubleComplex, AMGX_matDoubleComplex, AMGX_IndPrec> TZGeneric_h;
 
-#define AMGX_CASE_LINE(CASE) template class ReadNVAMGBinary<TemplateMode<CASE>::Type>;
-AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
-AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
-#undef AMGX_CASE_LINE
+template class ReadMatrixMarket<TConfigGeneric_d>;
+template class ReadMatrixMarket<TConfigGeneric_h>;
+template class ReadMatrixMarket<TCGeneric_d>;
+template class ReadMatrixMarket<TCGeneric_h>;
+template class ReadMatrixMarket<TZGeneric_d>;
+template class ReadMatrixMarket<TZGeneric_h>;
+
+template class ReadNVAMGBinary<TConfigGeneric_d>;
+template class ReadNVAMGBinary<TConfigGeneric_h>;
+
 }

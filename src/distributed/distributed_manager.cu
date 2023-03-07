@@ -51,6 +51,7 @@
 
 #include <algorithm>
 #include <iostream> //debug only:
+#include <set>
 
 struct is_my_part : public amgx::thrust::unary_function<int, bool>
 {

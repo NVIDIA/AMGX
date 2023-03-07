@@ -1078,11 +1078,7 @@ template <typename t_colIndex>
 std::map<t_colIndex, int> DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols)
 {
     // sort global column indices
-<<<<<<< HEAD
-    // thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
-=======
     amgx::thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
->>>>>>> upstream/main
     // find unique columns and set local <-> global mappings
     // 1) Removed unneeded vector 2) Create map on host first, upload later (less thrust calls)
     I64Vector_h local_to_global_h;

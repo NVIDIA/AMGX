@@ -31,11 +31,7 @@ project (AMG LANGUAGES C CXX CUDA)
 
 find_package(MPI)
 
-<<<<<<< HEAD
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
-=======
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
->>>>>>> upstream/main
 
 #disable in-place builds
 if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
@@ -130,11 +126,7 @@ set(AMGX_INCLUDE_EXTERNAL True CACHE BOOL "Include external 3rd party libraries"
 if (AMGX_INCLUDE_EXTERNAL)
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -DRAPIDJSON_DEFINED)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -DRAPIDJSON_DEFINED)
-<<<<<<< HEAD
-  include_directories("${CMAKE_SOURCE_DIR}/external/rapidjson/include")
-=======
   include_directories("${CMAKE_CURRENT_SOURCE_DIR}/external/rapidjson/include")
->>>>>>> upstream/main
 endif (AMGX_INCLUDE_EXTERNAL)
 
 set(CMAKE_NO_MPI false CACHE BOOL "Force non-MPI build")
@@ -265,20 +257,14 @@ thrust_create_target(Thrust)
 string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
-<<<<<<< HEAD
-=======
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
->>>>>>> upstream/main
 
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
 
-<<<<<<< HEAD
-=======
 target_link_libraries(amgx_libs Thrust)
 
->>>>>>> upstream/main
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 

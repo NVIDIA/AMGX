@@ -34,6 +34,7 @@
 #include <thrust/sequence.h>
 #include <util.h>
 #include <sm_utils.inl>
+#include <device_properties.h>
 
 #include <amgx_cusparse.h>
 
@@ -41,6 +42,11 @@
 
 #if CUDART_VERSION < 11000
 #define CUSPARSE_SPMM_ALG_DEFAULT CUSPARSE_MM_ALG_DEFAULT
+#endif
+
+#if CUDART_VERSION >= 12000
+#define CUSPARSE_CSRMV_ALG1 CUSPARSE_SPMV_ALG1
+#define CUSPARSE_CSRMV_ALG2 CUSPARSE_SPMV_ALG2
 #endif
 
 namespace amgx
@@ -654,7 +660,8 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
     typedef typename Matrix<TConfig>::index_type index_type;
 
     int offset, nrows, nnz;
-    A.getFixedSizesForView(view, &offset, &nrows, &nnz);
+    A.getOffsetAndSizeForView(view, &offset, &nrows);
+    A.getNnzForView(view, &nnz);
 
     if (nrows <= 0)
     {
@@ -993,6 +1000,51 @@ void Cusparse::bsrmv_internal( const int color,
 }
 
 #ifdef CUSPARSE_GENERIC_INTERFACES
+
+// Simple custom implementation of matrix-vector product that has only 1 kernel.
+template<unsigned UNROLL, class T>
+__global__ void csrmv(
+    int nrows,
+    const T alpha,
+    const T* __restrict__ csrVal,
+    const int* __restrict__ csrRow,
+    const int* __restrict__ csrCol,
+    const T* __restrict__ x,
+    const T beta,
+    T* __restrict__ y)
+{
+    for(int i = threadIdx.x + blockIdx.x*blockDim.x; i < nrows; i += blockDim.x*gridDim.x)
+    {
+        T y_tmp = amgx::types::util<T>::get_zero();
+
+        int row_b = csrRow[i];
+        int row_e = csrRow[i+1];
+
+        // Unrolling is important for performance here.
+        // Possible to squeeze more performance out of the key kernels if we
+        // measure the sparsity and use it to inform unrolling.
+        for (int col = row_b; col < row_e; col += UNROLL)
+        {
+#pragma unroll UNROLL
+            for(int off = 0; off < UNROLL; ++off)
+            {
+                int c = col + off;
+                if(c < row_e) y_tmp = alpha * csrVal[c] * x[csrCol[c]] + y_tmp;
+            }
+        }
+
+        // Don't read y unnecessarily
+        if(amgx::types::util<T>::is_zero(beta))
+        {
+            y[i] = y_tmp;
+        }
+        else
+        {
+            y[i] = beta*y[i] + y_tmp;
+        }
+    }
+}
+
 template<class MatType, class VecType, class IndType>
 inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              int mb, int nb, int nnzb,
@@ -1007,55 +1059,70 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                              cudaDataType vecType,
                              const cudaStream_t& stream)
 {
-    int col_off;
-    cudaMemcpyAsync(&col_off, &rowPtr[0], sizeof(int), cudaMemcpyDefault, stream);
-    cudaStreamSynchronize(stream);
+    constexpr int cta_size = 128;
+    const int sm_count = getSMCount();
 
-    IndType* rows = const_cast<IndType*>(rowPtr);
-    IndType* cols = const_cast<IndType*>(colInd) + col_off;
-    MatType* vals = const_cast<MatType*>(val) + col_off;
-
-    if(col_off > 0)
+    // Assuming that csrmv will be more efficient than cuSPARSE for row counts 
+    // that are lower than the 3 times the total number of threads
+    if(mb < cta_size * sm_count * 3)
     {
-        amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
-
-        constexpr int nthreads = 128;
-        const int nblocks = (mb + 1) / nthreads + 1;
-        offset_by_col_off<<<nblocks, nthreads, 0, stream>>>(mb, rows, rowPtr);
+        // Custom single-kernel SpMV, we could actually determine unroll factor
+        // more accurately here by checking non-zeros per row
+        constexpr int unroll_factor = 16;
+        int nblocks = mb / cta_size + 1;
+        csrmv<unroll_factor><<<nblocks, cta_size>>>(mb, *alpha, val, rowPtr, colInd, x, *beta, y);
     }
-
-    cusparseSpMatDescr_t matA_descr;
-    cusparseDnVecDescr_t vecX_descr;
-    cusparseDnVecDescr_t vecY_descr;
-    cusparseCheckError(cusparseCreateDnVec(&vecX_descr, nb, const_cast<VecType*>(x), vecType));
-    cusparseCheckError(cusparseCreateDnVec(&vecY_descr, mb, const_cast<VecType*>(y), vecType));
-    cusparseCheckError(
-            cusparseCreateCsr(&matA_descr, mb, nb, nnzb, const_cast<IndType*>(rows), const_cast<IndType*>(cols),
-                          const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
-
-    size_t bufferSize = 0;
-    cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
-
-    void* dBuffer = NULL;
-    if(bufferSize > 0)
+    else
     {
-        amgx::memory::cudaMalloc(&dBuffer, bufferSize);
-    }
+        int col_off;
+        cudaMemcpyAsync(&col_off, &rowPtr[0], sizeof(int), cudaMemcpyDefault, stream);
+        cudaStreamSynchronize(stream);
 
-    cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
+        IndType* rows = const_cast<IndType*>(rowPtr);
+        IndType* cols = const_cast<IndType*>(colInd) + col_off;
+        MatType* vals = const_cast<MatType*>(val) + col_off;
 
-    cusparseCheckError(cusparseDestroySpMat(matA_descr));
-    cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
-    cusparseCheckError(cusparseDestroyDnVec(vecY_descr));
+        if(col_off > 0)
+        {
+            amgx::memory::cudaMalloc((void**)&rows, sizeof(IndType)*(mb+1));
 
-    if(bufferSize > 0)
-    {
-        amgx::memory::cudaFreeAsync(dBuffer);
-    }
+            const int nblocks = (mb + 1) / cta_size + 1;
+            offset_by_col_off<<<nblocks, cta_size, 0, stream>>>(mb, rows, rowPtr);
+        }
 
-    if(col_off > 0)
-    {
-        amgx::memory::cudaFreeAsync(rows);
+        cusparseSpMatDescr_t matA_descr;
+        cusparseDnVecDescr_t vecX_descr;
+        cusparseDnVecDescr_t vecY_descr;
+        cusparseCheckError(cusparseCreateDnVec(&vecX_descr, nb, const_cast<VecType*>(x), vecType));
+        cusparseCheckError(cusparseCreateDnVec(&vecY_descr, mb, const_cast<VecType*>(y), vecType));
+        cusparseCheckError(
+                cusparseCreateCsr(&matA_descr, mb, nb, nnzb, const_cast<IndType*>(rows), const_cast<IndType*>(cols),
+                    const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
+
+        size_t bufferSize = 0;
+        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_CSR_ALG2, &bufferSize));
+
+        void* dBuffer = NULL;
+        if(bufferSize > 0)
+        {
+            amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+        }
+
+        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_CSR_ALG2, dBuffer) );
+
+        cusparseCheckError(cusparseDestroySpMat(matA_descr));
+        cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
+        cusparseCheckError(cusparseDestroyDnVec(vecY_descr));
+
+        if(bufferSize > 0)
+        {
+            amgx::memory::cudaFreeAsync(dBuffer);
+        }
+
+        if(col_off > 0)
+        {
+            amgx::memory::cudaFreeAsync(rows);
+        }
     }
 }
 #endif
@@ -1233,10 +1300,10 @@ inline void Xcsrxmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseO
         FatalError("Cannot currently latency hide if matrix is not row major.", AMGX_ERR_NOT_IMPLEMENTED);
     }
 
-    constexpr int nthreads = 128;
+    constexpr int cta_size = 128;
     constexpr int unroll_factor = 16;
-    int nblocks = sizeOfMask / nthreads + 1;
-    csrxmv<unroll_factor><<<nblocks, nthreads>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
+    int nblocks = sizeOfMask / cta_size + 1;
+    csrxmv<unroll_factor><<<nblocks, cta_size>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
 }
 
 // overloaded C++ wrappers for cusparse?bsrxmv
@@ -1726,7 +1793,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
     size_t bufferSize;
     cusparseCheckError(cusparseCsr2cscEx2_bufferSize(
         handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, valType,
-        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG2, &bufferSize));
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, &bufferSize));
 
     void *buffer = nullptr;
     if (bufferSize > 0)
@@ -1736,7 +1803,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
 
     cusparseCheckError(cusparseCsr2cscEx2(
         handle, nRows, nCols, nNz, Avals, Arows, Acols, Bvals, Brows, Bcols, valType,
-        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG2, buffer));
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, buffer));
 
     if(bufferSize > 0)
     {

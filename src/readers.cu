@@ -129,7 +129,7 @@ bool LoadVector(std::ifstream &fin, bool read_all, int rows_total, int block_siz
 }
 
 // Distrubuted version
-void skip_vals(ifstream &fin, int num_values)
+void skip_vals(std::ifstream &fin, int num_values)
 {
     double val;
 
@@ -689,8 +689,8 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
     }
 
     //skip comments and read amgx relevant parameters
-    std::list<string> nvConfig;
-    std::list<string> mmConfig;
+    std::list<std::string> nvConfig;
+    std::list<std::string> mmConfig;
     // Workaround section to convert external diagonal into internal
     // in CLASSICAL
     bool isClassical = false;
@@ -735,14 +735,14 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
             if ((nvFormat.substr(2, nvFormat.size()) == "nvamg") ||
                     (nvFormat.substr(2, nvFormat.size()) == "amgx"))
             {
-                std::copy(istream_iterator<string>(nvString_s), istream_iterator<string>(),
-                          back_inserter<list<string> >(nvConfig));
+                std::copy(std::istream_iterator<std::string>(nvString_s), std::istream_iterator<std::string>(),
+                          std::back_inserter<std::list<std::string> >(nvConfig));
             }
 
             if (nvFormat.substr(2, nvFormat.size()) == "matrixmarket")
             {
-                std::copy(istream_iterator<string>(nvString_s), istream_iterator<string>(),
-                          back_inserter<list<string> >(mmConfig));
+                std::copy(std::istream_iterator<std::string>(nvString_s), std::istream_iterator<std::string>(),
+                          std::back_inserter<std::list<std::string> >(mmConfig));
             }
         }
 
@@ -757,7 +757,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
 
     if (mmConfig.size() > 0)
     {
-        for (list<string>::const_iterator it = mmConfig.begin(); it != mmConfig.end(); ++it)
+        for (std::list<std::string>::const_iterator it = mmConfig.begin(); it != mmConfig.end(); ++it)
         {
             if (*it == "symmetric") {symmetric = true; continue;}
 
@@ -791,11 +791,11 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
     // process amgx config string
     int block_dimx = 1, block_dimy = 1, index_base = 1;
     bool diag_prop = false, rhs = false, soln = false, mtx = false, sorted = false;
-    list<int> block_sizes;
+    std::list<int> block_sizes;
 
     if (nvConfig.size() > 0)
     {
-        for (list<string>::const_iterator it = nvConfig.begin(); it != nvConfig.end(); ++it)
+        for (std::list<std::string>::const_iterator it = nvConfig.begin(); it != nvConfig.end(); ++it)
         {
             if (*it == "diagonal") {diag_prop = true; continue;}
 
@@ -807,7 +807,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
 
             if (*it == "base0") {index_base = 0; continue;}
 
-            if (isdigit((*it)[0])) { int bsize; istringstream(*it) >> bsize; block_sizes.push_back(bsize); continue;};
+            if (isdigit((*it)[0])) { int bsize; std::istringstream(*it) >> bsize; block_sizes.push_back(bsize); continue;};
         }
     }
 
@@ -1838,7 +1838,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     data_pos += num_nz * sizeof(int);
     //temperary array for storing ValueTypeA data
     // double storage for complex
-    vector< UpValueTypeA > temp(n_nonzeros_part * block_dimy * block_dimx);
+    std::vector< UpValueTypeA > temp(n_nonzeros_part * block_dimy * block_dimx);
     n_nonzeros_part = 0;
 
     for (int i = 0; i < partRowVec.size(); i++)

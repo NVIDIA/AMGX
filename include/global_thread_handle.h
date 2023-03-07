@@ -97,12 +97,10 @@ class MemoryPool
         virtual void free(void *ptr, size_t &freed_size);
         // Has a block been allocated?
         bool is_allocated(void *ptr) ;
-
         // The amount of free memory.
         inline size_t get_free_mem() const { return m_free_mem; }
         // The amount of used memory.
         inline size_t get_used_mem() const { return m_size - m_free_mem; }
-
         // Size of the max block.
         inline size_t get_max_block_size() const { return m_max_block_size; }
 
@@ -246,7 +244,6 @@ inline cudaStream_t get_stream()
 }
 
 } // namespace memory
-} // namespace amgx
 
 namespace thrust
 {
@@ -255,3 +252,4 @@ namespace global_thread_handle = amgx::memory; // Expose global_thread_handle in
 
 }
 
+} // namespace amgx

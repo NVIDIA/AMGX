@@ -42,9 +42,9 @@ namespace amgx
 // parameter is used as test name
 DECLARE_UNITTEST_BEGIN(ScalarSmootherPoisson);
 
-void check_scalar_smoothers_poisson(int points, int nx, int ny, int nz, string smoother_string, ValueTypeB final_residual_tolerance, int n_smoothing_steps, bool diag_comparison)
+void check_scalar_smoothers_poisson(int points, int nx, int ny, int nz, std::string smoother_string, ValueTypeB final_residual_tolerance, int n_smoothing_steps, bool diag_comparison)
 {
-    string error_string;
+    std::string error_string;
     typedef TemplateConfig<AMGX_host, TConfig::vecPrec, TConfig::matPrec, TConfig::indPrec> TConfig_h;
     typedef Matrix<TConfig_h> Matrix_h;
     typedef Matrix<TConfig> Matrix_hd;

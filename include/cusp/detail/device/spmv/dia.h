@@ -74,7 +74,7 @@ spmv_dia_kernel(const IndexType num_rows,
     for(IndexType base = 0; base < num_diagonals; base += BLOCK_SIZE)
     {
         // read a chunk of the diagonal offsets into shared memory
-        const IndexType chunk_size = thrust::min(IndexType(BLOCK_SIZE), num_diagonals - base);
+        const IndexType chunk_size = amgx::thrust::min(IndexType(BLOCK_SIZE), num_diagonals - base);
 
         if(threadIdx.x < chunk_size)
             offsets[threadIdx.x] = diagonal_offsets[base + threadIdx.x];
@@ -131,7 +131,7 @@ void __spmv_dia(const Matrix&    A,
     if (num_diagonals == 0)
     {
         // empty matrix
-        thrust::fill(thrust::device_pointer_cast(y), thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
+        amgx::thrust::fill(amgx::thrust::device_pointer_cast(y), amgx::thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
         return;
     }
 
@@ -140,8 +140,8 @@ void __spmv_dia(const Matrix&    A,
   
     spmv_dia_kernel<IndexType, ValueType, BLOCK_SIZE, UseCache> <<<NUM_BLOCKS, BLOCK_SIZE>>>
         (A.num_rows, A.num_cols, num_diagonals, pitch,
-         thrust::raw_pointer_cast(&A.diagonal_offsets[0]),
-         thrust::raw_pointer_cast(&A.values.values[0]),
+         amgx::thrust::raw_pointer_cast(&A.diagonal_offsets[0]),
+         amgx::thrust::raw_pointer_cast(&A.values.values[0]),
          x, y);
 
     if (UseCache)

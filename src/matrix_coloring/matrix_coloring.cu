@@ -43,7 +43,6 @@
 #include <amgx_types/util.h>
 #include <amgx_types/math.h>
 
-using namespace std;
 namespace amgx
 {
 /***************************************
@@ -360,14 +359,14 @@ MatrixColoringFactory<TConfig>::getFactories( )
 }
 
 template<class TConfig>
-void MatrixColoringFactory<TConfig>::registerFactory(string name, MatrixColoringFactory<TConfig> *f)
+void MatrixColoringFactory<TConfig>::registerFactory(std::string name, MatrixColoringFactory<TConfig> *f)
 {
     std::map<std::string, MatrixColoringFactory<TConfig> *> &factories = getFactories( );
-    typename map<string, MatrixColoringFactory<TConfig> *>::iterator it = factories.find(name);
+    typename std::map<std::string, MatrixColoringFactory<TConfig> *>::iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "MatrixColoringFactory '" + name + "' has already been registered\n";
+        std::string error = "MatrixColoringFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -396,7 +395,7 @@ template<class TConfig>
 void MatrixColoringFactory<TConfig>::unregisterFactories( )
 {
     std::map<std::string, MatrixColoringFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, MatrixColoringFactory<TConfig> *>::iterator it = factories.begin( );
+    typename std::map<std::string, MatrixColoringFactory<TConfig> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -413,12 +412,12 @@ template<class TConfig>
 MatrixColoring<TConfig> *MatrixColoringFactory<TConfig>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, MatrixColoringFactory<TConfig> *> &factories = getFactories( );
-    string matrix_coloring_scheme = cfg.getParameter<string>("matrix_coloring_scheme", cfg_scope);
-    typename map<string, MatrixColoringFactory<TConfig> *>::const_iterator it = factories.find(matrix_coloring_scheme);
+    std::string matrix_coloring_scheme = cfg.getParameter<std::string>("matrix_coloring_scheme", cfg_scope);
+    typename std::map<std::string, MatrixColoringFactory<TConfig> *>::const_iterator it = factories.find(matrix_coloring_scheme);
 
     if (it == factories.end())
     {
-        string error = "MatrixColoringFactory '" + matrix_coloring_scheme + "' has not been registered\n";
+        std::string error = "MatrixColoringFactory '" + matrix_coloring_scheme + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

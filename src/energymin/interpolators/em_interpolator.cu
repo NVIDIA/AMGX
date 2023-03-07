@@ -30,7 +30,6 @@
 
 #include <assert.h>
 
-using namespace std;
 namespace amgx
 {
 namespace energymin
@@ -45,14 +44,14 @@ InterpolatorFactory<TConfig>::getFactories( )
 }
 
 template<class TConfig>
-void InterpolatorFactory<TConfig>::registerFactory(string name, InterpolatorFactory<TConfig> *f)
+void InterpolatorFactory<TConfig>::registerFactory(std::string name, InterpolatorFactory<TConfig> *f)
 {
     std::map<std::string, InterpolatorFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, InterpolatorFactory<TConfig> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, InterpolatorFactory<TConfig> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "InterpolatorFactory '" + name + "' has already been registered\n";
+        std::string error = "InterpolatorFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -81,7 +80,7 @@ template<class TConfig>
 void InterpolatorFactory<TConfig>::unregisterFactories( )
 {
     std::map<std::string, InterpolatorFactory<TConfig>*> &factories = getFactories( );
-    typename map<std::string, InterpolatorFactory<TConfig> *>::iterator it = factories.begin( );
+    typename std::map<std::string, InterpolatorFactory<TConfig> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -98,12 +97,12 @@ template<class TConfig>
 Interpolator<TConfig> *InterpolatorFactory<TConfig>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, InterpolatorFactory<TConfig>*> &factories = getFactories( );
-    string interpolator = cfg.getParameter<string>("energymin_interpolator", cfg_scope);
-    typename map<string, InterpolatorFactory<TConfig> *>::const_iterator it = factories.find(interpolator);
+    std::string interpolator = cfg.getParameter<std::string>("energymin_interpolator", cfg_scope);
+    typename std::map<std::string, InterpolatorFactory<TConfig> *>::const_iterator it = factories.find(interpolator);
 
     if (it == factories.end())
     {
-        string error = "InterpolatorFactory '" + interpolator + "' has not been registered\n";
+        std::string error = "InterpolatorFactory '" + interpolator + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

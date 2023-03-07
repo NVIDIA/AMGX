@@ -52,9 +52,7 @@
 #include <algorithm>
 #include <iostream> //debug only:
 
-#include <set>
-
-struct is_my_part : public thrust::unary_function<int, bool>
+struct is_my_part : public amgx::thrust::unary_function<int, bool>
 {
     const int _my_part;
     is_my_part(int my_part) : _my_part(my_part) { }
@@ -66,7 +64,6 @@ struct is_my_part : public thrust::unary_function<int, bool>
     }
 };
 
-using namespace std;
 namespace amgx
 {
 
@@ -915,7 +912,7 @@ void DistributedManagerBase<TConfig>::createAggRenumbering(IVector_hd &renumberi
     // Step 1 - in the main matrix, separate interior and boundary nodes (1/0 in flagArray), renumber interior ones with an exclusive scan
     //
     IVector_hd flagArray(size + 1);
-    thrust::fill(flagArray.begin(), flagArray.begin() + size + 1, 1);
+    amgx::thrust::fill(flagArray.begin(), flagArray.begin() + size + 1, 1);
     cudaCheckError();
 
     //sets 1 for interior nodes, 0 for boundary node
@@ -926,7 +923,7 @@ void DistributedManagerBase<TConfig>::createAggRenumbering(IVector_hd &renumberi
     }
 
     //gets the renumbering of interior nodes
-    thrust::exclusive_scan(flagArray.begin(), flagArray.begin() + size + 1, renumbering.begin());
+    amgx::thrust::exclusive_scan(flagArray.begin(), flagArray.begin() + size + 1, renumbering.begin());
     cudaCheckError();
     //
     // Step 2 - Renumber nodes that are in the boundary, stepping through each B2L map, and renumbering ones that have not been renumbered yet
@@ -951,11 +948,11 @@ void DistributedManagerBase<TConfig>::createAggRenumbering(IVector_hd &renumberi
     for (int i = 0; i < num_neighbors; i++)
     {
         //find nodes that are part of the current boundary and they haven't been renumbered yet
-        thrust::fill(partition_flags.begin(), partition_flags.begin() + max_size, 0);
+        amgx::thrust::fill(partition_flags.begin(), partition_flags.begin() + max_size, 0);
         int size = B2L_maps[i].size();
         get_unassigned(flagArray, B2L_maps[i], partition_flags, size, global_size/*,0*/);
         //calculate the local renumbering (within this boundary region) of these nodes
-        thrust::exclusive_scan(partition_flags.begin(), partition_flags.begin() + max_size, partition_renum.begin());
+        amgx::thrust::exclusive_scan(partition_flags.begin(), partition_flags.begin() + max_size, partition_renum.begin());
         //apply renumbering to the big numbering table
         set_unassigned(partition_flags, partition_renum, B2L_maps[i], renumbering, size, max_element, global_size/*,0*/);
         //update the number of renumbered nodes
@@ -1078,14 +1075,18 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 template <typename t_colIndex>
-map<t_colIndex, int> DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols)
+std::map<t_colIndex, int> DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::loadDistributed_LocalToGlobal(int num_rows, I64Vector_h &off_diag_cols)
 {
     // sort global column indices
+<<<<<<< HEAD
     // thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
+=======
+    amgx::thrust::sort(off_diag_cols.begin(), off_diag_cols.end());
+>>>>>>> upstream/main
     // find unique columns and set local <-> global mappings
     // 1) Removed unneeded vector 2) Create map on host first, upload later (less thrust calls)
     I64Vector_h local_to_global_h;
-    map<t_colIndex, int> global_to_local;        // temporary
+    std::map<t_colIndex, int> global_to_local;        // temporary
 
     if (off_diag_cols.size() > 0)
     {
@@ -1103,7 +1104,7 @@ map<t_colIndex, int> DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t
     }
     // Upload finished map in one piece
     this->local_to_global_map.resize(local_to_global_h.size());
-    thrust::copy(local_to_global_h.begin(), local_to_global_h.end(), this->local_to_global_map.begin());
+    amgx::thrust::copy(local_to_global_h.begin(), local_to_global_h.end(), this->local_to_global_map.begin());
     return global_to_local;
 }
 
@@ -1131,10 +1132,10 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     this->A->resize(num_rows, num_rows + this->local_to_global_map.size(), num_nonzeros, block_dimx, block_dimy, 1);
     cudaCheckError();
     // set local matrix
-    thrust::copy(row_offsets, row_offsets + num_rows + 1, this->A->row_offsets.begin());
+    amgx::thrust::copy(row_offsets, row_offsets + num_rows + 1, this->A->row_offsets.begin());
     this->A->col_indices = local_col_indices;
 
-    thrust::copy(values, values + num_nonzeros * block_dimx * block_dimy, this->A->values.begin());
+    amgx::thrust::copy(values, values + num_nonzeros * block_dimx * block_dimy, this->A->values.begin());
     cudaCheckError();
 
     // setup diagonal
@@ -1202,7 +1203,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         partition_offsets[pvi + 1]++;
     }
 
-    thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
+    amgx::thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
 
     loadDistributed_SetOffsets(num_ranks, num_rows_global, partition_offsets);
 
@@ -1281,7 +1282,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         }
     }
 
-    thrust::exclusive_scan(my_indices.begin(), my_indices.end(), my_indices.begin());
+    amgx::thrust::exclusive_scan(my_indices.begin(), my_indices.end(), my_indices.begin());
     // remap colums to local
     IVector_h local_col_indices(num_nonzeros);
 
@@ -1379,7 +1380,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             my_indices[col_index] = 1;
         }
     }
-    thrust::exclusive_scan(my_indices.begin(), my_indices.end(), my_indices.begin());
+    amgx::thrust::exclusive_scan(my_indices.begin(), my_indices.end(), my_indices.begin());
 
     // remap colums to local
     IVector_h local_col_indices(num_nonzeros);
@@ -1505,7 +1506,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     int size_one_ring;
     this->A->getOffsetAndSizeForView(FULL, &offset, &size_one_ring);
     I64Vector_d global_col_indices(size_one_ring);
-    thrust::sequence(global_col_indices.begin(), global_col_indices.begin() + num_owned_rows, this->base_index() );
+    amgx::thrust::sequence(global_col_indices.begin(), global_col_indices.begin() + num_owned_rows, this->base_index() );
     cudaCheckError();
     global_col_indices.dirtybit = 1;
     this->exchange_halo(global_col_indices, global_col_indices.tag);
@@ -1541,8 +1542,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     // Renumber the B2L_maps of P
     for (int i = 0; i < P.manager->neighbors.size(); i++)
     {
-        thrust::copy(thrust::make_permutation_iterator(this->renumbering.begin(), P.manager->B2L_maps[i].begin()),
-                     thrust::make_permutation_iterator(this->renumbering.begin(), P.manager->B2L_maps[i].end()),
+        amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->renumbering.begin(), P.manager->B2L_maps[i].begin()),
+                     amgx::thrust::make_permutation_iterator(this->renumbering.begin(), P.manager->B2L_maps[i].end()),
                      P.manager->B2L_maps[i].begin());
     }
 
@@ -1564,7 +1565,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     thrust_wrapper::exclusive_scan(new_row_offsets.begin(), new_row_offsets.begin() + num_owned_coarse_pts + 1, new_row_offsets.begin());
     cudaCheckError();
     // Copy the row_offsets for halo rows
-    thrust::copy(R.row_offsets.begin() + num_owned_coarse_pts, R.row_offsets.end(), new_row_offsets.begin() + num_owned_coarse_pts);
+    amgx::thrust::copy(R.row_offsets.begin() + num_owned_coarse_pts, R.row_offsets.end(), new_row_offsets.begin() + num_owned_coarse_pts);
     cudaCheckError();
     // Reorder the rows of R (no need to reorder the column indices)
     int new_nnz = new_row_offsets[new_row_offsets.size() - 1];
@@ -1589,7 +1590,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         int size_one_ring = P.manager->halo_offsets[P.manager->neighbors.size()];
         I64Vector_d global_col_indices(size_one_ring);
-        thrust::sequence(global_col_indices.begin(), global_col_indices.begin() + num_owned_coarse_pts, this->base_index());
+        amgx::thrust::sequence(global_col_indices.begin(), global_col_indices.begin() + num_owned_coarse_pts, this->base_index());
         cudaCheckError();
         global_col_indices.dirtybit = 1;
         P.manager->exchange_halo(global_col_indices, global_col_indices.tag);
@@ -2457,10 +2458,10 @@ void DistributedManagerBase<TConfig>::malloc_export_maps(VecInt_t ***b2l_maps_e,
         if (L2H_maps[i].size() != 0)
         {
             (*l2h_maps_e)[i] =  (VecInt_t *) malloc(sizeof(VecInt_t) * ( (*l2h_maps_sizes_e)[i]) );
-            thrust::copy(L2H_maps[i].begin(), L2H_maps[i].end(), (*l2h_maps_e)[i]);
+            amgx::thrust::copy(L2H_maps[i].begin(), L2H_maps[i].end(), (*l2h_maps_e)[i]);
         }
 
-        thrust::copy(B2L_maps[i].begin(), B2L_maps[i].end(), (*b2l_maps_e)[i]);
+        amgx::thrust::copy(B2L_maps[i].begin(), B2L_maps[i].end(), (*b2l_maps_e)[i]);
     }
 
     cudaCheckError();
@@ -2488,7 +2489,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (this->L2H_maps.size())
     {
-        size = thrust_wrapper::reduce(this->A->col_indices.begin(), this->A->col_indices.end(), int(0), thrust::maximum<int>()) + 1; //Sufficient to do reduction on lth maps
+        size = thrust_wrapper::reduce(this->A->col_indices.begin(), this->A->col_indices.end(), int(0), amgx::thrust::maximum<int>()) + 1; //Sufficient to do reduction on lth maps
         cudaCheckError();
     }
     else
@@ -2504,7 +2505,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     // Step 1 - in the main matrix, separate interior and boundary nodes (1/0 in flagArray), renumber interior ones with an exclusive scan
     //
     IVector flagArray(size + 1);
-    thrust::fill(flagArray.begin(), flagArray.begin() + size + 1, 1);
+    amgx::thrust::fill(flagArray.begin(), flagArray.begin() + size + 1, 1);
     cudaCheckError();
 
     //sets 1 for interior nodes, 0 for boundary node
@@ -2572,7 +2573,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     for (int i = 0; i < num_neighbors; i++)
     {
         //find nodes that are part of the current boundary and they haven't been renumbered yet
-        thrust::fill(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, 0);
+        amgx::thrust::fill(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, 0);
         int size = this->B2L_rings[i][1];
         int num_blocks = min(4096, (size + 191) / 192);
 
@@ -2621,7 +2622,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         for (int i = 0; i < num_neighbors; i++)
         {
             //find nodes that are part of the current boundary and they haven't been renumbered yet
-            thrust::fill(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, 0);
+            amgx::thrust::fill(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, 0);
             int size = this->L2H_maps[i].size();
             int num_blocks = min(4096, (size + 191) / 192);
 
@@ -2740,8 +2741,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         cudaCheckError();
     }
 
-    thrust::copy(thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.begin()),
-                 thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.end()),
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.begin()),
+                 amgx::thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.end()),
                  this->A->col_indices.begin());
     cudaCheckError();
     //row_offsets array created by exclusive scan of row sizes
@@ -2768,15 +2769,15 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     IVector identity_csr_rows(nh + 1);
     IVector identity_csr_cols(nh);
     VVector identity_csr_vals(nh, types::util<ValueTypeA>::get_one()); //needs to be changed to MVector, but this definition is messed up in the header file (should fix later)
-    thrust::sequence(identity_csr_rows.begin(), identity_csr_rows.end());
-    thrust::sequence(identity_csr_cols.begin(), identity_csr_cols.end());
+    amgx::thrust::sequence(identity_csr_rows.begin(), identity_csr_rows.end());
+    amgx::thrust::sequence(identity_csr_cols.begin(), identity_csr_cols.end());
     /*for example, 2x2 identity_csr matrix is created:
       identity_csr_rows = {   0,   1,   2  }
       identity_csr_cols = {   0,   1 }
       identity_csr_vals = { 1.0, 1.0 } */
     //shift identity tmatrix by size = this->A->get_num_rows();
-    thrust::transform(identity_csr_rows.begin(), identity_csr_rows.end(), thrust::constant_iterator<INDEX_TYPE>(nnz), identity_csr_rows.begin(), thrust::plus<INDEX_TYPE>());
-    thrust::transform(identity_csr_cols.begin(), identity_csr_cols.end(), thrust::constant_iterator<INDEX_TYPE>(size), identity_csr_cols.begin(), thrust::plus<INDEX_TYPE>());
+    amgx::thrust::transform(identity_csr_rows.begin(), identity_csr_rows.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(nnz), identity_csr_rows.begin(), amgx::thrust::plus<INDEX_TYPE>());
+    amgx::thrust::transform(identity_csr_cols.begin(), identity_csr_cols.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(size), identity_csr_cols.begin(), amgx::thrust::plus<INDEX_TYPE>());
     /*for example, 2x2 identity_csr matrix is created:
       identity_csr_rows = {   0,   1,   2  }
       identity_csr_cols = {size, size+1 }
@@ -2801,10 +2802,10 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     new_col_indices.resize(nnz + nh);
     new_values.resize(nnz + nh + 1); //extra 1 element stores zero at the end (to follow the original design)
     //new_values[nnz]=-1;        //marker to track the last element
-    thrust::copy(identity_csr_rows.begin(), identity_csr_rows.end(), new_row_offsets.begin() + size );
-    thrust::copy(identity_csr_cols.begin(), identity_csr_cols.end(), new_col_indices.begin() + nnz);
-    thrust::copy(new_values.begin() + nnz,    new_values.begin() + nnz + 1, new_values.begin() + nnz + nh);
-    thrust::copy(identity_csr_vals.begin(), identity_csr_vals.end(),  new_values.begin() + nnz);
+    amgx::thrust::copy(identity_csr_rows.begin(), identity_csr_rows.end(), new_row_offsets.begin() + size );
+    amgx::thrust::copy(identity_csr_cols.begin(), identity_csr_cols.end(), new_col_indices.begin() + nnz);
+    amgx::thrust::copy(new_values.begin() + nnz,    new_values.begin() + nnz + 1, new_values.begin() + nnz + nh);
+    amgx::thrust::copy(identity_csr_vals.begin(), identity_csr_vals.end(),  new_values.begin() + nnz);
     /* WARNING: see above. */
     this->A->set_num_cols(total_rows);
     this->A->set_num_rows(total_rows);
@@ -2814,7 +2815,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     new_row_offsets.swap(this->old_row_offsets);
     this->A->values.swap(new_values);
     this->A->m_seq_offsets.resize(total_rows + 1);
-    thrust::sequence(this->A->m_seq_offsets.begin(), this->A->m_seq_offsets.end());
+    amgx::thrust::sequence(this->A->m_seq_offsets.begin(), this->A->m_seq_offsets.end());
     cudaCheckError();
     //TODO: only do this if AMG_Config matrix_halo_exchange!=2
     this->A->delProps(COO);
@@ -2909,7 +2910,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         }
     }
 
-    thrust::exclusive_scan(this->halo_offsets.begin(), this->halo_offsets.end(), this->halo_offsets.begin(), size);
+    amgx::thrust::exclusive_scan(this->halo_offsets.begin(), this->halo_offsets.end(), this->halo_offsets.begin(), size);
     cudaCheckError();
     this->set_num_halo_rows(this->halo_offsets[this->halo_offsets.size() - 1] - size);
     int total_rows = size + this->num_halo_rows();
@@ -2932,7 +2933,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 // Step 5 - create big mapping table of all halo indices we received (this may use a little too much memory)
 //
     //count number of fine rows of neighbors
-    thrust::host_vector<INDEX_TYPE> neighbor_rows(num_neighbors + 1);
+    amgx::thrust::host_vector<INDEX_TYPE> neighbor_rows(num_neighbors + 1);
     int max_num_rows = 0;
 
     for (int i = 0; i < num_neighbors; i++)
@@ -2941,7 +2942,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         max_num_rows = max_num_rows > halo_rows[i].get_num_rows() ? max_num_rows : halo_rows[i].get_num_rows();
     }
 
-    thrust::exclusive_scan(neighbor_rows.begin(), neighbor_rows.end(), neighbor_rows.begin());
+    amgx::thrust::exclusive_scan(neighbor_rows.begin(), neighbor_rows.end(), neighbor_rows.begin());
     cudaCheckError();
     int total_rows_of_neighbors = neighbor_rows[num_neighbors];
     /*
@@ -2950,7 +2951,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
      total_rows_of_neighbors = 14
      */
     IVector halo_mapping(total_rows_of_neighbors);
-    thrust::fill(halo_mapping.begin(), halo_mapping.end(), -1);
+    amgx::thrust::fill(halo_mapping.begin(), halo_mapping.end(), -1);
     cudaCheckError();
 
     //ring by ring, neighbor by neighbor assign sequentially increasing numbers for halo nodes
@@ -3022,7 +3023,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     calc_rowlen_reorder <<< num_blocks, 512>>>(this->A->row_offsets.raw(), new_row_offsets.raw(), this->renumbering.raw(), size, insert);
     cudaCheckError();
     IVector neighbor_rows_d(num_neighbors + 1);
-    thrust::copy(neighbor_rows.begin(), neighbor_rows.end(), neighbor_rows_d.begin());
+    amgx::thrust::copy(neighbor_rows.begin(), neighbor_rows.end(), neighbor_rows_d.begin());
     cudaCheckError();
     /*
      EXAMPLE
@@ -3037,8 +3038,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                                          halo_mapping.raw(),
                                          neighbor_rows_d.raw(),
                                          this->base_index(), num_neighbors, size);*/
-    thrust::copy(thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.begin()),
-                 thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.end()),
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.begin()),
+                 amgx::thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.end()),
                  this->A->col_indices.begin());
     cudaCheckError();
     /*
@@ -3075,7 +3076,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         //number of nonzeros per row copied into big row sizes array
         for (int ring = 0; ring < rings; ring++)
         {
-            thrust::copy(temp_row_len.begin() + halo_btl[i].B2L_rings[0][ring], temp_row_len.begin() + halo_btl[i].B2L_rings[0][ring + 1], new_row_offsets.begin() + this->halo_offsets[ring * num_neighbors + i]);
+            amgx::thrust::copy(temp_row_len.begin() + halo_btl[i].B2L_rings[0][ring], temp_row_len.begin() + halo_btl[i].B2L_rings[0][ring + 1], new_row_offsets.begin() + this->halo_offsets[ring * num_neighbors + i]);
         }
 
         cudaCheckError();
@@ -3155,7 +3156,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
             if (diag)
             {
-                thrust::copy(halo_rows[i].values.begin() + (halo_rows[i].row_offsets[halo_rows[i].get_num_rows()] + halo_btl[i].B2L_rings[0][ring])*this->A->get_block_size(),
+                amgx::thrust::copy(halo_rows[i].values.begin() + (halo_rows[i].row_offsets[halo_rows[i].get_num_rows()] + halo_btl[i].B2L_rings[0][ring])*this->A->get_block_size(),
                              halo_rows[i].values.begin() + (halo_rows[i].row_offsets[halo_rows[i].get_num_rows()] + halo_btl[i].B2L_rings[0][ring + 1])*this->A->get_block_size(),
                              new_values.begin() + (new_row_offsets[total_rows] + cumulative_num_rows)*this->A->get_block_size());
                 cumulative_num_rows += num_rows;
@@ -3190,13 +3191,13 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     new_row_offsets.swap(this->old_row_offsets);
     this->A->values.swap(new_values);
     this->A->m_seq_offsets.resize(total_rows + 1);
-    thrust::sequence(this->A->m_seq_offsets.begin(), this->A->m_seq_offsets.end());
+    amgx::thrust::sequence(this->A->m_seq_offsets.begin(), this->A->m_seq_offsets.end());
 
     if (insert)
     {
         this->A->delProps(DIAG);
         this->A->diag.resize(total_rows);
-        thrust::copy(this->A->row_offsets.begin(), this->A->row_offsets.end() - 1, this->A->diag.begin());
+        amgx::thrust::copy(this->A->row_offsets.begin(), this->A->row_offsets.end() - 1, this->A->diag.begin());
     }
 
     cudaCheckError();
@@ -3242,18 +3243,18 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     index_type tag = 1 * 133 + 3 * 7 + 0; //some random number for the tag
     index_type l = p.size();
     q.resize(l);
-    thrust::copy     (p.begin(), p.end(),     q.begin());
-    thrust::transform(q.begin(), q.end(),     q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
+    amgx::thrust::copy     (p.begin(), p.end(),     q.begin());
+    amgx::thrust::transform(q.begin(), q.end(),     q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
     this->exchange_halo(q, tag);
-    thrust::sequence (q.begin(), q.begin() + n);
-    thrust::transform(q.begin(), q.begin() + n, q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
+    amgx::thrust::sequence (q.begin(), q.begin() + n);
+    amgx::thrust::transform(q.begin(), q.begin() + n, q.begin(), add_constant_op<index_type>(this->part_offsets[this->global_id()]));
     cudaCheckError();
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::unpack_partition(index_type *Bp, index_type *Bc, mat_value_type *Bv)
 {
-    index_type l, n, nnz, offset;
+    index_type l, n, nnz, offset, block_dimx, block_dimy;
     index_type     *ir;
     index_type     *Ap;
     index_type     *Ac;
@@ -3262,6 +3263,10 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //some initializations
     this->A->getOffsetAndSizeForView(OWNED, &offset, &n);
     this->A->getNnzForView(OWNED, &nnz);
+
+    block_dimx = this->A->get_block_dimx();
+    block_dimy = this->A->get_block_dimy();
+
     l  = this->inverse_renumbering.size();
     ir = this->inverse_renumbering.raw();
     Ap = this->A->row_offsets.raw();
@@ -3270,7 +3275,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //(i) reorder the matrix back (into mixed interior-boundary nodes)
     //applies to rows and columns (out-of-place)
     reorder_partition<index_type, mat_value_type, true, true>
-    (n, nnz, Ap, Ac, Av, Bp, Bc, Bv, l, ir);
+	(n, nnz, Ap, Ac, Av, Bp, Bc, Bv, l, ir, block_dimx, block_dimy);
     cudaCheckError();
     //obtain reordering q that combines the shift of the diagonal block with the off-diagonal block indices conversion from local to global
     this->obtain_shift_l2g_reordering(n, this->local_to_global_map, this->inverse_renumbering, q);
@@ -3278,7 +3283,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //(ii) reorder the matrix back (shift the diagonal block and convert off-diagonal block column indices from local to global)
     //applies columns only (in-place)
     reorder_partition<index_type, mat_value_type, false, true>
-    (n, nnz, Bp, Bc, Bv, Bp, Bc, Bv, q.size(), q.raw());
+    (n, nnz, Bp, Bc, Bv, Bp, Bc, Bv, q.size(), q.raw(), block_dimx, block_dimy);
     cudaCheckError();
 }
 
@@ -3302,11 +3307,11 @@ void DistributedManagerBase<TConfig>::createConsolidatedNeighToPartMap(IVector_h
     // output: cons_neigh_to_part
     //         num_cons_neighbors
     cons_neigh_to_part = neigh_to_part;
-    thrust::sort(cons_neigh_to_part.begin(), cons_neigh_to_part.end());
+    amgx::thrust::sort(cons_neigh_to_part.begin(), cons_neigh_to_part.end());
     cudaCheckError();
-    cons_neigh_to_part.erase(thrust::unique(cons_neigh_to_part.begin(), cons_neigh_to_part.end()), cons_neigh_to_part.end());
+    cons_neigh_to_part.erase(amgx::thrust::unique(cons_neigh_to_part.begin(), cons_neigh_to_part.end()), cons_neigh_to_part.end());
     // Remove if fine_neigh maps to same coarse partition
-    cons_neigh_to_part.erase(thrust::remove_if(cons_neigh_to_part.begin(), cons_neigh_to_part.end(), is_my_part(my_destination_part)), cons_neigh_to_part.end());
+    cons_neigh_to_part.erase(amgx::thrust::remove_if(cons_neigh_to_part.begin(), cons_neigh_to_part.end(), is_my_part(my_destination_part)), cons_neigh_to_part.end());
     num_cons_neighbors = cons_neigh_to_part.size();
     cudaCheckError();
 }
@@ -3316,7 +3321,7 @@ template <class TConfig>
 void DistributedManagerBase<TConfig>::createNeighToConsNeigh(IVector_h &neigh_to_cons_neigh, IVector_h &cons_neigh_to_part, IVector_h &neigh_to_part, int my_destination_part, int &num_neighbors)
 {
     neigh_to_cons_neigh.resize(num_neighbors);
-    thrust::lower_bound(cons_neigh_to_part.begin(), cons_neigh_to_part.end(), neigh_to_part.begin(), neigh_to_part.end(), neigh_to_cons_neigh.begin());
+    amgx::thrust::lower_bound(cons_neigh_to_part.begin(), cons_neigh_to_part.end(), neigh_to_part.begin(), neigh_to_part.end(), neigh_to_cons_neigh.begin());
     cudaCheckError();
 
     // Flagging fine neighbors that go to same partition (haven't been found in previous step)
@@ -3364,7 +3369,7 @@ void DistributedManagerBase<TConfig>::consB2Lmaps(std::vector<IVector_hd> &dest_
         if (k != -1)
         {
             int offset = dest_coarse_B2L_maps_scratch_sizes[k];
-            thrust::copy(coarse_B2L_maps[i].begin(), coarse_B2L_maps[i].end(), dest_coarse_B2L_maps[k].begin() + offset);
+            amgx::thrust::copy(coarse_B2L_maps[i].begin(), coarse_B2L_maps[i].end(), dest_coarse_B2L_maps[k].begin() + offset);
             dest_coarse_B2L_maps_scratch_sizes[k] += coarse_B2L_maps[i].size();
         }
     }
@@ -3383,8 +3388,8 @@ void DistributedManagerBase<TConfig>::consB2Lmaps(std::vector<IVector_hd> &dest_
     for (int i = 0; i < num_coarse_neighbors; i++)
     {
         int size = dest_coarse_B2L_maps[i].size();
-        thrust::sort(dest_coarse_B2L_maps[i].begin(), dest_coarse_B2L_maps[i].begin() + size);
-        index_type num_unique = thrust::unique(dest_coarse_B2L_maps[i].begin(), dest_coarse_B2L_maps[i].begin() + size) - dest_coarse_B2L_maps[i].begin();
+        amgx::thrust::sort(dest_coarse_B2L_maps[i].begin(), dest_coarse_B2L_maps[i].begin() + size);
+        index_type num_unique = amgx::thrust::unique(dest_coarse_B2L_maps[i].begin(), dest_coarse_B2L_maps[i].begin() + size) - dest_coarse_B2L_maps[i].begin();
         dest_coarse_B2L_maps[i].erase(dest_coarse_B2L_maps[i].begin() + num_unique, dest_coarse_B2L_maps[i].end());
     }
 
@@ -3547,15 +3552,15 @@ void DistributedManagerBase<TConfig>::consB2LmapsOnRoot(int &num_consolidated_ne
                 num_coarse_neigh_bdys_from_part[i] = num_bdy_per_coarse_neigh;
             }
 
-            thrust::copy(coarse_ids_from_part[i].begin(), coarse_ids_from_part[i].end(), consolidated_coarse_ids.begin() + count);
+            amgx::thrust::copy(coarse_ids_from_part[i].begin(), coarse_ids_from_part[i].end(), consolidated_coarse_ids.begin() + count);
             count += num_coarse_ids_from_part[i];
         }
 
         cudaCheckError();
         //eliminate duplicates
-        thrust::sort(consolidated_coarse_ids.begin(), consolidated_coarse_ids.end());
+        amgx::thrust::sort(consolidated_coarse_ids.begin(), consolidated_coarse_ids.end());
         cudaCheckError();
-        consolidated_coarse_ids.erase(thrust::unique(consolidated_coarse_ids.begin(), consolidated_coarse_ids.end()), consolidated_coarse_ids.end());
+        consolidated_coarse_ids.erase(amgx::thrust::unique(consolidated_coarse_ids.begin(), consolidated_coarse_ids.end()), consolidated_coarse_ids.end());
         cudaCheckError();
         num_consolidated_neighbors = consolidated_coarse_ids.size();
         IVector_h_vector coarse_ids_from_part_to_consolidated_neighbor(num_fine_parts_to_consolidate);;
@@ -3563,7 +3568,7 @@ void DistributedManagerBase<TConfig>::consB2LmapsOnRoot(int &num_consolidated_ne
         for (int i = 0; i < num_fine_parts_to_consolidate; i++)
         {
             coarse_ids_from_part_to_consolidated_neighbor[i].resize(num_coarse_ids_from_part[i]);
-            thrust::lower_bound(consolidated_coarse_ids.begin(), consolidated_coarse_ids.end(), coarse_ids_from_part[i].begin(), coarse_ids_from_part[i].end(), coarse_ids_from_part_to_consolidated_neighbor[i].begin());
+            amgx::thrust::lower_bound(consolidated_coarse_ids.begin(), consolidated_coarse_ids.end(), coarse_ids_from_part[i].begin(), coarse_ids_from_part[i].end(), coarse_ids_from_part_to_consolidated_neighbor[i].begin());
         }
 
         cudaCheckError();
@@ -3613,7 +3618,7 @@ void DistributedManagerBase<TConfig>::consB2LmapsOnRoot(int &num_consolidated_ne
                 }
                 else
                 {
-                    thrust::copy(dest_coarse_B2L_maps[j].begin(), dest_coarse_B2L_maps[j].end(), consolidated_B2L_maps[my_coarse_neigh].begin() + offset);
+                    amgx::thrust::copy(dest_coarse_B2L_maps[j].begin(), dest_coarse_B2L_maps[j].end(), consolidated_B2L_maps[my_coarse_neigh].begin() + offset);
                 }
             }
         }
@@ -3812,7 +3817,7 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
                 else
                 {
                     //HERE
-                    thrust::copy(aggregates.begin() + manager_halo_offsets[fine_nonmerge_neighbor_to_fine_neighbor[j]],
+                    amgx::thrust::copy(aggregates.begin() + manager_halo_offsets[fine_nonmerge_neighbor_to_fine_neighbor[j]],
                                  aggregates.begin() + manager_halo_offsets[fine_nonmerge_neighbor_to_fine_neighbor[j]] + halo_sizes[j],
                                  fine_halo_aggregates_to_root_array[i][j].begin()); //TODO: not do this copying around on the root
                 }
@@ -3820,8 +3825,8 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
 #define MIN(a,b) a<b?a:b;
 #define MAX(a,b) a>b?a:b;
                 //Find minimum and maximum halo indices as not to allocate too much scratch space later
-                int min_index = thrust::reduce(fine_halo_aggregates_to_root_array[i][j].begin(), fine_halo_aggregates_to_root_array[i][j].end(), int(0x7FFFFFFF), thrust::minimum<int>());
-                int max_index = thrust::reduce(fine_halo_aggregates_to_root_array[i][j].begin(), fine_halo_aggregates_to_root_array[i][j].end(), int(0), thrust::maximum<int>());
+                int min_index = amgx::thrust::reduce(fine_halo_aggregates_to_root_array[i][j].begin(), fine_halo_aggregates_to_root_array[i][j].end(), int(0x7FFFFFFF), amgx::thrust::minimum<int>());
+                int max_index = amgx::thrust::reduce(fine_halo_aggregates_to_root_array[i][j].begin(), fine_halo_aggregates_to_root_array[i][j].end(), int(0), amgx::thrust::maximum<int>());
                 min_index_coarse_halo[fine_part_to_consolidated_neighbor[fine_nonmerge_neigh_to_cons_fine_part_array[i][j]]] = MIN((int)min_index_coarse_halo[fine_part_to_consolidated_neighbor[fine_nonmerge_neigh_to_cons_fine_part_array[i][j]]], min_index);
                 max_index_coarse_halo[fine_part_to_consolidated_neighbor[fine_nonmerge_neigh_to_cons_fine_part_array[i][j]]] = MAX((int)max_index_coarse_halo[fine_part_to_consolidated_neighbor[fine_nonmerge_neigh_to_cons_fine_part_array[i][j]]], max_index);
             }
@@ -3840,8 +3845,8 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
          */
         halo_offsets[0] = total_rows_in_merged;
         //Now we have all the halo nodes, let's renumber them.
-        int min_index = thrust::reduce(min_index_coarse_halo.begin(), min_index_coarse_halo.end(), int(0x7FFFFFFF), thrust::minimum<int>());
-        int max_index = thrust::reduce(max_index_coarse_halo.begin(), max_index_coarse_halo.end(), int(0), thrust::maximum<int>());
+        int min_index = amgx::thrust::reduce(min_index_coarse_halo.begin(), min_index_coarse_halo.end(), int(0x7FFFFFFF), amgx::thrust::minimum<int>());
+        int max_index = amgx::thrust::reduce(max_index_coarse_halo.begin(), max_index_coarse_halo.end(), int(0), amgx::thrust::maximum<int>());
         cudaCheckError();
         //
         // Step 9.4 compute halo indices on root nodes
@@ -3861,7 +3866,7 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
 
         for (int i = 0; i < num_consolidated_neighbors; i++)
         {
-            thrust::fill(scratch.begin(), scratch.end(), 0);
+            amgx::thrust::fill(scratch.begin(), scratch.end(), 0);
             int dest_part = consolidated_coarse_neigh_to_fine_part[i];
 
             //Flag halo indices that occur for a specific coarse neighbor
@@ -3877,7 +3882,7 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
                 }
             }
 
-            thrust::exclusive_scan(scratch.begin(), scratch.end(), scratch.begin(), halo_offsets[i]); //renumber them with the proper offset into our halo
+            amgx::thrust::exclusive_scan(scratch.begin(), scratch.end(), scratch.begin(), halo_offsets[i]); //renumber them with the proper offset into our halo
             halo_offsets[i + 1] = scratch[scratch.size() - 1];
 
             //now read them back
@@ -3902,7 +3907,7 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
                         }
                         else
                         {
-                            thrust::copy(fine_halo_aggregates_to_root_array[j][k].begin(), fine_halo_aggregates_to_root_array[j][k].end(), aggregates.begin() + manager_halo_offsets[fine_nonmerge_neighbor_to_fine_neighbor[k]]);
+                            amgx::thrust::copy(fine_halo_aggregates_to_root_array[j][k].begin(), fine_halo_aggregates_to_root_array[j][k].end(), aggregates.begin() + manager_halo_offsets[fine_nonmerge_neighbor_to_fine_neighbor[k]]);
                         }
                     }
                 }
@@ -4245,9 +4250,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     // Create cons_part_to_part map
     IVector_h cons_part_to_part = destination_part;
-    thrust::sort(cons_part_to_part.begin(), cons_part_to_part.end());
+    amgx::thrust::sort(cons_part_to_part.begin(), cons_part_to_part.end());
     cudaCheckError();
-    cons_part_to_part.erase(thrust::unique(cons_part_to_part.begin(), cons_part_to_part.end()), cons_part_to_part.end());
+    cons_part_to_part.erase(amgx::thrust::unique(cons_part_to_part.begin(), cons_part_to_part.end()), cons_part_to_part.end());
     cudaCheckError();
     int num_cons_partitions = cons_part_to_part.size();
 
@@ -4305,7 +4310,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     // Modifies the btl_maps, lth_maps
     // Create part_to_cons_part map
     IVector_h part_to_cons_part(num_parts);
-    thrust::lower_bound(cons_part_to_part.begin(), cons_part_to_part.end(), destination_part.begin(), destination_part.end(), part_to_cons_part.begin());
+    amgx::thrust::lower_bound(cons_part_to_part.begin(), cons_part_to_part.end(), destination_part.begin(), destination_part.end(), part_to_cons_part.begin());
     cudaCheckError();
     IVector_h neigh_to_part;
     this->createNeighToDestPartMap(neigh_to_part, this->neighbors, destination_part, num_neighbors);
@@ -4384,11 +4389,11 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     for (int i = 0; i < num_cons_neighbors; i++)
     {
-        thrust::transform(dest_B2L_maps[i].begin(),
+        amgx::thrust::transform(dest_B2L_maps[i].begin(),
                           dest_B2L_maps[i].end(),
-                          thrust::constant_iterator<index_type>(boundary_offset),
+                          amgx::thrust::constant_iterator<index_type>(boundary_offset),
                           dest_B2L_maps[i].begin(),
-                          thrust::plus<index_type>());
+                          amgx::thrust::plus<index_type>());
     }
 
     cudaCheckError();
@@ -4460,7 +4465,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
         for (int i = 0; i < cons_B2L_maps.size(); i++)
         {
-            thrust::sort(cons_B2L_maps[i].begin(), cons_B2L_maps[i].end());
+            amgx::thrust::sort(cons_B2L_maps[i].begin(), cons_B2L_maps[i].end());
             this->B2L_maps[i].copy(cons_B2L_maps[i]); // H2D copy of B2L maps
         }
 
@@ -4612,7 +4617,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         cudaEvent_t event;
         cudaEventCreate(&event);
         // Populate the halo rows with diagonal, increase the length of the halo rows
-        thrust::fill(this->A->row_offsets.begin() + halo_offsets[0], this->A->row_offsets.begin() + halo_offsets[root_num_cons_neighbors], 1);
+        amgx::thrust::fill(this->A->row_offsets.begin() + halo_offsets[0], this->A->row_offsets.begin() + halo_offsets[root_num_cons_neighbors], 1);
         thrust_wrapper::exclusive_scan(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
         cudaEventRecord(event);
         cudaEventSynchronize(event);
@@ -5370,7 +5375,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         int size = this->halo_offsets[0];
         int num_blocks = min(4096, (size + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>(temp.raw(), v.raw(), this->renumbering.raw(), v.get_block_size(), size);
-        thrust::copy(temp.begin(), temp.end(), v.begin());
+        amgx::thrust::copy(temp.begin(), temp.end(), v.begin());
     }
 
     cudaCheckError();
@@ -5398,7 +5403,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //reorder_vector_values<<<num_blocks, 512>>>(temp.raw(), v.raw(), this->inverse_renumbering.raw(), v.get_block_size(), size);
     cudaCheckError();
     v.resize(this->halo_offsets[0]*this->A->get_block_dimx());
-    thrust::copy(temp.begin(), temp.end(), v.begin());
+    amgx::thrust::copy(temp.begin(), temp.end(), v.begin());
     cudaCheckError();
 }
 

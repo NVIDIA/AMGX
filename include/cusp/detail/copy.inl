@@ -95,7 +95,7 @@ void copy(const T1& src, T2& dst,
           cusp::array1d_format)
 {    
   dst.resize(src.size());
-  thrust::copy(src.begin(), src.end(), dst.begin());
+  amgx::thrust::copy(src.begin(), src.end(), dst.begin());
 }
 
   
@@ -112,15 +112,15 @@ void copy_array2d(const T1& src, T2& dst, Orientation)
   }
   else
   {
-    thrust::counting_iterator<size_t> begin(0);
-    thrust::counting_iterator<size_t> end(src.num_entries);
+      amgx::thrust::counting_iterator<size_t> begin(0);
+      amgx::thrust::counting_iterator<size_t> end(src.num_entries);
 
     cusp::detail::logical_to_physical_functor<size_t, Orientation> func1(src.num_rows, src.num_cols, src.pitch);
     cusp::detail::logical_to_physical_functor<size_t, Orientation> func2(dst.num_rows, dst.num_cols, dst.pitch);
 
-    thrust::copy(thrust::make_permutation_iterator(src.values.begin(), thrust::make_transform_iterator(begin, func1)),
-                 thrust::make_permutation_iterator(src.values.begin(), thrust::make_transform_iterator(end,   func1)),
-                 thrust::make_permutation_iterator(dst.values.begin(), thrust::make_transform_iterator(begin, func2)));
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(src.values.begin(), amgx::thrust::make_transform_iterator(begin, func1)),
+                 amgx::thrust::make_permutation_iterator(src.values.begin(), amgx::thrust::make_transform_iterator(end,   func1)),
+                 amgx::thrust::make_permutation_iterator(dst.values.begin(), amgx::thrust::make_transform_iterator(begin, func2)));
   }
 }
 
@@ -130,16 +130,16 @@ void copy_array2d(const T1& src, T2& dst, Orientation1, Orientation2)
   // note: pitch does not carry over when orientation differs
   dst.resize(src.num_rows, src.num_cols);
   
-  thrust::counting_iterator<size_t> begin(0);
-  thrust::counting_iterator<size_t> end(src.num_entries);
+  amgx::thrust::counting_iterator<size_t> begin(0);
+  amgx::thrust::counting_iterator<size_t> end(src.num_entries);
 
   // prefer coalesced writes to coalesced reads
   cusp::detail::logical_to_other_physical_functor<size_t, Orientation2, Orientation1> func1(src.num_rows, src.num_cols, src.pitch);
   cusp::detail::logical_to_physical_functor      <size_t, Orientation2>               func2(dst.num_rows, dst.num_cols, dst.pitch);
 
-  thrust::copy(thrust::make_permutation_iterator(src.values.begin(), thrust::make_transform_iterator(begin, func1)),
-               thrust::make_permutation_iterator(src.values.begin(), thrust::make_transform_iterator(end,   func1)),
-               thrust::make_permutation_iterator(dst.values.begin(), thrust::make_transform_iterator(begin, func2)));
+  amgx::thrust::copy(amgx::thrust::make_permutation_iterator(src.values.begin(), amgx::thrust::make_transform_iterator(begin, func1)),
+               amgx::thrust::make_permutation_iterator(src.values.begin(), amgx::thrust::make_transform_iterator(end,   func1)),
+               amgx::thrust::make_permutation_iterator(dst.values.begin(), amgx::thrust::make_transform_iterator(begin, func2)));
 }
 
 template <typename T1, typename T2>

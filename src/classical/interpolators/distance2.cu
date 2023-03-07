@@ -838,6 +838,8 @@ estimate_c_hat_size_kernel( const int A_num_rows,
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
 
+            utils::syncwarp();
+
             // For each warp, we have up to 32 rows of B to proceed.
 
             int num_rows = __popc(vote);
@@ -1000,6 +1002,8 @@ compute_c_hat_kernel( int A_num_rows,
             {
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
+
+            utils::syncwarp();
 
             int num_rows = __popc( vote );
 
@@ -1164,6 +1168,8 @@ compute_c_hat_kernel( int A_num_rows,
             {
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
+
+            utils::syncwarp();
 
             int num_rows = __popc( vote );
 
@@ -1348,6 +1354,8 @@ compute_inner_sum_kernel( const int A_num_rows,
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
                 s_a_values [warp_id * WARP_SIZE + dest] = a_value;
             }
+
+            utils::syncwarp();
 
             int num_rows = __popc( vote );
             // First n_rows threads reload the correct value.
@@ -1776,6 +1784,8 @@ compute_interp_weight_kernel( const int A_num_rows,
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
 
+            utils::syncwarp();
+
             int num_rows = __popc( vote );
             // We pre-load inner sums.
             sum = Value_type(0);
@@ -1803,6 +1813,8 @@ compute_interp_weight_kernel( const int A_num_rows,
                 {
                     s_aki[warp_id] = Value_type(0);
                 }
+
+                utils::syncwarp();
 
                 // Load the kth inner sum.
                 Value_type uniform_val = utils::shfl( sum, k );
@@ -1835,6 +1847,8 @@ compute_interp_weight_kernel( const int A_num_rows,
                     // Update C_hat values. If the value is not in C_hat it will be skipped (true parameter).
                     map.update( b_col_id, b_value * uniform_val );
                 }
+
+                utils::syncwarp();
 
                 // The thread k updates the sum.
                 if ( lane_id == 0 )

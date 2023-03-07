@@ -900,14 +900,14 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         }
 
         ss << std::endl;
-        ss << "         Total Iterations: " << m_num_iters << endl;
+        ss << "         Total Iterations: " << m_num_iters << std::endl;
         ss << "         Avg Convergence Rate: \t\t";
 
         for (int i = 0; i < last_nrm.size(); i++)
             ss << std::fixed << std::setw(15)
                << ((m_nrm_ini[i] > eps) ? pow(last_nrm[i] / m_nrm_ini[i],  types::util<PODValueB>::get_one() / m_num_iters) : m_nrm_ini[i]);
 
-        ss << endl;
+        ss << std::endl;
         ss << "         Final Residual: \t\t" << std::setprecision(6);
 
         for (int i = 0; i < last_nrm.size(); i++)
@@ -915,7 +915,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
             ss << std::scientific << std::setw(15) << last_nrm[i] << std::fixed;
         }
 
-        ss << endl;
+        ss << std::endl;
         ss << "         Total Reduction in Residual: \t" << std::setprecision(6);
 
         for (int i = 0; i < last_nrm.size(); i++)
@@ -923,7 +923,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
                << ((m_nrm_ini[i] > eps) ? last_nrm[i] / m_nrm_ini[i] : m_nrm_ini[i])
                << std::fixed;
 
-        ss << endl;
+        ss << std::endl;
         ss << "         Maximum Memory Usage: \t\t" << std::setprecision(3)
            << std::setw(15) << MemoryInfo::getMaxMemoryUsage() << " GB"
            << std::endl;
@@ -945,7 +945,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
     if (m_verbosity_level == 2 && getPrintGridStats())
     {
         ss.str(std::string());
-        ss << endl;
+        ss << std::endl;
         amgx_output(ss.str().c_str(), static_cast<int>(ss.str().length()));
         print_grid_stats2();
     }
@@ -954,7 +954,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
     if ((m_verbosity_level == 1 || m_verbosity_level == 2) && getPrintGridStats())
     {
         ss.str(std::string());
-        ss << endl;
+        ss << std::endl;
         amgx_output(ss.str().c_str(), static_cast<int>(ss.str().length()));
     }
 
@@ -1032,7 +1032,6 @@ void Solver<TConfig>::print_timings()
 
 using std::scientific;
 using std::fixed;
-using namespace std;
 
 template<class TConfig>
 std::map<std::string, SolverFactory<TConfig>*> &
@@ -1047,12 +1046,12 @@ void SolverFactory<TConfig>::registerFactory(std::string name,
         SolverFactory<TConfig> *f)
 {
     std::map<std::string, SolverFactory<TConfig>*> &factories = getFactories();
-    typename map<string, SolverFactory<TConfig> *>::const_iterator it =
+    typename std::map<std::string, SolverFactory<TConfig> *>::const_iterator it =
         factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "SolverFactory '" + name + "' has already been registered\n";
+        std::string error = "SolverFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -1063,12 +1062,12 @@ template<class TConfig>
 void SolverFactory<TConfig>::unregisterFactory(std::string name)
 {
     std::map<std::string, SolverFactory<TConfig>*> &factories = getFactories();
-    typename map<string, SolverFactory<TConfig> *>::iterator it = factories.find(
+    typename std::map<std::string, SolverFactory<TConfig> *>::iterator it = factories.find(
                 name);
 
     if (it == factories.end())
     {
-        string error = "SolverFactory '" + name + "' has not been registered\n";
+        std::string error = "SolverFactory '" + name + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -1082,7 +1081,7 @@ template<class TConfig>
 void SolverFactory<TConfig>::unregisterFactories()
 {
     std::map<std::string, SolverFactory<TConfig>*> &factories = getFactories();
-    typename map<std::string, SolverFactory<TConfig> *>::iterator it =
+    typename std::map<std::string, SolverFactory<TConfig> *>::iterator it =
         factories.begin();
 
     for (; it != factories.end();)
@@ -1114,17 +1113,17 @@ Solver<TConfig> *SolverFactory<TConfig>::allocate(AMG_Config &cfg,
              solverName == "PCG") &&
             new_scope == "default")
     {
-        string error = "Solver " + solverName
+        std::string error = "Solver " + solverName
                        + " uses an inner solver (i.e. a preconditioner, smoother or coarse_solver) and therefore cannot be used as an inner solver with the default scope due to the possibility of an infinite number of nested solvers. Please use config_version=2, and specify a new scope name for the inner solver. For example: preconditioner(amg_solver) = AMG. \n";
         FatalError( error.c_str(), AMGX_ERR_BAD_PARAMETERS);
     }
 
-    typename map<std::string, SolverFactory<TConfig> *>::const_iterator it =
+    typename std::map<std::string, SolverFactory<TConfig> *>::const_iterator it =
         factories.find(solverName);
 
     if (it == factories.end())
     {
-        string error = "SolverFactory '" + solverName
+        std::string error = "SolverFactory '" + solverName
                        + "' has not been registered\n";
         FatalError( error.c_str( ), AMGX_ERR_CORE);
     }

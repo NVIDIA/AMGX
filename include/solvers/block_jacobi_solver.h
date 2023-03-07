@@ -29,7 +29,6 @@
 
 #include <solvers/solver.h>
 #include <amgx_types/util.h>
-using namespace std;
 
 namespace amgx
 {

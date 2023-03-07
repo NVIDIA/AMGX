@@ -36,7 +36,6 @@
 #include <curand.h>
 #include <solvers/block_common_solver.h>
 
-using namespace std;
 namespace amgx
 {
 namespace idrmsync_solver
@@ -412,7 +411,7 @@ IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xI
 
     if (this->omega == (ValueTypeB) 0)
     {
-        cout << "Error happened in this->omega==0" << endl;
+        std::cout << "Error happened in this->omega==0" << std::endl;
         exit(1);
     }
 

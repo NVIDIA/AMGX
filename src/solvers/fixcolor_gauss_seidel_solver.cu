@@ -37,7 +37,6 @@
 #include <util.h>
 #include <texture.h>
 
-using namespace std;
 namespace amgx
 {
 namespace fixcolor_gauss_seidel_solver

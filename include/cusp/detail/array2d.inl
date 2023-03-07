@@ -72,16 +72,16 @@ bool array2d_equal(const Array1& lhs, const Array2& rhs)
   if (lhs.num_rows != rhs.num_rows || lhs.num_cols != rhs.num_cols)
       return false;
   
-  thrust::counting_iterator<size_t> begin(0);
-  thrust::counting_iterator<size_t> end(lhs.num_entries);
+  amgx::thrust::counting_iterator<size_t> begin(0);
+  amgx::thrust::counting_iterator<size_t> end(lhs.num_entries);
 
   cusp::detail::logical_to_physical_functor      <size_t, Orientation1>               func1(lhs.num_rows, lhs.num_cols, lhs.pitch);
   cusp::detail::logical_to_other_physical_functor<size_t, Orientation1, Orientation2> func2(rhs.num_rows, rhs.num_cols, rhs.pitch);
 
   // like a boss
-  return thrust::equal(thrust::make_permutation_iterator(lhs.values.begin(), thrust::make_transform_iterator(begin, func1)),
-                       thrust::make_permutation_iterator(lhs.values.begin(), thrust::make_transform_iterator(end,   func1)),
-                       thrust::make_permutation_iterator(rhs.values.begin(), thrust::make_transform_iterator(begin, func2)));
+  return amgx::thrust::equal(amgx::thrust::make_permutation_iterator(lhs.values.begin(), amgx::thrust::make_transform_iterator(begin, func1)),
+                       amgx::thrust::make_permutation_iterator(lhs.values.begin(), amgx::thrust::make_transform_iterator(end,   func1)),
+                       amgx::thrust::make_permutation_iterator(rhs.values.begin(), amgx::thrust::make_transform_iterator(begin, func2)));
 }
   
 } // end namespace detail

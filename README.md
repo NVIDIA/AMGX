@@ -27,6 +27,8 @@ AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Itera
 ## Table of Contents
 
 * [Quickstart](#quickstart)
+  * [Dependencies and requirements](#requirements)
+  * [Cloning / Pulling](#cloning)
   * [Building AMGX](#building)
   * [Running examples](#running)
 * [Further reading](#further-reading)
@@ -36,11 +38,21 @@ AmgX: A Library for GPU Accelerated Algebraic Multigrid and Preconditioned Itera
 
 Here are the instructions on how to build library and run an example solver on the matrix in the [Matrix Market](http://math.nist.gov/MatrixMarket/) format file. By default provided examples use vector of ones as RHS of the linear system and vector of zeros as initial solution. In order to provide you own values for RHS and initial solution edit the examples.
 
-### Dependencies and requirements
+### <a name="requirements"></a> Dependencies and requirements
 
 In order to build project you would need [CMake](https://cmake.org/) and [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit
 ). If you want to try distributed version of AMGX library you will also need MPI implementation, such as [OpenMPI](https://www.open-mpi.org/) for Linux or [MPICH](https://www.mpich.org/downloads/) for Windows. You will need compiler with c++11 support (for example GCC 4.8 or MSVC 14.0).
 You also need NVIDIA GPU with Compute Capability >=3.0, check to see if your GPU supports this [here](https://developer.nvidia.com/cuda-gpus).
+
+### <a name="cloning"></a> Cloning / Pulling
+
+In order to pull all necessary dependencies, AmgX must be cloned using the `--recursive` option, i.e.:
+
+`git clone --recursive git@github.com:nvidia/amgx.git`
+
+If you want to update a copy of the repository which was cloned without --recursive, you can use:
+
+`git submodule update --init --recursive`
 
 ### <a name="building"></a> Building
 Typical build commands from the project root:
@@ -54,7 +66,7 @@ make -j16 all
 Therer are few custom CMake flags that you could use:
 - CUDA_ARCH: List of virtual architectures values that in the CMakeLists file is translated to the corresponding nvcc flags. For example:
 ```bash
-cmake ....  -DCUDA_ARCH="35 52 60" ....
+cmake ....  -DCUDA_ARCH="60 70" ....
 ```
 - CMAKE_NO_MPI: Boolean value. If True then non-MPI (single GPU) build will be forced. Results in smaller sized library which could be run on systems without MPI installed. If not specified then MPI build would be enabled if FindMPI script found any MPI installation.
 - AMGX_NO_RPATH: Boolean value. By default CMake adds -rpath flags to binaries. Setting this flag to True tell CMake to not do that - useful for controlling execution environment.
@@ -63,7 +75,7 @@ cmake ....  -DCUDA_ARCH="35 52 60" ....
 The build system now enables CUDA as a language, and employs FindCUDAToolkit and FindMPI,
 so refer to those scripts from your CMake installation for module-specific flags.
 
-When building with the NVIDIA HPC SDK, please use CMake >= 3.22, 
+When building with the NVIDIA HPC SDK, please use CMake >= 3.22,
 and GCC for C/CXX compilation, e.g.
 
 ```
@@ -74,19 +86,19 @@ cmake \
     -DCUDA_ARCH="80" ..
 ```
 
-Artifacts of the build are shared and static libraries (libamgxsh.so or amgxsh.dll 
-and libamgx.a or amgx.lib) and few binaries from 'examples' directory that give you 
+Artifacts of the build are shared and static libraries (libamgxsh.so or amgxsh.dll
+and libamgx.a or amgx.lib) and few binaries from 'examples' directory that give you
 examples of using various AMGX C API. MPI examples are built only if MPI build was
 enabled.
 
 ### <a name="running"></a> Running examples
 
-Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [core/configs](core/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows. 
+Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [src/configs](src/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows.
 
 #### Running single GPU example from the build directory:
 
 ```bash
-> examples/amgx_capi -m ../examples/matrix.mtx -c ../core/configs/FGMRES_AGGREGATION.json
+> examples/amgx_capi -m ../examples/matrix.mtx -c ../src/configs/FGMRES_AGGREGATION.json
 AMGX version 2.0.0-public-build125
 Built on Oct  7 2017, 04:51:11
 Compiled with CUDA Runtime 9.0, using CUDA driver 9.0
@@ -124,7 +136,7 @@ Total Time: 0.00169123
 #### Running multi GPU example from the build directory:
 
 ```bash
-> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../core/configs/FGMRES_AGGREGATION.json
+> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../src/configs/FGMRES_AGGREGATION.json
 Process 0 selecting device 0
 Process 1 selecting device 0
 AMGX version 2.0.0-public-build125
@@ -134,7 +146,7 @@ Warning: No mode specified, using dDDI by default.
 Warning: No mode specified, using dDDI by default.
 Cannot read file as JSON object, trying as AMGX config
 Converting config string to current config version
-Parsing configuration string: exception_handling=1 ; 
+Parsing configuration string: exception_handling=1 ;
 Using Normal MPI (Hostbuffer) communicator...
 Reading matrix dimensions in file: ../examples/matrix.mtx
 Reading data...
@@ -189,7 +201,9 @@ see the [`README.md`](./ci/README.md) for more information.
 ### <a name="bindings"></a> Plugins and bindings to other software
 User @shwina built python bindings to AMGX, check out following repository: https://github.com/shwina/pyamgx.
 
-User @piyueh provided link to their work on PETSc wrapper plugins for AMGX: https://github.com/barbagroup/AmgXWrapper
+User @piyueh provided link to their work on PETSc wrapper plugins for AMGX: https://github.com/barbagroup/AmgXWrapper.
+
+Julia bindings to AMGX are available at: https://github.com/JuliaGPU/AMGX.jl.
 
 See [API reference doc](doc/AMGX_Reference.pdf) for detailed description of the interface. In the next few weeks we will be providing more information and details on the project such as:
   * Plans on the project development and priorities

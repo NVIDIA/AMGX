@@ -54,8 +54,8 @@ void spmv_coo(const Matrix&  A,
 
     spmv_coo(A, x, y,
              cusp::detail::zero_function<ValueType>(),
-             thrust::multiplies<ValueType>(),
-             thrust::plus<ValueType>());
+             amgx::thrust::multiplies<ValueType>(),
+             amgx::thrust::plus<ValueType>());
 }
 
 
@@ -110,8 +110,8 @@ void spmv_csr(const Matrix&  A,
 
     spmv_csr(A, x, y,
              cusp::detail::zero_function<ValueType>(),
-             thrust::multiplies<ValueType>(),
-             thrust::plus<ValueType>());
+             amgx::thrust::multiplies<ValueType>(),
+             amgx::thrust::plus<ValueType>());
 }
 
 
@@ -172,8 +172,8 @@ void spmv_dia(const Matrix&  A,
 
     spmv_dia(A, x, y,
              cusp::detail::zero_function<ValueType>(),
-             thrust::multiplies<ValueType>(),
-             thrust::plus<ValueType>());
+             amgx::thrust::multiplies<ValueType>(),
+             amgx::thrust::plus<ValueType>());
 }
 
 //////////////
@@ -230,8 +230,8 @@ void spmv_ell(const Matrix&  A,
 
     spmv_ell(A, x, y,
              cusp::detail::zero_function<ValueType>(),
-             thrust::multiplies<ValueType>(),
-             thrust::plus<ValueType>());
+             amgx::thrust::multiplies<ValueType>(),
+             amgx::thrust::plus<ValueType>());
 }
 
 } // end namespace host

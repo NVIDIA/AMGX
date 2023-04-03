@@ -358,8 +358,6 @@ void fast_multihash_kernel_gtlt_kernel(
                     col_hash_k = rehash(col_id, base_col_hash, k, seed);
                     row_hash_k = rehash(row_id, base_row_hash, k, seed);
 
-                    //unsigned long long q = (~(1ull << 63-k));
-
                     if (col_hash_k > row_hash_k || (col_hash_k == row_hash_k && row_id < col_id))
                     {
                         if (count_gt[k] < 255) //avoid overflow
@@ -455,7 +453,7 @@ void fast_multihash_kernel_gtlt_assign_kernel(
                         int row_lt_k = (row_gtlt >> (k * 2 + 32)) & 3ull;
                         int col_gt_k = (col_gtlt >> (k * 2 + 0)) & 3ull;
                         int col_lt_k = (col_gtlt >> (k * 2 + 32)) & 3ull;
-                        unsigned long long q = (~(1ull << 63 - k));
+                        unsigned long long q = (~(1ull << (63 - k)));
 
                         if ((row_gt_k > col_gt_k) || (col_gt_k == row_gt_k && row_id < col_id))
                         {

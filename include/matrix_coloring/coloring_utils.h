@@ -131,62 +131,6 @@ struct subwarp<1>
     }
 };
 
-//deprecated
-template<int BOX_BITS_>
-struct flags_bf
-{
-    static const int BOX_BITS = BOX_BITS_;
-    static const int COLOR_BITS = 64 - BOX_BITS;
-    static const int MAX_COLORS = COLOR_BITS;
-    static const unsigned long long BOXES_MASK = 1 << BOX_BITS - 1;
-    static const unsigned long long COLORS_MASK = 1 << COLOR_BITS - 1;
-
-    unsigned long long flags; //16 bit
-
-    __forceinline__ __device__ int boxes()const
-    {
-        return (flags >> COLOR_BITS) & BOXES_MASK ;
-    }
-    __forceinline__ __device__ void set_boxes(const int boxes_count)
-    {
-        flags = (flags & COLORS_MASK) | (boxes_count << COLOR_BITS);
-    }
-    __forceinline__ __device__ void add_color(const int c)
-    {
-        int used_boxes = boxes();
-        int min_color = used_boxes * COLOR_BITS;
-        int c2 = c - min_color;
-
-        if (c2 >= MAX_COLORS)
-        {
-            used_boxes = used_boxes + 1;
-            set_boxes(used_boxes);
-        }
-
-        flags |= c2;
-    }
-    __forceinline__ __device__ bool color_available(const int c)
-    {
-        int used_boxes = boxes();
-        int min_color = used_boxes * COLOR_BITS;
-        int c2 = c - min_color;
-
-        if (c2 <  0) { return false; }
-
-        if (c2 >= MAX_COLORS) { return true; }
-
-        return (1 << c2)&flags;
-    }
-    __forceinline__ __device__ int first_available_color()
-    {
-        int used_boxes = boxes();
-        int min_color = used_boxes * COLOR_BITS;
-        min_color = utils::bfind( ~flags  );
-        return min_color + 64;
-    }
-};
-
-
 struct used_color_structure_64_bit
 {
     static const int COLORBOX_SIZE = 64;

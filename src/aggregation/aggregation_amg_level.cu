@@ -2663,6 +2663,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
         this->getA().manager->getComms()->send_vector_wait_all(Ac.col_indices);
         this->getA().manager->getComms()->send_vector_wait_all(Ac.values);
 
+        Ac.set_initialized(0);
         // set size of Ac to be zero
         Ac.resize(0, 0, 0, 1);
         Ac.set_initialized(1);

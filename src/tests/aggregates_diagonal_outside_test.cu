@@ -64,7 +64,7 @@ void run()
         UNITTEST_ASSERT_TRUE(selectors[i] != NULL);
     }
 
-    Matrix_h A_h;
+    Matrix_h A_diag_h;
     IVector vec1, vec2, vec3;
     int num1 = 0, num2 = -1;
 
@@ -72,14 +72,14 @@ void run()
     for (int bsize = 1; bsize < 5; bsize++)
     {
         // Create random scalar matrix with diagonal inside
-        generateMatrixRandomStruct<TConfig_h>::generate(A_h, 1000, 0, bsize, false);
-        random_fill(A_h);
+        generateMatrixRandomStruct<TConfig_h>::generate(A_diag_h, 1000, true, bsize, false);
+        random_fill(A_diag_h);
         // Create a new matrix with diagonal outside
-        Matrix_h A_diag_h;
-        A_diag_h.convert(A_h, DIAG | CSR, bsize, bsize);
+        Matrix_h A_h;
+        A_h.convert(A_diag_h, CSR, bsize, bsize);
         MatrixA A, A_diag;
-        A = A_h;
-        A_diag = A_diag_h;
+        A = A_diag_h;
+        A_diag = A_h;
 
         for (unsigned int i = 0; i < selectors.size(); i++)
         {

@@ -236,27 +236,6 @@ void applyCorrection(ValueType lambda, const ValueType *e, ValueType *x, IndexTy
 //  Methods
 // ------------------------------
 
-//  Constructor
-template <class T_Config>
-Aggregation_AMG_Level_Base<T_Config>::Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng) : AMG_Level<T_Config>(amg, tmng)
-{
-    m_selector = SelectorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
-    m_coarseAGenerator = CoarseAGeneratorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
-    m_matrix_halo_exchange = amg->m_cfg->AMG_Config::getParameter<int>("matrix_halo_exchange", amg->m_cfg_scope);
-    m_print_aggregation_info = amg->m_cfg->AMG_Config::getParameter<int>("print_aggregation_info", amg->m_cfg_scope) != 0;
-    m_error_scaling = amg->m_cfg->AMG_Config::getParameter<int>("error_scaling", amg->m_cfg_scope );
-    reuse_scale = amg->m_cfg->AMG_Config::getParameter<int>("reuse_scale", amg->m_cfg_scope );
-    scaling_smoother_steps = amg->m_cfg->AMG_Config::getParameter<int>("scaling_smoother_steps", amg->m_cfg_scope );
-    scale_counter = 0;
-}
-
-//  Destructor
-template <class T_Config>
-Aggregation_AMG_Level_Base<T_Config>::~Aggregation_AMG_Level_Base()
-{
-    delete m_selector;
-    delete m_coarseAGenerator;
-}
 
 template <class T_Config>
 void Aggregation_AMG_Level_Base<T_Config>::transfer_level(AMG_Level<TConfig1> *ref_lvl)

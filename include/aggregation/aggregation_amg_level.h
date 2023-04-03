@@ -85,20 +85,26 @@ class Aggregation_AMG_Level_Base : public AMG_Level<T_Config>
 
         friend class Aggregation_AMG_Level_Base<TConfig1>;
 
-#ifdef _WIN32
-        Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng);
-#else
-        __attribute__((optimize("O2"))) Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng);
-#endif
+        Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng) : AMG_Level<T_Config>(amg, tmng)
+        {
+            m_selector = SelectorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
+            m_coarseAGenerator = CoarseAGeneratorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
+            m_matrix_halo_exchange = amg->m_cfg->AMG_Config::getParameter<int>("matrix_halo_exchange", amg->m_cfg_scope);
+            m_print_aggregation_info = amg->m_cfg->AMG_Config::getParameter<int>("print_aggregation_info", amg->m_cfg_scope) != 0;
+            m_error_scaling = amg->m_cfg->AMG_Config::getParameter<int>("error_scaling", amg->m_cfg_scope );
+            reuse_scale = amg->m_cfg->AMG_Config::getParameter<int>("reuse_scale", amg->m_cfg_scope );
+            scaling_smoother_steps = amg->m_cfg->AMG_Config::getParameter<int>("scaling_smoother_steps", amg->m_cfg_scope );
+            scale_counter = 0;
+        }
 
         virtual void transfer_level(AMG_Level<TConfig1> *ref_lvl);
 
-        // gcc-4.9 fix, -O3 optimization level caused undefined references to this destructor
-#ifdef _WIN32
-        virtual ~Aggregation_AMG_Level_Base();
-#else
-        __attribute__((optimize("O2"))) virtual ~Aggregation_AMG_Level_Base();
-#endif
+        virtual ~Aggregation_AMG_Level_Base()
+        {
+            delete m_selector;
+            delete m_coarseAGenerator;
+        }
+
         void createCoarseVertices();
         void createCoarseMatrices();
         bool isClassicalAMGLevel() { return false; }

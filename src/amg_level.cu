@@ -91,7 +91,7 @@ void AMG_Level<T_Config>::setup()
 
     if (separation_interior > separation_exterior) { FatalError("Interior separation cannot be wider than the exterior separation", AMGX_ERR_CONFIGURATION); }
 
-    if (separation_interior & INTERIOR == 0) { FatalError("Interior separation must include interior nodes", AMGX_ERR_CONFIGURATION); }
+    if ((separation_interior & INTERIOR) == 0) { FatalError("Interior separation must include interior nodes", AMGX_ERR_CONFIGURATION); }
 
     this->getA().setExteriorView(separation_exterior);
     int offset, size;

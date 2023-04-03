@@ -236,7 +236,6 @@ void applyCorrection(ValueType lambda, const ValueType *e, ValueType *x, IndexTy
 //  Methods
 // ------------------------------
 
-
 template <class T_Config>
 void Aggregation_AMG_Level_Base<T_Config>::transfer_level(AMG_Level<TConfig1> *ref_lvl)
 {
@@ -1981,6 +1980,80 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
     Matrix<TConfig> &A = this->getA();
     Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
     profileSubphaseFindAggregates();
+
+    /* WARNING: do not recompute prolongation (P) and restriction (R) when you
+                are reusing the level structure (structure_reuse_levels > 0).
+                Notice that in aggregation path, prolongation P is implicit,
+                and is used through the aggregates array. */
+
+    bool const consolidation_level = !A.is_matrix_singleGPU() && this->isConsolidationLevel();
+
+    // bookkeeping for the coarse grid: renumber aggregates,
+    // if consolidation compute consolidated halo-offsets, etc
+    if (!this->isReuseLevel())
+    {
+        if (consolidation_level)
+        {
+            // Consolidation-path steps 1-9
+            this->consolidationBookKeeping();
+        }
+        else
+        {
+            this->setNeighborAggregates();
+        }
+    }
+
+    this->getA().setView(ALL);
+
+    // Compute restriction operator
+    // TODO: computing the restriction operator could be merged with the selector to save some work
+    // If we reuse the level we keep the previous restriction operator
+    if (this->isReuseLevel() == false)
+    {
+        profileSubphaseComputeRestriction();
+        this->Profile.tic("computeR");
+        computeRestrictionOperator();
+        this->Profile.toc("computeR");
+    }
+
+    profileSubphaseComputeCoarseA();
+    this->Profile.tic("computeA");
+    Ac.set_initialized(0);
+    Ac.copyAuxData(&A);
+    this->m_coarseAGenerator->computeAOperator(A, Ac, this->m_aggregates, this->m_R_row_offsets, this->m_R_column_indices, this->m_num_all_aggregates);
+    Ac.setColsReorderedByColor(false);
+    Ac.setView(FULL);
+    this->Profile.toc("computeA");
+
+    if (consolidation_level)
+    {
+        // Consolidation-path Steps 11-12, send matrices to root, consolidate, final bookkeeping
+        this->consolidateCoarseGridMatrix();
+    }
+    else
+    {
+        this->prepareNextLevelMatrix(A, Ac);
+    }
+
+    A.setView(OWNED);
+    Ac.setView(OWNED);
+
+    this->m_next_level_size = this->m_num_all_aggregates * Ac.get_block_dimy();
+
+    if (this->m_print_aggregation_info)
+    {
+        MatrixAnalysis<TConfig> ana(&Ac);
+        ana.aggregatesQuality2(this->m_aggregates, this->m_num_aggregates, A);
+    }
+}
+
+template <class T_Config>
+void Aggregation_AMG_Level_Base<T_Config>::consolidationBookKeeping()
+{
+    Matrix<TConfig> &A = this->getA();
+    Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
+
+
     int num_parts, num_fine_neighbors, my_id;
 
     if (!A.is_matrix_singleGPU())
@@ -1996,540 +2069,571 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
         my_id = 0;
     }
 
-    if (!A.is_matrix_singleGPU() && this->isConsolidationLevel())
+    // ----------------------------------------------------
+    // Consolidate multiple fine matrices into one coarse matrix
+    // ----------------------------------------------------
+    // ----------------
+    // Step 1
+    // Decide which partitions should be merged together, store in destination_partitions vector
+    // ---------------
+    IVector_h &destination_part = A.manager->getDestinationPartitions();
+    int my_destination_part = A.manager->getMyDestinationPartition();
+
+    if (my_destination_part >= num_parts)
     {
-        // ----------------------------------------------------
-        // Consolidate multiple fine matrices into one coarse matrix
-        // ----------------------------------------------------
-        // ----------------
-        // Step 1
-        // Decide which partitions should be merged together, store in destination_partitions vector
-        // ---------------
-        IVector_h &destination_part = A.manager->getDestinationPartitions();
-        int my_destination_part = A.manager->getMyDestinationPartition();
+        FatalError("During consolidation, sending data to partition that doesn't exist", AMGX_ERR_NOT_IMPLEMENTED);
+    }
 
-        if (my_destination_part >= num_parts)
+    // Create mapping from coarse partition indices (ranks on the coarse consolidated level) to partition indices on the fine level (ranks on the fine level)
+    IVector_h coarse_part_to_fine_part = destination_part;
+    thrust::sort(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end());
+    cudaCheckError();
+    coarse_part_to_fine_part.erase(thrust::unique(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end()), coarse_part_to_fine_part.end());
+    cudaCheckError();
+    //Then, the number of coarse partitions is simply the size of this vector
+    int num_coarse_partitions = coarse_part_to_fine_part.size();
+    // Create mapping from fine partition indices to coarse partition indices, with fine partitions that are merging together having the same coarse indices
+    IVector_h fine_part_to_coarse_part(num_parts);
+    thrust::lower_bound(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end(), destination_part.begin(), destination_part.end(), fine_part_to_coarse_part.begin());
+    cudaCheckError();
+    // Create mapping from this specific partition's neighbors to consolidated coarse neighbors, but using their fine index (aka. destination partition indices for my neighbors)
+    IVector_h fine_neigh_to_fine_part;
+    A.manager->createNeighToDestPartMap(fine_neigh_to_fine_part, A.manager->neighbors, destination_part, num_fine_neighbors);
+    // Create mapping from consolidated coarse neighbors to fine partition indices (even if the current partition is not going to be a root)
+    IVector_h coarse_neigh_to_fine_part;
+    int num_coarse_neighbors;
+    A.manager->createConsolidatedNeighToPartMap(coarse_neigh_to_fine_part, fine_neigh_to_fine_part, my_destination_part, destination_part, num_coarse_neighbors);
+    // Create mapping from fine neighbors to coarse neighbors, with fine neighbors this partition is merging with labeled with -1
+    IVector_h fine_neigh_to_coarse_neigh;
+    A.manager->createNeighToConsNeigh(fine_neigh_to_coarse_neigh, coarse_neigh_to_fine_part, fine_neigh_to_fine_part, my_destination_part, num_fine_neighbors);
+    /*
+        EXAMPLE
+        Take the following partition graph (that describes connections between partitions, vertices are the partitions themselves), this is the same graph that is used in the setup example
+        number of partitions num_parts=12
+        CSR row_offsets [0 4 8 13 21 25 32 36 41 46 50 57 61]
+        CSR col_indices [0 1 3 8
+                    0 1 2 3
+                    1 2 3 4 5
+                    0 1 2 3 4 5 8 10
+                    2 4 5 6
+                    2 3 4 5 6 7 10
+                    4 5 6 7
+                    5 6 7 9 10
+                    0 3 8 10 11
+                    7 9 10 11
+                    3 5 7 8 9 10 11
+                    8 9 10 11]
+        destination_part = [0 0 0 0 4 4 4 4 8 8 8 8]
+        coarse_part_to_fine_part = [0 4 8] num_coarse_partitions = 3
+        fine_part_to_coarse_part = [0 0 0 0 1 1 1 1 2 2 2 2]
+        original neighbor lists correspond to the rows of the matrix, minus the diagonal elements: (part 0)[1 3 8] (part 3)[0 1 2 4 5 8 10] (part 10)[3 5 7 8 9 11]
+        fine_neigh_to_fine_part (part 0)[0 0 2] (part 3)[0 0 0 0 1 2 2] (part 10)[0 1 1 2 2 2]
+        coarse_neigh_to_fine_part (part 0)[8] (part 3)[4 8] (part 10)[0 4]
+        fine_neigh_to_coarse_neigh (part 0)[-1 -1 0] (part 3)[-1 -1 -1 0 0 1 1] (part 10)[0 1 1 -1 -1 -1]
+        */
+    // --------------------------
+    // Step 2
+    // Create coarse B2L_maps, by mapping fine B2L maps to coarse indices using this->m_aggregates and eliminating duplicates
+    // --------------------------
+    std::vector<IVector> coarse_B2L_maps(num_fine_neighbors);
+    m_num_all_aggregates = m_num_aggregates;
+    int num_neighbors_temp = A.manager->neighbors.size();
+    int num_rings = A.manager->B2L_rings[0].size() - 1;
+
+    if (num_rings != 1)
+    {
+        FatalError("num_rings > 1 not supported in consolidation\n", AMGX_ERR_NOT_IMPLEMENTED);
+    }
+
+    IndexType max_b2l = 0;
+
+
+    for (int i = 0; i < num_neighbors_temp; i++ ) { max_b2l = max_b2l > A.manager->B2L_rings[i][1] ? max_b2l : A.manager->B2L_rings[i][1]; }
+
+    IVector B2L_aggregates(max_b2l);
+    IVector indices(max_b2l);
+
+    //TODO: use the algorithm from setNeighborAggregates()
+    for (int i = 0; i < num_neighbors_temp; i++ )
+    {
+        int size = A.manager->B2L_rings[i][1];
+        thrust::fill(B2L_aggregates.begin(), B2L_aggregates.begin() + size, 0);
+        thrust::sequence(indices.begin(), indices.begin() + size);
+        //substitute coarse aggregate indices for fine boundary nodes
+        thrust::copy(thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin()),
+                        thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin() + size),
+                        B2L_aggregates.begin());
+        //find the unique ones
+        thrust::sort_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin());
+        IndexType num_unique = thrust::unique_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin()).first - B2L_aggregates.begin();
+        coarse_B2L_maps[i].resize(num_unique);
+        //sort it back so we have the original ordering
+        thrust::sort_by_key(indices.begin(), indices.begin() + num_unique, B2L_aggregates.begin());
+        thrust::copy(B2L_aggregates.begin(), B2L_aggregates.begin() + num_unique, coarse_B2L_maps[i].begin());
+    }
+
+    cudaCheckError();
+    /*
+        * EXAMPLE
+        say, partition 3 has the following coarse B2L_maps:
+        neighbors [0 1 2 4 5 8 10]
+        B2L_maps[0(=0)] = [6 7 8]
+        B2L_maps[1(=1)] = [8 9 10]
+        B2L_maps[2(=2)] = [10 11 12 13]
+        B2L_maps[3(=4)] = [13 14 15]
+        B2L_maps[4(=5)] = [15 16 17]
+        B2L_maps[5(=8)] = [6 18 19]
+        B2L_maps[6(=10)] = [17 20 19]
+        */
+    // ---------------------------------------------------
+    // Step 3
+    // create new B2L maps for each merged destination neighbor and drop B2L maps to neighbors we are merging with
+    // ---------------------------------------------------
+    std::vector<IVector> dest_coarse_B2L_maps;
+    A.manager->consolidateB2Lmaps(dest_coarse_B2L_maps, coarse_B2L_maps, fine_neigh_to_coarse_neigh, num_coarse_neighbors, num_fine_neighbors);
+    /*
+        * EXAMPLE
+        Then, merging the coarse B2L maps on partition 3, we get:
+        coarse_neigh_to_fine_part [4 8]
+        dest_coarse_B2L_maps[0(=4)] = [13 14 15 16 17]
+        dest_coarse_B2L_maps[1(=8)] = [6 17 18 19 20]
+        */
+    // -----------------------
+    // Step 4
+    // Create interior-boundary renumbering of aggregates according to dest_coarse_B2L_maps
+    // -----------------------
+    // Now renumber the aggregates with all interior aggregates first, boundary aggregates second
+    int num_interior_aggregates; //returned by createAggregatesRenumbering
+    int num_boundary_aggregates; //returned by createAggregatesRenumbering
+    IVector renumbering; //returned by createAggregatesRenumbering
+    // Following calls create renumbering array and modifies B2L_maps
+    A.manager->createAggregatesRenumbering(renumbering, dest_coarse_B2L_maps, this->m_num_aggregates, num_coarse_neighbors, num_interior_aggregates, num_boundary_aggregates, num_rings);
+    /*
+        * EXAMPLE
+        Partition 3 will get a renumbering vector of size 21, for the 21 owned agggregates:
+        [0 1 2 3 4 5 17 6 7 8 9 10 11 12 13 14 15 16 18 19 20]
+        num_interior_aggregates = 12
+        num_boundary_aggregates = 9
+        */
+    // -------------------------------------------------
+    // Step 5
+    // Determine whether root partition, make list of partitions merged into one
+    // ------------------------------------------------
+    // Check if I'm root partition and how fine partitions (including myself) are merging into me
+    // bool is_root_partition = false;
+    bool &is_root_partition = this->m_is_root_partition;
+    is_root_partition = false; 
+    int num_fine_parts_to_consolidate = 0;
+    // IVector_h fine_parts_to_consolidate;
+    IVector_h &fine_parts_to_consolidate = this->m_fine_parts_to_consolidate;
+
+    for (int i = 0; i < num_parts; i++)
+    {
+        if (destination_part[i] == my_id)
         {
-            FatalError("During consolidation, sending data to partition that doesn't exist", AMGX_ERR_NOT_IMPLEMENTED);
+            is_root_partition = true;
+            num_fine_parts_to_consolidate++;
+        }
+    }
+
+    fine_parts_to_consolidate.resize(num_fine_parts_to_consolidate);
+    int count = 0;
+
+    for (int i = 0; i < num_parts; i++)
+    {
+        if (destination_part[i] == my_id)
+        {
+            fine_parts_to_consolidate[count] = i;
+            count++;
+        }
+    }
+
+    //save this information as state, as this will also be required during solve for restriction/prolongation
+    A.manager->setIsRootPartition(is_root_partition);
+    A.manager->setNumPartsToConsolidate(num_fine_parts_to_consolidate);
+    A.manager->setPartsToConsolidate(fine_parts_to_consolidate);
+
+    // Create a new distributed communicator for coarse levels that only contains active partitions
+    if (Ac.manager == NULL)
+    {
+        Ac.manager = new DistributedManager<TConfig>();
+    }
+
+    Ac.manager->setComms(A.manager->getComms()->Clone());
+    Ac.manager->getComms()->createSubComm(coarse_part_to_fine_part, is_root_partition);
+
+
+    /*
+        * EXAMPLE
+        isRootPartition is true for partitions 0,4,8 false for others
+        num_fine_parts_to_consolidate = 4 for partitions 0,4,8
+        fine_parts_to_consolidate (part 0)[0 1 2 3] (part 4)[4 5 6 7] (part 8)[8 9 10 11]
+        */
+    // ----------------------
+    // Step 6
+    // Compute number of interior, boundary and total nodes in the consolidated coarse matrix. Create offsets so that partitions being merged together will have their aggregate indices ordered like this:
+    // [num_interior(fine_parts_to_consolidate[0]] num_interior(fine_parts_to_consolidate[1]] ... num_interior(fine_parts_to_consolidate[num_fine_parts_to_consolidate]
+    //        num_boundary(fine_parts_to_consolidate[0]] num_boundary(fine_parts_to_consolidate[1]] ... num_boundary(fine_parts_to_consolidate[num_fine_parts_to_consolidate] ]
+    // ----------------------
+    // Gather to get number of interior/boundary aggregates of neighbors I will merge with
+    // std::vector<IVector_h> vertex_counts;
+    std::vector<IVector_h> &vertex_counts = this->m_vertex_counts;
+    // int interior_offset, boundary_offset, total_interior_rows_in_merged, total_boundary_rows_in_merged;
+    int interior_offset, boundary_offset;
+    int &total_interior_rows_in_merged = this->m_total_interior_rows_in_merged;
+    int &total_boundary_rows_in_merged = this->m_total_boundary_rows_in_merged;
+    int total_rows_in_merged;
+    //Computes these offsets on the root, sends them back
+    A.manager->computeConsolidatedOffsets(my_id, my_destination_part, is_root_partition, num_interior_aggregates, num_boundary_aggregates, vertex_counts, fine_parts_to_consolidate, num_fine_parts_to_consolidate, interior_offset, boundary_offset, total_interior_rows_in_merged, total_boundary_rows_in_merged, total_rows_in_merged, A.manager->getComms());
+    //Partitions save these offsets, as it will be required during solve restriction/prolongation
+    A.manager->setConsolidationOffsets(interior_offset, num_interior_aggregates, boundary_offset + num_interior_aggregates, num_boundary_aggregates);
+    /*
+        * EXAMPLE
+        For root partition 0, say we have the following interior/boundary counts (note that partition 1 has 0 boundary, as it is only connected to partitions it is merging with)
+        part 0 - interior: 10 boundary 3
+        part 1 - interior: 18
+        part 2 - interior: 10 boundary 16
+        part 3 - interior: 12 boundary 9
+        interior_offset for partitions 0,1,2,3: 0 10 28 38 (total_interior_rows_in_merged 50)
+        boundary_offset for partitions 0,1,2,3: 0 3 3 19 (total_boundary_rows_in_merged 28)
+        */
+    // ----------------------
+    // Step 7
+    // Each partition renumbers its aggregates and dest_coarse_B2L_maps using offsets computed in Step 6 and permutation in Step 4
+    // ----------------------
+    // Kernel to renumber the aggregates
+    int block_size = 128;
+    int grid_size = std::min( 4096, ( A.manager->halo_offsets[0] + block_size - 1 ) / block_size);
+    renumberAggregatesKernel <<< grid_size, block_size >>>(renumbering.raw(), interior_offset, boundary_offset, this->m_aggregates.raw(), A.manager->halo_offsets[0], num_interior_aggregates, renumbering.size());
+    cudaCheckError();
+
+    for (int i = 0; i < num_coarse_neighbors; i++)
+    {
+        thrust::transform(dest_coarse_B2L_maps[i].begin(),
+                            dest_coarse_B2L_maps[i].end(),
+                            thrust::constant_iterator<IndexType>(boundary_offset),
+                            dest_coarse_B2L_maps[i].begin(),
+                            thrust::plus<IndexType>());
+    }
+
+    cudaCheckError();
+    /*
+        * EXAMPLE
+        Partition 3 had a renumbering vector:
+        [0 1 2 3 4 5 17 6 7 8 9 10 11 12 13 14 15 16 18 19 20]
+        which is now adjusted to account for the consolidated coarse matrices' indices:
+        [38 39 40 41 42 43 74 44 45 46 47 48 49 69 70 71 72 73 75 76 77]
+        And the dest_coarse_B2L_maps, which looked like:
+        dest_coarse_B2L_maps[0(=4)] = [13 14 15 16 17]
+        dest_coarse_B2L_maps[1(=8)] = [6 17 18 19 20]
+        is now:
+        dest_coarse_B2L_maps[0(=4)] = [69 70 71 72 73]
+        dest_coarse_B2L_maps[1(=8)] = [74 73 75 76 77]
+        */
+    // -------------------------------------------------
+    // Step 8
+    // Send dest_coarse_B2L_maps to root partitions
+    // ------------------------------------------------
+    // Each fine partition sends to its root the number of coarse neighbors it has, their ids, and the number of boundary nodes for each coarse neighbor
+    IVector_h num_bdy_per_coarse_neigh(num_coarse_neighbors);
+
+    for (int i = 0; i < num_coarse_neighbors; i++)
+    {
+        num_bdy_per_coarse_neigh[i] = dest_coarse_B2L_maps[i].size();
+    }
+
+    IVector_h consolidated_coarse_neigh_to_fine_part; //consolidated list of coarse neighbors for the root partition, using fine partition indices
+    int num_consolidated_neighbors = 0;
+    // std::vector<IVector> consolidated_B2L_maps; //concatenates dest_coarse_B2L_maps received from partitions that are merging into the same root and pointing to the same destination coarse neighbor
+    std::vector<IVector> &consolidated_B2L_maps = this->m_consolidated_B2L_maps;
+    A.manager->consolidateB2LmapsOnRoot(num_consolidated_neighbors, consolidated_B2L_maps, consolidated_coarse_neigh_to_fine_part, dest_coarse_B2L_maps, coarse_neigh_to_fine_part, num_bdy_per_coarse_neigh, fine_parts_to_consolidate, num_fine_parts_to_consolidate, my_id, my_destination_part, is_root_partition, num_coarse_neighbors, A.manager->getComms());
+    //
+    // Step 9 - figuring out halo aggregate IDs
+    //
+    //Now we need to update halo aggregate IDs - this is just a halo exchange on this->m_aggregates between partitions
+    //that are being merged together, but we need to send other halos to the root to come up with the halo renumbering
+    //TODO: separate transactions, send "real halo" to the root nodes (coarse neighbors) immediately
+    //Step 9.1: takes care of synchronizing the aggregate IDs between partitions we are merging together and got consistent halo aggregate IDs for neighbor we are not merging with (which are going to be sent to the root in 9.2)
+    A.manager->exchange_halo(this->m_aggregates, 6666);
+    /*
+        * EXAMPLE 2
+        This example is independent from the previous ones.
+        Say partition 0 and 1 are merging (into 0) partition 0 is neighbors with 1,2,3 and partition 1 is neighbors with 0,3,4
+        Partitions 3 and 4 are merging (into partition 3) and partition 2 is not merging with anyone.
+        This example details the renumbering of halo indices on partition 0 and partition 1.
+        After the exchange halo, we have:
+        this->m_aggregates on partition 0:
+        [(fine interior nodes) (fine boundary nodes) (fine halo from part 1) (fine halo from part 2) (fine halo from part 3)]
+        [(fine interior nodes) (fine boundary nodes) (13 13 15) (12 15 17) (14 16 18)]
+        aggregates on partition 1:
+        [(fine interior nodes) (fine boundary nodes) (fine halo from part 0) (fine halo from part 3) (fine halo from part 4)]
+        [(fine interior nodes) (fine boundary nodes) (14 16 17) (18 19 19) (15 15 17)]
+        indices in  (fine halo from part 0) and (fine halo from part 1) actually contain interior aggregate indices (if they are not connected to partitions 2,3 or 4), because the boundary is disappearing there.
+        Indices in halo regions contain remote-local indices.
+
+        This example is used throughout consolidateAndRenumberHalos
+        */
+    //Step 9.2 - 9.5
+    // IVector_h halo_offsets(num_consolidated_neighbors + 1, 0);
+    IVector_h &halo_offsets = this->m_consolidated_halo_offsets;
+    halo_offsets = IVector_h(num_consolidated_neighbors + 1, 0);
+    A.manager->consolidateAndRenumberHalos(this->m_aggregates, A.manager->halo_offsets, halo_offsets, A.manager->neighbors, num_fine_neighbors, consolidated_coarse_neigh_to_fine_part, num_consolidated_neighbors, destination_part, my_destination_part, is_root_partition, fine_parts_to_consolidate, num_fine_parts_to_consolidate, num_parts, my_id, total_rows_in_merged, this->m_num_all_aggregates, A.manager->getComms());
+
+    if (is_root_partition)
+    {
+        for (int i = 0; i < consolidated_B2L_maps.size(); i++)
+        {
+            thrust::sort(consolidated_B2L_maps[i].begin(), consolidated_B2L_maps[i].end());
         }
 
-        // Create mapping from coarse partition indices (ranks on the coarse consolidated level) to partition indices on the fine level (ranks on the fine level)
-        IVector_h coarse_part_to_fine_part = destination_part;
-        amgx::thrust::sort(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end());
+        this->m_consolidated_neighbors.resize(num_consolidated_neighbors);
+        for (int i = 0; i < num_consolidated_neighbors; i++)
+        {
+            this->m_consolidated_neighbors[i] = fine_part_to_coarse_part[consolidated_coarse_neigh_to_fine_part[i]];
+        }
+            
         cudaCheckError();
-        coarse_part_to_fine_part.erase(amgx::thrust::unique(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end()), coarse_part_to_fine_part.end());
-        cudaCheckError();
-        //Then, the number of coarse partitions is simply the size of this vector
-        int num_coarse_partitions = coarse_part_to_fine_part.size();
-        // Create mapping from fine partition indices to coarse partition indices, with fine partitions that are merging together having the same coarse indices
-        IVector_h fine_part_to_coarse_part(num_parts);
-        amgx::thrust::lower_bound(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end(), destination_part.begin(), destination_part.end(), fine_part_to_coarse_part.begin());
-        cudaCheckError();
-        // Create mapping from this specific partition's neighbors to consolidated coarse neighbors, but using their fine index (aka. destination partition indices for my neighbors)
-        IVector_h fine_neigh_to_fine_part;
-        A.manager->createNeighToDestPartMap(fine_neigh_to_fine_part, A.manager->neighbors, destination_part, num_fine_neighbors);
-        // Create mapping from consolidated coarse neighbors to fine partition indices (even if the current partition is not going to be a root)
-        IVector_h coarse_neigh_to_fine_part;
-        int num_coarse_neighbors;
-        A.manager->createConsolidatedNeighToPartMap(coarse_neigh_to_fine_part, fine_neigh_to_fine_part, my_destination_part, destination_part, num_coarse_neighbors);
-        // Create mapping from fine neighbors to coarse neighbors, with fine neighbors this partition is merging with labeled with -1
-        IVector_h fine_neigh_to_coarse_neigh;
-        A.manager->createNeighToConsNeigh(fine_neigh_to_coarse_neigh, coarse_neigh_to_fine_part, fine_neigh_to_fine_part, my_destination_part, num_fine_neighbors);
-        /*
-         EXAMPLE
-          Take the following partition graph (that describes connections between partitions, vertices are the partitions themselves), this is the same graph that is used in the setup example
-          number of partitions num_parts=12
-          CSR row_offsets [0 4 8 13 21 25 32 36 41 46 50 57 61]
-          CSR col_indices [0 1 3 8
-                       0 1 2 3
-                       1 2 3 4 5
-                       0 1 2 3 4 5 8 10
-                       2 4 5 6
-                       2 3 4 5 6 7 10
-                       4 5 6 7
-                       5 6 7 9 10
-                       0 3 8 10 11
-                       7 9 10 11
-                       3 5 7 8 9 10 11
-                       8 9 10 11]
-          destination_part = [0 0 0 0 4 4 4 4 8 8 8 8]
-          coarse_part_to_fine_part = [0 4 8] num_coarse_partitions = 3
-          fine_part_to_coarse_part = [0 0 0 0 1 1 1 1 2 2 2 2]
-          original neighbor lists correspond to the rows of the matrix, minus the diagonal elements: (part 0)[1 3 8] (part 3)[0 1 2 4 5 8 10] (part 10)[3 5 7 8 9 11]
-          fine_neigh_to_fine_part (part 0)[0 0 2] (part 3)[0 0 0 0 1 2 2] (part 10)[0 1 1 2 2 2]
-          coarse_neigh_to_fine_part (part 0)[8] (part 3)[4 8] (part 10)[0 4]
-          fine_neigh_to_coarse_neigh (part 0)[-1 -1 0] (part 3)[-1 -1 -1 0 0 1 1] (part 10)[0 1 1 -1 -1 -1]
-         */
-        // --------------------------
-        // Step 2
-        // Create coarse B2L_maps, by mapping fine B2L maps to coarse indices using this->m_aggregates and eliminating duplicates
-        // --------------------------
-        std::vector<IVector> coarse_B2L_maps(num_fine_neighbors);
-        m_num_all_aggregates = m_num_aggregates;
-        int num_neighbors_temp = A.manager->neighbors.size();
-        int num_rings = A.manager->B2L_rings[0].size() - 1;
+    }
+}
 
-        if (num_rings != 1)
+template <class T_Config>
+void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
+{
+    Matrix<TConfig> &A = this->getA();
+    Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
+
+    int num_parts, num_fine_neighbors, my_id;
+
+    num_parts = A.manager->getComms()->get_num_partitions();
+    num_fine_neighbors = A.manager->neighbors.size();
+    my_id = A.manager->global_id();
+        
+    IVector_h &destination_part = A.manager->getDestinationPartitions();
+    int my_destination_part = A.manager->getMyDestinationPartition();
+
+    // bookkeeping stored in AMG_Level_Base
+    std::vector<IVector_h> &vertex_counts = this->m_vertex_counts;
+    IVector_h &fine_parts_to_consolidate  = this->m_fine_parts_to_consolidate;
+
+    // bookkeeping stored in either AMG_Level_Base or Acs' DistributedManager
+    IVector_h &halo_offsets                     = this->isReuseLevel() ? Ac.manager->getHaloOffsets() : this->m_consolidated_halo_offsets;
+    std::vector<IVector> &consolidated_B2L_maps = this->isReuseLevel() ? Ac.manager->getB2Lmaps()     : this->m_consolidated_B2L_maps;
+
+    int num_consolidated_neighbors = this->isRootPartition() ? this->m_consolidated_neighbors.size() : 0;
+
+    if (!this->isRootPartition())
+    {
+        A.manager->getComms()->send_vector_async(Ac.row_offsets, my_destination_part, 1111);
+        A.manager->getComms()->send_vector_async(Ac.col_indices, my_destination_part, 1112);
+        A.manager->getComms()->send_vector_async(Ac.values, my_destination_part, 1113);
+    }
+    else
+    {
+        int num_fine_parts_to_consolidate = fine_parts_to_consolidate.size();
+
+        int total_num_rows = this->m_num_all_aggregates;
+        IVector new_row_offsets(total_num_rows + 1, 0);
+
+        //if diags are inside then we won't be counting those twice when computing halo row length
+        if (!Ac.hasProps(DIAG))
         {
-            FatalError("num_rings > 1 not supported in consolidation\n", AMGX_ERR_NOT_IMPLEMENTED);
-        }
-
-        IndexType max_b2l = 0;
-
-        for (int i = 0; i < num_neighbors_temp; i++ ) { max_b2l = max_b2l > A.manager->B2L_rings[i][1] ? max_b2l : A.manager->B2L_rings[i][1]; }
-
-        IVector B2L_aggregates(max_b2l);
-        IVector indices(max_b2l);
-
-        //TODO: use the algorithm from setNeighborAggregates()
-        for (int i = 0; i < num_neighbors_temp; i++ )
-        {
-            int size = A.manager->B2L_rings[i][1];
-            amgx::thrust::fill(B2L_aggregates.begin(), B2L_aggregates.begin() + size, 0);
-            amgx::thrust::sequence(indices.begin(), indices.begin() + size);
-            //substitute coarse aggregate indices for fine boundary nodes
-            amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin()),
-                         amgx::thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin() + size),
-                         B2L_aggregates.begin());
-            //find the unique ones
-            amgx::thrust::sort_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin());
-            IndexType num_unique = amgx::thrust::unique_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin()).first - B2L_aggregates.begin();
-            coarse_B2L_maps[i].resize(num_unique);
-            //sort it back so we have the original ordering
-            amgx::thrust::sort_by_key(indices.begin(), indices.begin() + num_unique, B2L_aggregates.begin());
-            amgx::thrust::copy(B2L_aggregates.begin(), B2L_aggregates.begin() + num_unique, coarse_B2L_maps[i].begin());
-        }
-
-        cudaCheckError();
-        /*
-         * EXAMPLE
-         say, partition 3 has the following coarse B2L_maps:
-         neighbors [0 1 2 4 5 8 10]
-         B2L_maps[0(=0)] = [6 7 8]
-         B2L_maps[1(=1)] = [8 9 10]
-         B2L_maps[2(=2)] = [10 11 12 13]
-         B2L_maps[3(=4)] = [13 14 15]
-         B2L_maps[4(=5)] = [15 16 17]
-         B2L_maps[5(=8)] = [6 18 19]
-         B2L_maps[6(=10)] = [17 20 19]
-         */
-        // ---------------------------------------------------
-        // Step 3
-        // create new B2L maps for each merged destination neighbor and drop B2L maps to neighbors we are merging with
-        // ---------------------------------------------------
-        std::vector<IVector> dest_coarse_B2L_maps;
-        A.manager->consolidateB2Lmaps(dest_coarse_B2L_maps, coarse_B2L_maps, fine_neigh_to_coarse_neigh, num_coarse_neighbors, num_fine_neighbors);
-        /*
-         * EXAMPLE
-         Then, merging the coarse B2L maps on partition 3, we get:
-         coarse_neigh_to_fine_part [4 8]
-         dest_coarse_B2L_maps[0(=4)] = [13 14 15 16 17]
-         dest_coarse_B2L_maps[1(=8)] = [6 17 18 19 20]
-         */
-        // -----------------------
-        // Step 4
-        // Create interior-boundary renumbering of aggregates according to dest_coarse_B2L_maps
-        // -----------------------
-        // Now renumber the aggregates with all interior aggregates first, boundary aggregates second
-        int num_interior_aggregates; //returned by createAggregatesRenumbering
-        int num_boundary_aggregates; //returned by createAggregatesRenumbering
-        IVector renumbering; //returned by createAggregatesRenumbering
-        // Following calls create renumbering array and modifies B2L_maps
-        A.manager->createAggregatesRenumbering(renumbering, dest_coarse_B2L_maps, this->m_num_aggregates, num_coarse_neighbors, num_interior_aggregates, num_boundary_aggregates, num_rings);
-        /*
-         * EXAMPLE
-         Partition 3 will get a renumbering vector of size 21, for the 21 owned agggregates:
-         [0 1 2 3 4 5 17 6 7 8 9 10 11 12 13 14 15 16 18 19 20]
-         num_interior_aggregates = 12
-         num_boundary_aggregates = 9
-         */
-        // -------------------------------------------------
-        // Step 5
-        // Determine whether root partition, make list of partitions merged into one
-        // ------------------------------------------------
-        // Check if I'm root partition and how fine partitions (including myself) are merging into me
-        bool is_root_partition = false;
-        int num_fine_parts_to_consolidate = 0;
-        IVector_h fine_parts_to_consolidate;
-
-        for (int i = 0; i < num_parts; i++)
-        {
-            if (destination_part[i] == my_id)
-            {
-                is_root_partition = true;
-                num_fine_parts_to_consolidate++;
-            }
-        }
-
-        fine_parts_to_consolidate.resize(num_fine_parts_to_consolidate);
-        int count = 0;
-
-        for (int i = 0; i < num_parts; i++)
-        {
-            if (destination_part[i] == my_id)
-            {
-                fine_parts_to_consolidate[count] = i;
-                count++;
-            }
-        }
-
-        //save this information as state, as this will also be required during solve for restriction/prolongation
-        A.manager->setIsRootPartition(is_root_partition);
-        A.manager->setNumPartsToConsolidate(num_fine_parts_to_consolidate);
-        A.manager->setPartsToConsolidate(fine_parts_to_consolidate);
-        /*
-         * EXAMPLE
-         isRootPartition is true for partitions 0,4,8 false for others
-         num_fine_parts_to_consolidate = 4 for partitions 0,4,8
-         fine_parts_to_consolidate (part 0)[0 1 2 3] (part 4)[4 5 6 7] (part 8)[8 9 10 11]
-         */
-        // ----------------------
-        // Step 6
-        // Compute number of interior, boundary and total nodes in the consolidated coarse matrix. Create offsets so that partitions being merged together will have their aggregate indices ordered like this:
-        // [num_interior(fine_parts_to_consolidate[0]] num_interior(fine_parts_to_consolidate[1]] ... num_interior(fine_parts_to_consolidate[num_fine_parts_to_consolidate]
-        //        num_boundary(fine_parts_to_consolidate[0]] num_boundary(fine_parts_to_consolidate[1]] ... num_boundary(fine_parts_to_consolidate[num_fine_parts_to_consolidate] ]
-        // ----------------------
-        // Gather to get number of interior/boundary aggregates of neighbors I will merge with
-        std::vector<IVector_h> vertex_counts;
-        int interior_offset, boundary_offset, total_interior_rows_in_merged, total_boundary_rows_in_merged;
-        int total_rows_in_merged;
-        //Computes these offsets on the root, sends them back
-        A.manager->computeConsolidatedOffsets(my_id, my_destination_part, is_root_partition, num_interior_aggregates, num_boundary_aggregates, vertex_counts, fine_parts_to_consolidate, num_fine_parts_to_consolidate, interior_offset, boundary_offset, total_interior_rows_in_merged, total_boundary_rows_in_merged, total_rows_in_merged, A.manager->getComms());
-        //Partitions save these offsets, as it will be required during solve restriction/prolongation
-        A.manager->setConsolidationOffsets(interior_offset, num_interior_aggregates, boundary_offset + num_interior_aggregates, num_boundary_aggregates);
-        /*
-         * EXAMPLE
-         For root partition 0, say we have the following interior/boundary counts (note that partition 1 has 0 boundary, as it is only connected to partitions it is merging with)
-         part 0 - interior: 10 boundary 3
-         part 1 - interior: 18
-         part 2 - interior: 10 boundary 16
-         part 3 - interior: 12 boundary 9
-         interior_offset for partitions 0,1,2,3: 0 10 28 38 (total_interior_rows_in_merged 50)
-         boundary_offset for partitions 0,1,2,3: 0 3 3 19 (total_boundary_rows_in_merged 28)
-         */
-        // ----------------------
-        // Step 7
-        // Each partition renumbers its aggregates and dest_coarse_B2L_maps using offsets computed in Step 6 and permutation in Step 4
-        // ----------------------
-        // Kernel to renumber the aggregates
-        int block_size = 128;
-        int grid_size = std::min( 4096, ( A.manager->halo_offsets[0] + block_size - 1 ) / block_size);
-        renumberAggregatesKernel <<< grid_size, block_size >>>(renumbering.raw(), interior_offset, boundary_offset, this->m_aggregates.raw(), A.manager->halo_offsets[0], num_interior_aggregates, renumbering.size());
-        cudaCheckError();
-
-        for (int i = 0; i < num_coarse_neighbors; i++)
-        {
-            amgx::thrust::transform(dest_coarse_B2L_maps[i].begin(),
-                              dest_coarse_B2L_maps[i].end(),
-                              amgx::thrust::constant_iterator<IndexType>(boundary_offset),
-                              dest_coarse_B2L_maps[i].begin(),
-                              amgx::thrust::plus<IndexType>());
-        }
-
-        cudaCheckError();
-        /*
-         * EXAMPLE
-         Partition 3 had a renumbering vector:
-         [0 1 2 3 4 5 17 6 7 8 9 10 11 12 13 14 15 16 18 19 20]
-         which is now adjusted to account for the consolidated coarse matrices' indices:
-         [38 39 40 41 42 43 74 44 45 46 47 48 49 69 70 71 72 73 75 76 77]
-         And the dest_coarse_B2L_maps, which looked like:
-         dest_coarse_B2L_maps[0(=4)] = [13 14 15 16 17]
-         dest_coarse_B2L_maps[1(=8)] = [6 17 18 19 20]
-         is now:
-         dest_coarse_B2L_maps[0(=4)] = [69 70 71 72 73]
-         dest_coarse_B2L_maps[1(=8)] = [74 73 75 76 77]
-         */
-        // -------------------------------------------------
-        // Step 8
-        // Send dest_coarse_B2L_maps to root partitions
-        // ------------------------------------------------
-        // Each fine partition sends to its root the number of coarse neighbors it has, their ids, and the number of boundary nodes for each coarse neighbor
-        IVector_h num_bdy_per_coarse_neigh(num_coarse_neighbors);
-
-        for (int i = 0; i < num_coarse_neighbors; i++)
-        {
-            num_bdy_per_coarse_neigh[i] = dest_coarse_B2L_maps[i].size();
-        }
-
-        IVector_h consolidated_coarse_neigh_to_fine_part; //consolidated list of coarse neighbors for the root partition, using fine partition indices
-        int num_consolidated_neighbors = 0;
-        std::vector<IVector> consolidated_B2L_maps; //concatenates dest_coarse_B2L_maps received from partitions that are merging into the same root and pointing to the same destination coarse neighbor
-        A.manager->consolidateB2LmapsOnRoot(num_consolidated_neighbors, consolidated_B2L_maps, consolidated_coarse_neigh_to_fine_part, dest_coarse_B2L_maps, coarse_neigh_to_fine_part, num_bdy_per_coarse_neigh, fine_parts_to_consolidate, num_fine_parts_to_consolidate, my_id, my_destination_part, is_root_partition, num_coarse_neighbors, A.manager->getComms());
-        //
-        // Step 9 - figuring out halo aggregate IDs
-        //
-        //Now we need to update halo aggregate IDs - this is just a halo exchange on this->m_aggregates between partitions
-        //that are being merged together, but we need to send other halos to the root to come up with the halo renumbering
-        //TODO: separate transactions, send "real halo" to the root nodes (coarse neighbors) immediately
-        //Step 9.1: takes care of synchronizing the aggregate IDs between partitions we are merging together and got consistent halo aggregate IDs for neighbor we are not merging with (which are going to be sent to the root in 9.2)
-        A.manager->exchange_halo(this->m_aggregates, 6666);
-        /*
-         * EXAMPLE 2
-         This example is independent from the previous ones.
-         Say partition 0 and 1 are merging (into 0) partition 0 is neighbors with 1,2,3 and partition 1 is neighbors with 0,3,4
-         Partitions 3 and 4 are merging (into partition 3) and partition 2 is not merging with anyone.
-         This example details the renumbering of halo indices on partition 0 and partition 1.
-         After the exchange halo, we have:
-         this->m_aggregates on partition 0:
-         [(fine interior nodes) (fine boundary nodes) (fine halo from part 1) (fine halo from part 2) (fine halo from part 3)]
-         [(fine interior nodes) (fine boundary nodes) (13 13 15) (12 15 17) (14 16 18)]
-         aggregates on partition 1:
-         [(fine interior nodes) (fine boundary nodes) (fine halo from part 0) (fine halo from part 3) (fine halo from part 4)]
-         [(fine interior nodes) (fine boundary nodes) (14 16 17) (18 19 19) (15 15 17)]
-         indices in  (fine halo from part 0) and (fine halo from part 1) actually contain interior aggregate indices (if they are not connected to partitions 2,3 or 4), because the boundary is disappearing there.
-         Indices in halo regions contain remote-local indices.
-
-         This example is used throughout consolidateAndRenumberHalos
-         */
-        //Step 9.2 - 9.5
-        IVector_h halo_offsets(num_consolidated_neighbors + 1, 0);
-        A.manager->consolidateAndRenumberHalos(this->m_aggregates, A.manager->halo_offsets, halo_offsets, A.manager->neighbors, num_fine_neighbors, consolidated_coarse_neigh_to_fine_part, num_consolidated_neighbors, destination_part, my_destination_part, is_root_partition, fine_parts_to_consolidate, num_fine_parts_to_consolidate, num_parts, my_id, total_rows_in_merged, this->m_num_all_aggregates, A.manager->getComms());
-
-        if (is_root_partition)
-        {
-            for (int i = 0; i < consolidated_B2L_maps.size(); i++)
-            {
-                amgx::thrust::sort(consolidated_B2L_maps[i].begin(), consolidated_B2L_maps[i].end());
-            }
-
+            thrust::fill(new_row_offsets.begin() + halo_offsets[0], new_row_offsets.begin() + halo_offsets[num_consolidated_neighbors], 1);
             cudaCheckError();
         }
 
-        // Step 10 do the Galerkin product
-        //
-        ViewType oldView = this->getA().currentView();
-        this->getA().setView(ALL);
-        // If we reuse the level we keep the previous restriction operator
-        this->Profile.tic("computeR");
-        computeRestrictionOperator();
-        this->Profile.toc("computeR");
-        profileSubphaseComputeCoarseA();
-        this->Profile.tic("computeA");
-        Ac.copyAuxData(&A);
+        std::vector<IVector> recv_row_offsets(num_fine_parts_to_consolidate);
+        std::vector<VecInt_t> num_nz(num_fine_parts_to_consolidate);
+        IVector *work_row_offsets;
+        std::vector<VecInt_t> index_offset_array(2 * num_fine_parts_to_consolidate + 1);
+        int interior_offset = 0;
+        int boundary_offset = 0;
 
-        if (Ac.manager == NULL)
+        for (int i = 0; i < num_fine_parts_to_consolidate; i++)
         {
-            Ac.manager = new DistributedManager<TConfig>();
+            boundary_offset += vertex_counts[i][0];
         }
 
-        this->m_coarseAGenerator->computeAOperator(A, Ac, this->m_aggregates, this->m_R_row_offsets, this->m_R_column_indices, this->m_num_all_aggregates);
-        Ac.setColsReorderedByColor(false);
-        ViewType oldViewC = Ac.currentView();
-        Ac.setView(FULL);
-        this->Profile.toc("computeA");
+        int max_num_nz = 0;
 
-        //
-        // Step 11, send matrices to root, consolidate
-        //
-
-        if (!is_root_partition)
+        for (int i = 0; i < num_fine_parts_to_consolidate; i++)
         {
-            A.manager->getComms()->send_vector_async(Ac.row_offsets, my_destination_part, 1111);
-            A.manager->getComms()->send_vector_async(Ac.col_indices, my_destination_part, 1112);
-            A.manager->getComms()->send_vector_async(Ac.values, my_destination_part, 1113);
-        }
-        else
-        {
-            int total_num_rows = this->m_num_all_aggregates;
-            IVector new_row_offsets(total_num_rows + 1, 0);
+            int current_part = fine_parts_to_consolidate[i];
 
-            //if diags are inside then we won't be counting those twice when computing halo row length
-            if (!Ac.hasProps(DIAG))
+            //receive row offsets
+            if (current_part != my_id)
             {
-                amgx::thrust::fill(new_row_offsets.begin() + halo_offsets[0], new_row_offsets.begin() + halo_offsets[num_consolidated_neighbors], 1);
-                cudaCheckError();
+                recv_row_offsets[i].resize(total_num_rows + 1);
+                A.manager->getComms()->recv_vector(recv_row_offsets[i], current_part, 1111);
+                work_row_offsets = &(recv_row_offsets[i]);
+                num_nz[i] = (*work_row_offsets)[work_row_offsets->size() - 1];
+                max_num_nz = max_num_nz > num_nz[i] ? max_num_nz : num_nz[i];
+            }
+            else
+            {
+                work_row_offsets = &(Ac.row_offsets);
+                num_nz[i] = Ac.get_num_nz();
             }
 
-            std::vector<IVector> recv_row_offsets(num_fine_parts_to_consolidate);
-            std::vector<VecInt_t> num_nz(num_fine_parts_to_consolidate);
-            IVector *work_row_offsets;
-            std::vector<VecInt_t> index_offset_array(2 * num_fine_parts_to_consolidate + 1);
-            int interior_offset = 0;
-            int boundary_offset = 0;
-
-            for (int i = 0; i < num_fine_parts_to_consolidate; i++)
-            {
-                boundary_offset += vertex_counts[i][0];
-            }
-
-            int max_num_nz = 0;
-
-            for (int i = 0; i < num_fine_parts_to_consolidate; i++)
-            {
-                int current_part = fine_parts_to_consolidate[i];
-
-                //receive row offsets
-                if (current_part != my_id)
-                {
-                    recv_row_offsets[i].resize(total_num_rows + 1);
-                    A.manager->getComms()->recv_vector(recv_row_offsets[i], current_part, 1111);
-                    work_row_offsets = &(recv_row_offsets[i]);
-                    num_nz[i] = (*work_row_offsets)[work_row_offsets->size() - 1];
-                    max_num_nz = max_num_nz > num_nz[i] ? max_num_nz : num_nz[i];
-                }
-                else
-                {
-                    work_row_offsets = &(Ac.row_offsets);
-                    num_nz[i] = Ac.get_num_nz();
-                }
-
-                //Get interior row length
-                amgx::thrust::transform(work_row_offsets->begin() + interior_offset + 1,
-                                  work_row_offsets->begin() + interior_offset + vertex_counts[i][0] + 1,
-                                  work_row_offsets->begin() + interior_offset,
-                                  new_row_offsets.begin() + interior_offset,
-                                  amgx::thrust::minus<IndexType>());
-                cudaCheckError();
-                //Get boundary row length
-                amgx::thrust::transform(work_row_offsets->begin() + boundary_offset + 1,
-                                  work_row_offsets->begin() + boundary_offset + vertex_counts[i][1] + 1,
-                                  work_row_offsets->begin() + boundary_offset,
-                                  new_row_offsets.begin() + boundary_offset,
-                                  amgx::thrust::minus<IndexType>());
-                cudaCheckError();
-                //Increment halo row length by one for every nonzero that is an edge from the halo into this partition
-                int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
-                const int block_size = 128;
-                const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
-                set_halo_rowlen <<< num_blocks, block_size>>>(work_row_offsets->raw() + halo_offsets[0], new_row_offsets.raw() + halo_offsets[0], size, Ac.hasProps(DIAG));
-                cudaCheckError();
-                index_offset_array[i] = interior_offset;
-                index_offset_array[num_fine_parts_to_consolidate + i] = boundary_offset;
-                interior_offset += vertex_counts[i][0];
-                boundary_offset += vertex_counts[i][1];
-                index_offset_array[i + 1] = interior_offset;
-                index_offset_array[num_fine_parts_to_consolidate + i + 1] = boundary_offset;
-            }
-
-            A.manager->setConsolidationArrayOffsets(index_offset_array);
-            //Exclusive scan row length array to get row offsets
-            amgx::thrust::exclusive_scan(new_row_offsets.begin(), new_row_offsets.end(), new_row_offsets.begin());
+            //Get interior row length
+            thrust::transform(work_row_offsets->begin() + interior_offset + 1,
+                                work_row_offsets->begin() + interior_offset + vertex_counts[i][0] + 1,
+                                work_row_offsets->begin() + interior_offset,
+                                new_row_offsets.begin() + interior_offset,
+                                thrust::minus<IndexType>());
             cudaCheckError();
-            //Prepare to receive column indices and values
-            int num_nz_consolidated = new_row_offsets[new_row_offsets.size() - 1];
-            IVector recv_col_indices(max_num_nz);
-            IVector new_col_indices(num_nz_consolidated);
-            MVector recv_values((max_num_nz + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
-            MVector new_values((num_nz_consolidated + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
-            amgx::thrust::fill(new_col_indices.begin() + new_row_offsets[halo_offsets[0]], new_col_indices.end(), -1); //Set all the halo col indices to -1
-
-            if (!Ac.hasProps(DIAG)) { amgx::thrust::fill(new_values.begin() + num_nz_consolidated * Ac.get_block_size(), new_values.end(), types::util<ValueTypeA>::get_zero()); }
-
+            //Get boundary row length
+            thrust::transform(work_row_offsets->begin() + boundary_offset + 1,
+                                work_row_offsets->begin() + boundary_offset + vertex_counts[i][1] + 1,
+                                work_row_offsets->begin() + boundary_offset,
+                                new_row_offsets.begin() + boundary_offset,
+                                thrust::minus<IndexType>());
             cudaCheckError();
-            IVector *work_col_indices;
-            MVector *work_values;
-            interior_offset = 0;
-            boundary_offset = 0;
-
-            for (int i = 0; i < num_fine_parts_to_consolidate; i++)
-            {
-                int current_part = fine_parts_to_consolidate[i];
-                boundary_offset += vertex_counts[i][0];
-            }
-
-            for (int i = 0; i < num_fine_parts_to_consolidate; i++)
-            {
-                int current_part = fine_parts_to_consolidate[i];
-
-                if (current_part != my_id)
-                {
-                    A.manager->getComms()->recv_vector(recv_col_indices, current_part, 1112, 0, num_nz[i]);
-                    A.manager->getComms()->recv_vector(recv_values, current_part, 1113, 0, (num_nz[i] + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
-                    work_col_indices = &(recv_col_indices);
-                    work_row_offsets = &(recv_row_offsets[i]);
-                    work_values = &(recv_values);
-                }
-                else
-                {
-                    work_row_offsets = &(Ac.row_offsets);
-                    work_col_indices = &(Ac.col_indices);
-                    work_values = &(Ac.values);
-                }
-
-                //Put interior rows in place
-                amgx::thrust::copy(work_col_indices->begin() + (*work_row_offsets)[interior_offset],
-                             work_col_indices->begin() + (*work_row_offsets)[interior_offset + vertex_counts[i][0]],
-                             new_col_indices.begin() + new_row_offsets[interior_offset]);
-                cudaCheckError();
-                amgx::thrust::copy(work_values->begin() + (*work_row_offsets)[interior_offset]*Ac.get_block_size(),
-                             work_values->begin() + ((*work_row_offsets)[interior_offset + vertex_counts[i][0]])*Ac.get_block_size(),
-                             new_values.begin() + new_row_offsets[interior_offset]*Ac.get_block_size());
-                cudaCheckError();
-                //Put boundary rows in place
-                amgx::thrust::copy(work_col_indices->begin() + (*work_row_offsets)[boundary_offset],
-                             work_col_indices->begin() + (*work_row_offsets)[boundary_offset + vertex_counts[i][1]],
-                             new_col_indices.begin() + new_row_offsets[boundary_offset]);
-                cudaCheckError();
-                amgx::thrust::copy(work_values->begin() + (*work_row_offsets)[boundary_offset]*Ac.get_block_size(),
-                             work_values->begin() + ((*work_row_offsets)[boundary_offset + vertex_counts[i][1]])*Ac.get_block_size(),
-                             new_values.begin() + new_row_offsets[boundary_offset]*Ac.get_block_size());
-                cudaCheckError();
-                //Process halo rows (merge)
-                int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
-                const int block_size = 128;
-                const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
-                //TODO: vectorise this kernel, will be inefficient for larger block sizes
-                append_halo_nz <<< num_blocks, block_size>>>(work_row_offsets->raw() + halo_offsets[0],
-                        new_row_offsets.raw() + halo_offsets[0],
-                        work_col_indices->raw(),
-                        new_col_indices.raw(),
-                        work_values->raw(),
-                        new_values.raw(),
-                        size, Ac.hasProps(DIAG), halo_offsets[0], Ac.get_block_size());
-                cudaCheckError();
-
-                // Diagonals
-                if (Ac.hasProps(DIAG))
-                {
-                    // Diagonal corresponding to interior rows
-                    amgx::thrust::copy(work_values->begin() + (num_nz[i] + interior_offset)*Ac.get_block_size(),
-                                 work_values->begin() + (num_nz[i] + interior_offset + vertex_counts[i][0])*Ac.get_block_size(),
-                                 new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + interior_offset)*Ac.get_block_size());
-                    // Diagonal corresponding to boundary rows
-                    amgx::thrust::copy(work_values->begin() + (num_nz[i] + boundary_offset)*Ac.get_block_size(),
-                                 work_values->begin() + (num_nz[i] + boundary_offset + vertex_counts[i][1])*Ac.get_block_size(),
-                                 new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + boundary_offset)*Ac.get_block_size());
-                    cudaCheckError();
-                }
-
-                interior_offset += vertex_counts[i][0];
-                boundary_offset += vertex_counts[i][1];
-            }
-
-            Ac.set_initialized(0);
-            Ac.row_offsets = new_row_offsets;
-            Ac.col_indices = new_col_indices;
-            Ac.values = new_values;
+            //Increment halo row length by one for every nonzero that is an edge from the halo into this partition
+            int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
+            const int block_size = 128;
+            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+            set_halo_rowlen <<< num_blocks, block_size>>>(work_row_offsets->raw() + halo_offsets[0], new_row_offsets.raw() + halo_offsets[0], size, Ac.hasProps(DIAG));
+            cudaCheckError();
+            index_offset_array[i] = interior_offset;
+            index_offset_array[num_fine_parts_to_consolidate + i] = boundary_offset;
+            interior_offset += vertex_counts[i][0];
+            boundary_offset += vertex_counts[i][1];
+            index_offset_array[i + 1] = interior_offset;
+            index_offset_array[num_fine_parts_to_consolidate + i + 1] = boundary_offset;
         }
 
-        // Create a new distributed communicator for coarse levels that only contains active partitions
-        Ac.manager->setComms(A.manager->getComms()->Clone());
-        Ac.manager->getComms()->createSubComm(coarse_part_to_fine_part, is_root_partition);
+        A.manager->setConsolidationArrayOffsets(index_offset_array);
+        //Exclusive scan row length array to get row offsets
+        thrust::exclusive_scan(new_row_offsets.begin(), new_row_offsets.end(), new_row_offsets.begin());
+        cudaCheckError();
+        //Prepare to receive column indices and values
+        int num_nz_consolidated = new_row_offsets[new_row_offsets.size() - 1];
+        IVector recv_col_indices(max_num_nz);
+        IVector new_col_indices(num_nz_consolidated);
+        MVector recv_values((max_num_nz + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
+        MVector new_values((num_nz_consolidated + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
+        thrust::fill(new_col_indices.begin() + new_row_offsets[halo_offsets[0]], new_col_indices.end(), -1); //Set all the halo col indices to -1
 
-        //
-        // Step 12 - finalizing, bookkeping
-        //
-        if (is_root_partition)
+
+        if (!Ac.hasProps(DIAG)) { thrust::fill(new_values.begin() + num_nz_consolidated * Ac.get_block_size(), new_values.end(), types::util<ValueTypeA>::get_zero()); }
+
+        cudaCheckError();
+        IVector *work_col_indices;
+        MVector *work_values;
+        interior_offset = 0;
+        boundary_offset = 0;
+
+        for (int i = 0; i < num_fine_parts_to_consolidate; i++)
         {
-            int my_consolidated_id = fine_part_to_coarse_part[my_id];
+            int current_part = fine_parts_to_consolidate[i];
+            boundary_offset += vertex_counts[i][0];
+        }
 
-            for (int i = 0; i < num_consolidated_neighbors; i++)
+        for (int i = 0; i < num_fine_parts_to_consolidate; i++)
+        {
+            int current_part = fine_parts_to_consolidate[i];
+
+            if (current_part != my_id)
             {
-                consolidated_coarse_neigh_to_fine_part[i] = fine_part_to_coarse_part[consolidated_coarse_neigh_to_fine_part[i]];
+                A.manager->getComms()->recv_vector(recv_col_indices, current_part, 1112, 0, num_nz[i]);
+                A.manager->getComms()->recv_vector(recv_values, current_part, 1113, 0, (num_nz[i] + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
+                work_col_indices = &(recv_col_indices);
+                work_row_offsets = &(recv_row_offsets[i]);
+                work_values = &(recv_values);
+            }
+            else
+            {
+                work_row_offsets = &(Ac.row_offsets);
+                work_col_indices = &(Ac.col_indices);
+                work_values = &(Ac.values);
             }
 
-            Ac.manager->initializeAfterConsolidation(
-                my_consolidated_id,
-                Ac,
-                consolidated_coarse_neigh_to_fine_part,
-                total_interior_rows_in_merged,
-                total_boundary_rows_in_merged,
+            //Put interior rows in place
+            thrust::copy(work_col_indices->begin() + (*work_row_offsets)[interior_offset],
+                            work_col_indices->begin() + (*work_row_offsets)[interior_offset + vertex_counts[i][0]],
+                            new_col_indices.begin() + new_row_offsets[interior_offset]);
+            cudaCheckError();
+            thrust::copy(work_values->begin() + (*work_row_offsets)[interior_offset]*Ac.get_block_size(),
+                            work_values->begin() + ((*work_row_offsets)[interior_offset + vertex_counts[i][0]])*Ac.get_block_size(),
+                            new_values.begin() + new_row_offsets[interior_offset]*Ac.get_block_size());
+            cudaCheckError();
+            //Put boundary rows in place
+            thrust::copy(work_col_indices->begin() + (*work_row_offsets)[boundary_offset],
+                            work_col_indices->begin() + (*work_row_offsets)[boundary_offset + vertex_counts[i][1]],
+                            new_col_indices.begin() + new_row_offsets[boundary_offset]);
+            cudaCheckError();
+            thrust::copy(work_values->begin() + (*work_row_offsets)[boundary_offset]*Ac.get_block_size(),
+                            work_values->begin() + ((*work_row_offsets)[boundary_offset + vertex_counts[i][1]])*Ac.get_block_size(),
+                            new_values.begin() + new_row_offsets[boundary_offset]*Ac.get_block_size());
+            cudaCheckError();
+            //Process halo rows (merge)
+            int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
+            const int block_size = 128;
+            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+            //TODO: vectorise this kernel, will be inefficient for larger block sizes
+            append_halo_nz <<< num_blocks, block_size>>>(work_row_offsets->raw() + halo_offsets[0],
+                    new_row_offsets.raw() + halo_offsets[0],
+                    work_col_indices->raw(),
+                    new_col_indices.raw(),
+                    work_values->raw(),
+                    new_values.raw(),
+                    size, Ac.hasProps(DIAG), halo_offsets[0], Ac.get_block_size());
+            cudaCheckError();
+
+            // Diagonals
+            if (Ac.hasProps(DIAG))
+            {
+                // Diagonal corresponding to interior rows
+                thrust::copy(work_values->begin() + (num_nz[i] + interior_offset)*Ac.get_block_size(),
+                                work_values->begin() + (num_nz[i] + interior_offset + vertex_counts[i][0])*Ac.get_block_size(),
+                                new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + interior_offset)*Ac.get_block_size());
+                // Diagonal corresponding to boundary rows
+                thrust::copy(work_values->begin() + (num_nz[i] + boundary_offset)*Ac.get_block_size(),
+                                work_values->begin() + (num_nz[i] + boundary_offset + vertex_counts[i][1])*Ac.get_block_size(),
+                                new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + boundary_offset)*Ac.get_block_size());
+                cudaCheckError();
+            }
+
+            interior_offset += vertex_counts[i][0];
+            boundary_offset += vertex_counts[i][1];
+        }
+
+        Ac.set_initialized(0);
+        Ac.row_offsets = new_row_offsets;
+        Ac.col_indices = new_col_indices;
+        Ac.values = new_values;
+    }
+
+    // A new distributed communicator for coarse levels that only contains active partitions
+    // has already been created in consolidatedBookKeeping!
+
+    //
+    // Step 12 - finalizing, bookkeping
+    //
+    if (this->isRootPartition())
+    {
+        // int my_consolidated_id = fine_part_to_coarse_part[my_id];
+        int my_consolidated_id = Ac.manager->getComms()->get_global_id();
+
+        if (!this->isReuseLevel())
+        {
+             Ac.manager->initializeAfterConsolidation(
+                 my_consolidated_id,
+                 Ac,
+                this->m_consolidated_neighbors,
+                this->m_total_interior_rows_in_merged,
+                this->m_total_boundary_rows_in_merged,
                 this->m_num_all_aggregates,
-                halo_offsets,
-                consolidated_B2L_maps,
+                this->m_consolidated_halo_offsets,
+                this->m_consolidated_B2L_maps,
                 1,
                 true);
+
+            // this is now stored in Acs DistributedManager
+            this->m_consolidated_neighbors.resize(0);
+            this->m_consolidated_halo_offsets.resize(0);
+            this->m_consolidated_B2L_maps.resize(0);
+
             Ac.manager->B2L_rings.resize(num_consolidated_neighbors + 1);
 
             for (int i = 0; i < num_consolidated_neighbors; i++)
@@ -2538,76 +2642,33 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
                 Ac.manager->B2L_rings[i][0] = 0;
                 Ac.manager->B2L_rings[i][1] = consolidated_B2L_maps[i].size();
             }
-
-            Ac.manager->set_initialized(Ac.row_offsets);
-            Ac.manager->getComms()->set_neighbors(num_consolidated_neighbors);
-            int new_nnz = Ac.row_offsets[Ac.row_offsets.size() - 1];
-            Ac.set_num_nz(new_nnz);
-            Ac.set_num_cols(Ac.manager->halo_offsets[Ac.manager->halo_offsets.size() - 1]);
-            Ac.set_num_rows(Ac.get_num_cols());
-
-            if (A.hasProps(DIAG)) { Ac.addProps(DIAG); }
-
-            Ac.computeDiagonal();
-            Ac.set_initialized(1);
-        }
-        else
-        {
-            Ac.set_initialized(0);
-            // set size of Ac to be zero
-            Ac.resize(0, 0, 0, 1);
-            Ac.set_initialized(1);
         }
 
-        this->getA().setView(oldView);
-        Ac.setView(OWNED);
+        Ac.manager->set_initialized(Ac.row_offsets);
+        Ac.manager->getComms()->set_neighbors(num_consolidated_neighbors);
+        int new_nnz = Ac.row_offsets[Ac.row_offsets.size() - 1];
+
+        Ac.set_num_nz(new_nnz);
+        Ac.set_num_cols(Ac.manager->halo_offsets[Ac.manager->halo_offsets.size() - 1]);
+        Ac.set_num_rows(Ac.get_num_cols());
+
+        if (A.hasProps(DIAG)) { Ac.addProps(DIAG); }
+
+        Ac.computeDiagonal();
+        Ac.set_initialized(1);
     }
     else
     {
-        /* WARNING: do not recompute prolongation (P) and restriction (R) when you
-                    are reusing the level structure (structure_reuse_levels > 0).
-                    Notice that in aggregation path, prolongation P is implicit,
-                    and is used through the aggregates array. */
-        if (this->isReuseLevel() == false)
-        {
-            this->setNeighborAggregates();
-        }
+        this->getA().manager->getComms()->send_vector_wait_all(Ac.row_offsets);
+        this->getA().manager->getComms()->send_vector_wait_all(Ac.col_indices);
+        this->getA().manager->getComms()->send_vector_wait_all(Ac.values);
 
-        this->getA().setView(ALL);
-
-        // Compute restriction operator
-        // TODO: computing the restriction operator could be merged with the selector to save some work
-        // If we reuse the level we keep the previous restriction operator
-        if (this->isReuseLevel() == false)
-        {
-            profileSubphaseComputeRestriction();
-            this->Profile.tic("computeR");
-            computeRestrictionOperator();
-            this->Profile.toc("computeR");
-        }
-
-        profileSubphaseComputeCoarseA();
-        this->Profile.tic("computeA");
         Ac.set_initialized(0);
-        Ac.copyAuxData(&A);
-        this->m_coarseAGenerator->computeAOperator(A, Ac, this->m_aggregates, this->m_R_row_offsets, this->m_R_column_indices, this->m_num_all_aggregates);
-        Ac.setColsReorderedByColor(false);
-        Ac.setView(FULL);
-        this->Profile.toc("computeA");
-        this->prepareNextLevelMatrix(A, Ac);
-        A.setView(OWNED);
-        Ac.setView(OWNED);
-    }
-
-    this->m_next_level_size = this->m_num_all_aggregates * Ac.get_block_dimy();
-
-    if (this->m_print_aggregation_info)
-    {
-        MatrixAnalysis<TConfig> ana(&Ac);
-        ana.aggregatesQuality2(this->m_aggregates, this->m_num_aggregates, A);
+        // set size of Ac to be zero
+        Ac.resize(0, 0, 0, 1);
+        Ac.set_initialized(1);
     }
 }
-
 
 // -------------------------------------------------------------
 // Explicit instantiations

@@ -347,7 +347,7 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
     if (m_verbose)
     {
         std::cout
-                << "---------------------------------------------------------------------------"
+                << "----------------------------------------------------------------------------------"
                 << std::endl;
         std::cout << "Parameters for solver: " << this->getName()
                   << " with scope name: " << this->getScope() << std::endl << std::endl;
@@ -365,7 +365,7 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
         std::cout << "store_res_history = " << m_store_res_history << std::endl;
         std::cout << "obtain_timings = " << m_obtain_timings << std::endl;
         std::cout
-                << "---------------------------------------------------------------------------"
+                << "----------------------------------------------------------------------------------"
                 << std::endl << std::endl;
     }
 
@@ -745,7 +745,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
 
         ss << std::endl;
         ss
-                << "         --------------------------------------------------------------";
+                << "         ----------------------------------------------------------------------";
 
         for (int i = 0; i < m_nrm.size() - 1; i++)
         {
@@ -892,7 +892,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
     {
         ss.str(std::string());
         ss
-                << "         --------------------------------------------------------------";
+                << "         ----------------------------------------------------------------------";
 
         for (int i = 0; i < m_nrm.size() - 1; i++)
         {
@@ -928,7 +928,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
            << std::setw(15) << MemoryInfo::getMaxMemoryUsage() << " GB"
            << std::endl;
         ss
-                << "         --------------------------------------------------------------";
+                << "         ----------------------------------------------------------------------";
 
         for (int i = 0; i < m_nrm.size() - 1; i++)
         {

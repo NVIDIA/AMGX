@@ -247,6 +247,25 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
                 }
             }
             level->Profile.toc("Smoother");
+
+            if ( (!A.is_matrix_singleGPU()) && (!level->isClassicalAMGLevel()) && consolidation_flag )
+            {
+                // Note: We need to use the manager/communicator from THIS level
+                //       since the manager/communicator for the NEXT level is one for the
+                //       reduced set of partitions after consolidation!
+                if (!level->isRootPartition())
+                {
+                    // bc is consolidated, data is sent from non-root to root partition
+                    level->getA().manager->getComms()->send_vector_wait_all(bc);
+                }
+                else
+                {
+                    // xc is consolidated and then un-consolidated again,
+                    // only the MPI send-requests from the latter step need to be waited for 
+                    level->getA().manager->getComms()->send_vector_wait_all(xc);
+                }
+            }
+
         }
     } //
 

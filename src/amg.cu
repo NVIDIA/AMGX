@@ -1258,9 +1258,13 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
     float total_size = 0;
     ss << "AMG Grid:\n";
     ss << "         Number of Levels: " << this->num_levels << std::endl;
-    ss << std::setw(15) << "LVL" << std::setw(13) << "ROWS" << std::setw(18) << "NNZ"
-       << std::setw(10) << "SPRSTY" << std::setw(15) << "Mem (GB)" << std::endl;
-    ss << "         --------------------------------------------------------------\n";
+    ss << std::setw(15) << "LVL";
+    ss << std::setw(13) << "ROWS" 
+       << std::setw(18) << "NNZ"
+       << std::setw(7) << "PARTS"
+       << std::setw(10) << "SPRSTY" 
+       << std::setw(15) << "Mem (GB)" << std::endl;
+    ss << "        ----------------------------------------------------------------------\n";
 
     while (level_d != NULL)
     {
@@ -1269,6 +1273,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         int64_t nnz = (int)((level_d->getA( ).get_num_nz()
                              + has_diag * level_d->getA( ).get_num_rows()) * level_d->getA( ).get_block_dimy()
                             * level_d->getA( ).get_block_dimx());
+        int64_t num_parts = level_d->getA().is_matrix_singleGPU() ? 1 : level_d->getA().manager->getComms()->get_num_partitions();
         float size = level_d->bytes(true) / 1024.0 / 1024 / 1024;
 
         // If aggregation AMG, skip this if # of neighbors = 0, since we're consolidating
@@ -1288,6 +1293,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         ss  << std::setw(12) << level_d->getLevelIndex( ) << "(D)"
             << std::setw(13) << num_rows
             << std::setw(18) << nnz
+            << std::setw(7) << num_parts
             << std::setw(10) << std::setprecision(3) << sparsity
             << std::setw(15) << size
             << std::setprecision(6) << std::endl;
@@ -1356,11 +1362,11 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         }
     }
 
-    ss << "         --------------------------------------------------------------\n";
+    ss << "         ----------------------------------------------------------------------\n";
     ss << "         Grid Complexity: " << total_rows / (double) fine_rows << std::endl;
     ss << "         Operator Complexity: " << total_nnz / (double) fine_nnz << std::endl;
     ss << "         Total Memory Usage: " << total_size << " GB" << std::endl;
-    ss << "         --------------------------------------------------------------\n";
+    ss << "         ----------------------------------------------------------------------\n";
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>

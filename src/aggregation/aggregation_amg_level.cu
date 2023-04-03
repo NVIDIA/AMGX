@@ -2613,6 +2613,8 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
                 thrust::copy(work_values->begin() + (num_nz[i] + boundary_offset)*Ac.get_block_size(),
                                 work_values->begin() + (num_nz[i] + boundary_offset + vertex_counts[i][1])*Ac.get_block_size(),
                                 new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + boundary_offset)*Ac.get_block_size());
+                cudaCheckError();
+            }
 
             interior_offset += vertex_counts[i][0];
             boundary_offset += vertex_counts[i][1];

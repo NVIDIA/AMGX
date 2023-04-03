@@ -1412,10 +1412,10 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     const int eightwarps_per_block = threads_per_block / 4;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);
 
-    // XXX Change this to use latency hiding
+    // XXX We need to add latency hiding here
     if (!A.is_matrix_singleGPU())
     {
-        A.manager->exchange_halo(x, 178643);
+        A.manager->exchange_halo(x, x.tag);
     }
 
     cudaFuncSetCacheConfig(jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16>, cudaFuncCachePreferL1);

@@ -153,7 +153,13 @@ int AMGX_GetErrorString( AMGX_ERROR error, char *buffer, int buf_len);
 }
 #endif
 
-#define AMGX_CATCHES(rc) catch (amgx_exception e) {                                                \
+
+#ifndef DISABLE_EXCEPTION_HANDLING \
+
+#define AMGX_TRIES() try
+
+#define AMGX_CATCHES(rc) \
+  catch (amgx_exception e) {                                                \
     std::string err = "Caught amgx exception: " + std::string(e.what()) + " at: "                   \
         + std::string(e.where()) + "\nStack trace:\n" + std::string(e.trace()) + "\n";               \
     error_output(err.c_str(), static_cast<int>(err.length()));                                       \
@@ -184,5 +190,14 @@ int AMGX_GetErrorString( AMGX_ERROR error, char *buffer, int buf_len);
     error_output(err.c_str(), static_cast<int>(err.length()));                                       \
     rc = AMGX_ERR_UNKNOWN;                                                                          \
   }
+
+#else
+
+#define AMGX_TRIES()
+
+#define AMGX_CATCHES(rc)
+
+#endif
+
 
 } // namespace amgx

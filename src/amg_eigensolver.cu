@@ -195,11 +195,10 @@ AMGX_ERROR AMG_EigenSolver<T_Config>::setup_no_throw( Matrix<T_Config> &A)
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         this->setup(A);
     }
-
     AMGX_CATCHES(rc)
     return rc;
 }
@@ -234,11 +233,10 @@ AMGX_ERROR AMG_EigenSolver<T_Config>::pagerank_setup_no_throw( Vector<T_Config> 
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         this->pagerank_setup(vec);
     }
-
     AMGX_CATCHES(rc)
     return rc;
 }
@@ -256,11 +254,10 @@ AMGX_ERROR AMG_EigenSolver<T_Config>::setup_capi_no_throw( std::shared_ptr<Matri
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         this->setup_capi(pA0);
     }
-
     AMGX_CATCHES(rc)
     return rc;
 }

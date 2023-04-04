@@ -352,7 +352,17 @@ int main(int argc, char **argv)
       //AMGX_matrix_replace_coefficients(A, n, nnz, values, diag);
       //AMGX_solver_setup(solver, A);
       //AMGX_solver_solve(solver, b, x);
+      MPI_Barrier(MPI_COMM_WORLD);
       AMGX_solver_get_status(solver, &status);
+      if(status == AMGX_SOLVE_DIVERGED) {
+          print_callback("***Solver Diverged\n", 0);
+      }
+      else if(status == AMGX_SOLVE_NOT_CONVERGED) {
+          print_callback("***Solver Did Not Converge\n", 0);
+      }
+      else if(status == AMGX_SOLVE_FAILED) {
+          print_callback("***Solver Failed\n", 0);
+      }
     }
 
     /* example of how to get (the local part of) the solution */
@@ -376,8 +386,7 @@ int main(int argc, char **argv)
       amgx_libclose(lib_handle);
 #endif
     MPI_Finalize();
-    CUDA_SAFE_CALL(cudaDeviceReset());
-    return status;
+    return 0;
 }
 
 

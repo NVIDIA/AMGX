@@ -153,6 +153,7 @@ int AMGX_GetErrorString( AMGX_ERROR error, char *buffer, int buf_len);
 }
 #endif
 
+//#define DISABLE_EXCEPTION_HANDLING
 
 #ifndef DISABLE_EXCEPTION_HANDLING \
 

@@ -1039,9 +1039,9 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
     // try to keep 'x' in L2 cache, if at least Ampere & CUDA 11
 #if CUDART_VERSION >= 11000
+    cudaStreamAttrValue stream_attribute;
     if (arch >= 80 && use_l2_hint == 1)
     {
-        cudaStreamAttrValue stream_attribute;   
         cudaDeviceProp prop = getDeviceProperties();
         size_t x_size = min( A.get_num_rows()*8 , prop.persistingL2CacheMaxSize );      // set-aside length of 'x' (number of rows in A)*8 bytes
         cudaDeviceSetLimit( cudaLimitPersistingL2CacheSize, x_size);                    //            for persisting accesses or the max allowed
@@ -1151,7 +1151,6 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 #if CUDART_VERSION >= 11000
     if (arch >= 80 && use_l2_hint == 1)
     {        
-        cudaStreamAttrValue stream_attribute;   
         stream_attribute.accessPolicyWindow.num_bytes = 0;                                          // Setting the window size to 0 disable it
         cudaStreamSetAttribute(work_stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   // Overwrite the access policy attribute to a CUDA Stream
         cudaCtxResetPersistingL2Cache();                                                            // Remove any persistent lines in L2 

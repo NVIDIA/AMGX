@@ -48,7 +48,6 @@
 #include <thrust/count.h>
 #include <thrust/sort.h>
 
-#include <profile.h>
 #include <string>
 #include <algorithm>
 

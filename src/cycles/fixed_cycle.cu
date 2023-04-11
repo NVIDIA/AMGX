@@ -33,7 +33,6 @@
 #include <cycles/f_cycle.h>
 #include <cycles/cg_cycle.h>
 #include <cycles/cg_flex_cycle.h>
-#include <profile.h>
 #include <thrust/inner_product.h>
 #include <cycles/convergence_analysis.h>
 #include <sstream>
@@ -49,7 +48,6 @@ template< class T_Config, template<AMGX_VecPrecision t_vecPrec, AMGX_MatPrecisio
 void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_Config> *level, VVector &b, VVector &x )
 {
     AMGX_CPU_COND_MARKER(level->isFinest(), "CYCLE", "Start new cycle");
-    AMGX_CPU_PROFILER( "FixedCycle::cycle " );
     typedef typename VVector::value_type ValueType;
     typedef typename TConfig::MemSpace MemorySpace;
     Matrix<T_Config> &A = level->getA();

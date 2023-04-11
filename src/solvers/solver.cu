@@ -562,7 +562,7 @@ AMGX_ERROR Solver<TConfig>::setup_no_throw(Operator<TConfig> &A,
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         if ( (A.getManager() != NULL && A.getManager()->isFineLevelConsolidated() && !A.getManager()->isFineLevelRootPartition() ))
         {
@@ -975,7 +975,7 @@ AMGX_ERROR Solver<TConfig>::solve_no_throw(VVector &b, VVector &x,
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         // Check if fine level is consolidated and not a root partition
         if ( !(this->get_A().getManager() != NULL && this->get_A().getManager()->isFineLevelConsolidated() && !this->get_A().getManager()->isFineLevelRootPartition() ))

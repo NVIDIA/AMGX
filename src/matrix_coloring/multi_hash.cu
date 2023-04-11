@@ -278,7 +278,6 @@ void MultiHashMatrixColoringBase<TConfig>::colorMatrix(Matrix<TConfig> &A)
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::colorMatrixOneRing(Matrix_d &A)
 {
-    profileSubphaseMatrixColoring();
     // One thread per row
     const int num_rows = A.get_num_rows();
     int max_uncolored_rows = (int) (this->m_uncolored_fraction * ((ValueType) num_rows));

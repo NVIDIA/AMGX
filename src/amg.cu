@@ -41,7 +41,6 @@
 
 #include <amg_level.h>
 #include <amgx_c.h>
-#include <profile.h>
 #include <distributed/glue.h>
 
 #include <misc.h>
@@ -287,7 +286,6 @@ class AMG_Setup
 
                 nextLevel->setLevelIndex( amg->num_levels );
                 level->getA().template setParameter<int>("level", amg->num_levels);
-                //profileLevelDown( );
                 {
                     // only compute aggregates if we can't reuse existing ones
                     if (!reuse_next_level)

@@ -38,7 +38,6 @@
 #include <ld_functions.h>
 #include <matrix_io.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 
 #include <amgx_types/util.h>
@@ -3834,7 +3833,6 @@ MulticolorDILUSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         FatalError("Multicolor DILU solver only supports row major format for the blocks", AMGX_ERR_CONFIGURATION);
     }
 
-    profileSubphaseSmootherSetup();
     computeEinv( *this->m_explicit_A );
 }
 
@@ -3850,8 +3848,6 @@ template<class T_Config>
 bool
 MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
-    AMGX_CPU_PROFILER( "MulticolorDILUSolver::solve_iteration " );
-
     if ( this->m_explicit_A->get_block_dimx() != this->m_explicit_A->get_block_dimy() )
     {
         FatalError("DILU implemented only for squared blocks", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);

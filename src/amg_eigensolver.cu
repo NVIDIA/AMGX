@@ -32,7 +32,6 @@
 #include <misc.h>
 #include <assert.h>
 #include <util.h>
-#include <profile.h>
 
 using std::string;
 

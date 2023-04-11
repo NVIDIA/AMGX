@@ -26,7 +26,6 @@
  */
 
 #include <aggregation/aggregation_amg_level.h>
-#include <profile.h>
 #include <matrix_analysis.h>
 
 #ifdef _WIN32
@@ -452,7 +451,6 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_ind
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::restrictResidual_1x1(const VVector &r, VVector &rr)
 {
-    AMGX_CPU_PROFILER("Aggregation_AMG_Level::restrict_residual_1x1 ");
     int block_size = 64;
     int max_threads;;
 
@@ -478,7 +476,6 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::restrictResidual_4x4(const VVector &r, VVector &rr)
 {
-    AMGX_CPU_PROFILER("Aggregation_AMG_Level::restrict_residual_4x4 ");
     int block_size = 64;
     int max_threads;
 
@@ -696,7 +693,6 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_ind
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::prolongateAndApplyCorrection_1x1(Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &e, Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &bc, Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &x, Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &tmp)
 {
-    AMGX_CPU_PROFILER("Aggregation_AMG_Level::prolongate_and_apply_correction_1x1 ");
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
     const int block_size = 64;
     const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ( (this->A->get_num_rows() + block_size - 1) / block_size ) );
@@ -720,8 +716,6 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &xf,
         Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &rf)
 {
-    AMGX_CPU_PROFILER("Aggregation_AMG_Level::prolongate_and_apply_correction_4x4 ");
-
     if ( this->m_error_scaling >= 2 )
     {
         if ( this->scale_counter > 0 )
@@ -1959,11 +1953,8 @@ void Aggregation_AMG_Level_Base<T_Config>::unconsolidateVector(VVector &x)
 template <class T_Config>
 void Aggregation_AMG_Level_Base<T_Config>::createCoarseVertices()
 {
-    profileSubphaseFindAggregates();
     //Set the aggregates
-    this->Profile.tic("setAggregates");
     this->m_selector->setAggregates(this->getA(), this->m_aggregates, this->m_aggregates_fine_idx, this->m_num_aggregates);
-    this->Profile.toc("setAggregates");
 
     if ( this->m_print_aggregation_info )
     {
@@ -1979,7 +1970,6 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
 {
     Matrix<TConfig> &A = this->getA();
     Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
-    profileSubphaseFindAggregates();
 
     /* WARNING: do not recompute prolongation (P) and restriction (R) when you
                 are reusing the level structure (structure_reuse_levels > 0).
@@ -2010,20 +2000,14 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseMatrices()
     // If we reuse the level we keep the previous restriction operator
     if (this->isReuseLevel() == false)
     {
-        profileSubphaseComputeRestriction();
-        this->Profile.tic("computeR");
         computeRestrictionOperator();
-        this->Profile.toc("computeR");
     }
 
-    profileSubphaseComputeCoarseA();
-    this->Profile.tic("computeA");
     Ac.set_initialized(0);
     Ac.copyAuxData(&A);
     this->m_coarseAGenerator->computeAOperator(A, Ac, this->m_aggregates, this->m_R_row_offsets, this->m_R_column_indices, this->m_num_all_aggregates);
     Ac.setColsReorderedByColor(false);
     Ac.setView(FULL);
-    this->Profile.toc("computeA");
 
     if (consolidation_level)
     {

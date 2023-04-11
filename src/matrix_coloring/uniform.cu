@@ -86,7 +86,6 @@ UniformMatrixColoringBase<T_Config>::UniformMatrixColoringBase(AMG_Config &cfg, 
 template <class T_Config>
 void UniformMatrixColoringBase<T_Config>::colorMatrix(Matrix<T_Config> &A)
 {
-    profileSubphaseMatrixColoring();
     ViewType oldView = A.currentView();
     this->m_row_colors.resize(A.row_offsets.size() - 1, 0);
 

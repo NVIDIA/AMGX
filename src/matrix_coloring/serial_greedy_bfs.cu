@@ -747,11 +747,11 @@ Serial_Greedy_BFS_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::colorMa
 
     //copies color -> m_row_colors, using a pinned memory buffer
     copy_using_buffer_h2d(thrust::raw_pointer_cast(this->m_row_colors.data()), color, A.get_num_rows()*sizeof(int));
-    delete color;
-    delete A_row_offsets;
-    delete A_col_indices;
-    delete sorted_rows_by_color;
-    delete queue;
+    delete[] color;
+    delete[] A_row_offsets;
+    delete[] A_col_indices;
+    delete[] sorted_rows_by_color;
+    delete[] queue;
     A.setView(oldView);
 }
 

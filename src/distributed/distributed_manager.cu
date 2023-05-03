@@ -3966,7 +3966,7 @@ void DistributedManagerBase<TConfig>::ipcWaitForChildren(bool is_root_partition,
 {
     cudaEvent_t event;
     cudaIpcEventHandle_t event_handle;
-    cudaEventCreate(&event, cudaEventDisableTiming | cudaEventInterprocess);
+    cudaEventCreateWithFlags(&event, cudaEventDisableTiming | cudaEventInterprocess);
     cudaIpcGetEventHandle( &event_handle, event);
     // Each rank record the event
     cudaEventRecord(event);
@@ -4007,7 +4007,7 @@ void DistributedManagerBase<TConfig>::ipcWaitForRoot(bool is_root_partition, int
 {
     cudaEvent_t event;
     cudaIpcEventHandle_t event_handle;
-    cudaEventCreate(&event, cudaEventDisableTiming | cudaEventInterprocess);
+    cudaEventCreateWithFlags(&event, cudaEventDisableTiming | cudaEventInterprocess);
 
     if (is_root_partition)
     {

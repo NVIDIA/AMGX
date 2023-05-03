@@ -164,7 +164,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec
 
             if (j == A.row_offsets[i + 1] - 1)
             {
-                std::string error = "Could not find a diagonal value at row " + i;
+                std::string error = "Could not find a diagonal value at row " + std::to_string(i);
                 FatalError(error.c_str(), AMGX_ERR_BAD_PARAMETERS);
             }
         }

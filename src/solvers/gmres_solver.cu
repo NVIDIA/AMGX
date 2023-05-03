@@ -63,7 +63,7 @@ GMRES_Solver<T_Config>::GMRES_Solver( AMG_Config &cfg, const std::string &cfg_sc
     }
 
     m_R = cfg.AMG_Config::getParameter<int>("gmres_n_restart", cfg_scope);
-    m_krylov_size = min( this->m_max_iters, m_R );
+    m_krylov_size = std::min( this->m_max_iters, m_R );
 
     if ( this->m_norm_type != L2 )
     {

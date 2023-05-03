@@ -284,7 +284,7 @@ CFJacobiSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         int agg_num = A_as_matrix->template getParameter< int >("aggregates_num");
         this->num_coarse = agg_num;
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A_as_matrix->get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A_as_matrix->get_num_rows() + threads_per_block - 1) / threads_per_block);
         int nrows = A_as_matrix->get_num_rows();
         this->c_rows.resize(this->num_coarse);
         this->f_rows.resize(nrows - this->num_coarse);
@@ -448,7 +448,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
 {
     AMGX_CPU_PROFILER( "JacobiSolver::find_diag " );
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
     find_diag_kernel_indexed_dia <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK>>>(
         A.get_num_rows(),
         A.diag.raw(),
@@ -498,14 +498,14 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
 
     if (order == CF_CF || order == CF_FC)
     {
         IVector &rows_first = (order == CF_CF) ? this->c_rows : this->f_rows;
         IVector &rows_second = (order == CF_CF) ? this->f_rows : this->c_rows;
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
         // if use transform + permutation iterator it will yield into two separate permutation reads - for src and dst, so using simple kernel here
         multiply_masked( A, x, this->y, rows_first, separation_flags );
         jacobi_masked_step<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>(
@@ -555,7 +555,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
 
     if (this->y.size() != b.size())
     {
@@ -570,7 +570,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
 //   IVector& rows_first = (order == CF_CF) ? this->c_rows : this->f_rows;
         IVector &rows_second = (order == CF_CF) ? this->f_rows : this->c_rows;
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
         /*jacobi_zero_ini_masked_step<IndexType, ValueTypeA, ValueTypeB><<<num_blocks,threads_per_block>>>(
           rows_first.raw(),
           rows_first.size(),

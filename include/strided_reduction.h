@@ -708,7 +708,7 @@ void launch_strided_reduction(scalar_out *out_host, const scalar_t *in_d, const 
     const int ideal_cta_size = 1024;
     const int cta_size = ((STRIDE & (STRIDE - 1)) == 0) ? ideal_cta_size : (ideal_cta_size / (32 * STRIDE) > 0 ? ideal_cta_size / (32 * STRIDE) : 1) * (32 * STRIDE);
     const int n_items_per_thread = 16;
-    const int n_blocks = min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
+    const int n_blocks = std::min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
     const int out_size = n_blocks * STRIDE;
     scalar_out *out_d = 0;
     thrust::global_thread_handle::cudaMalloc((void **) &out_d, out_size * sizeof(scalar_out));

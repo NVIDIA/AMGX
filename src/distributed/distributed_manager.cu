@@ -805,7 +805,7 @@ __global__ void calc_rowlen_reorder(INDEX_TYPE *row_offsets, INDEX_TYPE *row_len
 template < class TConfig >
 void DistributedManagerBase<TConfig>::remove_boundary(IVector_d &flagArray, IVector_d &B2L_map, int size)
 {
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     remove_boundary_kernel <<< num_blocks, 128>>>(flagArray.raw(), B2L_map.raw(), size);
     cudaCheckError();
 }
@@ -813,7 +813,7 @@ void DistributedManagerBase<TConfig>::remove_boundary(IVector_d &flagArray, IVec
 template < class TConfig >
 void DistributedManagerBase<TConfig>::get_unassigned(IVector_d &flagArray, IVector_d &B2L_map, IVector_d &partition_flags, int size, int global_size /*, int rank*/)
 {
-    int num_blocks = min(4096, (size + 191) / 192);
+    int num_blocks = std::min(4096, (size + 191) / 192);
     get_unassigned_kernel <<< num_blocks, 192>>>(flagArray.raw(),
             B2L_map.raw(),
             partition_flags.raw(), size, global_size /*, rank*/);
@@ -823,7 +823,7 @@ void DistributedManagerBase<TConfig>::get_unassigned(IVector_d &flagArray, IVect
 template < class TConfig >
 void DistributedManagerBase<TConfig>::set_unassigned(IVector_d &partition_flags, IVector_d &partition_renum, IVector_d &B2L_map, IVector_d &renumbering, int size, int max_element, int global_size /*, int rank*/)
 {
-    int num_blocks = min(4096, (size + 191) / 192);
+    int num_blocks = std::min(4096, (size + 191) / 192);
     set_unassigned_kernel <<< num_blocks, 192>>>(partition_flags.raw(),
             partition_renum.raw(),
             B2L_map.raw(),
@@ -1483,7 +1483,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     this->A->getOffsetAndSizeForView(OWNED, &offset, &num_owned_coarse_pts);
     // Renumber the owned col indices of P (not the halo columns ,since P.manager was created assunming some other numbering)
     int nnz_owned_fine_pts = P.row_offsets[num_owned_fine_pts];
-    int num_blocks_fine = min(4096, (nnz_owned_fine_pts + cta_size - 1) / cta_size);
+    int num_blocks_fine = std::min(4096, (nnz_owned_fine_pts + cta_size - 1) / cta_size);
 
     if (num_blocks_fine > 0)
     {
@@ -1506,7 +1506,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     IVector new_row_offsets(R.row_offsets.size());
     int insert = 0;
     // Only renumber the owned rows
-    int num_blocks_owned = min(4096, (num_owned_coarse_pts + cta_size - 1) / cta_size);
+    int num_blocks_owned = std::min(4096, (num_owned_coarse_pts + cta_size - 1) / cta_size);
 
     if (num_blocks_owned > 0)
     {
@@ -1525,7 +1525,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     typedef typename MatPrecisionMap<t_matPrec>::Type ValueTypeA;
     VVector new_values(new_nnz * R.get_block_size(), types::util< ValueTypeA >::get_zero());
     IVector new_col_indices(new_nnz, 0);
-    int num_blocks_total = min(4096, (R.get_num_rows() + cta_size - 1) / cta_size);
+    int num_blocks_total = std::min(4096, (R.get_num_rows() + cta_size - 1) / cta_size);
 
     if (num_blocks_total > 0)
     {
@@ -2464,7 +2464,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     for (int i = 0; i < num_neighbors; i++ )
     {
         int size = this->B2L_rings[i][1];
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
 
         if (size > 0)
         {
@@ -2475,7 +2475,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         if (this->L2H_maps.size() && this->L2H_maps[i].size())
         {
             int size = this->L2H_maps[i].size();
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             remove_boundary_kernel <<< num_blocks, 128>>>(flagArray.raw(), this->L2H_maps[i].raw(), size);
         }
 
@@ -2527,7 +2527,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         //find nodes that are part of the current boundary and they haven't been renumbered yet
         amgx::thrust::fill(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, 0);
         int size = this->B2L_rings[i][1];
-        int num_blocks = min(4096, (size + 191) / 192);
+        int num_blocks = std::min(4096, (size + 191) / 192);
 
         if (size > 0)
             get_unassigned_kernel <<< num_blocks, 192>>>(flagArray.raw(),
@@ -2576,7 +2576,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             //find nodes that are part of the current boundary and they haven't been renumbered yet
             amgx::thrust::fill(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, 0);
             int size = this->L2H_maps[i].size();
-            int num_blocks = min(4096, (size + 191) / 192);
+            int num_blocks = std::min(4096, (size + 191) / 192);
 
             if (size > 0)
                 get_unassigned_kernel <<< num_blocks, 192>>>(flagArray.raw(),
@@ -2623,7 +2623,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         for (int i = 0; i < num_neighbors; i++)
         {
             int size = this->B2L_rings[i][this->B2L_rings[i].size() - 1] - this->B2L_rings[i][1];
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             renumber_b2l_maps <<< num_blocks, 128>>>(this->B2L_maps[i].raw() + this->B2L_rings[i][1], renumbering.raw(), size, global_size /*, rank*/);
         }
 
@@ -2642,7 +2642,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 {
     int num_neighbors = this->neighbors.size();
     int size = this->A->get_num_rows();
-    int num_blocks = min(4096, (size + 511) / 512);
+    int num_blocks = std::min(4096, (size + 511) / 512);
     int rings = (this->B2L_rings.size() > 0) ? this->B2L_rings[0].size() - 1 : 0;
     this->set_num_halo_rings(rings);
     int diag = this->A->hasProps(DIAG);
@@ -2661,7 +2661,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (this->renumbering.size() > 1)
     {
-        calc_inverse_renumbering <<< min(4096, ((int)this->renumbering.size() + 511) / 512), 512 >>> (this->renumbering.raw(), this->inverse_renumbering.raw(), this->renumbering.size());
+        calc_inverse_renumbering <<< std::min(4096, ((int)this->renumbering.size() + 511) / 512), 512 >>> (this->renumbering.raw(), this->inverse_renumbering.raw(), this->renumbering.size());
         cudaCheckError();
     }
 
@@ -2790,7 +2790,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     if (num_neighbors == 0) { return; }
 
     int size = this->A->get_num_rows();
-    int num_blocks = min(4096, (size + 511) / 512);
+    int num_blocks = std::min(4096, (size + 511) / 512);
     int rings = this->B2L_rings[0].size() - 1;
     this->set_num_halo_rings(rings);
     int diag = this->A->hasProps(DIAG);
@@ -2843,7 +2843,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 //
     //now we have the full renumbering table in renum, calculate the inverse
     this->inverse_renumbering.resize(this->renumbering.size());
-    calc_inverse_renumbering <<< min(4096, ((int)this->renumbering.size() + 511) / 512), 512 >>> (this->renumbering.raw(), this->inverse_renumbering.raw(), this->renumbering.size());
+    calc_inverse_renumbering <<< std::min(4096, ((int)this->renumbering.size() + 511) / 512), 512 >>> (this->renumbering.raw(), this->inverse_renumbering.raw(), this->renumbering.size());
     cudaCheckError();
     /*
      EXAMPLE
@@ -2912,7 +2912,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         for (int i = 0; i < num_neighbors; i++)
         {
             int size = halo_btl[i].B2L_rings[0][ring + 1] - halo_btl[i].B2L_rings[0][ring];
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             //This renumbering has to result in the same renumbering that comes out of L2H renumbering
             create_halo_mapping <<< num_blocks, 128>>>(halo_mapping.raw() + neighbor_rows[i],
                     halo_btl[i].B2L_maps[0].raw() + halo_btl[i].B2L_rings[0][ring],
@@ -2938,7 +2938,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     for (int i = 0; i < num_neighbors; i++)
     {
         int size = halo_btl[i].L2H_maps[0].size();
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         //Map the column indices of the halo rows that point back to boundary nodes
         apply_h2l2b_mapping <<< num_blocks, 128>>>(halo_mapping.raw() + neighbor_rows[i],
                 halo_btl[i].L2H_maps[0].raw(),
@@ -3016,7 +3016,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         //map column indices of halo matrices and count of nonzeros we will keep
         int size = halo_rows[i].get_num_rows();
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         map_col_indices_and_count_rowlen<4> <<< num_blocks, 128, 128 * sizeof(INDEX_TYPE)>>>(
             halo_rows[i].row_offsets.raw(),
             halo_rows[i].col_indices.raw(),
@@ -3097,7 +3097,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         for (int ring = 0; ring < rings; ring++)
         {
             int num_rows = halo_btl[i].B2L_rings[0][ring + 1] - halo_btl[i].B2L_rings[0][ring];
-            int num_blocks = min(4096, (num_rows + 127) / 128);
+            int num_blocks = std::min(4096, (num_rows + 127) / 128);
             //copy in nonzeros that we are keeping
             //TODO: access pattern - should be implemented with warp-wide scans to decide which nonzeros we are keeping and where the rest is going
             reorder_whole_halo_matrix <<< num_blocks, 128>>>(halo_rows[i].row_offsets.raw() + halo_btl[i].B2L_rings[0][ring],
@@ -3846,7 +3846,7 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
                     {
                         int size = halo_sizes_array[j][k];
                         int block_size = 128;
-                        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+                        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
                         this->read_halo_ids(size, scratch, fine_halo_aggregates_to_root_array[j][k], min_index_coarse_halo[i]);
                         //and send them back to contributing partitions
                         cudaDeviceSynchronize(); //TODO: don't need to synchronize when using GPUDirect
@@ -4040,7 +4040,7 @@ template <class TConfig>
 void DistributedManagerBase<TConfig>::read_halo_ids(int size, IVector_d &scratch, IVector_d &halo_aggregates, VecInt_t min_index_coarse_halo)
 {
     int block_size = 128;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
     read_halo_ids_kernel <<< num_blocks, block_size>>>(scratch.raw(), halo_aggregates.raw(), min_index_coarse_halo, size);
     cudaCheckError();
 }
@@ -4056,7 +4056,7 @@ template <class TConfig>
 void DistributedManagerBase<TConfig>::flag_halo_ids(int size, IVector_d &scratch, IVector_d &halo_aggregates, VecInt_t min_index_coarse_halo,  int max_index, int min_index)
 {
     int block_size = 128;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
     flag_halo_ids_kernel <<< num_blocks, block_size>>>(scratch.raw(), halo_aggregates.raw(), min_index_coarse_halo, size, max_index - min_index + 1);
     cudaCheckError();
 }
@@ -4458,7 +4458,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         // 2. each rank copy it's row length on root partition using row_ids
         // -------------------------------------------------------------------
         int cta_size = 128;
-        int grid_size = min(4096, (n + total_num_halos + cta_size - 1) / cta_size);
+        int grid_size = std::min(4096, (n + total_num_halos + cta_size - 1) / cta_size);
         zero_copy_row_lengths_ids_offsets<mat_value_type> <<< grid_size, cta_size>>>(this->m_old_row_offsets_CONS.raw(), ((int *) root_row_ptr) /* IPC */, this->m_row_ids_CONS.raw(), n, total_num_halos, (mat_value_type *) diag);
         cudaCheckError();
         // Root partition waits for children to be done writing their result
@@ -4467,7 +4467,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
     else   // CudaIpcNotAvailable
     {
-        this->checkPinnedBuffer( max( nnz * sizeof(mat_value_type), (n + 1)*max(sizeof(index_type), sizeof(value_type)) ) );
+        this->checkPinnedBuffer( std::max( nnz * sizeof(mat_value_type), (n + 1)*std::max(sizeof(index_type), sizeof(value_type)) ) );
 
         if (!is_root_partition)
         {
@@ -4536,7 +4536,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             {
                 int current_part =  parts_to_consolidate[i];
                 int cta_size = 128;
-                int grid_size = min(4096, (this->m_child_n[i] + this->m_child_num_halos[i] + cta_size - 1) / cta_size);
+                int grid_size = std::min(4096, (this->m_child_n[i] + this->m_child_num_halos[i] + cta_size - 1) / cta_size);
 
                 if (current_part != my_id)
                 {
@@ -4606,7 +4606,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->ipcExchangePtr(root_col_ptr, is_root_partition, num_parts_to_consolidate, parts_to_consolidate, my_destination_part, my_id, comms);
         this->ipcExchangePtr(root_val_ptr, is_root_partition, num_parts_to_consolidate, parts_to_consolidate, my_destination_part, my_id, comms);
         int cta_size2 = 128;
-        int grid_size2 = min(4096, (n + cta_size2 - 1) / cta_size2);
+        int grid_size2 = std::min(4096, (n + cta_size2 - 1) / cta_size2);
         ipc_consolidation_upload_matrix<mat_value_type> <<< grid_size2, cta_size2>>>(n, this->m_row_ids_CONS.raw(), this->m_old_row_offsets_CONS.raw(), ( (int *) root_row_ptr ) /*IPC*/, col_indices_hd, ( (int *) root_col_ptr) /*IPC*/, data_hd, ( (mat_value_type *) root_val_ptr ) /*IPC*/, diag_hd, bsize);
         cudaCheckError();
         // Root partition waits for children to upload their matrices
@@ -4657,7 +4657,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             {
                 int current_part =  parts_to_consolidate[i];
                 int cta_size2 = 128;
-                int grid_size2 = min(4096, (this->m_child_n[i] + cta_size2 - 1) / cta_size2);
+                int grid_size2 = std::min(4096, (this->m_child_n[i] + cta_size2 - 1) / cta_size2);
 
                 if (current_part != my_id)
                 {
@@ -4719,7 +4719,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     if (is_root_partition)
     {
         int cta_size = 128;
-        int grid_size3 = min(4096, ( (root_num_rows - halo_offsets[0]) + cta_size - 1) / cta_size);
+        int grid_size3 = std::min(4096, ( (root_num_rows - halo_offsets[0]) + cta_size - 1) / cta_size);
 
         if (grid_size3 != 0)
         {
@@ -4788,7 +4788,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     int data_alloc = 0;
     int diag_alloc = 0;
     //cuda parameters
-    int num_blocks = min(4096, (num_rows + 127) / 128);
+    int num_blocks = std::min(4096, (num_rows + 127) / 128);
 
     /* WARNING: the number of non-zero elements (nnz) in the array data_pinned and A->values (num_nnz) might be different at this point.
        1. If the matrix has CSR property and therefore diagonal is included in the matrix this values will be the same.
@@ -4871,7 +4871,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         // replace the values, insert the diagonal
         int ncons = this->m_old_row_offsets_CONS.size() - 1;
         int cta_size = 128;
-        int grid_size2 = min(4096, (ncons + cta_size - 1) / cta_size);
+        int grid_size2 = std::min(4096, (ncons + cta_size - 1) / cta_size);
         ipc_consolidation_replace_values<mat_value_type> <<< grid_size2, cta_size>>>(ncons, this->m_row_ids_CONS.raw(), this->m_old_row_offsets_CONS.raw(), ( (int *) root_row_ptr )/*IPC*/, data_hd, ( (mat_value_type *) root_val_ptr )/*IPC*/, diag_hd, this->A->get_block_size() );
         cudaCheckError();
         // Root partition wait for child to be done replacing their values
@@ -4922,7 +4922,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                 {
                     int current_part =  this->m_fine_level_parts_to_consolidate[i];
                     int cta_size2 = 128;
-                    int grid_size2 = min(4096, (this->m_child_n[i] + cta_size2 - 1) / cta_size2);
+                    int grid_size2 = std::min(4096, (this->m_child_n[i] + cta_size2 - 1) / cta_size2);
 
                     if (current_part != this->fine_level_id())
                     {
@@ -5134,7 +5134,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         // Do IPC
         this->ipcExchangePtr(root_temp_ptr, this->m_is_fine_level_root_partition, this->m_num_fine_level_parts_to_consolidate, this->m_fine_level_parts_to_consolidate, this->m_my_fine_level_destination_part, this->fine_level_id(), this->getFineLevelComms());
         cudaCheckError();
-        int num_blocks = min(4096, (n + 511) / 512);
+        int num_blocks = std::min(4096, (n + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>( (value_type *) root_temp_ptr, data_hd, this->m_row_ids_CONS.raw(), v.get_block_size(), n);
         // Root partition waits for children to be done
         this->ipcWaitForChildren(this->m_is_fine_level_root_partition, this->m_num_fine_level_parts_to_consolidate, this->m_fine_level_parts_to_consolidate, this->m_my_fine_level_destination_part, this->fine_level_id(), this->getFineLevelComms());
@@ -5190,7 +5190,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                 for (int i = 0; i < this->m_num_fine_level_parts_to_consolidate; i++)
                 {
                     int current_part = this->m_fine_level_parts_to_consolidate[i];
-                    int num_blocks = min(4096, (child_n[i] + 511) / 512);
+                    int num_blocks = std::min(4096, (child_n[i] + 511) / 512);
 
                     if (current_part != this->fine_level_id())
                     {
@@ -5317,7 +5317,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
         //reorder based on row permutation
         int size = this->halo_offsets[0];
-        int num_blocks = min(4096, (size + 511) / 512);
+        int num_blocks = std::min(4096, (size + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>(temp.raw(), v.raw(), this->renumbering.raw(), v.get_block_size(), size);
         v.swap(temp);
     }
@@ -5325,7 +5325,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         VVector_v temp(this->halo_offsets[0]*v.get_block_size());
         int size = this->halo_offsets[0];
-        int num_blocks = min(4096, (size + 511) / 512);
+        int num_blocks = std::min(4096, (size + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>(temp.raw(), v.raw(), this->renumbering.raw(), v.get_block_size(), size);
         amgx::thrust::copy(temp.begin(), temp.end(), v.begin());
     }
@@ -5350,7 +5350,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     //reorder based on row permutation
     int size = this->halo_offsets[0];
-    int num_blocks = min(4096, (size + 511) / 512);
+    int num_blocks = std::min(4096, (size + 511) / 512);
     inverse_reorder_vector_values <<< num_blocks, 512>>>(temp.raw(), v.raw(), this->renumbering.raw(), v.get_block_size(), size);
     //reorder_vector_values<<<num_blocks, 512>>>(temp.raw(), v.raw(), this->inverse_renumbering.raw(), v.get_block_size(), size);
     cudaCheckError();
@@ -5471,7 +5471,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     //reorder based on row permutation
-    int num_blocks = min(4096, (size + 511) / 512);
+    int num_blocks = std::min(4096, (size + 511) / 512);
     inverse_reorder_vector_values <<< num_blocks, 512>>>(v_out.raw(), v_in.raw(), this->renumbering.raw(), v_in.get_block_size(), size);
     cudaCheckError();
 }
@@ -5504,7 +5504,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->ipcWaitForRoot(this->m_is_fine_level_root_partition, this->m_num_fine_level_parts_to_consolidate, this->m_fine_level_parts_to_consolidate, this->m_my_fine_level_destination_part, this->fine_level_id(), this->getFineLevelComms());
         cudaCheckError();
         //reorder based on row permutation
-        int num_blocks = min(4096, (num_rows + 511) / 512);
+        int num_blocks = std::min(4096, (num_rows + 511) / 512);
         inverse_reorder_vector_values <<< num_blocks, 512>>>( temp.raw(), (value_type *) root_v_ptr, this->m_row_ids_CONS.raw(), v_in.get_block_size(), num_rows);
         cudaCheckError();
 
@@ -5546,7 +5546,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                 {
                     int current_part = this->m_fine_level_parts_to_consolidate[i];
                     // Pack the vector to be sent
-                    int num_blocks = min(4096, (child_n[i] + 511) / 512);
+                    int num_blocks = std::min(4096, (child_n[i] + 511) / 512);
 
                     if (current_part != this->fine_level_id())
                     {

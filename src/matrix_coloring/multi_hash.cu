@@ -287,7 +287,7 @@ void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     IndexType *row_colors_ptr = this->m_row_colors.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / threads_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / threads_per_block + 1);
     this->m_num_colors = 0;
     // Heuristic for setting the number of hash function to use
     int avg_nonzero = 1.5 * A.row_offsets[num_rows] / num_rows;

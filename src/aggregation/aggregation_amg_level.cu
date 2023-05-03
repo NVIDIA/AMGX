@@ -463,7 +463,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         max_threads = this->m_num_all_aggregates;
     }
 
-    int num_blocks = min( AMGX_GRID_MAX_SIZE, (max_threads - 1) / block_size + 1);
+    int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (max_threads - 1) / block_size + 1);
     const IndexType *R_row_offsets_ptr = this->m_R_row_offsets.raw();
     const IndexType *R_column_indices_ptr = this->m_R_column_indices.raw();
     const ValueTypeB *r_ptr = r.raw();
@@ -488,7 +488,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         max_threads = this->m_num_all_aggregates;
     };
 
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (max_threads + block_size - 1) / block_size);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (max_threads + block_size - 1) / block_size);
 
     const IndexType *R_row_offsets_ptr = this->m_R_row_offsets.raw();
 
@@ -695,7 +695,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 {
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
     const int block_size = 64;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ( (this->A->get_num_rows() + block_size - 1) / block_size ) );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) ( (this->A->get_num_rows() + block_size - 1) / block_size ) );
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = x.raw();
     const ValueTypeB *e_ptr = e.raw();
@@ -724,7 +724,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
             ValueTypeB *x_ptr = xf.raw();
             const ValueTypeB *e_ptr = ec.raw();
             const int block_size = 64;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
             prolongateAndApplyCorrectionBlockDiaCsrKernel <<< num_blocks, block_size>>>(this->scale, (int)this->getA().get_num_rows(), x_ptr, e_ptr, aggregates_ptr, this->m_num_aggregates, this->getA().get_block_dimy());
             cudaCheckError();
             this->scale_counter--;
@@ -747,7 +747,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         Aef.set_block_dimy( blockdim );
         // prolongate e
         const int threads_per_block = 256;
-        const int num_block_values = min( AMGX_GRID_MAX_SIZE, (numRowsFine * blockdim - 1) / threads_per_block + 1);
+        const int num_block_values = std::min( AMGX_GRID_MAX_SIZE, (numRowsFine * blockdim - 1) / threads_per_block + 1);
         const cudaStream_t stream = nullptr;
         prolongateVector <<< num_block_values, threads_per_block, 0, stream>>>( this->m_aggregates.raw(), ec.raw(), ef.raw(), numRowsFine, numRowsCoarse, blockdim );
         ef.dirtybit = 1;
@@ -819,7 +819,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         }
 
         // apply correction x <- x + lambda*e
-        const int num_block_fine = min( AMGX_GRID_MAX_SIZE, (numRowsFine * blockdim - 1) / threads_per_block + 1 );
+        const int num_block_fine = std::min( AMGX_GRID_MAX_SIZE, (numRowsFine * blockdim - 1) / threads_per_block + 1 );
         ValueTypeB alpha = nominator / denominator;
 
         if ( types::util<ValueTypeB>::abs(alpha) < .3 )
@@ -841,7 +841,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
     const int block_size = 64;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = xf.raw();
     const ValueTypeB *e_ptr = ec.raw();
@@ -1254,7 +1254,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
 
         //get coarse -> fine global renumbering
         IVector renumbering(c_size);
-        int num_blocks = min(4096, (c_size + 127) / 128);
+        int num_blocks = std::min(4096, (c_size + 127) / 128);
         coarse_to_global <<< num_blocks, 128>>>(this->m_aggregates.raw(), this->m_aggregates_fine_idx.raw(), renumbering.raw(), f_size, 0);
         cudaCheckError();
         //
@@ -1298,7 +1298,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
             IndexType num_nz = halo_rows[i].row_offsets[num_unique];
             halo_rows[i].resize(num_unique, num_unique, num_nz, Ac.get_block_dimy(), Ac.get_block_dimx(), 1);
             //copy relevant rows and renumber their column indices
-            num_blocks = min(4096, (num_unique + 127) / 128);
+            num_blocks = std::min(4096, (num_unique + 127) / 128);
             export_matrix_elements <<< num_blocks, 128>>>(Ac.row_offsets.raw(), Ac.col_indices.raw(), Ac.values.raw(), Ac.manager->B2L_maps[i].raw(), renumbering.raw(), halo_rows[i].row_offsets.raw(), halo_rows[i].col_indices.raw(), halo_rows[i].values.raw(), A.get_block_size(), num_unique);
             cudaCheckError();
 
@@ -1315,7 +1315,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
         //number of owned rows
         c_size = Ac.manager->halo_offsets[0];
         f_size = A.manager->halo_offsets[0];
-        num_blocks = min(4096, (c_size + 511) / 512);
+        num_blocks = std::min(4096, (c_size + 511) / 512);
         int rings = 1;
         //
         // Step 1 - calculate inverse renumbering (to global indices - base_index)
@@ -1359,7 +1359,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
             for (int i = 0; i < num_neighbors; i++)
             {
                 int size = halo_btl[i].B2L_rings[0][ring + 1] - halo_btl[i].B2L_rings[0][ring];
-                int num_blocks = min(4096, (size + 127) / 128);
+                int num_blocks = std::min(4096, (size + 127) / 128);
                 create_halo_mapping <<< num_blocks, 128>>>(halo_mapping.raw() + neighbor_rows[i],
                         halo_btl[i].B2L_maps[0].raw() + halo_btl[i].B2L_rings[0][ring],
                         halo_btl[i].base_index(),
@@ -1390,7 +1390,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
         {
             //map column indices of halo matrices
             int size = halo_rows[i].get_num_rows();
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             map_col_indices_and_count_rowlen <<< num_blocks, 128, 128 * sizeof(INDEX_TYPE)>>>(
                 halo_rows[i].row_offsets.raw(),
                 halo_rows[i].col_indices.raw(),
@@ -1442,7 +1442,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
             for (int ring = 0; ring < rings; ring++)
             {
                 int num_rows = halo_btl[i].B2L_rings[0][ring + 1] - halo_btl[i].B2L_rings[0][ring];
-                int num_blocks = min(4096, (num_rows + 127) / 128);
+                int num_blocks = std::min(4096, (num_rows + 127) / 128);
                 reorder_whole_matrix <<< num_blocks, 128>>>(halo_rows[i].row_offsets.raw() + halo_btl[i].B2L_rings[0][ring], halo_rows[i].col_indices.raw(), halo_rows[i].values.raw(), Ac.row_offsets.raw() + Ac.manager->halo_offsets[ring * num_neighbors + i], Ac.col_indices.raw(), Ac.values.raw(), Ac.get_block_size(), num_rows);
 
                 if (diag)
@@ -1483,7 +1483,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_diag(const Mat
         int diag = Ac.hasProps(DIAG);
         Ac.manager->inverse_renumbering.resize(c_size);
         //get coarse -> fine renumbering
-        int num_blocks = min(4096, (c_size + 127) / 128);
+        int num_blocks = std::min(4096, (c_size + 127) / 128);
         coarse_to_global <<< num_blocks, 128>>>(this->m_aggregates.raw(), this->m_aggregates_fine_idx.raw(), Ac.manager->inverse_renumbering.raw(), f_size, -1 * A.manager->base_index());
         cudaCheckError();
         Ac.manager->set_num_halo_rows(Ac.manager->halo_offsets[Ac.manager->halo_offsets.size() - 1] - c_size);
@@ -1497,7 +1497,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_diag(const Mat
         {
             int size = Ac.manager->B2L_rings[i][Ac.manager->B2L_rings.size() - 1];
             diagonals[i].resize(Ac.get_block_size()*size);
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             write_diagonals <<< num_blocks, 128>>>(Ac.values.raw(), Ac.diag.raw(), Ac.manager->B2L_maps[i].raw(), diagonals[i].raw(), Ac.get_block_size(), size);
         }
 
@@ -1511,7 +1511,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_diag(const Mat
             if (Ac.hasProps(DIAG)) { amgx::thrust::copy(diagonals[i].begin(), diagonals[i].begin() + Ac.get_block_size()*size, Ac.values.begin() + Ac.get_block_size() * (Ac.diagOffset() + Ac.manager->halo_offsets[i])); }
             else
             {
-                int num_blocks = min(4096, (size + 127) / 128);
+                int num_blocks = std::min(4096, (size + 127) / 128);
                 write_diagonals_back <<< num_blocks, 128>>>(Ac.values.raw(), Ac.diag.raw() + Ac.manager->halo_offsets[i], diagonals[i].raw(), Ac.get_block_size(), size);
             }
         }
@@ -1538,7 +1538,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_none(const Mat
         int diag = Ac.hasProps(DIAG);
         Ac.manager->inverse_renumbering.resize(c_size);
         //get coarse -> fine renumbering
-        int num_blocks = min(4096, (c_size + 127) / 128);
+        int num_blocks = std::min(4096, (c_size + 127) / 128);
         coarse_to_global <<< num_blocks, 128>>>(this->m_aggregates.raw(), this->m_aggregates_fine_idx.raw(), Ac.manager->inverse_renumbering.raw(), f_size, 0);
         cudaCheckError();
         Ac.manager->set_num_halo_rows(Ac.manager->halo_offsets[Ac.manager->halo_offsets.size() - 1] - c_size);
@@ -2475,7 +2475,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
             //Increment halo row length by one for every nonzero that is an edge from the halo into this partition
             int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
             const int block_size = 128;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
             set_halo_rowlen <<< num_blocks, block_size>>>(work_row_offsets->raw() + halo_offsets[0], new_row_offsets.raw() + halo_offsets[0], size, Ac.hasProps(DIAG));
             cudaCheckError();
             index_offset_array[i] = interior_offset;
@@ -2553,7 +2553,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
             //Process halo rows (merge)
             int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
             const int block_size = 128;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (size - 1) / block_size + 1);
             //TODO: vectorise this kernel, will be inefficient for larger block sizes
             append_halo_nz <<< num_blocks, block_size>>>(work_row_offsets->raw() + halo_offsets[0],
                     new_row_offsets.raw() + halo_offsets[0],

@@ -407,7 +407,7 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
     IndexType *row_colors_ptr = this->m_row_colors.raw();
     const int threads_per_block = 256;
     const int warps_per_block = threads_per_block / 32;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
     this->m_num_colors = 1;
     thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
     cudaCheckError();
@@ -472,10 +472,10 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
     const int threads_per_block = 256;
 #ifdef USE_EXPERIMENTAL_NEIGHBORS
     const int half_warps_per_block = threads_per_block / 16;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + half_warps_per_block - 1) / half_warps_per_block );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_rows + half_warps_per_block - 1) / half_warps_per_block );
 #else
     const int warps_per_block = threads_per_block / 32;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_rows + warps_per_block - 1) / warps_per_block );
 #endif
     this->m_num_colors = 1;
     thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);

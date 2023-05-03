@@ -72,7 +72,7 @@ void Chebyshev_Solver<T_Config>::compute_eigenmax_estimate(const Matrix<T_Config
     VVector tsum(A.get_num_rows());
     const int threads_per_block = 256;
     const int blockrows_per_cta = threads_per_block;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     const IndexType *A_dia_idx_ptr = A.diag.raw();

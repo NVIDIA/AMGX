@@ -148,7 +148,7 @@ PolynomialSolverBase<T_Config>::solver_setup(bool reuse_matrix_structure)
     VVector row_sum(N);
     ValueTypeB *row_sum_ptr = row_sum.raw();
     const int threads_per_block = 512;
-    const int num_blocks = min((N - 1) / threads_per_block + 1, AMGX_GRID_MAX_SIZE);
+    const int num_blocks = std::min((N - 1) / threads_per_block + 1, AMGX_GRID_MAX_SIZE);
     aux_norm1_csr <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ptr, A_nonzero_values_ptr,
             N, this->m_explicit_A->get_block_dimy(), row_sum_ptr);
     cudaCheckError();

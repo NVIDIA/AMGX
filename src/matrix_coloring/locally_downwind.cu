@@ -600,7 +600,7 @@ void LocallyDownwindColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     IndexType *row_colors_ptr = this->m_row_colors.raw();
 
     const int threads_per_block = 64;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows-1)/threads_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows-1)/threads_per_block + 1);
 
     locally_downwind_kernels::colorRowsKernel<IndexType> <<<num_blocks,threads_per_block>>>(row_colors_ptr, this->m_num_colors, num_rows);
     cudaCheckError();

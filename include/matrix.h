@@ -1324,7 +1324,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         {
             if (!(this->get_num_rows() > 0)) { return; }
 
-            int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+            int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
             computeColorOffsetsDeviceCSR(num_blocks, this->get_num_rows(), this->row_offsets.raw(), this->col_indices.raw(), this->m_matrix_coloring->getRowColors().raw(), this->m_smaller_color_offsets.raw(), this->m_larger_color_offsets.raw(), this->get_block_size(), this->diag.raw());
         }
 
@@ -1340,7 +1340,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         //assumes row_indices is sorted
         void computeRowOffsets()
         {
-            int num_blocks = min(4096, (this->get_num_nz() + 511) / 512);
+            int num_blocks = std::min(4096, (this->get_num_nz() + 511) / 512);
             computeRowOffsetsDevice(num_blocks, this->get_num_rows(), this->get_num_nz(), this->row_indices.raw(), this->row_offsets.raw(), this->get_block_size());
         }
 
@@ -1390,7 +1390,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
     protected:
         void computeRowIndices()
         {
-            int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+            int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
             computeRowIndicesDevice(num_blocks, this->get_num_rows(), this->row_offsets.raw(), this->row_indices.raw(), this->get_block_size());
         }
 };

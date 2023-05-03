@@ -98,7 +98,7 @@ bool KrylovSubspaceBuffer<TConfig>::set_iteration(int m)
 template <class TConfig>
 int KrylovSubspaceBuffer<TConfig>::get_smallest_m()
 {
-    return max(this->iteration + 1 - this->dimension, 0);
+    return std::max(this->iteration + 1 - this->dimension, 0);
 }
 
 
@@ -254,12 +254,12 @@ FGMRES_Solver<T_Config>::FGMRES_Solver( AMG_Config &cfg, const std::string &cfg_
     }
 
     m_R = cfg.AMG_Config::getParameter<int>("gmres_n_restart", cfg_scope);
-    m_krylov_size = min( this->m_max_iters, m_R );
+    m_krylov_size = std::min( this->m_max_iters, m_R );
     int krylov_param = cfg.AMG_Config::getParameter<int>( "gmres_krylov_dim", cfg_scope );
 
     if ( krylov_param > 0 )
     {
-        m_krylov_size = min( m_krylov_size, krylov_param );
+        m_krylov_size = std::min( m_krylov_size, krylov_param );
     }
 
     //Using L2 norm is ok, however we will do the extra computations

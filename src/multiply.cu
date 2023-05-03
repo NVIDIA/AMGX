@@ -1008,7 +1008,7 @@ class Multiply_4x4
                 const unsigned int threads_per_block = 128;
                 const int eightwarps_per_block = threads_per_block / 4;
                 const int num_warps_per_cta = threads_per_block / 32;
-                const int num_blocks =  min(AMGX_GRID_MAX_SIZE, (int) (num_rows + num_warps_per_cta - 1) / num_warps_per_cta); // (int) (A.get_num_rows()-1)/eightwarps_per_block + 1;
+                const int num_blocks =  std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows + num_warps_per_cta - 1) / num_warps_per_cta); // (int) (A.get_num_rows()-1)/eightwarps_per_block + 1;
 
                 if (!A.hasProps(DIAG))
                 {
@@ -1122,7 +1122,7 @@ class Multiply_3x3
                 const int threads_per_block = 64 * 3;
                 const int blockrows_per_warp = 32 / 3;
                 const int blockrows_per_cta = (threads_per_block / 32) * blockrows_per_warp;
-                const int num_blocks =  min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / blockrows_per_cta + 1); // (int) (A.get_num_rows()-1)/eightwarps_per_block + 1;
+                const int num_blocks =  std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / blockrows_per_cta + 1); // (int) (A.get_num_rows()-1)/eightwarps_per_block + 1;
 
                 if (!A.hasProps(DIAG))
                 {

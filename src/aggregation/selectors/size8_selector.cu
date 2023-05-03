@@ -634,13 +634,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     IndexType *strongest_neighbour_ptr = strongest_neighbour.raw();
     IndexType *partner_index_ptr = partner_index.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1);
     int numUnassigned = num_block_rows;
     int numUnassigned_previous = numUnassigned;
     Vector<TemplateConfig<AMGX_device, AMGX_vecFloat, t_matPrec, t_indPrec> > edge_weights(num_nonzero_blocks + 8); //8-padded
     float *edge_weights_ptr = edge_weights.raw();
     float *rand_edge_weights_ptr = NULL;
-    const int num_blocks_V2 = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+    const int num_blocks_V2 = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
     // Compute the edge weights
 #if AMGX_ASYNCCPU_PROOF_OF_CONCEPT
     int avoid_thrust_count = 1;//0;
@@ -672,7 +672,7 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     // First create aggregates of size 2
     // -------------------------------------------------
     int icount = 0;
-    const int num_blocks_1024 = min( 13 * 2, (num_block_rows - 1) / 1024 + 1);
+    const int num_blocks_1024 = std::min( 13 * 2, (num_block_rows - 1) / 1024 + 1);
     device_vector_alloc<int> sets_per_block_t(num_blocks_1024);
     int *sets_per_block = thrust::raw_pointer_cast(sets_per_block_t.data());
     cudaCheckError();

@@ -697,7 +697,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     ValueType *diag_ptr = diag.raw();
     IndexType *aggregates_ptr = aggregates.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_rows - 1) / threads_per_block + 1 );
     getDiagonalKernelNoDiaProp <<< num_blocks, threads_per_block>>>(A_dia_ptr, A_values_ptr, num_rows, diag_ptr);
     cudaCheckError();
     int numUnassigned = num_rows;
@@ -780,8 +780,8 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     IndexType *strongest_neighbour_1phase_ptr = strongest_neighbour_1phase.raw();
     IndexType *aggregates_ptr = aggregates.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
-    const int num_blocks_V2 = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
+    const int num_blocks_V2 = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
     int numUnassigned = num_block_rows;
     int numUnassigned_previous = numUnassigned;
     Vector<TemplateConfig<AMGX_device, AMGX_vecFloat, t_matPrec, t_indPrec> > edge_weights(num_nonzero_blocks, -1);

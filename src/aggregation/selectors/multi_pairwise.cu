@@ -910,7 +910,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     IndexType *strongest_neighbour_1phase_ptr = strongest_neighbour_1phase.raw();
     IndexType *aggregates_ptr = aggregates.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
     int numUnassigned = num_block_rows;
     int numUnassigned_previous = numUnassigned;
     bool computeWeights = ( edge_weights.size() == 0 );
@@ -934,7 +934,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     // Compute the edge weights
     if ( computeWeights )
     {
-        const int num_blocks_V2 = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+        const int num_blocks_V2 = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
         //compute with std formula
         cudaFuncSetCacheConfig(computeEdgeWeightsBlockDiaCsr_V2<IndexType, ValueType, ValueType>, cudaFuncCachePreferL1);
         computeEdgeWeightsBlockDiaCsr_V2 <<< num_blocks_V2, threads_per_block, 0, str>>>(A_row_offsets_ptr,
@@ -956,7 +956,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     if ( this->filter_weights == 1 )
     {
         MVector tmp( edge_weights.size() );
-        const int num_blocks_filter = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+        const int num_blocks_filter = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
         cudaStreamSynchronize(str);
         cudaCheckError();
         filterWeights <<< num_blocks_filter, threads_per_block, 0, str>>>( A_row_offsets_ptr,
@@ -1569,7 +1569,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 
         //for mergeAggregates kernel
         const int threads_per_block = 256;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
         cudaStream_t stream = thrust::global_thread_handle::get_stream();
         //initialize and prepare weight matrix
         Matrix<TConfig> w;
@@ -1669,7 +1669,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
                     //set w to correct size
                     w.values.resize( nnz );
                     //define grid and offsets
-                    const int num_blocks_inter = min( (int)AMGX_GRID_MAX_SIZE, (int)(nnz - 1) / threads_per_block + 1 );
+                    const int num_blocks_inter = std::min( (int)AMGX_GRID_MAX_SIZE, (int)(nnz - 1) / threads_per_block + 1 );
                     const int sq_blocksize = A.get_block_dimx() * A.get_block_dimy();
                     const int index_offset = A.get_block_dimy() * m_aggregation_edge_weight_component + m_aggregation_edge_weight_component;
                     //do the interleaved copy

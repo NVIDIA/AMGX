@@ -207,7 +207,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueType;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueType)A.get_num_rows() / (ValueType)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueType)A.get_num_rows() / (ValueType)THREADS_PER_BLOCK));
     this->diag.resize(A.get_num_rows());
     find_diag_kernel<IndexType, ValueType> <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK >>>
     ((int)A.get_num_rows(),
@@ -257,7 +257,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     typedef typename Matrix_d::value_type ValueTypeA;
     typedef typename VVector::value_type ValueTypeB;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
     GS_smooth_kernel<IndexType, ValueTypeA, ValueTypeB> <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK >>>
     ((int)A.get_num_rows(),
      A.row_offsets.raw(),

@@ -1488,7 +1488,7 @@ template <typename TConfig> class DistributedManagerBase
                 for (int i = 0; i < this->neighbors.size(); i++)
                 {
                     int size = this->B2L_rings[i][num_rings];
-                    int num_blocks = min(4096, (size + 127) / 128);
+                    int num_blocks = std::min(4096, (size + 127) / 128);
 
                     if ( size != 0)
                     {
@@ -1535,7 +1535,7 @@ template <typename TConfig> class DistributedManagerBase
                 }
 
                 int size = this->B2L_rings_sizes[num_rings - 1];
-                int num_blocks = min(4096, (size + 127) / 128);
+                int num_blocks = std::min(4096, (size + 127) / 128);
                 int num_neighbors = this->neighbors.size();
 
                 if (size != 0)
@@ -1578,7 +1578,7 @@ template <typename TConfig> class DistributedManagerBase
 
                     if (size != 0)
                     {
-                        int num_blocks = min(4096, (size + 127) / 128);
+                        int num_blocks = std::min(4096, (size + 127) / 128);
                         scatterFromBuffer <<< num_blocks, 128>>>(b.raw(), this->B2L_maps[i].raw(), b.linear_buffers[i], b.get_block_size(), size);
                         cudaCheckError();
                     }
@@ -1605,7 +1605,7 @@ template <typename TConfig> class DistributedManagerBase
 
 #endif
                 int size = this->B2L_rings_sizes[num_rings - 1];
-                int num_blocks = min(4096, (size + 127) / 128);
+                int num_blocks = std::min(4096, (size + 127) / 128);
                 int num_neighbors = this->neighbors.size();
 
                 if (size != 0)
@@ -1648,7 +1648,7 @@ template <typename TConfig> class DistributedManagerBase
 
                     if (size != 0)
                     {
-                        int num_blocks = min(4096, (size + 127) / 128);
+                        int num_blocks = std::min(4096, (size + 127) / 128);
                         scatterFromBufferMin <<< num_blocks, 128>>>(b.raw(), this->B2L_maps[i].raw(), b.linear_buffers[i], b.get_block_size(), size);
                         cudaCheckError();
                     }

@@ -1062,7 +1062,7 @@ void gather_B2L_after_unglue(const Matrix<TConfig> &m, Vector<TConfig> &b, int n
         for (int i = 0; i < m.manager->neighbors_before_glue.size(); i++)
         {
             int size = m.manager->B2L_rings_before_glue[i][num_rings];
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
 
             if ( size != 0)
             {

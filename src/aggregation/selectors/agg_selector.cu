@@ -123,7 +123,7 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     IVector size_array;
     size_array.resize(num_rows + 1, 0 );
     const int threads_per_block = 256;
-    const int num_blocks = min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
     //count
     countRowSizes <<< num_blocks, threads_per_block, 0, 0>>>( R.row_offsets.raw(), size_array.raw(), num_aggregates );
     cudaDeviceSynchronize();

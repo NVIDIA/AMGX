@@ -640,13 +640,13 @@ void getDiagonalKernelNoDiaProp(const IndexType *dia_idx, const ValueType *value
 template<class T_Config>
 Size2SelectorBase<T_Config>::Size2SelectorBase(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    deterministic = cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default");
-    max_iterations = cfg.AMG_Config::getParameter<IndexType>("max_matching_iterations", cfg_scope);
-    numUnassigned_tol = cfg.AMG_Config::getParameter<double>("max_unassigned_percentage", cfg_scope);
-    two_phase = cfg.AMG_Config::getParameter<int>("handshaking_phases", cfg_scope) == 2;
-    m_aggregation_edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
-    merge_singletons = cfg.AMG_Config::getParameter<int>("merge_singletons", cfg_scope) == 1;
-    weight_formula = cfg.AMG_Config::getParameter<int>("weight_formula", cfg_scope);
+    deterministic = cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default");
+    max_iterations = cfg.AMG_Config::template getParameter<IndexType>("max_matching_iterations", cfg_scope);
+    numUnassigned_tol = cfg.AMG_Config::template getParameter<double>("max_unassigned_percentage", cfg_scope);
+    two_phase = cfg.AMG_Config::template getParameter<int>("handshaking_phases", cfg_scope) == 2;
+    m_aggregation_edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    merge_singletons = cfg.AMG_Config::template getParameter<int>("merge_singletons", cfg_scope) == 1;
+    weight_formula = cfg.AMG_Config::template getParameter<int>("weight_formula", cfg_scope);
 }
 
 // setAggregates for csr_matrix_h format

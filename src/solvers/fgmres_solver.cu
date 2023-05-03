@@ -253,9 +253,9 @@ FGMRES_Solver<T_Config>::FGMRES_Solver( AMG_Config &cfg, const std::string &cfg_
         m_preconditioner = SolverFactory<T_Config>::allocate( cfg, cfg_scope, "preconditioner" );
     }
 
-    m_R = cfg.AMG_Config::getParameter<int>("gmres_n_restart", cfg_scope);
+    m_R = cfg.AMG_Config::template getParameter<int>("gmres_n_restart", cfg_scope);
     m_krylov_size = std::min( this->m_max_iters, m_R );
-    int krylov_param = cfg.AMG_Config::getParameter<int>( "gmres_krylov_dim", cfg_scope );
+    int krylov_param = cfg.AMG_Config::template getParameter<int>( "gmres_krylov_dim", cfg_scope );
 
     if ( krylov_param > 0 )
     {

@@ -232,7 +232,7 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
                     }
                 }
 
-                if ( amg->m_cfg->AMG_Config::getParameter<int>( "error_scaling", amg->m_cfg_scope ) > 3 )
+                if ( amg->m_cfg->AMG_Config::template getParameter<int>( "error_scaling", amg->m_cfg_scope ) > 3 )
                 {
                     n_postsweeps = 0;
                 }

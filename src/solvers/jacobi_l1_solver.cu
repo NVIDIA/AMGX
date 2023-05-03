@@ -313,7 +313,7 @@ __global__ void jacobi_smooth_with_0_initial_guess_kernel(const IndexType num_ro
 template<class T_Config>
 JacobiL1Solver_Base<T_Config>::JacobiL1Solver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope), m_d(0)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (weight == 0)
     {

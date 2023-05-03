@@ -95,11 +95,11 @@ void computeEdgeWeightsBlockDiaCsr(const IndexType *row_offsets, const IndexType
 template<class T_Config>
 Size4SelectorBase<T_Config>::Size4SelectorBase(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    deterministic = cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default");
-    max_iterations = cfg.AMG_Config::getParameter<IndexType>("max_matching_iterations", cfg_scope);
-    numUnassigned_tol = cfg.AMG_Config::getParameter<double>("max_unassigned_percentage", cfg_scope);
-    m_aggregation_edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
-    weight_formula = cfg.AMG_Config::getParameter<int>("weight_formula", cfg_scope);
+    deterministic = cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default");
+    max_iterations = cfg.AMG_Config::template getParameter<IndexType>("max_matching_iterations", cfg_scope);
+    numUnassigned_tol = cfg.AMG_Config::template getParameter<double>("max_unassigned_percentage", cfg_scope);
+    m_aggregation_edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    weight_formula = cfg.AMG_Config::template getParameter<int>("weight_formula", cfg_scope);
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>

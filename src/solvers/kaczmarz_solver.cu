@@ -514,9 +514,9 @@ __global__ void jacobi_smooth_with_0_initial_guess_kernel(const IndexType num_ro
 template<class T_Config>
 KaczmarzSolver_Base<T_Config>::KaczmarzSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope), m_an(0), m_amax(0), m_c_inv(0)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->m_coloring_needed = (cfg.AMG_Config::getParameter<int>("kaczmarz_coloring_needed", cfg_scope) != 0);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->m_coloring_needed = (cfg.AMG_Config::template getParameter<int>("kaczmarz_coloring_needed", cfg_scope) != 0);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
     this->m_randomized = true;
 
     if (weight == 0)

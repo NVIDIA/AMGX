@@ -803,7 +803,7 @@ void jacobiSmooth4by4ZeroBlockDiaCsrKernel_NAIVE_tex_readDinv2(const ValueTypeA 
 template<class T_Config>
 BlockJacobiSolver_Base<T_Config>::BlockJacobiSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (weight == 0)
     {

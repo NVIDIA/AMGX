@@ -1232,7 +1232,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         void colorMatrix(AMG_Config &cfg, const std::string &cfg_scope)
         {
             //locally downwind needs the aggregates to perform the coloring
-            std::string coloring_algorithm = cfg.AMG_Config::getParameter<std::string>("matrix_coloring_scheme", cfg_scope );
+            std::string coloring_algorithm = cfg.AMG_Config::template getParameter<std::string>("matrix_coloring_scheme", cfg_scope );
 
             if ( coloring_algorithm.compare( "LOCALLY_DOWNWIND" ) == 0 )
             {
@@ -1275,7 +1275,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         {
             if ( this->hasProps(COLORING) )
             {
-                if ( cfg.AMG_Config::getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
+                if ( cfg.AMG_Config::template getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
                 {
                     this->m_matrix_coloring->assertColoring( *this, aggregates );
                 }
@@ -1302,7 +1302,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
                 this->m_matrix_coloring->colorMatrixUsingAggregates(*this, R_row_offsets, R_col_indices, aggregates);
             }
 
-            if ( cfg.AMG_Config::getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
+            if ( cfg.AMG_Config::template getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
             {
                 this->m_matrix_coloring->assertColoring( *this, aggregates );
             }

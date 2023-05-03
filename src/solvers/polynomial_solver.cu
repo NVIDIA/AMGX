@@ -108,7 +108,7 @@ void get_diaginv(const IndexType *dia_idx, const ValueTypeA *nonzero_values,
 template<class T_Config>
 PolynomialSolverBase<T_Config>::PolynomialSolverBase( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope), R(0)
 {
-    ndeg0 = cfg.AMG_Config::getParameter<int>("kpz_order", cfg_scope);
+    ndeg0 = cfg.AMG_Config::template getParameter<int>("kpz_order", cfg_scope);
 }
 
 // Destructor

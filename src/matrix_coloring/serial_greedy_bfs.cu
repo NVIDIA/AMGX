@@ -781,8 +781,8 @@ Serial_Greedy_BFS_MatrixColoring_Base<T_Config>::Serial_Greedy_BFS_MatrixColorin
         FatalError( "Not implemented for coloring_level != 1", AMGX_ERR_NOT_SUPPORTED_TARGET );
     }
 
-    m_coloring_custom_arg = cfg.AMG_Config::getParameter<std::string>( "coloring_custom_arg", cfg_scope );
-    m_coloring_try_remove_last_color_ = cfg.AMG_Config::getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
+    m_coloring_custom_arg = cfg.AMG_Config::template getParameter<std::string>( "coloring_custom_arg", cfg_scope );
+    m_coloring_try_remove_last_color_ = cfg.AMG_Config::template getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
 }
 
 #define AMGX_CASE_LINE(CASE) template class Serial_Greedy_BFS_MatrixColoring_Base<TemplateMode<CASE>::Type>;

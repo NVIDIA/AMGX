@@ -39,7 +39,7 @@ namespace amgx
 template<class T_Config>
 GaussSeidelSolver_Base<T_Config>::GaussSeidelSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (this->weight == 0)
     {

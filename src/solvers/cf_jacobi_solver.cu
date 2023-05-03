@@ -183,8 +183,8 @@ void agg_write_agg(const int *agg_map, const int nrows, int *dst)
 template<class T_Config>
 CFJacobiSolver_Base<T_Config>::CFJacobiSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    int param_mode = cfg.AMG_Config::getParameter<int>("cf_smoothing_mode", cfg_scope);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    int param_mode = cfg.AMG_Config::template getParameter<int>("cf_smoothing_mode", cfg_scope);
 
     switch (param_mode)
     {

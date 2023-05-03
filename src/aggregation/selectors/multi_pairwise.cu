@@ -829,21 +829,21 @@ void rescaleVector( ValueType *x, IndexType numRows )
 template<class T_Config>
 MultiPairwiseSelectorBase<T_Config>::MultiPairwiseSelectorBase(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    deterministic = cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default");
-    max_iterations = cfg.AMG_Config::getParameter<IndexType>("max_matching_iterations", cfg_scope);
-    numUnassigned_tol = cfg.AMG_Config::getParameter<double>("max_unassigned_percentage", cfg_scope);
-    two_phase = cfg.AMG_Config::getParameter<int>("handshaking_phases", cfg_scope) == 2;
-    m_aggregation_edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
-    aggregation_passes = cfg.AMG_Config::getParameter<int>("aggregation_passes", cfg_scope); //default to size 8 aggregates. maybe its more convenient to have that as a config parameter
-    filter_weights = cfg.AMG_Config::getParameter<int>("filter_weights", cfg_scope); //by default: no filtering
-    filter_weights_alpha = cfg.AMG_Config::getParameter<double>( "filter_weights_alpha", cfg_scope ); //default to 0.25
-    full_ghost_level = cfg.AMG_Config::getParameter<int>( "full_ghost_level", cfg_scope ); //defaults to 0
-    notay_weights = cfg.AMG_Config::getParameter<int>( "notay_weights", cfg_scope ); //defaults to 0
-    ghost_offdiag_limit = cfg.AMG_Config::getParameter<int>( "ghost_offdiag_limit", cfg_scope ); //defaults to 0
-    merge_singletons = cfg.AMG_Config::getParameter<int>( "merge_singletons", cfg_scope ); //defaults to 1
-    weight_formula = cfg.AMG_Config::getParameter<int>( "weight_formula", cfg_scope ); //wheight formula defaults to 0
-    serial_matching = cfg.AMG_Config::getParameter<int>( "serial_matching", cfg_scope ) != 0; //will use a serial matching algorithm instead of handshake
-    modified_handshake = cfg.AMG_Config::getParameter<int>("modified_handshake", cfg_scope ) == 1;
+    deterministic = cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default");
+    max_iterations = cfg.AMG_Config::template getParameter<IndexType>("max_matching_iterations", cfg_scope);
+    numUnassigned_tol = cfg.AMG_Config::template getParameter<double>("max_unassigned_percentage", cfg_scope);
+    two_phase = cfg.AMG_Config::template getParameter<int>("handshaking_phases", cfg_scope) == 2;
+    m_aggregation_edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    aggregation_passes = cfg.AMG_Config::template getParameter<int>("aggregation_passes", cfg_scope); //default to size 8 aggregates. maybe its more convenient to have that as a config parameter
+    filter_weights = cfg.AMG_Config::template getParameter<int>("filter_weights", cfg_scope); //by default: no filtering
+    filter_weights_alpha = cfg.AMG_Config::template getParameter<double>( "filter_weights_alpha", cfg_scope ); //default to 0.25
+    full_ghost_level = cfg.AMG_Config::template getParameter<int>( "full_ghost_level", cfg_scope ); //defaults to 0
+    notay_weights = cfg.AMG_Config::template getParameter<int>( "notay_weights", cfg_scope ); //defaults to 0
+    ghost_offdiag_limit = cfg.AMG_Config::template getParameter<int>( "ghost_offdiag_limit", cfg_scope ); //defaults to 0
+    merge_singletons = cfg.AMG_Config::template getParameter<int>( "merge_singletons", cfg_scope ); //defaults to 1
+    weight_formula = cfg.AMG_Config::template getParameter<int>( "weight_formula", cfg_scope ); //wheight formula defaults to 0
+    serial_matching = cfg.AMG_Config::template getParameter<int>( "serial_matching", cfg_scope ) != 0; //will use a serial matching algorithm instead of handshake
+    modified_handshake = cfg.AMG_Config::template getParameter<int>("modified_handshake", cfg_scope ) == 1;
     //passes = 1 -> max = 3
     //passes = 2 -> max = 5
     //passes = 3 -> max = 10

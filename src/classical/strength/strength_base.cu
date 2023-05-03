@@ -57,7 +57,7 @@ template< typename T_Config >
 Strength_BaseBase<T_Config>::Strength_BaseBase(AMG_Config &cfg,
         const std::string &cfg_scope)
 {
-    alpha = cfg.AMG_Config::getParameter<double>("strength_threshold", cfg_scope);
+    alpha = cfg.AMG_Config::template getParameter<double>("strength_threshold", cfg_scope);
 }
 
 /*************************************************************************

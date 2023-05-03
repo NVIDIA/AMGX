@@ -434,7 +434,7 @@ void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TR
             }
         }
 
-        warputil<sizeof(V), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, 32, CTA_SIZE, WARP_SIZE>(x, op);
+        warputil<sizeof(V), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, 32, CTA_SIZE, WARP_SIZE>(x, op);
 
         if (lane_id < STRIDE) { x_warp_0 += x; }
 
@@ -460,7 +460,7 @@ void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TR
         {
             V y;
             y = (lane_id < CTA_SIZE / WARP_SIZE) ? warp_results[k][lane_id] : 0;
-            warputil<sizeof(V), strided_reduction_ARCH>::warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
+            warputil<sizeof(V), strided_reduction_ARCH>::template warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
 
             if (lane_id == k) { my_result = y; }
         }
@@ -472,7 +472,7 @@ void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TR
 template<int STRIDE, int CTA_SIZE, int WARP_SIZE, class T, class OP>
 __device__ __forceinline__ void warp_reduce(T &y, const OP &op = OP())
 {
-    warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, WARP_SIZE, CTA_SIZE, WARP_SIZE>(y, op);
+    warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, WARP_SIZE, CTA_SIZE, WARP_SIZE>(y, op);
 }
 
 
@@ -502,7 +502,7 @@ __device__ __forceinline__ void block_reduce(const T x_warp, T *sums, const OP &
         {
             T y;
             y = (lane_id < CTA_SIZE / WARP_SIZE) ? warp_results[k][lane_id] : 0;
-            warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
+            warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
 
             if (lane_id == k) { my_result = y; }
         }
@@ -552,7 +552,7 @@ __device__ __forceinline__ void block_reduce_atomic(const int x_warp, T *sums, c
         {
             T y;
             y = (lane_id < CTA_SIZE / WARP_SIZE) ? warp_results[k][lane_id] : 0;
-            warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
+            warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
 
             if (lane_id == k) { my_result = y; }
         }
@@ -577,7 +577,7 @@ __global__ void strided_reduction_collect_partials(T *out_sums, T *partial_sums,
     while (utils::any(tid < NBlocks * STRIDE))
     {
         T x = (tid < NBlocks * STRIDE) ? partial_sums[tid] : 0;
-        warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, op);
+        warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, op);
 
         if (STRIDE & (STRIDE - 1)) //NPOT, handle the fact that stride messes around
         {
@@ -647,7 +647,7 @@ struct block_count_gatherer
             while (utils::any(tid < NBlocks * STRIDE))
             {
                 T x = (tid < NBlocks * STRIDE) ? sets_per_block[tid] : 0;
-                warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, OP());
+                warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, OP());
 
                 if (threadIdx.x < STRIDE) { X[(STRIDE & (STRIDE - 1)) ? tid % STRIDE : threadIdx.x] += x; }
 

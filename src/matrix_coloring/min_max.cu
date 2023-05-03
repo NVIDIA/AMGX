@@ -386,13 +386,13 @@ void colorRowsRingTwoKernel(const IndexType *A_offsets, const IndexType *A_colum
 template<class T_Config>
 MinMaxMatrixColoringBase<T_Config>::MinMaxMatrixColoringBase(AMG_Config &cfg, const std::string &cfg_scope) : MatrixColoring<T_Config>(cfg, cfg_scope)
 {
-    if (cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default"))
+    if (cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default"))
     {
         m_uncolored_fraction = 0;
     }
     else
     {
-        m_uncolored_fraction = cfg.AMG_Config::getParameter<double>("max_uncolored_percentage", cfg_scope);
+        m_uncolored_fraction = cfg.AMG_Config::template getParameter<double>("max_uncolored_percentage", cfg_scope);
     }
 }
 

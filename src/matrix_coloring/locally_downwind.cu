@@ -394,7 +394,7 @@ void repair( const IndexType *ia, const IndexType *ja, const ValueType *aa, cons
 template<class T_Config>
 LocallyDownwindColoringBase<T_Config>::LocallyDownwindColoringBase(AMG_Config &cfg, const std::string &cfg_scope) : MatrixColoring<T_Config>(cfg, cfg_scope)
 {
-    this->m_num_colors = cfg.AMG_Config::getParameter<int>("num_colors", cfg_scope);
+    this->m_num_colors = cfg.AMG_Config::template getParameter<int>("num_colors", cfg_scope);
 }
 
 template<class TConfig>

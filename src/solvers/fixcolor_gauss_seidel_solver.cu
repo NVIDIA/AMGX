@@ -455,10 +455,10 @@ void fixcolorGSSmoothCsrKernel_NAIVE_tex(const IndexType *row_offsets, const Ind
 template<class T_Config>
 FixcolorGaussSeidelSolver_Base<T_Config>::FixcolorGaussSeidelSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    symFlag = cfg.AMG_Config::getParameter<int>("symmetric_GS", cfg_scope);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    symFlag = cfg.AMG_Config::template getParameter<int>("symmetric_GS", cfg_scope);
 
-    if (cfg.AMG_Config::getParameter<int>("use_bsrxmv", cfg_scope))
+    if (cfg.AMG_Config::template getParameter<int>("use_bsrxmv", cfg_scope))
     {
         this->use_bsrxmv = 1;
     }

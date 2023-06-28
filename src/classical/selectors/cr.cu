@@ -403,7 +403,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     ValueTypeB *v_u_ptr   = v_u.raw();
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Compute 'energy norm' of v_u (normalize error before smoothing)
     // v_tmp = diag(Aff).*v_u
     thrust::transform(AdiagValues.begin(), AdiagValues.end(),
@@ -476,7 +476,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
     const IndexType *A_row_colors_ptr;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     const int pre   = 10;
     const ValueType alpha = 0.7;
     const ValueType rho_thresh = 1.0e-2;
@@ -623,7 +623,7 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 
     // Choose blocksize. Using 1 thread / row for now
     const int blocksize = 256;
-    const int numBlocks = min(AMGX_GRID_MAX_SIZE, (int) ((AnumRows + blocksize - 1) / blocksize));
+    const int numBlocks = std::min(AMGX_GRID_MAX_SIZE, (int) ((AnumRows + blocksize - 1) / blocksize));
     const int maxit = 5;  // Max num of CR iterations.
     ValueType norm0;      // Stores the energy norm of the smoothed error in CR iteration.
     int *cf_map_ptr = cf_map.raw();

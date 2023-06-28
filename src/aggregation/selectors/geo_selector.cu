@@ -184,7 +184,7 @@ template<class T_Config>
 void GEO_SelectorBase<T_Config>::interpolateGeoinfo( Matrix<T_Config> &A )
 {
     const int threads_per_block = 512;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
     ngeo_x.resize(A.get_num_rows());
     ngeo_y.resize(A.get_num_rows());
 
@@ -266,7 +266,7 @@ void GEO_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 
     int num_per_row = (int)std::pow(2, nlevel - 1);
     const int threads_per_block = 512;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (n - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (n - 1) / threads_per_block + 1 );
     // generate aggregation index in 1d
     IndexType *aggregation_ptr = thrust::raw_pointer_cast(&aggregates[0]);
 

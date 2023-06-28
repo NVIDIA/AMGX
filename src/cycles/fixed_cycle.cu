@@ -113,7 +113,7 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
 
                 if (amg->getNumPresweeps() != 0 && amg->getIntensiveSmoothing())
                 {
-                    n_presweeps = max(n_presweeps + levelnum - 2, 0);
+                    n_presweeps = std::max(n_presweeps + levelnum - 2, 0);
                 }
             }
 
@@ -228,11 +228,11 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
 
                     if (amg->getNumPostsweeps() != 0 && amg->getIntensiveSmoothing())
                     {
-                        n_postsweeps = max(n_postsweeps + levelnum - 2, 0);
+                        n_postsweeps = std::max(n_postsweeps + levelnum - 2, 0);
                     }
                 }
 
-                if ( amg->m_cfg->AMG_Config::getParameter<int>( "error_scaling", amg->m_cfg_scope ) > 3 )
+                if ( amg->m_cfg->AMG_Config::template getParameter<int>( "error_scaling", amg->m_cfg_scope ) > 3 )
                 {
                     n_postsweeps = 0;
                 }

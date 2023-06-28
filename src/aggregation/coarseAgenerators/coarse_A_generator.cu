@@ -127,7 +127,7 @@ template<class T_Config>
 CoarseAGenerator<T_Config> *CoarseAGeneratorFactory<T_Config>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, CoarseAGeneratorFactory<T_Config>*> &factories = getFactories( );
-    int agg_lvl_change = cfg.AMG_Config::getParameter<int>("fine_levels", cfg_scope);
+    int agg_lvl_change = cfg.AMG_Config::template getParameter<int>("fine_levels", cfg_scope);
     std::string generator;
     generator = cfg.getParameter<std::string>("coarseAgenerator", cfg_scope);
     typename std::map<std::string, CoarseAGeneratorFactory<T_Config> *>::const_iterator it = factories.find(generator);

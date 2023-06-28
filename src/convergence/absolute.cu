@@ -39,7 +39,7 @@ AbsoluteConvergence<TConfig>::AbsoluteConvergence(AMG_Config &cfg, const std::st
 template<class TConfig>
 void AbsoluteConvergence<TConfig>::convergence_init()
 {
-    this->m_tolerance = this->m_cfg->AMG_Config::getParameter<double>("tolerance", this->m_cfg_scope);
+    this->m_tolerance = this->m_cfg->AMG_Config::template getParameter<double>("tolerance", this->m_cfg_scope);
 }
 
 

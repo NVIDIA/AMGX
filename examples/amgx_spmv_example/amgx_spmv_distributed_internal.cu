@@ -9,7 +9,7 @@
 // example of using AMGX code to get matrix vector product
 // to compile
 // 1) either link against AMGX static library (make sure it's built with MPI support):
-//    nvcc -std=c++11 --gpu-architecture=compute_35 --gpu-code=compute_35,sm_35 -Xcompiler ,\"-DAMGX_WITH_MPI\" -I../../base/include -I../../../../thrust amgx_spmv_distributed_internal.cu -lamgx -L../../build -lmpi -L/opt/openmpi-1.10.2/lib -lcublas -lcusparse -lcusolver -o amgx_spmv_distributed -Xlinker=-rpath=/usr/local/cuda/lib64
+//    nvcc -std=c++11 --gpu-architecture=compute_35 --gpu-code=compute_35,sm_35 -Xcompiler ,\"-DAMGX_WITH_MPI\" -I../../include -I../../../../thrust amgx_spmv_distributed_internal.cu -lamgx -L../../build -lmpi -L/opt/openmpi-1.10.2/lib -lcublas -lcusparse -lcusolver -o amgx_spmv_distributed -Xlinker=-rpath=/usr/local/cuda/lib64
 // 2) or use Makefile which will compile and link against selected AMGX files required for SpMV:
 //    make example_distributed
 // Run: 
@@ -28,7 +28,7 @@ void spmv_example(amgx::Resources& res)
     // double storage for vector values
     // integer for indices values
     //
-    // see base/include/basic_types.h for details
+    // see include/basic_types.h for details
     typedef amgx::TemplateConfig<AMGX_device, AMGX_vecDouble, AMGX_matDouble, AMGX_indInt> TConfig; // Type for spmv calculation
     typedef amgx::Vector<amgx::TemplateConfig<AMGX_host, AMGX_vecDouble, AMGX_matDouble, AMGX_indInt>> VVector_h; // vector type to retrieve result
 

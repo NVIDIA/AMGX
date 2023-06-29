@@ -738,6 +738,10 @@ template <typename TConfig> class DistributedManagerBase
         {
             return B2L_rings;
         }
+        Vector<ivec_value_type_h> &getHaloOffsets(void)
+        {
+            return halo_offsets;
+        }
         std::vector<IVector> &getB2Lmaps(void)
         {
             return B2L_maps;

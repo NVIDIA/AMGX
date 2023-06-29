@@ -176,7 +176,7 @@ AMGX_ERROR EigenSolver<TConfig>::solve_no_throw(VVector &x, AMGX_STATUS &status)
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         // Check if fine level is consolidated and not a root partition
         if ( !(this->m_A->getManager() != NULL && this->m_A->getManager()->isFineLevelConsolidated() && !this->m_A->getManager()->isFineLevelRootPartition() ))

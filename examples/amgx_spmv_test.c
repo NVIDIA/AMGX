@@ -26,7 +26,7 @@
  */
 
 
-// compilation: mpicxx amgx_spmv_test.c -I/usr/local/cuda/include -I../base/include -L/usr/local/cuda/lib64 -lcudart -L../build -lamgxsh -Wl,-rpath=/usr/local/cuda/lib64 -Wl,-rpath=../build -o spmv_test
+// compilation: mpicxx amgx_spmv_test.c -I/usr/local/cuda/include -I../include -L/usr/local/cuda/lib64 -lcudart -L../build -lamgxsh -Wl,-rpath=/usr/local/cuda/lib64 -Wl,-rpath=../build -o spmv_test
 
 #include <stdio.h>
 #include <stdlib.h>

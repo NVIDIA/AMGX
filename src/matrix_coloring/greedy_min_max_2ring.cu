@@ -37,8 +37,6 @@
 #include <thrust/count.h>
 #include <thrust/extrema.h>
 #include <sm_utils.inl>
-//#include <matrix_coloring/bfs.h>
-#include <cuda_profiler_api.h>
 #include <thrust/remove.h>
 #include  <matrix_coloring/coloring_utils.h>
 

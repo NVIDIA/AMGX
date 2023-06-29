@@ -41,7 +41,6 @@
 #include <matrix_io.h>
 #include <permute.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 #include <algorithm>
 

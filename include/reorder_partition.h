@@ -30,7 +30,7 @@
 template <typename index_type, typename mat_value_type, bool reorder_rows, bool reorder_cols>
 void reorder_partition_host(index_type n, index_type nnz, index_type *Ap, index_type *Ac, mat_value_type *Av,
                             index_type *Bp, index_type *Bc, mat_value_type *Bv, index_type l, index_type *p,
-			    index_type block_dimx, index_type block_dimy)
+			                      index_type block_dimx, index_type block_dimy)
 {
     //applies reordering P from left adn right on matrix A, so that B=P'*A*P.
     //notice that matrix A may be rectangular (does not need to be square).
@@ -62,10 +62,13 @@ void reorder_partition_host(index_type n, index_type nnz, index_type *Ap, index_
         {
             col  = Ac[j];
             Bc[k] = reorder_cols ? p[col] : col;
-	    for (int kx = 0; kx < block_dimx; kx++)
-		for (int ky = 0; ky < block_dimy; ky++){
-		    Bv[k * block_size + kx * block_dimy + ky] = Av[j * block_size + kx * block_dimy + ky];
-		}
+            for (int kx = 0; kx < block_dimx; kx++) 
+            {
+                for (int ky = 0; ky < block_dimy; ky++)
+                {
+                    Bv[k * block_size + kx * block_dimy + ky] = Av[j * block_size + kx * block_dimy + ky];
+                }
+            }
         }
     }
 }

@@ -84,7 +84,7 @@ void setupBlockGSSmooth3by3BlockDiaCsrKernel(const IndexType *row_offsets, const
     const int mat_entry_index = tid - cta_blockrow_id * bsize_sq;
     const int i_ind = mat_entry_index / bsize;
     const int j_ind = mat_entry_index - i_ind * bsize;
-    volatile __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta ];
+    __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta ];
     ValueTypeA e_out;
 
     while (blockrow_id < num_block_rows)
@@ -111,7 +111,7 @@ void setupBlockGSSmooth4by4BlockDiaCsrKernel_V2(const IndexType *row_offsets, co
     const int mat_entry_index = threadIdx.x & (bsize_sq - 1);
     const int i_ind = mat_entry_index >> log_bsize;
     const int j_ind = mat_entry_index & (bsize - 1);
-    volatile __shared__ ValueTypeA s_Amat[bsize_sq * halfwarps_per_block ];
+    __shared__ ValueTypeA s_Amat[bsize_sq * halfwarps_per_block ];
     ValueTypeA e_out;
 
     while (halfwarp_id < num_block_rows)
@@ -138,8 +138,8 @@ void setupBlockGSSmoothbBybBlockDiaCsrKernel(const IndexType *row_offsets, const
     const int mat_entry_index = threadIdx.x & (16 - 1);
     const int i_ind = mat_entry_index >> 2;
     const int j_ind = mat_entry_index & 3;
-    extern __shared__ volatile char sharedc[];
-    volatile ValueTypeA *s_Amat;
+    extern __shared__ char sharedc[];
+    ValueTypeA *s_Amat;
     s_Amat = (ValueTypeA *)&sharedc[0];
     int tile_num = (bsize - 1) / 4 + 1;
     ValueTypeA *e_out = &temp1[(blockIdx.x * blockDim.x + threadIdx.x) * tile_num * tile_num];
@@ -165,6 +165,7 @@ void setupBlockGSSmoothbBybBlockDiaCsrKernel(const IndexType *row_offsets, const
                     s_Amat[s_offset + (t1 * 4 + i_ind) * bsize + t2 * 4 + j_ind] = e_out[t1 * tile_num + t2];
                 }
 
+
         compute_block_inverse2<IndexType, ValueTypeA, halfwarps_per_block>
         ( s_Amat, s_offset, offset, i_ind, j_ind, Dinv, tile_num, bsize, bsize_sq );
         halfwarp_id += gridDim.x * halfwarps_per_block;
@@ -181,7 +182,7 @@ void setupBlockGSSmoothBlockDiaCsrKernel_V2(const IndexType *row_offsets, const 
     const int mat_entry_index = threadIdx.x - cta_blockrow_id * bsize_sq;
     const int i_ind = mat_entry_index / bsize;
     const int j_ind = mat_entry_index - i_ind * bsize;
-    volatile __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta];
+    __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta];
     int offset, s_offset;
     ValueTypeA e_out;
 
@@ -192,6 +193,7 @@ void setupBlockGSSmoothBlockDiaCsrKernel_V2(const IndexType *row_offsets, const 
         e_out = values[bsize_sq * dia_indices[blockrow_id] + mat_entry_index];
         // Each thread stores its entry in s_Amat
         s_Amat[threadIdx.x] = e_out;
+
         s_offset = cta_blockrow_id * bsize_sq;
 // THIS IS DEFINED IN BLOCK COMMON
 //#define s_A(ROW,COL)   s_Amat[s_offset+ROW*bsize+COL]
@@ -1037,9 +1039,9 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
     // try to keep 'x' in L2 cache, if at least Ampere & CUDA 11
 #if CUDART_VERSION >= 11000
+    cudaStreamAttrValue stream_attribute;
     if (arch >= 80 && use_l2_hint == 1)
     {
-        cudaStreamAttrValue stream_attribute;   
         cudaDeviceProp prop = getDeviceProperties();
         size_t x_size = min( A.get_num_rows()*8 , prop.persistingL2CacheMaxSize );      // set-aside length of 'x' (number of rows in A)*8 bytes
         cudaDeviceSetLimit( cudaLimitPersistingL2CacheSize, x_size);                    //            for persisting accesses or the max allowed
@@ -1149,7 +1151,6 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 #if CUDART_VERSION >= 11000
     if (arch >= 80 && use_l2_hint == 1)
     {        
-        cudaStreamAttrValue stream_attribute;   
         stream_attribute.accessPolicyWindow.num_bytes = 0;                                          // Setting the window size to 0 disable it
         cudaStreamSetAttribute(work_stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   // Overwrite the access policy attribute to a CUDA Stream
         cudaCtxResetPersistingL2Cache();                                                            // Remove any persistent lines in L2 

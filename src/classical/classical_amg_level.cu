@@ -53,17 +53,12 @@
 #include <thrust/count.h>
 #include <thrust/sort.h>
 
-#include <profile.h>
 #include <distributed/glue.h>
 namespace amgx
 {
 
 namespace classical
 {
-
-void __global__ profiler_tag_1() {}
-void __global__ profiler_tag_2() {}
-void __global__ profiler_tag_3() {}
 
 struct is_zero
 {
@@ -447,7 +442,6 @@ void Classical_AMG_Level_Base<T_Config>::computeProlongationOperator()
     this->m_scratch.shrink_to_fit();
     this->m_s_con.clear();
     this->m_s_con.shrink_to_fit();
-    profileSubphaseTruncateP();
 
     // truncate based on max # of elements if desired
     if (this->max_elmts > 0 && P.get_num_rows() > 0)
@@ -461,9 +455,6 @@ void Classical_AMG_Level_Base<T_Config>::computeProlongationOperator()
         P.setInteriorView(OWNED);
         P.setExteriorView(OWNED);
     }
-
-    profileSubphaseNone();
-    this->Profile.toc("computeP");
 }
 
 /**********************************************

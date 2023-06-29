@@ -41,7 +41,6 @@
 
 #include <amg_level.h>
 #include <amgx_c.h>
-#include <profile.h>
 
 #include <misc.h>
 #include <string>

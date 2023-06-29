@@ -31,7 +31,6 @@
 #include <matrix_coloring/matrix_coloring.h>
 #include <basic_types.h>
 #include <matrix.h>
-#include <profile.h>
 
 //MatrixColoringFactory<T_Config>::registerFactory("SERIAL_GREEDY_BFS", new Serial_Greedy_BFS_MatrixColoring_Factory<T_Config>);
 //MatrixColoringFactory<T_Config>::registerFactory("GREEDY_RECOLOR", new Greedy_Recolor_Coloring_Factory<T_Config>);

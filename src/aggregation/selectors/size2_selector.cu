@@ -360,28 +360,17 @@ void countAggregates(const IndexType num_rows, IndexType *aggregates, int *num_u
         i += gridDim.x * blockDim.x;
     }
 
-    __shared__ volatile int smem[block_size];
+    __shared__ int smem[block_size];
     smem[threadIdx.x] = c;
     __syncthreads();
 
-    for ( int off = blockDim.x / 2; off >= 32; off = off / 2 )
+    for ( int off = blockDim.x / 2; off >= 1; off = off / 2 )
     {
         if ( threadIdx.x < off )
         {
             smem[threadIdx.x] += smem[threadIdx.x + off];
         }
-
         __syncthreads();
-    }
-
-    // warp reduce
-    if ( threadIdx.x < 32 )
-    {
-        smem[threadIdx.x] += smem[threadIdx.x + 16];
-        smem[threadIdx.x] += smem[threadIdx.x + 8];
-        smem[threadIdx.x] += smem[threadIdx.x + 4];
-        smem[threadIdx.x] += smem[threadIdx.x + 2];
-        smem[threadIdx.x] += smem[threadIdx.x + 1];
     }
 
     if ( threadIdx.x == 0 )

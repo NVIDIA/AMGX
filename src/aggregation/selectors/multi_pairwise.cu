@@ -829,21 +829,21 @@ void rescaleVector( ValueType *x, IndexType numRows )
 template<class T_Config>
 MultiPairwiseSelectorBase<T_Config>::MultiPairwiseSelectorBase(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    deterministic = cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default");
-    max_iterations = cfg.AMG_Config::getParameter<IndexType>("max_matching_iterations", cfg_scope);
-    numUnassigned_tol = cfg.AMG_Config::getParameter<double>("max_unassigned_percentage", cfg_scope);
-    two_phase = cfg.AMG_Config::getParameter<int>("handshaking_phases", cfg_scope) == 2;
-    m_aggregation_edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
-    aggregation_passes = cfg.AMG_Config::getParameter<int>("aggregation_passes", cfg_scope); //default to size 8 aggregates. maybe its more convenient to have that as a config parameter
-    filter_weights = cfg.AMG_Config::getParameter<int>("filter_weights", cfg_scope); //by default: no filtering
-    filter_weights_alpha = cfg.AMG_Config::getParameter<double>( "filter_weights_alpha", cfg_scope ); //default to 0.25
-    full_ghost_level = cfg.AMG_Config::getParameter<int>( "full_ghost_level", cfg_scope ); //defaults to 0
-    notay_weights = cfg.AMG_Config::getParameter<int>( "notay_weights", cfg_scope ); //defaults to 0
-    ghost_offdiag_limit = cfg.AMG_Config::getParameter<int>( "ghost_offdiag_limit", cfg_scope ); //defaults to 0
-    merge_singletons = cfg.AMG_Config::getParameter<int>( "merge_singletons", cfg_scope ); //defaults to 1
-    weight_formula = cfg.AMG_Config::getParameter<int>( "weight_formula", cfg_scope ); //wheight formula defaults to 0
-    serial_matching = cfg.AMG_Config::getParameter<int>( "serial_matching", cfg_scope ) != 0; //will use a serial matching algorithm instead of handshake
-    modified_handshake = cfg.AMG_Config::getParameter<int>("modified_handshake", cfg_scope ) == 1;
+    deterministic = cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default");
+    max_iterations = cfg.AMG_Config::template getParameter<IndexType>("max_matching_iterations", cfg_scope);
+    numUnassigned_tol = cfg.AMG_Config::template getParameter<double>("max_unassigned_percentage", cfg_scope);
+    two_phase = cfg.AMG_Config::template getParameter<int>("handshaking_phases", cfg_scope) == 2;
+    m_aggregation_edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    aggregation_passes = cfg.AMG_Config::template getParameter<int>("aggregation_passes", cfg_scope); //default to size 8 aggregates. maybe its more convenient to have that as a config parameter
+    filter_weights = cfg.AMG_Config::template getParameter<int>("filter_weights", cfg_scope); //by default: no filtering
+    filter_weights_alpha = cfg.AMG_Config::template getParameter<double>( "filter_weights_alpha", cfg_scope ); //default to 0.25
+    full_ghost_level = cfg.AMG_Config::template getParameter<int>( "full_ghost_level", cfg_scope ); //defaults to 0
+    notay_weights = cfg.AMG_Config::template getParameter<int>( "notay_weights", cfg_scope ); //defaults to 0
+    ghost_offdiag_limit = cfg.AMG_Config::template getParameter<int>( "ghost_offdiag_limit", cfg_scope ); //defaults to 0
+    merge_singletons = cfg.AMG_Config::template getParameter<int>( "merge_singletons", cfg_scope ); //defaults to 1
+    weight_formula = cfg.AMG_Config::template getParameter<int>( "weight_formula", cfg_scope ); //wheight formula defaults to 0
+    serial_matching = cfg.AMG_Config::template getParameter<int>( "serial_matching", cfg_scope ) != 0; //will use a serial matching algorithm instead of handshake
+    modified_handshake = cfg.AMG_Config::template getParameter<int>("modified_handshake", cfg_scope ) == 1;
     //passes = 1 -> max = 3
     //passes = 2 -> max = 5
     //passes = 3 -> max = 10
@@ -910,7 +910,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     IndexType *strongest_neighbour_1phase_ptr = strongest_neighbour_1phase.raw();
     IndexType *aggregates_ptr = aggregates.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
     int numUnassigned = num_block_rows;
     int numUnassigned_previous = numUnassigned;
     bool computeWeights = ( edge_weights.size() == 0 );
@@ -934,7 +934,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     // Compute the edge weights
     if ( computeWeights )
     {
-        const int num_blocks_V2 = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+        const int num_blocks_V2 = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
         //compute with std formula
         cudaFuncSetCacheConfig(computeEdgeWeightsBlockDiaCsr_V2<IndexType, ValueType, ValueType>, cudaFuncCachePreferL1);
         computeEdgeWeightsBlockDiaCsr_V2 <<< num_blocks_V2, threads_per_block, 0, str>>>(A_row_offsets_ptr,
@@ -956,7 +956,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     if ( this->filter_weights == 1 )
     {
         MVector tmp( edge_weights.size() );
-        const int num_blocks_filter = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+        const int num_blocks_filter = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
         cudaStreamSynchronize(str);
         cudaCheckError();
         filterWeights <<< num_blocks_filter, threads_per_block, 0, str>>>( A_row_offsets_ptr,
@@ -1569,7 +1569,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 
         //for mergeAggregates kernel
         const int threads_per_block = 256;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (A.get_num_rows() - 1) / threads_per_block + 1 );
         cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
         //initialize and prepare weight matrix
         Matrix<TConfig> w;
@@ -1669,7 +1669,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
                     //set w to correct size
                     w.values.resize( nnz );
                     //define grid and offsets
-                    const int num_blocks_inter = min( (int)AMGX_GRID_MAX_SIZE, (int)(nnz - 1) / threads_per_block + 1 );
+                    const int num_blocks_inter = std::min( (int)AMGX_GRID_MAX_SIZE, (int)(nnz - 1) / threads_per_block + 1 );
                     const int sq_blocksize = A.get_block_dimx() * A.get_block_dimy();
                     const int index_offset = A.get_block_dimy() * m_aggregation_edge_weight_component + m_aggregation_edge_weight_component;
                     //do the interleaved copy

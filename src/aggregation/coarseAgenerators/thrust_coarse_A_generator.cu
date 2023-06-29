@@ -101,8 +101,8 @@ void ThrustCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     VVector V(A.get_num_nz(), -1);
     const int block_size_I = 128;
     const int block_size_J = 256;
-    const int num_blocks_I = min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() - 1) / block_size_I + 1) );
-    const int num_blocks_J = min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_nz() - 1) / block_size_J + 1) );
+    const int num_blocks_I = std::min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() - 1) / block_size_I + 1) );
+    const int num_blocks_J = std::min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_nz() - 1) / block_size_J + 1) );
     const IndexType *row_offsets_ptr = A.row_offsets.raw();
     const IndexType *column_indices_ptr = A.col_indices.raw();
     const IndexType *aggregates_ptr = aggregates.raw();

@@ -74,7 +74,7 @@ template <class T_Config> class DistributedArrangerBase
 
         typedef typename ivec_value_type_h::VecPrec VecInt_t;
 
-        inline DistributedArrangerBase(AMG_Config &cfg) : num_part(0), part_offsets(0), halo_coloring(FIRST) {halo_coloring = cfg.AMG_Config::getParameter<ColoringType>("halo_coloring", "default");}
+        inline DistributedArrangerBase(AMG_Config &cfg) : num_part(0), part_offsets(0), halo_coloring(FIRST) {halo_coloring = cfg.AMG_Config::template getParameter<ColoringType>("halo_coloring", "default");}
         inline DistributedArrangerBase() : num_part(0), part_offsets(0), halo_coloring(FIRST) {};
         virtual ~DistributedArrangerBase() {};
 

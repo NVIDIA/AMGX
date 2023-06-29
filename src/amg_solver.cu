@@ -183,7 +183,7 @@ AMG_Solver<T_Config>::~AMG_Solver()
 }
 
 template < class T_Config >
-const AMG_Solver<T_Config>::PODVector_h   &AMG_Solver<T_Config>::get_residual( int res_num ) const
+const typename AMG_Solver<T_Config>::PODVector_h   &AMG_Solver<T_Config>::get_residual( int res_num ) const
 {
     return solver->get_residual(res_num);
 }

@@ -676,7 +676,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
     typedef typename Matrix_h::value_type ValueTypeA;// change later back to load in high precision!
     typedef typename TConfig_h::VecPrec ValueTypeB;
     std::string warning;
-    int complex_conversion = cfg.AMG_Config::getParameter<IndexType>("complex_conversion", "default");
+    int complex_conversion = cfg.AMG_Config::template getParameter<IndexType>("complex_conversion", "default");
 
     // if we are in the real-valued mode and complex conversion is specified and we are reading actual matrix
     if (complex_conversion != 0 && !types::util<ValueTypeA>::is_complex && !types::util<ValueTypeB>::is_complex && !io_config::hasProps(io_config::SIZE, props))

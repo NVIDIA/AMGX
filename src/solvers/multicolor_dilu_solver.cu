@@ -3754,10 +3754,10 @@ MulticolorDILUSolver_Base<T_Config>::MulticolorDILUSolver_Base( AMG_Config &cfg,
         ThreadManager *tmng ) :
     Solver<T_Config>( cfg, cfg_scope, tmng )
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
-    this->m_insert_diagonal_desired = (cfg.AMG_Config::getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
-    this->m_boundary_coloring = cfg.AMG_Config::getParameter<ColoringType>("boundary_coloring", cfg_scope);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    this->m_insert_diagonal_desired = (cfg.AMG_Config::template getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
+    this->m_boundary_coloring = cfg.AMG_Config::template getParameter<ColoringType>("boundary_coloring", cfg_scope);
     this->always_obey_coloring = 0;
 
     if (weight == 0)

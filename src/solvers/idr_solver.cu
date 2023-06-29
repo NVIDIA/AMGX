@@ -47,7 +47,7 @@ IDR_Solver_Base<T_Config>::IDR_Solver_Base( AMG_Config &cfg, const std::string &
 {
     std::string solverName, new_scope, tmp_scope;
     cfg.getParameter<std::string>( "preconditioner", solverName, cfg_scope, new_scope );
-    s = cfg.AMG_Config::getParameter<int>("subspace_dim_s", cfg_scope);
+    s = cfg.AMG_Config::template getParameter<int>("subspace_dim_s", cfg_scope);
 
     if (solverName.compare("NOSOLVER") == 0)
     {

@@ -678,13 +678,13 @@ Parallel_Greedy_Matrix_Coloring_Base<T_Config>::Parallel_Greedy_Matrix_Coloring_
         FatalError( "Not implemented for coloring_level > 5", AMGX_ERR_NOT_SUPPORTED_TARGET );
     }
 
-    if ( cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default"))
+    if ( cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default"))
     {
         m_uncolored_fraction = 0.0;
     }
     else
     {
-        m_uncolored_fraction = cfg.AMG_Config::getParameter<double>("max_uncolored_percentage", cfg_scope);
+        m_uncolored_fraction = cfg.AMG_Config::template getParameter<double>("max_uncolored_percentage", cfg_scope);
     }
 }
 

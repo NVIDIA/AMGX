@@ -1088,9 +1088,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         size_two_ring = A.get_num_rows();
     }
 
-    int numBlocksOneRing = min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
-    int numBlocksTwoRing = min( 4096, (int) (size_two_ring + blockSize - 1) / blockSize );
-    int numBlocks = min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
+    int numBlocksOneRing = std::min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
+    int numBlocksTwoRing = std::min( 4096, (int) (size_two_ring + blockSize - 1) / blockSize );
+    int numBlocks = std::min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
     // ----------------------------------------------------------
     // First fill out the assigned array and count # of passes
     // ----------------------------------------------------------
@@ -1104,7 +1104,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // Initialize assigned array by marking the coarse and fine point directly connected to coarse points
     const int cta_size = 256;
     const int nWarps = cta_size / 32;
-    int grid_size = min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
+    int grid_size = std::min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
     initializeAssignedArray<IndexType, cta_size> <<< grid_size, cta_size>>>(cf_map.raw(), assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), C_hat_start.raw(), Anum_rows);
     cudaCheckError();
     // Count the number of passes and fill assigned for pass > 1

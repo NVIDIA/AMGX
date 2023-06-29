@@ -216,7 +216,7 @@ void DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     std::stringstream msg;
     int read_partitions = 0;
 
-    for (int i = 0; i < partitionVec.size(); i++) { read_partitions = max(read_partitions, partitionVec[i]); }
+    for (int i = 0; i < partitionVec.size(); i++) { read_partitions = std::max(read_partitions, partitionVec[i]); }
 
     read_partitions++;
 

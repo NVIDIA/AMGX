@@ -151,11 +151,11 @@ Selector<T_Config> *chooseAggressiveSelector(AMG_Config *m_cfg, std::string std_
     // if necessary, allocate aggressive selector + interpolator
     bool use_pmis = false, use_hmis = false;
     // default argument - use the same selector as normal coarsening
-    std::string agg_selector = m_cfg->AMG_Config::getParameter<std::string>("aggressive_selector", std_scope);
+    std::string agg_selector = m_cfg->AMG_Config::template getParameter<std::string>("aggressive_selector", std_scope);
 
     if (agg_selector == "DEFAULT")
     {
-        std::string std_selector = m_cfg->AMG_Config::getParameter<std::string>("selector", std_scope);
+        std::string std_selector = m_cfg->AMG_Config::template getParameter<std::string>("selector", std_scope);
 
         if      (std_selector == "PMIS") { cfg_string += "selector=AGGRESSIVE_PMIS"; use_pmis = true; }
         else if (std_selector == "HMIS") { cfg_string += "selector=AGGRESSIVE_HMIS"; use_hmis = true; }
@@ -192,7 +192,7 @@ Interpolator<T_Config> *chooseAggressiveInterpolator(AMG_Config *m_cfg, std::str
     cfg_string += "default:";
     // Set the interpolator
     cfg_string += "interpolator=";
-    cfg_string += m_cfg->AMG_Config::getParameter<std::string>("aggressive_interpolator", std_scope);
+    cfg_string += m_cfg->AMG_Config::template getParameter<std::string>("aggressive_interpolator", std_scope);
     cfg.parseParameterString(cfg_string.c_str());
     // now allocate the selector and interpolator
     return InterpolatorFactory<T_Config>::allocate(cfg, "default" /*std_scope*/);
@@ -204,10 +204,10 @@ Classical_AMG_Level_Base<T_Config>::Classical_AMG_Level_Base(AMG_Class *amg) : A
     strength = StrengthFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
     selector = classical::SelectorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
     interpolator = InterpolatorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
-    trunc_factor = amg->m_cfg->AMG_Config::getParameter<double>("interp_truncation_factor", amg->m_cfg_scope);
-    max_elmts = amg->m_cfg->AMG_Config::getParameter<int>("interp_max_elements", amg->m_cfg_scope);
-    max_row_sum = amg->m_cfg->AMG_Config::getParameter<double>("max_row_sum", amg->m_cfg_scope);
-    num_aggressive_levels = amg->m_cfg->AMG_Config::getParameter<int>("aggressive_levels", amg->m_cfg_scope);
+    trunc_factor = amg->m_cfg->AMG_Config::template getParameter<double>("interp_truncation_factor", amg->m_cfg_scope);
+    max_elmts = amg->m_cfg->AMG_Config::template getParameter<int>("interp_max_elements", amg->m_cfg_scope);
+    max_row_sum = amg->m_cfg->AMG_Config::template getParameter<double>("max_row_sum", amg->m_cfg_scope);
+    num_aggressive_levels = amg->m_cfg->AMG_Config::template getParameter<int>("aggressive_levels", amg->m_cfg_scope);
 }
 
 template <class T_Config>
@@ -288,7 +288,7 @@ void Classical_AMG_Level_Base<T_Config>::createCoarseMatrices()
     Matrix<T_Config> &A = this->getA();
     /* WARNING: exit if D1 interpolator is selected in distributed setting */
     std::string s("");
-    s += AMG_Level<T_Config>::amg->m_cfg->AMG_Config::getParameter<std::string>("interpolator", AMG_Level<T_Config>::amg->m_cfg_scope);
+    s += AMG_Level<T_Config>::amg->m_cfg->AMG_Config::template getParameter<std::string>("interpolator", AMG_Level<T_Config>::amg->m_cfg_scope);
 
     if (A.is_matrix_distributed() && (s.compare("D1") == 0))
     {
@@ -543,7 +543,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         AMG_Level<TConfig_d>::amg->setCsrWorkspace( wk );
     }
 
-    int spmm_verbose = this->amg->m_cfg->AMG_Config::getParameter<int>("spmm_verbose", this->amg->m_cfg_scope);
+    int spmm_verbose = this->amg->m_cfg->AMG_Config::template getParameter<int>("spmm_verbose", this->amg->m_cfg_scope);
 
     if ( spmm_verbose )
     {
@@ -604,7 +604,7 @@ void Classical_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     RAP.set_initialized( 0 );
     CSR_Multiply<TConfig_d>::csr_galerkin_product( this->R, this->getA(), this->P, RAP, NULL, NULL, NULL, NULL, NULL, NULL, wk );
     RAP.set_initialized( 1 );
-    int spmm_no_sort = this->amg->m_cfg->AMG_Config::getParameter<int>("spmm_no_sort", this->amg->m_cfg_scope);
+    int spmm_no_sort = this->amg->m_cfg->AMG_Config::template getParameter<int>("spmm_no_sort", this->amg->m_cfg_scope);
     this->Profile.toc("computeA");
 }
 /**********************************************

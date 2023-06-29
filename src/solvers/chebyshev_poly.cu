@@ -133,7 +133,7 @@ void getLambdaEstimate(const IndexType *row_offsets, const IndexType *column_ind
 template<class T_Config>
 ChebyshevPolySolver_Base<T_Config>::ChebyshevPolySolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    poly_order = cfg.AMG_Config::getParameter<int>("chebyshev_polynomial_order", cfg_scope);
+    poly_order = cfg.AMG_Config::template getParameter<int>("chebyshev_polynomial_order", cfg_scope);
     poly_order = min(10, max(poly_order, 1));
     tau.resize(poly_order);
 }
@@ -160,7 +160,7 @@ void ChebyshevPolySolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     VVector tsum(A.get_num_rows());
     const int threads_per_block = 256;
     const int blockrows_per_cta = threads_per_block;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     const IndexType *A_dia_idx_ptr = A.diag.raw();

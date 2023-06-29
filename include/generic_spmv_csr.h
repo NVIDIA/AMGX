@@ -247,7 +247,7 @@ void retrieveThreeArguments(const inVector &in,
                             Vector<TemplateConfig<AMGX_device, t_vecPrec3, t_matPrec, t_indPrec> > &out3)
 {
     const int blockSize = 128;
-    const int numBlocks = min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
+    const int numBlocks = std::min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
     retrieveThreeKernel <<< numBlocks, blockSize>>>(amgx::thrust::raw_pointer_cast(&in[0]),
             amgx::thrust::raw_pointer_cast(&out1[0]),
             amgx::thrust::raw_pointer_cast(&out2[0]),
@@ -288,8 +288,13 @@ void retrieveTwoArguments(const inVector &in,
                           Vector<TemplateConfig<AMGX_device, t_vecPrecTwo, t_matPrec, t_indPrec> > &out2)
 {
     const int blockSize = 128;
+<<<<<<< HEAD
     const int numBlocks = min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
     retrieveTwoKernel <<< numBlocks, blockSize>>>(amgx::thrust::raw_pointer_cast(&in[0]),
+=======
+    const int numBlocks = std::min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
+    retrieveTwoKernel <<< numBlocks, blockSize>>>(thrust::raw_pointer_cast(&in[0]),
+>>>>>>> main
             out1.raw(),
             out2.raw(),
             (int)in.size());
@@ -326,8 +331,13 @@ void retrieveOneArgument(const inVector &in,
                          Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &out)
 {
     const int blockSize = 128;
+<<<<<<< HEAD
     const int numBlocks = min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
     retrieveOneKernel <<< numBlocks, blockSize>>>(amgx::thrust::raw_pointer_cast(&in[0]),
+=======
+    const int numBlocks = std::min( (int)(AMGX_GRID_MAX_SIZE), (int)(in.size() / blockSize + 1));
+    retrieveOneKernel <<< numBlocks, blockSize>>>(thrust::raw_pointer_cast(&in[0]),
+>>>>>>> main
             out.raw(),
             (int)in.size());
     cudaCheckError();

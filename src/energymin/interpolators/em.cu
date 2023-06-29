@@ -712,7 +712,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     const IndexType AnumRows = (IndexType) A.get_num_rows();
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // temporary vectors - diagonal and non-zero offsets
     VVector Adiag(A.get_num_rows(), 0.0);
     ValueType *Adiag_ptr  = Adiag.raw();
@@ -786,7 +786,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Matrix_d::value_type ValueType;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1));
     // Assemble all the raw pointers needed
     // Matrix A
     const IndexType *ArowOffsets_ptr = A.row_offsets.raw();
@@ -900,7 +900,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Matrix_d::value_type ValueType;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Treat P as if it were in CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
     const IndexType *ProwInd_ptr     = P.col_indices.raw();
@@ -1017,7 +1017,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Vector_d::value_type ValueTypeB;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Treat P as if it were in CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
     const IndexType *ProwInd_ptr     = P.col_indices.raw();
@@ -1089,7 +1089,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Vector_d::value_type ValueTypeB;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Treat P as if it were in CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
     const IndexType *ProwInd_ptr     = P.col_indices.raw();

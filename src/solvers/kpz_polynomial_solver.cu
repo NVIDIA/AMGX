@@ -79,8 +79,8 @@ template<class T_Config>
 KPZPolynomialSolver<T_Config>::KPZPolynomialSolver( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
     l_inf = 0;
-    mu = cfg.AMG_Config::getParameter<IndexType>("kpz_mu", cfg_scope);
-    poly_order = cfg.AMG_Config::getParameter<IndexType>("kpz_order", cfg_scope);
+    mu = cfg.AMG_Config::template getParameter<IndexType>("kpz_mu", cfg_scope);
+    poly_order = cfg.AMG_Config::template getParameter<IndexType>("kpz_order", cfg_scope);
 }
 
 // Destructor

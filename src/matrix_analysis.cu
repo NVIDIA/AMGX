@@ -647,7 +647,7 @@ void MatrixAnalysis<T_Config>::aggregatesQuality2(const typename Matrix<T_Config
             empty_rows++;
         }
 
-        max_nnz_per_row = max(end_co - start_co - (Ah.hasProps(DIAG) ? 0 : 1), max_nnz_per_row);
+        max_nnz_per_row = std::max(end_co - start_co - (Ah.hasProps(DIAG) ? 0 : 1), max_nnz_per_row);
         ValueTypeA avg_nnz = types::util<ValueTypeA>::get_zero(), avg_nnz2 = types::util<ValueTypeA>::get_zero(), nnz_var = types::util<ValueTypeA>::get_zero();
         int nnz_cnt = 0;
 
@@ -713,7 +713,7 @@ void MatrixAnalysis<T_Config>::aggregatesQuality2(const typename Matrix<T_Config
 
                         if (finding != agg_list[agg].end())
                         {
-                            max_id = max(max_id, clusters[finding - agg_list[agg].begin()]);
+                            max_id = std::max(max_id, clusters[finding - agg_list[agg].begin()]);
                         }
                     }
 

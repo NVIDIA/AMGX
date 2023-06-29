@@ -2157,8 +2157,8 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         size_one_ring = A.get_num_rows();
     }
 
-    int numBlocksOneRing = min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
-    int numBlocks = min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
+    int numBlocksOneRing = std::min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
+    int numBlocks = std::min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
     // count the number of non-zeros in the interpolation matrix
     IntVector nonZeroOffsets(A.get_num_rows() + 1);
     IntVector nonZerosPerRow(A.get_num_rows());

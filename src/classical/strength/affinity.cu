@@ -72,8 +72,8 @@ Strength_Affinity<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
 {
     AMG_Config default_cfg;
     std::string default_cfg_scope = "default";
-    affinity_iters = cfg.AMG_Config::getParameter<int>("affinity_iterations", cfg_scope);
-    n_TV = cfg.AMG_Config::getParameter<int>("affinity_vectors", cfg_scope);
+    affinity_iters = cfg.AMG_Config::template getParameter<int>("affinity_iterations", cfg_scope);
+    n_TV = cfg.AMG_Config::template getParameter<int>("affinity_vectors", cfg_scope);
 
     if (n_TV > 32)
     {

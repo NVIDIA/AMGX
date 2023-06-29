@@ -39,7 +39,7 @@ namespace amgx
 template<class T_Config>
 GaussSeidelSolver_Base<T_Config>::GaussSeidelSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (this->weight == 0)
     {
@@ -164,7 +164,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec
 
             if (j == A.row_offsets[i + 1] - 1)
             {
-                std::string error = "Could not find a diagonal value at row " + i;
+                std::string error = "Could not find a diagonal value at row " + std::to_string(i);
                 FatalError(error.c_str(), AMGX_ERR_BAD_PARAMETERS);
             }
         }
@@ -207,7 +207,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueType;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueType)A.get_num_rows() / (ValueType)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueType)A.get_num_rows() / (ValueType)THREADS_PER_BLOCK));
     this->diag.resize(A.get_num_rows());
     find_diag_kernel<IndexType, ValueType> <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK >>>
     ((int)A.get_num_rows(),
@@ -257,7 +257,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     typedef typename Matrix_d::value_type ValueTypeA;
     typedef typename VVector::value_type ValueTypeB;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
     GS_smooth_kernel<IndexType, ValueTypeA, ValueTypeB> <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK >>>
     ((int)A.get_num_rows(),
      A.row_offsets.raw(),

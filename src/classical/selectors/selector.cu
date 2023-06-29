@@ -847,7 +847,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
 {
     IVector mark(cf_map.size(), 0);
     int blockSize = 128;
-    int num_blocks = min( 4096, (int) (cf_map.size() + blockSize - 1) / blockSize );
+    int num_blocks = std::min( 4096, (int) (cf_map.size() + blockSize - 1) / blockSize );
 
     if (cf_map.size() > 0)
     {
@@ -1206,7 +1206,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::de
         const IndexType offset)
 {
     const int blockSize = 256;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (((A.get_num_rows() - offset) + blockSize - 1) / blockSize));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (((A.get_num_rows() - offset) + blockSize - 1) / blockSize));
     const int numRows = (int)(A.get_num_rows() - offset);
     resolve_boundary <<< blockSize, numBlocks>>>(A.row_offsets.raw() + offset, A.col_indices.raw(), s_con.raw(), cf_map.raw(), offset, A.get_num_rows() - offset);
     cudaCheckError();

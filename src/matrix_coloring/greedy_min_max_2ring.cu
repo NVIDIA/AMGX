@@ -648,19 +648,19 @@ Greedy_Min_Max_2Ring_Matrix_Coloring_Base<T_Config>::Greedy_Min_Max_2Ring_Matrix
         FatalError( "Not implemented for coloring_level != 1", AMGX_ERR_NOT_SUPPORTED_TARGET );
     }
 
-    if ( cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default") == 1 )
+    if ( cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default") == 1 )
     {
         m_uncolored_fraction = 0.0;
     }
     else
     {
-        m_uncolored_fraction = cfg.AMG_Config::getParameter<double>("max_uncolored_percentage", cfg_scope);
+        m_uncolored_fraction = cfg.AMG_Config::template getParameter<double>("max_uncolored_percentage", cfg_scope);
     }
 
-    m_weakness_bound = cfg.AMG_Config::getParameter<int>( "weakness_bound", cfg_scope );
-    m_late_rejection = cfg.AMG_Config::getParameter<int>( "late_rejection", cfg_scope ) != 0;
-    m_coloring_try_remove_last_color = cfg.AMG_Config::getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
-    m_coloring_custom_arg = cfg.AMG_Config::getParameter<std::string>( "coloring_custom_arg", cfg_scope );
+    m_weakness_bound = cfg.AMG_Config::template getParameter<int>( "weakness_bound", cfg_scope );
+    m_late_rejection = cfg.AMG_Config::template getParameter<int>( "late_rejection", cfg_scope ) != 0;
+    m_coloring_try_remove_last_color = cfg.AMG_Config::template getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
+    m_coloring_custom_arg = cfg.AMG_Config::template getParameter<std::string>( "coloring_custom_arg", cfg_scope );
 }
 
 // Block version

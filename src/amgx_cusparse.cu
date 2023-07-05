@@ -45,8 +45,8 @@
 #endif
 
 #if CUDART_VERSION >= 12000
-#define CUSPARSE_CSRMV_ALG1 CUSPARSE_SPMV_ALG1
-#define CUSPARSE_CSRMV_ALG2 CUSPARSE_SPMV_ALG2
+#define CUSPARSE_SPMV_ALG1 CUSPARSE_SPMV_CSR_ALG1
+#define CUSPARSE_SPMV_ALG2 CUSPARSE_SPMV_CSR_ALG2
 #endif
 
 namespace amgx
@@ -1101,7 +1101,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                               const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
 
         size_t bufferSize = 0;
-        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_CSR_ALG2, &bufferSize));
+        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_ALG2, &bufferSize));
 
         void* dBuffer = NULL;
         if(bufferSize > 0)
@@ -1109,7 +1109,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
             amgx::memory::cudaMalloc(&dBuffer, bufferSize);
         }
 
-        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_CSR_ALG2, dBuffer) );
+        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_SPMV_ALG2, dBuffer) );
 
         cusparseCheckError(cusparseDestroySpMat(matA_descr));
         cusparseCheckError(cusparseDestroyDnVec(vecX_descr));

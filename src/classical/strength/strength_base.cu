@@ -57,7 +57,7 @@ template< typename T_Config >
 Strength_BaseBase<T_Config>::Strength_BaseBase(AMG_Config &cfg,
         const std::string &cfg_scope)
 {
-    alpha = cfg.AMG_Config::getParameter<double>("strength_threshold", cfg_scope);
+    alpha = cfg.AMG_Config::template getParameter<double>("strength_threshold", cfg_scope);
 }
 
 /*************************************************************************
@@ -120,8 +120,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_h &A,
             }
             else
             {
-                minVal = min(minVal, val);
-                maxVal = max(maxVal, val);
+                minVal = std::min(minVal, val);
+                maxVal = std::max(maxVal, val);
             }
         }
 
@@ -375,12 +375,6 @@ void computeStrongConnectionsAndWeightsKernel_opt( const IndexType *A_rows,
 {
     // One warp works on each row and hence one iteration handles
     // num_warps*numBlock rows. This means atomicAdd() is inevitable.
-    const int num_warps = kCtaSize / 32;
-    __shared__ volatile ValueType smem[kCtaSize];
-    __shared__ volatile ValueType s_diag[num_warps];
-    __shared__ volatile ValueType s_threshold[num_warps];
-    const int warpId = threadIdx.x / 32;
-    const int laneId = threadIdx.x % 32;
     int aRowId = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (aRowId < A_num_rows)
@@ -553,14 +547,16 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
     }
 
     // choose a blocksize. Use 1 warp per row
-    const int blockSize = 128;
-    const int numBlocks = A.get_num_rows() / blockSize + 1;
 
     if (A.get_num_rows() > 0)
     {
         bool use_opt_kernels = false;
         if(use_opt_kernels)
         {
+            // One row per thread
+            const int blockSize = 128;
+            const int numBlocks = A.get_num_rows() / blockSize + 1;
+
             if (A.is_matrix_singleGPU())
                 computeStrongConnectionsAndWeightsKernel_opt<IndexType, ValueType, blockSize, true>
                     <<< numBlocks, blockSize>>>(
@@ -590,6 +586,10 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
         }
         else
         {
+            const int blockSize = 256;
+            const int numWarps  = blockSize / 32;
+            const int numBlocks = min( 4096, (int) (A.get_num_rows() + numWarps - 1) / numWarps );
+
             if (A.is_matrix_singleGPU())
                 computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, true>
                     <<< numBlocks, blockSize>>>(
@@ -646,7 +646,7 @@ computeWeights_1x1(Matrix_d &S,
     // choose a blocksize. Use 1 thread per row
     const int blockSize = 256;
     const int numWarps  = blockSize / 32;
-    const int numBlocks = min( 4096, (int) (S.get_num_rows() + numWarps - 1) / numWarps );
+    const int numBlocks = std::min( 4096, (int) (S.get_num_rows() + numWarps - 1) / numWarps );
     cudaDeviceSynchronize();
     cudaCheckError();
 

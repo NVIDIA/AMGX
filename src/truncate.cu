@@ -793,7 +793,7 @@ template <typename Matrix, typename Vector, int BLOCKSIZE, int THREADS_PER_VECTO
 void truncateNandScale(const Matrix &A, Matrix &A_trunc, const int max_elmts, const Vector &orig_row_sums)
 {
     const int nthreads = BLOCKSIZE;
-    const int nblocks = min(4096, A.get_num_rows() / (nthreads / THREADS_PER_VECTOR) + 1);
+    const int nblocks = std::min(4096, A.get_num_rows() / (nthreads / THREADS_PER_VECTOR) + 1);
     truncateNandScale_kernel<typename Matrix::index_type, typename Matrix::value_type,
                              typename Vector::value_type, BLOCKSIZE, THREADS_PER_VECTOR>
                              <<< nblocks, nthreads>>>(

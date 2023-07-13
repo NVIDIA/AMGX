@@ -32,7 +32,6 @@
 #include <misc.h>
 #include <assert.h>
 #include <util.h>
-#include <profile.h>
 
 using std::string;
 
@@ -184,7 +183,7 @@ AMG_Solver<T_Config>::~AMG_Solver()
 }
 
 template < class T_Config >
-const AMG_Solver<T_Config>::PODVector_h   &AMG_Solver<T_Config>::get_residual( int res_num ) const
+const typename AMG_Solver<T_Config>::PODVector_h   &AMG_Solver<T_Config>::get_residual( int res_num ) const
 {
     return solver->get_residual(res_num);
 }
@@ -195,8 +194,6 @@ const AMG_Solver<T_Config>::PODVector_h   &AMG_Solver<T_Config>::get_residual( i
 template< class T_Config >
 AMGX_ERROR AMG_Solver<T_Config>::setup( Matrix<T_Config> &A)//&A0)
 {
-    profilePhaseSetup();
-    profileLevelZero();
     bool reuse_fine_matrix = (getStructureReuseLevels() > 0) && A.is_matrix_setup();
     bool reuse_all = (getStructureReuseLevels() == -1) && A.is_matrix_setup();
 
@@ -227,17 +224,12 @@ AMGX_ERROR AMG_Solver<T_Config>::setup( Matrix<T_Config> &A)//&A0)
         cudaEventSynchronize(m_setup_stop);
     }
 
-    profilePhaseNone();
-    profileLevelZero();
     return e;
 }
 
 template< class T_Config >
 AMGX_ERROR AMG_Solver<T_Config>::resetup( Matrix<T_Config> &A)//&A0 )
 {
-    profilePhaseSetup();
-    profileLevelZero();
-
     if ( m_with_timings )
     {
         cudaEventRecord(m_setup_start);
@@ -259,8 +251,6 @@ AMGX_ERROR AMG_Solver<T_Config>::resetup( Matrix<T_Config> &A)//&A0 )
         cudaEventSynchronize(m_setup_stop);
     }
 
-    profilePhaseNone();
-    profileLevelZero();
     return e;
 }
 
@@ -284,9 +274,6 @@ AMGX_ERROR AMG_Solver<T_Config>::resetup_capi( std::shared_ptr<Matrix<T_Config>>
 template<class T_Config>
 AMGX_ERROR AMG_Solver<T_Config>::solve( Vector<T_Config> &b, Vector<T_Config> &x, AMGX_STATUS &status, bool xIsZero )
 {
-    profilePhaseSolve();
-    profileLevelZero();
-
     if ( m_with_timings )
     {
         cudaEventRecord(m_solve_start);
@@ -301,8 +288,6 @@ AMGX_ERROR AMG_Solver<T_Config>::solve( Vector<T_Config> &b, Vector<T_Config> &x
         cudaEventSynchronize(m_solve_stop);
     }
 
-    profilePhaseNone();
-    profileLevelZero();
     return e;
 }
 

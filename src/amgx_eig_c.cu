@@ -49,7 +49,7 @@ AMGX_RC getResourcesFromEigenSolverHandle(AMGX_eigensolver_handle slv, Resources
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(slv);
 
@@ -183,7 +183,7 @@ extern "C" {
         AMGX_RC rc_solver;
         Resources *resources = NULL;
 
-        try
+        AMGX_TRIES()
         {
             ///amgx::CWrapper<AMGX_resources_handle> *c_resources= (amgx::CWrapper<AMGX_resources_handle>*)rsc;
             ResourceW c_r(rsc);
@@ -226,7 +226,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
 
@@ -257,7 +257,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
 
@@ -288,7 +288,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
 
@@ -317,7 +317,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(slv);
 

@@ -445,7 +445,9 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                                   &alpha, matA, matB, &beta, matC,
                                   computeType, CUSPARSE_SPGEMM_DEFAULT,
                                   spgemmDesc, &bufferSize1, NULL);
+    if(bufferSize1 > 0) {
     amgx::memory::cudaMalloc(&dBuffer1, bufferSize1);
+    }
     // inspect the matrices A and B to understand the memory requiremnent for
     // the next step
     cusparseSpGEMM_workEstimation(handle, opA, opB,
@@ -458,7 +460,9 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                            &alpha, matA, matB, &beta, matC,
                            computeType, CUSPARSE_SPGEMM_DEFAULT,
                            spgemmDesc, &bufferSize2, NULL);
+    if(bufferSize2 > 0) {
     amgx::memory::cudaMalloc(&dBuffer2, bufferSize2);
+    }
 
     // compute the intermediate product of A * B
     cusparseSpGEMM_compute(handle, opA, opB,

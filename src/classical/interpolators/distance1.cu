@@ -227,13 +227,13 @@ struct compute_weights
             else if ( my_edges_markers[get_thread_id( )][j] == strong_marker )
             {
                 value_type sum( 0 );
-                int diag_sign = signbit( my_diag[i] );
+                int diag_sign = std::signbit( my_diag[i] );
 
                 for ( int itk = my_A.row_offsets[j] ; itk < my_A.row_offsets[j + 1] ; ++itk )
                 {
                     int k = my_A.col_indices[itk];
 
-                    if ( my_edges_markers[get_thread_id( )][k] >= nnz && signbit( my_A.values[itk] ) != diag_sign )
+                    if ( my_edges_markers[get_thread_id( )][k] >= nnz && std::signbit( my_A.values[itk] ) != diag_sign )
                     {
                         sum += my_A.values[itk];
                     }
@@ -251,7 +251,7 @@ struct compute_weights
                 {
                     int it = my_edges_markers[get_thread_id( )][my_A.col_indices[itk]];
 
-                    if ( it >= nnz && signbit( my_A.values[itk] ) != diag_sign )
+                    if ( it >= nnz && std::signbit( my_A.values[itk] ) != diag_sign )
                     {
                         my_P.values[it] += d * my_A.values[itk];
                     }
@@ -804,7 +804,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueType;
     const int blocksize = 64;
-    const int numBlocks = min( AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1) );
+    const int numBlocks = std::min( AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1) );
     // raw pointers for matrix structure
     const IndexType *offsets = A.row_offsets.raw();
     const IndexType *column_indices = A.col_indices.raw();
@@ -851,7 +851,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // NB - will get pointers for P *after* it has been initialised
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1));
     const IndexType numRows = (IndexType) A.get_num_rows();
     // extract the diagonal of A
     find_diag_kernel_indexed_dia <<< numBlocks, blocksize>>>(A.get_num_rows(),

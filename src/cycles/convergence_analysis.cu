@@ -35,7 +35,7 @@ namespace amgx
 template<class T_Config>
 ConvergenceAnalysis<T_Config>::ConvergenceAnalysis( AMG_Config &cfg, std::string &cfg_scope, AMG_Level<T_Config> &curLevel )
 {
-    this->convergence_analysis = cfg.AMG_Config::getParameter<int>( "convergence_analysis", cfg_scope );
+    this->convergence_analysis = cfg.AMG_Config::template getParameter<int>( "convergence_analysis", cfg_scope );
     this->level = &curLevel;
 }
 

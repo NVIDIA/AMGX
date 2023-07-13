@@ -33,7 +33,6 @@
 #include <cycles/f_cycle.h>
 #include <cycles/cg_cycle.h>
 #include <cycles/cg_flex_cycle.h>
-#include <profile.h>
 #include <thrust/inner_product.h>
 #include <cycles/convergence_analysis.h>
 #include <sstream>
@@ -49,7 +48,6 @@ template< class T_Config, template<AMGX_VecPrecision t_vecPrec, AMGX_MatPrecisio
 void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_Config> *level, VVector &b, VVector &x )
 {
     AMGX_CPU_COND_MARKER(level->isFinest(), "CYCLE", "Start new cycle");
-    AMGX_CPU_PROFILER( "FixedCycle::cycle " );
     typedef typename VVector::value_type ValueType;
     typedef typename TConfig::MemSpace MemorySpace;
     Matrix<T_Config> &A = level->getA();
@@ -115,7 +113,7 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
 
                 if (amg->getNumPresweeps() != 0 && amg->getIntensiveSmoothing())
                 {
-                    n_presweeps = max(n_presweeps + levelnum - 2, 0);
+                    n_presweeps = std::max(n_presweeps + levelnum - 2, 0);
                 }
             }
 
@@ -230,11 +228,11 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
 
                     if (amg->getNumPostsweeps() != 0 && amg->getIntensiveSmoothing())
                     {
-                        n_postsweeps = max(n_postsweeps + levelnum - 2, 0);
+                        n_postsweeps = std::max(n_postsweeps + levelnum - 2, 0);
                     }
                 }
 
-                if ( amg->m_cfg->AMG_Config::getParameter<int>( "error_scaling", amg->m_cfg_scope ) > 3 )
+                if ( amg->m_cfg->AMG_Config::template getParameter<int>( "error_scaling", amg->m_cfg_scope ) > 3 )
                 {
                     n_postsweeps = 0;
                 }
@@ -247,6 +245,25 @@ void FixedCycle<T_Config, CycleDispatcher>::cycle( AMG_Class *amg, AMG_Level<T_C
                 }
             }
             level->Profile.toc("Smoother");
+
+            if ( (!A.is_matrix_singleGPU()) && (!level->isClassicalAMGLevel()) && consolidation_flag )
+            {
+                // Note: We need to use the manager/communicator from THIS level
+                //       since the manager/communicator for the NEXT level is one for the
+                //       reduced set of partitions after consolidation!
+                if (!level->isRootPartition())
+                {
+                    // bc is consolidated, data is sent from non-root to root partition
+                    level->getA().manager->getComms()->send_vector_wait_all(bc);
+                }
+                else
+                {
+                    // xc is consolidated and then un-consolidated again,
+                    // only the MPI send-requests from the latter step need to be waited for 
+                    level->getA().manager->getComms()->send_vector_wait_all(xc);
+                }
+            }
+
         }
     } //
 

@@ -805,7 +805,7 @@ compute_c_hat_kernel( int A_num_rows,
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // Shared memory to vote.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ KeyType s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
@@ -869,6 +869,8 @@ compute_c_hat_kernel( int A_num_rows,
             {
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
+
+            __syncwarp();
 
             int num_rows = __popc( vote );
 
@@ -1671,6 +1673,8 @@ compute_interp_weight_kernel( const int A_num_rows,
                 s_b_values[warp_id * WARP_SIZE + dest] = a_value;
             }
 
+            __syncwarp();
+
             int num_rows = __popc( vote );
 
             // For each warp, we have up to 32 rows of B to proceed.
@@ -1917,9 +1921,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         size_two_ring = A.get_num_rows();
     }
 
-    int numBlocksOneRing = min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
-    int numBlocksTwoRing = min( 4096, (int) (size_two_ring + blockSize - 1) / blockSize );
-    int numBlocks = min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
+    int numBlocksOneRing = std::min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
+    int numBlocksTwoRing = std::min( 4096, (int) (size_two_ring + blockSize - 1) / blockSize );
+    int numBlocks = std::min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
     // ----------------------------------------------------------
     // First fill out the assigned array and count # of passes
     // ----------------------------------------------------------
@@ -1933,7 +1937,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // Initialize assigned array by marking the coarse and fine point directly connected to coarse points
     const int cta_size = 256;
     const int nWarps = cta_size / 32;
-    int grid_size = min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
+    int grid_size = std::min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
 
     if(this->m_use_opt_kernels)
     {

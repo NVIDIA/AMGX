@@ -123,7 +123,7 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     IVector size_array;
     size_array.resize(num_rows + 1, 0 );
     const int threads_per_block = 256;
-    const int num_blocks = min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
     //count
     countRowSizes <<< num_blocks, threads_per_block, 0, 0>>>( R.row_offsets.raw(), size_array.raw(), num_aggregates );
     cudaDeviceSynchronize();
@@ -291,7 +291,7 @@ template<class T_Config>
 Selector<T_Config> *SelectorFactory<T_Config>::allocate(AMG_Config &cfg, const std::string &current_scope)
 {
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
-    int agg_lvl_change = cfg.AMG_Config::getParameter<int>("fine_levels", current_scope);
+    int agg_lvl_change = cfg.AMG_Config::template getParameter<int>("fine_levels", current_scope);
     std::string selector;
     selector = cfg.getParameter<std::string>("selector", current_scope);
     typename std::map<std::string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(selector);

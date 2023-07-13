@@ -236,16 +236,16 @@ void colorRowsMultiHashKernel(const IndexType *A_offsets, const IndexType *A_col
 template<class T_Config>
 MultiHashMatrixColoringBase<T_Config>::MultiHashMatrixColoringBase(AMG_Config &cfg, const std::string &cfg_scope) : MatrixColoring<T_Config>(cfg, cfg_scope)
 {
-    if (cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default"))
+    if (cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default"))
     {
         m_uncolored_fraction = 0.;
     }
     else
     {
-        m_uncolored_fraction = cfg.AMG_Config::getParameter<double>("max_uncolored_percentage", cfg_scope);
+        m_uncolored_fraction = cfg.AMG_Config::template getParameter<double>("max_uncolored_percentage", cfg_scope);
     }
 
-    max_num_hash = cfg.AMG_Config::getParameter<int>("max_num_hash", cfg_scope);
+    max_num_hash = cfg.AMG_Config::template getParameter<int>("max_num_hash", cfg_scope);
 }
 
 template<class TConfig>
@@ -278,7 +278,6 @@ void MultiHashMatrixColoringBase<TConfig>::colorMatrix(Matrix<TConfig> &A)
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::colorMatrixOneRing(Matrix_d &A)
 {
-    profileSubphaseMatrixColoring();
     // One thread per row
     const int num_rows = A.get_num_rows();
     int max_uncolored_rows = (int) (this->m_uncolored_fraction * ((ValueType) num_rows));
@@ -288,7 +287,7 @@ void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     IndexType *row_colors_ptr = this->m_row_colors.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / threads_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / threads_per_block + 1);
     this->m_num_colors = 0;
     // Heuristic for setting the number of hash function to use
     int avg_nonzero = 1.5 * A.row_offsets[num_rows] / num_rows;

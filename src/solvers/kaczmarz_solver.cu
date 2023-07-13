@@ -514,9 +514,9 @@ __global__ void jacobi_smooth_with_0_initial_guess_kernel(const IndexType num_ro
 template<class T_Config>
 KaczmarzSolver_Base<T_Config>::KaczmarzSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope), m_an(0), m_amax(0), m_c_inv(0)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->m_coloring_needed = (cfg.AMG_Config::getParameter<int>("kaczmarz_coloring_needed", cfg_scope) != 0);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->m_coloring_needed = (cfg.AMG_Config::template getParameter<int>("kaczmarz_coloring_needed", cfg_scope) != 0);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
     this->m_randomized = true;
 
     if (weight == 0)
@@ -561,7 +561,7 @@ KaczmarzSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         int c_inv_sz = (this->m_an[c_sz - 1] + d_inv - 1 ) / d_inv;
         this->m_c_inv.resize(c_inv_sz, -1);
         const size_t THREADS_PER_BLOCK  = 128;
-        const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)c_sz / (ValueTypeB)THREADS_PER_BLOCK));
+        const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)c_sz / (ValueTypeB)THREADS_PER_BLOCK));
 
         if (c_sz > 0)
         {
@@ -630,7 +630,7 @@ void KaczmarzSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueTypeA;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
 
     if (A.get_num_rows() > 0)
     {
@@ -658,7 +658,7 @@ void KaczmarzSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueTypeA;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
 
     if (A.get_num_rows() > 0)
     {
@@ -761,7 +761,7 @@ void KaczmarzSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
         const int threads_per_block = 128;
         const int blockrows_per_warp = 1;
         const int blockrows_per_cta = (threads_per_block / 32) * blockrows_per_warp;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows_per_color / blockrows_per_cta + 1));
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows_per_color / blockrows_per_cta + 1));
         multicolor_kaczmarz_smooth_kernel<IndexType, ValueTypeA, ValueTypeB, threads_per_block> <<< num_blocks, threads_per_block >>>
         (A.get_num_rows(),
          A.row_offsets.raw(),

@@ -360,28 +360,17 @@ void countAggregates(const IndexType num_rows, IndexType *aggregates, int *num_u
         i += gridDim.x * blockDim.x;
     }
 
-    __shared__ volatile int smem[block_size];
+    __shared__ int smem[block_size];
     smem[threadIdx.x] = c;
     __syncthreads();
 
-    for ( int off = blockDim.x / 2; off >= 32; off = off / 2 )
+    for ( int off = blockDim.x / 2; off >= 1; off = off / 2 )
     {
         if ( threadIdx.x < off )
         {
             smem[threadIdx.x] += smem[threadIdx.x + off];
         }
-
         __syncthreads();
-    }
-
-    // warp reduce
-    if ( threadIdx.x < 32 )
-    {
-        smem[threadIdx.x] += smem[threadIdx.x + 16];
-        smem[threadIdx.x] += smem[threadIdx.x + 8];
-        smem[threadIdx.x] += smem[threadIdx.x + 4];
-        smem[threadIdx.x] += smem[threadIdx.x + 2];
-        smem[threadIdx.x] += smem[threadIdx.x + 1];
     }
 
     if ( threadIdx.x == 0 )
@@ -651,13 +640,13 @@ void getDiagonalKernelNoDiaProp(const IndexType *dia_idx, const ValueType *value
 template<class T_Config>
 Size2SelectorBase<T_Config>::Size2SelectorBase(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    deterministic = cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default");
-    max_iterations = cfg.AMG_Config::getParameter<IndexType>("max_matching_iterations", cfg_scope);
-    numUnassigned_tol = cfg.AMG_Config::getParameter<double>("max_unassigned_percentage", cfg_scope);
-    two_phase = cfg.AMG_Config::getParameter<int>("handshaking_phases", cfg_scope) == 2;
-    m_aggregation_edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
-    merge_singletons = cfg.AMG_Config::getParameter<int>("merge_singletons", cfg_scope) == 1;
-    weight_formula = cfg.AMG_Config::getParameter<int>("weight_formula", cfg_scope);
+    deterministic = cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default");
+    max_iterations = cfg.AMG_Config::template getParameter<IndexType>("max_matching_iterations", cfg_scope);
+    numUnassigned_tol = cfg.AMG_Config::template getParameter<double>("max_unassigned_percentage", cfg_scope);
+    two_phase = cfg.AMG_Config::template getParameter<int>("handshaking_phases", cfg_scope) == 2;
+    m_aggregation_edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    merge_singletons = cfg.AMG_Config::template getParameter<int>("merge_singletons", cfg_scope) == 1;
+    weight_formula = cfg.AMG_Config::template getParameter<int>("weight_formula", cfg_scope);
 }
 
 // setAggregates for csr_matrix_h format
@@ -708,7 +697,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     ValueType *diag_ptr = diag.raw();
     IndexType *aggregates_ptr = aggregates.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_rows - 1) / threads_per_block + 1 );
     getDiagonalKernelNoDiaProp <<< num_blocks, threads_per_block>>>(A_dia_ptr, A_values_ptr, num_rows, diag_ptr);
     cudaCheckError();
     int numUnassigned = num_rows;
@@ -791,8 +780,8 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     IndexType *strongest_neighbour_1phase_ptr = strongest_neighbour_1phase.raw();
     IndexType *aggregates_ptr = aggregates.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
-    const int num_blocks_V2 = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1 );
+    const int num_blocks_V2 = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
     int numUnassigned = num_block_rows;
     int numUnassigned_previous = numUnassigned;
     Vector<TemplateConfig<AMGX_device, AMGX_vecFloat, t_matPrec, t_indPrec> > edge_weights(num_nonzero_blocks, -1);

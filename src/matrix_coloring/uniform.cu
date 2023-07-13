@@ -86,7 +86,6 @@ UniformMatrixColoringBase<T_Config>::UniformMatrixColoringBase(AMG_Config &cfg, 
 template <class T_Config>
 void UniformMatrixColoringBase<T_Config>::colorMatrix(Matrix<T_Config> &A)
 {
-    profileSubphaseMatrixColoring();
     ViewType oldView = A.currentView();
     this->m_row_colors.resize(A.row_offsets.size() - 1, 0);
 
@@ -113,7 +112,7 @@ void UniformMatrixColoringBase<T_Config>::colorMatrix(Matrix<T_Config> &A)
         {
             IndexType *row_colors_ptr = this->m_row_colors.raw();
             const int threads_per_block = 512;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_rows - 1) / threads_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_rows - 1) / threads_per_block + 1 );
 
             if (dim == 3)
             {

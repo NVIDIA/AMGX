@@ -1219,12 +1219,11 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     Hash_Workspace<TConfig_d, int> exp_wk(true, GRID_SIZE);
     IntVector C_hat_start( A.get_num_rows() + 1, 0 ), C_hat_end( A.get_num_rows() + 1, 0 );
 
-    bool use_opt_kernels = true;
     int max_c_hat_size = 0;
     int nunfine = 0;
     IntVector unfine_set;
 
-    if(use_opt_kernels)
+    if(this->m_use_opt_kernels)
     {
         IntVector unfine(A.get_num_rows());
         IntVector unfine_offs(A.get_num_rows()+1);
@@ -1292,7 +1291,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     int nVals = C_hat_start[C_hat_start.size() - 1];
     IntVector C_hat( nVals );
 
-    if(use_opt_kernels)
+    if(this->m_use_opt_kernels)
     {
         int hash_size = pow(2, ceil(log2(max_c_hat_size)));
 
@@ -1619,7 +1618,7 @@ Selector<TConfig> *SelectorFactory<TConfig>::allocate(AMG_Config &cfg, const std
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
-    return it->second->create();
+    return it->second->create(cfg, cfg_scope);
 };
 
 /****************************************

@@ -379,7 +379,7 @@ void test_selectors(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg
         selector = NULL;
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
-        selector = iter->second->create();
+        selector = iter->second->create(cfg, cfg_scope);
         UNITTEST_ASSERT_TRUE(strength != NULL);
 
         if (selector != NULL)
@@ -417,7 +417,7 @@ void test_interpolators(Resources *res, Matrix<T_Config> &A, AMG_Config &cfg, co
     //compute strong connections and weights
     double max_row_sum = cfg.getParameter<double>("max_row_sum", cfg_scope);
     Strength<T_Config> *strength = strengthf->create(cfg, cfg_scope);
-    classical::Selector<T_Config> *selector = selectorf->create();
+    classical::Selector<T_Config> *selector = selectorf->create(cfg, cfg_scope);
     strength->computeStrongConnectionsAndWeights(A, s_con, weights, max_row_sum);
     selector->markCoarseFinePoints(A, weights, s_con, cf_map, scratch);
     Interpolator<T_Config> *interpolator;

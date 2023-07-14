@@ -58,6 +58,7 @@ Strength_BaseBase<T_Config>::Strength_BaseBase(AMG_Config &cfg,
         const std::string &cfg_scope)
 {
     alpha = cfg.AMG_Config::template getParameter<double>("strength_threshold", cfg_scope);
+    m_use_opt_kernels = cfg.AMG_Config::template getParameter<int>("use_opt_kernels", "default");
 }
 
 /*************************************************************************
@@ -550,8 +551,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
 
     if (A.get_num_rows() > 0)
     {
-        bool use_opt_kernels = false;
-        if(use_opt_kernels)
+        if(this->m_use_opt_kernels)
         {
             // One row per thread
             const int blockSize = 128;

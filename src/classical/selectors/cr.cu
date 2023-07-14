@@ -371,7 +371,8 @@ void compute_AscColInd_kernel(const IndexType *ArowOffsets, const IndexType *Aco
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
-CR_Selector() : CR_SelectorBase<TConfig_d>(),
+CR_Selector(AMG_Config &cfg, const std::string &cfg_scope) : 
+  CR_SelectorBase<TConfig_d>(cfg, cfg_scope),
     m_smoother(0) {}
 
 

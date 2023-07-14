@@ -454,7 +454,7 @@ void test_selectors(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg
         selector = NULL;
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
-        selector = iter->second->create();
+        selector = iter->second->create(cfg, cfg_scope);
         UNITTEST_ASSERT_TRUE(strength != NULL);
 
         if (selector != NULL)

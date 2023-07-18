@@ -30,6 +30,7 @@
 #include <util.h>
 #include <device_properties.h>
 #include <amgx_cusparse.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -616,24 +617,37 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt(
 
     this->count_non_zeroes_opt(A, B, C, 32);
 
-    // Compute row offsets.
-    this->compute_offsets( C );
+    int max_nnz = thrust_wrapper::reduce(
+        C.row_offsets.raw(), 
+        C.row_offsets.raw() + C.row_offsets.size()-1, 
+        0, amgx::thrust::maximum<int>());
 
-    // Allocate memory to store columns/values.
-    int num_vals = C.row_offsets[C.get_num_rows()];
+    // Don't attempt this algorithm if the max row is large
+    if(max_nnz > 128) 
+    {
+        this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
+    }
+    else 
+    {
+        // Compute row offsets.
+        this->compute_offsets( C );
 
-    C.col_indices.resize(num_vals);
-    C.values.resize(num_vals);
-    C.set_num_nz(num_vals);
-    C.diag.resize( C.get_num_rows() );
-    C.set_block_dimx(A.get_block_dimx());
-    C.set_block_dimy(B.get_block_dimy());
-    C.setColsReorderedByColor(false);
+        // Allocate memory to store columns/values.
+        int num_vals = C.row_offsets[C.get_num_rows()];
 
-    this->compute_values_opt(A, B, C, 32);
-    
-    // Finalize the initialization of the matrix.
-    C.set_initialized(1);
+        C.col_indices.resize(num_vals);
+        C.values.resize(num_vals);
+        C.set_num_nz(num_vals);
+        C.diag.resize( C.get_num_rows() );
+        C.set_block_dimx(A.get_block_dimx());
+        C.set_block_dimy(B.get_block_dimy());
+        C.setColsReorderedByColor(false);
+
+        this->compute_values_opt(A, B, C, 32, max_nnz);
+
+        // Finalize the initialization of the matrix.
+        C.set_initialized(1);
+    }
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >

@@ -1073,11 +1073,11 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
     const int sm_count = getSMCount();
 
     // Assuming that csrmv will be more efficient than cuSPARSE for row counts 
-    // that are lower than the 3 times the total number of threads
+    // that are lower than the 1 times the total number of threads
     // cuSPARSE does not like the offsetting required when latency hiding
     // it's possible to reverse the offsets, but requires extra kernel invocation 
     // and usually the dependent part of the call is smaller
-    if(rowOff > 0 || mb < cta_size * sm_count * 3)
+    if(rowOff > 0 || mb < cta_size * sm_count)
     {
         // Custom single-kernel SpMV, we could actually determine unroll factor
         // more accurately here by checking non-zeros per row

@@ -71,7 +71,7 @@ class CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> > : public CSR_Mu
         void compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B );
         // Compute values.
         void compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 );
-        void compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads);
+        void compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, int max_nnz);
 
         template <int hash_size, int nthreads_per_group>
         void cvk_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C);

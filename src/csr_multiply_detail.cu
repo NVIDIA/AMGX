@@ -1297,6 +1297,7 @@ void compute_values_kernel_opt( const int A_num_rows,
 
                 int b_col_id = B_cols[b_col_it];
 
+                // XXX UPDATE HASHING APPROACH
                 int hash = b_col_id % HASH_SIZE;
 
                 // By construction this algorithm should guarantee 
@@ -2281,29 +2282,25 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::cvk_opt(const M
 
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads )
+void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, int max_nnz )
 {
     int C_nrows = C.get_num_rows();
     int C_nnz = C.get_num_nz();
-    int C_avg_nnz_per_row = C_nnz / C_nrows;
+    int C_max_nnz_per_row = max_nnz;
 
     // The aim is to minimise the hash size while reducing the impact of the linear
     // probing. It might actually be more optimal to just use as large tables as 
     // possible, reducing the linear probing cost and maximising the C write cost?
-    float C_avg_nnz_log2 = log2(static_cast<float>(C_avg_nnz_per_row));
-    float C_avg_nnz_log2_ceil = ceil(C_avg_nnz_log2);
-    int C_rounded_avg = static_cast<int>(2.0*pow(2.0, C_avg_nnz_log2_ceil));
-
-    printf("num_threads %d\n", num_threads);
-    printf("C_nrows %d C_nnz %d\n", C_nrows, C_nnz);
-    printf("C_rounded_avg %d\n", C_rounded_avg);
+    float C_max_nnz_log2 = log2(static_cast<float>(C_max_nnz_per_row));
+    float C_max_nnz_log2_ceil = ceil(C_max_nnz_log2);
+    int C_rounded_max = static_cast<int>(2.0*pow(2.0, C_max_nnz_log2_ceil));
 
     // Operation is group per row, where group size is determined by num_threads
     switch ( num_threads )
     {
         case 16: // 16 threads per group
             {
-                switch(C_rounded_avg)
+                switch(C_rounded_max)
                 {
                     case 2: 
                     case 4:
@@ -2321,7 +2318,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_
             break;
         case 32: // Warp per group
             {
-                switch(C_rounded_avg)
+                switch(C_rounded_max)
                 {
                     case 2: 
                     case 4:

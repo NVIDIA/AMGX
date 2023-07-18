@@ -250,6 +250,12 @@ int main(int argc, char **argv)
         errAndExit("ERROR: no config was specified");
     }
 
+    int nrepeats;
+    pidx = findParamIndex(argv, argc, "-r");
+    if(pidx != -1) {
+        nrepeats = atoi(argv[pidx+1]);
+    }
+
     /* example of how to handle errors */
     //char msg[MAX_MSG_LEN];
     //AMGX_RC err_code = AMGX_resources_create(NULL, cfg, &amgx_mpi_comm, 1, &lrank);
@@ -333,11 +339,19 @@ int main(int argc, char **argv)
     /* solver setup */
     //MPI barrier for stability (should be removed in practice to maximize performance)
     MPI_Barrier(amgx_mpi_comm);
+
     AMGX_solver_setup(solver, A);
     /* solver solve */
     //MPI barrier for stability (should be removed in practice to maximize performance)
     MPI_Barrier(amgx_mpi_comm);
     AMGX_solver_solve(solver, b, x);
+
+    // Repeated solves
+    for(int r = 1; r < nrepeats; ++r) {
+        AMGX_solver_resetup(solver, A);
+        AMGX_solver_solve_with_0_initial_guess(solver, b, x);
+    }
+
     /* example of how to change parameters between non-linear iterations */
     //AMGX_config_add_parameters(&cfg, "config_version=2, default:tolerance=1e-12");
     //AMGX_solver_solve(solver, b, x);

@@ -321,7 +321,7 @@ int main(int argc, char **argv)
     if(tidx != -1)
     {
       nrepeats = atoi(argv[tidx+1]);
-      printf("Running for %d repeats\n", nrepeats);
+      print_callback("Running for %d repeats\n", nrepeats);
     }
 
 

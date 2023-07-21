@@ -605,6 +605,11 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt( 
     const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
 {
+#if 0
+        this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
+        return;
+#endif
+
     // Make C "mutable".
     C.set_initialized(0);
     // Compute row offsets C.
@@ -615,16 +620,20 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt(
     thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     cudaCheckError();
 
-    this->count_non_zeroes_opt(A, B, C, 32);
+    bool cnz_success = this->count_non_zeroes_opt(A, B, C, 32);
 
     int max_nnz = thrust_wrapper::reduce(
         C.row_offsets.raw(), 
         C.row_offsets.raw() + C.row_offsets.size()-1, 
         0, amgx::thrust::maximum<int>());
 
+    printf("finished capturing max_nnz\n");
+
     // Don't attempt this algorithm if the max row is large
-    if(max_nnz > 128) 
+    if(!cnz_success || max_nnz > 512) 
     {
+        //this->multiply(A, B, C, NULL, NULL, NULL, NULL);
+
         this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
     }
     else 

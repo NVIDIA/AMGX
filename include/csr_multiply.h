@@ -184,7 +184,7 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
     protected:
         // Count the number of non-zero elements. The callee is responsible for setting the work queue value.
         virtual void count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) = 0;
-        virtual void count_non_zeroes_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads ) = 0;
+        virtual bool count_non_zeroes_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads ) = 0;
 
         // Compute the sparsity of RAP_int + RAP_ext
         virtual void count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids) = 0;

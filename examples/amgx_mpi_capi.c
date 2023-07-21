@@ -333,6 +333,14 @@ int main(int argc, char **argv)
         errAndExit("ERROR: no linear system was specified");
     }
 
+    int n;
+    int block_dimx;
+    int block_dimy;
+    AMGX_matrix_get_size(A, &n, &block_dimx, &block_dimy);
+
+    void *h_x = malloc(n*block_dimx*block_dimy*sizeof(double));
+    AMGX_vector_download(x, h_x);
+
     //free temporary storage
     if (partition_vector != NULL) { free(partition_vector); }
 
@@ -348,9 +356,12 @@ int main(int argc, char **argv)
 
     // Repeated solves
     for(int r = 1; r < nrepeats; ++r) {
+        AMGX_vector_upload(x, n, block_dimx, h_x);
         AMGX_solver_resetup(solver, A);
-        AMGX_solver_solve_with_0_initial_guess(solver, b, x);
+        AMGX_solver_solve(solver, b, x);
     }
+
+    free(h_x);
 
     /* example of how to change parameters between non-linear iterations */
     //AMGX_config_add_parameters(&cfg, "config_version=2, default:tolerance=1e-12");

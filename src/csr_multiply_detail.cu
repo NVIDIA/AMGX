@@ -2152,7 +2152,7 @@ void calc_max_nnz_per_row_of_C(
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_opt(
+bool CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_opt(
         const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads)
 {
     constexpr int cta_size = 128;
@@ -2202,9 +2202,13 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 { 
                     CNZ_OPT(16, 512); 
                 } 
-                else  
+                else if(max_nnz < 1024)
                 { 
                     CNZ_OPT(16, 1024); 
+                }
+                else 
+                {
+                    return false;
                 }
             }
             break;
@@ -2223,9 +2227,13 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 { 
                     CNZ_OPT(32, 512); 
                 } 
-                else  
+                else if(max_nnz < 1024)
                 { 
                     CNZ_OPT(32, 1024); 
+                }
+                else
+                {
+                    return false;
                 }
             }
             break;
@@ -2235,6 +2243,8 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
     }
 
     cudaCheckError();
+
+    return true;
 }
 
 
@@ -2294,6 +2304,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_
     float C_max_nnz_log2 = log2(static_cast<float>(C_max_nnz_per_row));
     float C_max_nnz_log2_ceil = ceil(C_max_nnz_log2);
     int C_rounded_max = static_cast<int>(2.0*pow(2.0, C_max_nnz_log2_ceil));
+    printf("C_rounded_max %d\n", C_rounded_max);
 
     // Operation is group per row, where group size is determined by num_threads
     switch ( num_threads )
@@ -2342,6 +2353,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_
     cudaDeviceSynchronize();
 
     cudaCheckError();
+    printf("finished multiplying\n");
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >

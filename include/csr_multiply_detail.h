@@ -57,7 +57,7 @@ class CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> > : public CSR_Mu
     protected:
         // Count the number of non-zero elements. The callee is responsible for setting the work queue value.
         void count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 );
-        void count_non_zeroes_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads);
+        bool count_non_zeroes_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads);
         // Compute the sparsity of RAP_int + RAP_ext
         void count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids);
 

@@ -1147,7 +1147,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 {
     //IVector &halo_nodes = *halo_nodes_p;
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int num_neighbors = halo_ranges_h.size() / 2;
     int total_rows_of_neighbors = 0;
     std::vector<int> halo_offsets(num_neighbors + 1, 0);
@@ -1172,7 +1172,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i =  0; i < num_neighbors; i ++)
     {
         int size = halo_lists[i]->size();
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         renumber_halo_lists <<< num_blocks, 128>>>(halo_lists[i]->raw(), halo_nodes.raw() + halo_offsets[i], halo_ranges_h[2 * i], size);
     }
 
@@ -1186,7 +1186,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 {
     //IVector &halo_nodes = *halo_nodes_p;
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int num_neighbors = halo_ranges_h.size() / 2;
     int total_rows_of_neighbors = 0;
     std::vector<int> halo_offsets(num_neighbors + 1, 0);
@@ -1216,7 +1216,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i =  0; i < num_neighbors; i ++)
     {
         int size = halo_lists[i]->size();
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         renumber_halo_lists <<< num_blocks, 128>>>(halo_lists[i]->raw(), halo_nodes.raw() + halo_offsets[i], halo_ranges_h[2 * i], size);
     }
 
@@ -1318,7 +1318,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     IVector part_sizes(this->num_part, 0);
     IVector inv_neighbors(this->num_part, 0);
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     base_index = this->part_offsets[my_id];
     index_range = this->part_offsets[my_id + 1] - this->part_offsets[my_id];
     //
@@ -1363,7 +1363,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     IVector part_sizes(this->num_part, 0);
     IVector inv_neighbors(this->num_part, 0);
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     A.manager->set_base_index(this->part_offsets[my_id]);
     A.manager->set_index_range(this->part_offsets[my_id + 1] - this->part_offsets[my_id]);
     //
@@ -1413,7 +1413,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         {
             total_halo_rows += num_halo_rows;
             total_halo_nnz += halo_rows_row_offsets[i][num_halo_rows];
-            int num_blocks = min(4096, (num_halo_rows + 127) / 128);
+            int num_blocks = std::min(4096, (num_halo_rows + 127) / 128);
             calc_num_neighbors_v2_global<16> <<< num_blocks, 128>>>(halo_rows_row_offsets[i].raw(), halo_rows_col_indices[i].raw(),
                     part_offsets.raw(), neighbor_flags.raw(), num_partitions, my_id, num_halo_rows);
         }
@@ -1516,7 +1516,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     }
 
     // TODO: Are these the optimal block_sizes?
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
 
     // -----------------------------------------------
     // Step 1: flag neighbors that I have an edge to
@@ -1554,7 +1554,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     }
 
     // TODO: Are these the optimal block_sizes?
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
 
     // -----------------------------------------------
     // Step 1: flag neighbors that I have an edge to
@@ -1628,7 +1628,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         for (int i = 0; i < A.manager->neighbors.size(); i++)
         {
             int size = A.manager->B2L_rings[i][1];
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
 
             if ( size > 0)
             {
@@ -1640,7 +1640,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     {
         const int cta_size = 256;
         const int nWarps = cta_size / 32;
-        int grid_size = min( 4096, (int) (A_num_rows + nWarps - 1) / nWarps);
+        int grid_size = std::min( 4096, (int) (A_num_rows + nWarps - 1) / nWarps);
 
         if (A_num_rows > 0)
         {
@@ -1652,7 +1652,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
     cudaCheckError();
     int size = A_num_rows;
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
 
     if (size > 0)
     {
@@ -1724,7 +1724,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     thrust::fill(halo_nodes.begin(), halo_nodes.end(), 0);
     cudaCheckError();
     int size = A.manager->local_to_global_map.size();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
 
     if (size > 0)
     {
@@ -1749,7 +1749,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         A.manager->B2L_maps[i].resize(num_halo);
         // create my boundary lists = list of neighbor inner nodes corresponding to halo numbers 0..M
         // For each node in B2L_map, need to find corresponding local id and store in L2H_map
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         populate_bdy_list_and_l2h_map <<< num_blocks, 128>>>(A.manager->L2H_maps[i].raw(),  halo_nodes.raw() + halo_offsets[i], halo_indices.raw(), A.manager->B2L_maps[i].raw(), size);
         cudaCheckError();
     }
@@ -1899,7 +1899,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     // Step 2: flag all nodes in neighbors that I will need (that is I have an edge pointing to it)
     //
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int num_neighbors = halo_ranges_h.size() / 2;
     halo_ranges.resize(num_neighbors * 2);
     thrust::copy(halo_ranges_h.begin(), halo_ranges_h.end(), halo_ranges.begin());
@@ -1952,7 +1952,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     // Step 2: flag all nodes in neighbors that I will need (that is I have an edge pointing to it)
     //
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int num_neighbors = halo_ranges_h.size() / 2;
     A.manager->halo_ranges.resize(num_neighbors * 2);
     thrust::copy(halo_ranges_h.begin(), halo_ranges_h.end(), A.manager->halo_ranges.begin());
@@ -2010,7 +2010,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     }
 
     //TODO: Are these the optimal block_sizes?
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int num_neighbors = A.manager->neighbors.size();
     boundary_lists.resize(num_neighbors);
     // compute halo offsets
@@ -2097,7 +2097,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     //         updated local to global map (in place)
     int size = A_num_rows;
     //TODO: Are these the optimal block_sizes?
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int num_neighbors = neighbors.size();
     // compute neighbor offsets & total number of neighbor rows
     int total_rows_of_neighbors = 0;
@@ -2120,7 +2120,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     thrust::fill(neighbor_nodes.begin(), neighbor_nodes.end(), 0);
     cudaCheckError();
     int local_to_global_size = local_to_global.size();
-    int num_blocks2 = min(4096, (local_to_global_size + 127) / 128);
+    int num_blocks2 = std::min(4096, (local_to_global_size + 127) / 128);
 
     if (local_to_global_size != 0)
     {
@@ -2201,7 +2201,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             // basically this will be our 2-ring B2L_maps
             boundary_lists[i].resize(num_halo);
             int size = neighbor_offsets_h[i + 1] - neighbor_offsets_h[i];
-            num_blocks = min(4096, (size + 127) / 128);
+            num_blocks = std::min(4096, (size + 127) / 128);
 
             if (size > 0)
             {
@@ -2223,7 +2223,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     for (int i = 0; i < num_halos; i++)
     {
         int num_neighbor_rows = halo_row_offsets[i].size() - 1;
-        num_blocks = min(4096, (num_neighbor_rows + 127) / 128);
+        num_blocks = std::min(4096, (num_neighbor_rows + 127) / 128);
 
         if (num_blocks > 0)
         {
@@ -2246,7 +2246,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         std::vector<std::vector<VecInt_t> > &B2L_rings)
 {
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     B2L_rings.resize(neighbors);
 
     for (int i = 0; i < neighbors; i ++)
@@ -2287,7 +2287,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         {
             size = B2L_rings[i][ring] - B2L_rings[i][ring - 1];
             thrust::fill(halo_rings.begin(), halo_rings.begin() + size + 1, 0);
-            num_blocks = min(4096, (size + 127) / 128);
+            num_blocks = std::min(4096, (size + 127) / 128);
             //Set 1 in flag array for any column index appreaing in the rows that belong to the previous ring
             find_next_ring <<< num_blocks, 128>>>(B2L_maps[i].raw() + B2L_rings[i][ring - 1], A.row_offsets.raw(), A.col_indices.raw(), size, 0/*base_index*/, /*index_range*/size, halo_rings.raw());
             /*
@@ -2318,7 +2318,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
                 break;
             }
 
-            num_blocks = min(4096, (A.get_num_rows() + 127) / 128);
+            num_blocks = std::min(4096, (A.get_num_rows() + 127) / 128);
             write_ring_rows <<< num_blocks, 128>>>(halo_rings.raw(), B2L_maps[i].raw() + B2L_rings[i][ring], A.get_num_rows());
             /*
              EXAMPLE
@@ -2337,7 +2337,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 {
     int neighbors = A.manager->num_neighbors();
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     A.manager->B2L_rings.resize(neighbors * rings + 1);
 
     for (int i = 0; i < neighbors; i ++)
@@ -2364,7 +2364,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         {
             size = A.manager->B2L_rings[i][ring] - A.manager->B2L_rings[i][ring - 1];
             thrust::fill(halo_rings.begin(), halo_rings.begin() + size + 1, 0);
-            num_blocks = min(4096, (size + 127) / 128);
+            num_blocks = std::min(4096, (size + 127) / 128);
             find_next_ring <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw() + A.manager->B2L_rings[i][ring - 1], A.row_offsets.raw(), A.col_indices.raw(), size, 0/*base_index*/, /*index_range*/size, halo_rings.raw());
             remove_previous_rings <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), halo_rings.raw(), A.manager->B2L_rings[i][ring]);
             thrust_wrapper::inclusive_scan(halo_rings.begin(), halo_rings.begin() + size + 1, halo_rings.begin());
@@ -2378,7 +2378,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
                 break;
             }
 
-            num_blocks = min(4096, (A.get_num_rows() + 127) / 128);
+            num_blocks = std::min(4096, (A.get_num_rows() + 127) / 128);
             write_ring_rows <<< num_blocks, 128>>>(halo_rings.raw(), A.manager->B2L_maps[i].raw() + A.manager->B2L_rings[i][ring], A.get_num_rows());
         }
 
@@ -2393,7 +2393,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         std::vector<std::vector<VecInt_t> > &B2L_rings, std::vector<IVector> &boundary_lists)
 {
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     B2L_maps.resize(neighbors);
 
     //
@@ -2413,7 +2413,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::create_maps(Matrix_d &A, INDEX_TYPE rings, std::vector<IVector> &boundary_lists)
 {
     int size = A.get_num_rows();
-    int num_blocks = min(4096, (size + 127) / 128);
+    int num_blocks = std::min(4096, (size + 127) / 128);
     int neighbors = A.manager->num_neighbors();
     A.manager->B2L_maps.resize(neighbors);
 
@@ -2482,7 +2482,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         //
         int size = B2L_rings[i][rings];
         matrix_halo_sizes.resize(size + 1);
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         write_matrix_rowsize <<< num_blocks, 128>>>(B2L_maps[i].raw(), A.row_offsets.raw(), size, matrix_halo_sizes.raw());
         thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
         int nnz_count =  matrix_halo_sizes[size];
@@ -2578,7 +2578,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     IVector halo_nodes(total_rows_of_neighbors + 1);
     thrust::fill(halo_nodes.begin(), halo_nodes.end(), 0);
     cudaCheckError();
-    int num_blocks = min(4096, (P.get_num_rows() + 127) / 128);
+    int num_blocks = std::min(4096, (P.get_num_rows() + 127) / 128);
 
     if (P.get_num_rows() > 0)
     {
@@ -2602,7 +2602,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         if (num_halo > 0)
         {
             int size = flag_offsets_h[i + 1] - flag_offsets_h[i];
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             populate_B2L_v2 <<< num_blocks, 128>>>(halo_nodes.raw() + flag_offsets_h[i], bdy_lists[i].raw(), count, size);
         }
 
@@ -2628,7 +2628,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
         if (num_halo > 0)
         {
-            int num_blocks = min(4096, (num_halo + 127) / 128);
+            int num_blocks = std::min(4096, (num_halo + 127) / 128);
             fill_local_to_global_map <<< num_blocks, 128>>>(bdy_lists[i].raw(), P.manager->local_to_global_map.raw() + count, P.manager->halo_ranges_h[2 * i], num_halo);
         }
 
@@ -2717,7 +2717,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             B.manager->B2L_maps[i].resize(B2L_maps_offsets[A_b2l_map_size]);
             const int cta_size = 128;
             const int nWarps = cta_size / 32;
-            int grid_size = min( 4096, (int) (A_b2l_map_size + nWarps - 1) / nWarps);
+            int grid_size = std::min( 4096, (int) (A_b2l_map_size + nWarps - 1) / nWarps);
             // Populate the B2L_map array
             fill_B_B2L_map<int, cta_size > <<< grid_size, cta_size >>>(
                 B2L_maps_offsets.raw(),
@@ -2938,7 +2938,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         if (size != 0)
         {
             //matrix_halo_sizes.resize(size+1);
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             write_matrix_rowsize <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), P.row_offsets.raw(), size, matrix_halo_sizes.raw());
             thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
             int nnz_count =  matrix_halo_sizes[size];
@@ -3025,7 +3025,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         if (size > 0)
         {
             //matrix_halo_sizes.resize(size+1);
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             write_matrix_rowsize <<< num_blocks, 128>>>(tmp_B2L_maps[i].raw(), RAP.row_offsets.raw(), size, matrix_halo_sizes.raw());
             thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
             int nnz_count =  matrix_halo_sizes[size];
@@ -3116,7 +3116,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         //
         int size = A.manager->B2L_rings[i][rings];
         matrix_halo_sizes.resize(size + 1);
-        int num_blocks = min(4096, (size + 127) / 128);
+        int num_blocks = std::min(4096, (size + 127) / 128);
         write_matrix_rowsize <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), A.row_offsets.raw(), size, matrix_halo_sizes.raw());
         thrust_wrapper::exclusive_scan(matrix_halo_sizes.begin(), matrix_halo_sizes.begin() + size + 1, matrix_halo_sizes.begin());
         cudaCheckError();
@@ -3159,7 +3159,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
         if (size > 0)
         {
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             write_matrix_rowsize <<< num_blocks, 128>>>(A.manager->B2L_maps[i].raw(), A.row_offsets.raw(), size, halo_rows_row_offsets[i].raw());
             thrust_wrapper::exclusive_scan(halo_rows_row_offsets[i].begin(), halo_rows_row_offsets[i].begin() + size + 1, halo_rows_row_offsets[i].begin());
             // compute global indices

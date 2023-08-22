@@ -85,20 +85,26 @@ class Aggregation_AMG_Level_Base : public AMG_Level<T_Config>
 
         friend class Aggregation_AMG_Level_Base<TConfig1>;
 
-#ifdef _WIN32
-        Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng);
-#else
-        __attribute__((optimize("O2"))) Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng);
-#endif
+        Aggregation_AMG_Level_Base(AMG_Class *amg, ThreadManager *tmng) : AMG_Level<T_Config>(amg, tmng)
+        {
+            m_selector = SelectorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
+            m_coarseAGenerator = CoarseAGeneratorFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope);
+            m_matrix_halo_exchange = amg->m_cfg->AMG_Config::template getParameter<int>("matrix_halo_exchange", amg->m_cfg_scope);
+            m_print_aggregation_info = amg->m_cfg->AMG_Config::template getParameter<int>("print_aggregation_info", amg->m_cfg_scope) != 0;
+            m_error_scaling = amg->m_cfg->AMG_Config::template getParameter<int>("error_scaling", amg->m_cfg_scope );
+            reuse_scale = amg->m_cfg->AMG_Config::template getParameter<int>("reuse_scale", amg->m_cfg_scope );
+            scaling_smoother_steps = amg->m_cfg->AMG_Config::template getParameter<int>("scaling_smoother_steps", amg->m_cfg_scope );
+            scale_counter = 0;
+        }
 
         virtual void transfer_level(AMG_Level<TConfig1> *ref_lvl);
 
-        // gcc-4.9 fix, -O3 optimization level caused undefined references to this destructor
-#ifdef _WIN32
-        virtual ~Aggregation_AMG_Level_Base();
-#else
-        __attribute__((optimize("O2"))) virtual ~Aggregation_AMG_Level_Base();
-#endif
+        virtual ~Aggregation_AMG_Level_Base()
+        {
+            delete m_selector;
+            delete m_coarseAGenerator;
+        }
+
         void createCoarseVertices();
         void createCoarseMatrices();
         bool isClassicalAMGLevel() { return false; }
@@ -128,6 +134,9 @@ class Aggregation_AMG_Level_Base : public AMG_Level<T_Config>
         void prepareNextLevelMatrix_none(const Matrix<TConfig> &A, Matrix<TConfig> &Ac);
         void fillRowOffsetsAndColIndices(const int R_num_cols);
 
+        void consolidationBookKeeping();
+        void consolidateCoarseGridMatrix();
+
         typename TConfig::VecPrec computeAlpha(const VVector &e, const VVector &bc, const VVector &tmp);
 
         void dumpMatrices(IntVector_d &Ac_row_offsets, IntVector_d &A_row_offsets, IntVector_d &A_column_indices, VVector &A_dia_values, VVector &A_nonzero_values, IntVector_d &R_row_offsets, IntVector_d &R_column_indices, IntVector_d &aggregates, IndexType num_aggregates);
@@ -152,6 +161,19 @@ class Aggregation_AMG_Level_Base : public AMG_Level<T_Config>
         CoarseAGenerator<TConfig> *m_coarseAGenerator;
 
         void computeRestrictionOperator_common();
+
+        // consolidation related bookkeeping
+        IVector_h              m_fine_parts_to_consolidate;
+        std::vector<IVector_h> m_vertex_counts;
+
+        // temporary storage for consolidation related bookkeeping
+        // that is stored in the DistributedManager of the coarse
+        // matrix after it has been constructed the first time
+        int m_total_interior_rows_in_merged = -1;
+        int m_total_boundary_rows_in_merged = -1;
+        IVector_h            m_consolidated_neighbors;
+        std::vector<IVector> m_consolidated_B2L_maps;
+        IVector_h            m_consolidated_halo_offsets;
 
     private:
         virtual void prolongateAndApplyCorrection_4x4(VVector &c, VVector &bc, VVector &x, VVector &tmp) = 0;

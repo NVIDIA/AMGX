@@ -92,8 +92,8 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
 #ifdef AMGX_WITH_MPI
         CommsMPIHostBufferStream(AMG_Config &cfg, const std::string &cfg_scope, const MPI_Comm *mpi_communicator) : CommsMPI<T_Config>(cfg, cfg_scope)
         {
-            min_rows_latency_hiding = cfg.AMG_Config::getParameter<int>("min_rows_latency_hiding", "default");
-            this->halo_coloring = cfg.AMG_Config::getParameter<ColoringType>("halo_coloring", "default");
+            min_rows_latency_hiding = cfg.AMG_Config::template getParameter<int>("min_rows_latency_hiding", "default");
+            this->halo_coloring = cfg.AMG_Config::template getParameter<ColoringType>("halo_coloring", "default");
             MPI_Comm_dup(*mpi_communicator, &mpi_comm);
             MPI_Comm_set_errhandler(mpi_comm, glbMPIErrorHandler);
         };
@@ -105,8 +105,8 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
             MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
             MPI_Comm_set_errhandler(mpi_comm, glbMPIErrorHandler);
 #endif
-            min_rows_latency_hiding = cfg.AMG_Config::getParameter<int>("min_rows_latency_hiding", "default");
-            this->halo_coloring = cfg.AMG_Config::getParameter<ColoringType>("halo_coloring", "default");
+            min_rows_latency_hiding = cfg.AMG_Config::template getParameter<int>("min_rows_latency_hiding", "default");
+            this->halo_coloring = cfg.AMG_Config::template getParameter<ColoringType>("halo_coloring", "default");
         };
 
         CommsMPIHostBufferStream(const CommsMPIHostBufferStream &comm) : CommsMPI<T_Config>()

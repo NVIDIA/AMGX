@@ -48,7 +48,6 @@
 #include <thrust/count.h>
 #include <thrust/sort.h>
 
-#include <profile.h>
 #include <string>
 #include <algorithm>
 
@@ -73,7 +72,7 @@ Energymin_AMG_Level_Base<T_Config>
     if (selector_val == "PMIS") //or any other classical selector
     {
         strength = StrengthFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope); //using default strength
-        max_row_sum = amg->m_cfg->AMG_Config::getParameter<double>("max_row_sum", amg->m_cfg_scope);
+        max_row_sum = amg->m_cfg->AMG_Config::template getParameter<double>("max_row_sum", amg->m_cfg_scope);
     }
 }
 
@@ -111,7 +110,7 @@ void Energymin_AMG_Level_Base<T_Config>
     /* WARNING: exit if D1 interpolator is selected in distributed setting */
     std::string s("");
     s += AMG_Level<T_Config>::amg->m_cfg->AMG_Config
-         ::getParameter<std::string>("energymin_interpolator",
+         ::template getParameter<std::string>("energymin_interpolator",
                                      AMG_Level<T_Config>::amg->m_cfg_scope);
     // Compute Restriction operator
     computeRestrictionOperator();

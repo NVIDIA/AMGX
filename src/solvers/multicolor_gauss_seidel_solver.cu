@@ -84,7 +84,7 @@ void setupBlockGSSmooth3by3BlockDiaCsrKernel(const IndexType *row_offsets, const
     const int mat_entry_index = tid - cta_blockrow_id * bsize_sq;
     const int i_ind = mat_entry_index / bsize;
     const int j_ind = mat_entry_index - i_ind * bsize;
-    volatile __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta ];
+    __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta ];
     ValueTypeA e_out;
 
     while (blockrow_id < num_block_rows)
@@ -111,7 +111,7 @@ void setupBlockGSSmooth4by4BlockDiaCsrKernel_V2(const IndexType *row_offsets, co
     const int mat_entry_index = threadIdx.x & (bsize_sq - 1);
     const int i_ind = mat_entry_index >> log_bsize;
     const int j_ind = mat_entry_index & (bsize - 1);
-    volatile __shared__ ValueTypeA s_Amat[bsize_sq * halfwarps_per_block ];
+    __shared__ ValueTypeA s_Amat[bsize_sq * halfwarps_per_block ];
     ValueTypeA e_out;
 
     while (halfwarp_id < num_block_rows)
@@ -138,8 +138,8 @@ void setupBlockGSSmoothbBybBlockDiaCsrKernel(const IndexType *row_offsets, const
     const int mat_entry_index = threadIdx.x & (16 - 1);
     const int i_ind = mat_entry_index >> 2;
     const int j_ind = mat_entry_index & 3;
-    extern __shared__ volatile char sharedc[];
-    volatile ValueTypeA *s_Amat;
+    extern __shared__ char sharedc[];
+    ValueTypeA *s_Amat;
     s_Amat = (ValueTypeA *)&sharedc[0];
     int tile_num = (bsize - 1) / 4 + 1;
     ValueTypeA *e_out = &temp1[(blockIdx.x * blockDim.x + threadIdx.x) * tile_num * tile_num];
@@ -165,6 +165,7 @@ void setupBlockGSSmoothbBybBlockDiaCsrKernel(const IndexType *row_offsets, const
                     s_Amat[s_offset + (t1 * 4 + i_ind) * bsize + t2 * 4 + j_ind] = e_out[t1 * tile_num + t2];
                 }
 
+
         compute_block_inverse2<IndexType, ValueTypeA, halfwarps_per_block>
         ( s_Amat, s_offset, offset, i_ind, j_ind, Dinv, tile_num, bsize, bsize_sq );
         halfwarp_id += gridDim.x * halfwarps_per_block;
@@ -181,7 +182,7 @@ void setupBlockGSSmoothBlockDiaCsrKernel_V2(const IndexType *row_offsets, const 
     const int mat_entry_index = threadIdx.x - cta_blockrow_id * bsize_sq;
     const int i_ind = mat_entry_index / bsize;
     const int j_ind = mat_entry_index - i_ind * bsize;
-    volatile __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta];
+    __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta];
     int offset, s_offset;
     ValueTypeA e_out;
 
@@ -192,6 +193,7 @@ void setupBlockGSSmoothBlockDiaCsrKernel_V2(const IndexType *row_offsets, const 
         e_out = values[bsize_sq * dia_indices[blockrow_id] + mat_entry_index];
         // Each thread stores its entry in s_Amat
         s_Amat[threadIdx.x] = e_out;
+
         s_offset = cta_blockrow_id * bsize_sq;
 // THIS IS DEFINED IN BLOCK COMMON
 //#define s_A(ROW,COL)   s_Amat[s_offset+ROW*bsize+COL]
@@ -624,12 +626,12 @@ void multicolorGSSmoothCsrKernel_NAIVE_tex_batched(const IndexType *row_offsets,
 template<class T_Config>
 MulticolorGaussSeidelSolver_Base<T_Config>::MulticolorGaussSeidelSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->symFlag = cfg.AMG_Config::getParameter<int>("symmetric_GS", cfg_scope);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
-    this->m_insert_diagonal_desired = (cfg.AMG_Config::getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->symFlag = cfg.AMG_Config::template getParameter<int>("symmetric_GS", cfg_scope);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    this->m_insert_diagonal_desired = (cfg.AMG_Config::template getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
 
-    if (cfg.AMG_Config::getParameter<int>("use_bsrxmv", cfg_scope))
+    if (cfg.AMG_Config::template getParameter<int>("use_bsrxmv", cfg_scope))
     {
         this->use_bsrxmv = 1;
     }
@@ -747,7 +749,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     // MUST BE MULTIPLE OF 16
     const int threads_per_block = 512;
     const int halfwarps_per_block = threads_per_block / 16;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
     cudaFuncSetCacheConfig(setupBlockGSSmooth4by4BlockDiaCsrKernel_V2<IndexType, ValueTypeA, threads_per_block, halfwarps_per_block, 4, 2, 16, 4>, cudaFuncCachePreferL1);
     setupBlockGSSmooth4by4BlockDiaCsrKernel_V2<IndexType, ValueTypeA, threads_per_block, halfwarps_per_block, 4, 2, 16, 4> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
@@ -772,7 +774,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     // MUST BE MULTIPLE OF 16
     const int threads_per_block = 512;
     const int halfwarps_per_block = threads_per_block/16;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows()-1)/halfwarps_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows()-1)/halfwarps_per_block + 1);
 
     cudaFuncSetCacheConfig(setupBlockGSSmoothbBybBlockDiaCsrKernel<IndexType,ValueTypeA,threads_per_block,halfwarps_per_block>,cudaFuncCachePreferL1);
     setupBlockGSSmoothbBybBlockDiaCsrKernel<IndexType,ValueTypeA,threads_per_block,halfwarps_per_block> <<<num_blocks,threads_per_block, sizeof(ValueTypeB)*bsize*bsize*halfwarps_per_block>>>
@@ -797,7 +799,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const int threads_per_block = 256;
     const int blockrows_per_warp = WARP_SIZE / bsize_sq;
     const int blockrows_per_cta = (threads_per_block / WARP_SIZE) * blockrows_per_warp;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     cudaFuncSetCacheConfig(setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq>, cudaFuncCachePreferL1);
     setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
@@ -821,7 +823,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const int threads_per_block = 256;
     const int blockrows_per_warp = WARP_SIZE / bsize_sq;
     const int blockrows_per_cta = (threads_per_block / WARP_SIZE) * blockrows_per_warp;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     cudaFuncSetCacheConfig(setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq>, cudaFuncCachePreferL1);
     setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
@@ -845,7 +847,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const int threads_per_block = 256;
     const int blockrows_per_warp = WARP_SIZE / bsize_sq;
     const int blockrows_per_cta = (threads_per_block / WARP_SIZE) * blockrows_per_warp;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     cudaFuncSetCacheConfig(setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq>, cudaFuncCachePreferL1);
     setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
@@ -859,7 +861,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     {
         this->Dinv.resize(A.get_num_cols()*A.get_block_dimx()*A.get_block_dimy(), 0.0);
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
         cudaFuncSetCacheConfig(setupBlockGSSmooth1x1<IndexType, ValueTypeA>, cudaFuncCachePreferL1);
         setupBlockGSSmooth1x1<IndexType, ValueTypeA> <<< num_blocks, threads_per_block>>>(A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), A.diag.raw(), this->Dinv.raw(), A.get_num_rows());
         cudaCheckError();
@@ -960,7 +962,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
         const int threads_per_block = 512;
         //const int eightwarps_per_block = threads_per_block/4;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
         cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
         multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -977,7 +979,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
             if (num_rows_per_color == 0) { continue; }
 
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
             multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1037,9 +1039,9 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
     // try to keep 'x' in L2 cache, if at least Ampere & CUDA 11
 #if CUDART_VERSION >= 11000
+    cudaStreamAttrValue stream_attribute;
     if (arch >= 80 && use_l2_hint == 1)
     {
-        cudaStreamAttrValue stream_attribute;   
         cudaDeviceProp prop = getDeviceProperties();
         size_t x_size = min( A.get_num_rows()*8 , prop.persistingL2CacheMaxSize );      // set-aside length of 'x' (number of rows in A)*8 bytes
         cudaDeviceSetLimit( cudaLimitPersistingL2CacheSize, x_size);                    //            for persisting accesses or the max allowed
@@ -1061,7 +1063,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
         if (selected_method == KernelMethod::NAIVE)
         {
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / CTA_SIZE + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / CTA_SIZE + 1 );
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
             multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, CTA_SIZE, 0, work_stream>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1108,7 +1110,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
             if (selected_method == KernelMethod::NAIVE)
             {
-                const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / CTA_SIZE + 1 );
+                const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / CTA_SIZE + 1 );
                 cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
                 multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, CTA_SIZE, 0, work_stream>>>
                 (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1149,7 +1151,6 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 #if CUDART_VERSION >= 11000
     if (arch >= 80 && use_l2_hint == 1)
     {        
-        cudaStreamAttrValue stream_attribute;   
         stream_attribute.accessPolicyWindow.num_bytes = 0;                                          // Setting the window size to 0 disable it
         cudaStreamSetAttribute(work_stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);   // Overwrite the access policy attribute to a CUDA Stream
         cudaCtxResetPersistingL2Cache();                                                            // Remove any persistent lines in L2 
@@ -1190,7 +1191,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
             const int threads_per_block = 512;
             //const int eightwarps_per_block = threads_per_block/4;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
             multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1207,7 +1208,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
                 if (num_rows_per_color == 0) { continue; }
 
-                const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
+                const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
                 cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
                 multicolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
                 (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1243,7 +1244,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
         const int threads_per_block = 512;
         //const int eightwarps_per_block = threads_per_block/4;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
         cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex_batched<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
         multicolorGSSmoothCsrKernel_NAIVE_tex_batched<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr, batch_sz,
@@ -1260,7 +1261,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
             if (num_rows_per_color == 0) { continue; }
 
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / threads_per_block + 1 );
             cudaFuncSetCacheConfig(multicolorGSSmoothCsrKernel_NAIVE_tex_batched<IndexType, ValueTypeA, ValueTypeB>, cudaFuncCachePreferL1);
             multicolorGSSmoothCsrKernel_NAIVE_tex_batched<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr, batch_sz,
@@ -1294,7 +1295,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
         const int threads_per_block = 512;
         const int eightwarps_per_block = threads_per_block / 4;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / eightwarps_per_block + 1 );
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / eightwarps_per_block + 1 );
         cudaFuncSetCacheConfig(multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2>, cudaFuncCachePreferL1);
         multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1313,7 +1314,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
             const int threads_per_block = 512;
             const int eightwarps_per_block = threads_per_block / 4;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / eightwarps_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / eightwarps_per_block + 1 );
             cudaFuncSetCacheConfig(multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2>, cudaFuncCachePreferL1);
             multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2> <<< num_blocks, threads_per_block>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1348,7 +1349,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
         const int threads_per_block = 512;
         const int blockrows_per_cta = threads_per_block / 3;
-        const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows_per_color - 1) / blockrows_per_cta + 1);
+        const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows_per_color - 1) / blockrows_per_cta + 1);
         cudaFuncSetCacheConfig(multicolorGSSmoothBlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, 3>, cudaFuncCachePreferL1);
         multicolorGSSmoothBlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, 3> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1366,7 +1367,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
             if (num_rows_per_color == 0) { continue; }
 
             const int blockrows_per_cta = threads_per_block / 3;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows_per_color - 1) / blockrows_per_cta + 1);
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows_per_color - 1) / blockrows_per_cta + 1);
             cudaFuncSetCacheConfig(multicolorGSSmoothBlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, 3>, cudaFuncCachePreferL1);
             multicolorGSSmoothBlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, 3> <<< num_blocks, threads_per_block>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,

@@ -52,8 +52,8 @@ namespace aggregation
 template<class T_Config>
 SerialGreedySelector<T_Config>::SerialGreedySelector(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    aggregate_size = cfg.AMG_Config::getParameter<int>("aggregate_size", cfg_scope);
-    edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    aggregate_size = cfg.AMG_Config::template getParameter<int>("aggregate_size", cfg_scope);
+    edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
 }
 
 //  setAggregates for block_dia_csr_matrix_h format

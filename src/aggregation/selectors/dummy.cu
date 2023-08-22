@@ -52,7 +52,7 @@ namespace aggregation
 template<class T_Config>
 DUMMY_Selector<T_Config>::DUMMY_Selector(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    aggregate_size = cfg.AMG_Config::getParameter<int>("aggregate_size", cfg_scope);
+    aggregate_size = cfg.AMG_Config::template getParameter<int>("aggregate_size", cfg_scope);
 }
 
 //  setAggregates for block_dia_csr_matrix_h format

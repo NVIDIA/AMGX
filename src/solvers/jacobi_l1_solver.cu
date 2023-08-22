@@ -313,7 +313,7 @@ __global__ void jacobi_smooth_with_0_initial_guess_kernel(const IndexType num_ro
 template<class T_Config>
 JacobiL1Solver_Base<T_Config>::JacobiL1Solver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope), m_d(0)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (weight == 0)
     {
@@ -412,7 +412,7 @@ void JacobiL1Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueTypeA;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
 
     if (A.get_num_rows() > 0)
     {
@@ -589,7 +589,7 @@ void JacobiL1Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     const int threads_per_block = 128;
     const int blockrows_per_warp = 32 / 4;
     const int blockrows_per_cta = (threads_per_block / 32) * blockrows_per_warp;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     jacobi_smooth_4x4_kernel<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 4> <<< num_blocks, threads_per_block >>>
     ((int)A.get_num_rows(),
      A.row_offsets.raw(),

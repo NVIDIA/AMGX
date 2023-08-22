@@ -26,7 +26,7 @@
 
 cmake_minimum_required (VERSION 3.18)
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../base/include" "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../include" "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
@@ -39,7 +39,7 @@ ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES cla
 
 ADD_EXECUTABLE(amgx_capi amgx_capi.c)
 
-set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../base/include ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
+set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
 target_include_directories( amgx_capi PUBLIC ${AMGX_INCLUDES})
 target_link_libraries ( amgx_capi ${dyn_libs} )
 

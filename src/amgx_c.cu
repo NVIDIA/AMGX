@@ -68,7 +68,7 @@ AMGX_RC getResourcesFromSolverHandle(AMGX_solver_handle slv, Resources **resourc
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -86,7 +86,6 @@ AMGX_RC getResourcesFromSolverHandle(AMGX_solver_handle slv, Resources **resourc
                 AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
         }
     }
-
     AMGX_CATCHES(rc)
     AMGX_CHECK_API_ERROR(rc, NULL)
     return AMGX_RC_OK;
@@ -96,7 +95,7 @@ AMGX_RC getResourcesFromMatrixHandle(AMGX_matrix_handle mtx, Resources **resourc
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -124,7 +123,7 @@ AMGX_RC getResourcesFromVectorHandle(AMGX_vector_handle vec, Resources **resourc
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -2372,7 +2371,7 @@ extern "C" {
         {
             AMGX_ERROR rc = AMGX_OK;
 
-            try
+            AMGX_TRIES()
             {
                 ///amgx::CWrapper<AMGX_resources_handle> *c_resources= (amgx::CWrapper<AMGX_resources_handle>*)rsc;
                 ResourceW c_r(rsc);
@@ -2427,7 +2426,7 @@ extern "C" {
         AMGX_CPU_PROFILER( "AMGX_finalize " );
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             amgx::finalize();
         }
@@ -2457,7 +2456,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
 
-        try
+        AMGX_TRIES()
         {
             auto *cfg0 = create_managed_object<AMG_Configuration, AMGX_config_handle>(cfg_h);
             err = cfg0->wrapped()->parseParameterString(options);
@@ -2483,7 +2482,7 @@ extern "C" {
         AMGX_ERROR err;
         ConfigW *cfg = nullptr;
 
-        try
+        AMGX_TRIES()
         {
             ///cfg = get_mem_manager<ConfigW>().allocate<ConfigW>(AMG_Configuration()).get();
             cfg = create_managed_object<AMG_Configuration, AMGX_config_handle>(cfg_h);
@@ -2515,7 +2514,7 @@ extern "C" {
         AMGX_ERROR err;
         ConfigW *cfg = nullptr;
 
-        try
+        AMGX_TRIES()
         {
             //use create_*()
             //
@@ -2548,7 +2547,7 @@ extern "C" {
         AMGX_ERROR err;
         ///CWrapper<AMGX_config_handle>* cfg;
 
-        try
+        AMGX_TRIES()
         {
             ///cfg = (CWrapper<AMGX_config_handle>*)(*cfg_h);
             //cfg = (ConfigW*)(*cfg_h);
@@ -2580,7 +2579,7 @@ extern "C" {
         AlgorithmType s_algorithm, p_algorithm;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ///CWrapper<AMGX_config_handle>* cfg = (CWrapper<AMGX_config_handle> *)cfg_h;
             ConfigW cfg(cfg_h);
@@ -2660,7 +2659,7 @@ extern "C" {
         AMGX_CPU_PROFILER( "AMGX_config_destroy " );
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             if (!remove_managed_object<AMGX_config_handle, AMG_Configuration>(cfg_h))
                 AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL)
@@ -2681,7 +2680,7 @@ extern "C" {
         AMGX_RC rc_solver;
         Resources *resources = NULL;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
             ConfigW cfg(cfg_h);
@@ -2725,7 +2724,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -2792,7 +2791,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2826,7 +2825,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2860,7 +2859,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2894,7 +2893,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2926,7 +2925,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2958,7 +2957,7 @@ extern "C" {
         AMGX_ERROR rc_mtx = AMGX_OK;
         Resources *resources = NULL;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -3006,7 +3005,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3038,7 +3037,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3083,7 +3082,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3126,7 +3125,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3162,7 +3161,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3223,7 +3222,7 @@ extern "C" {
         int dimension = (geoz == NULL ? 2 : 3);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3259,7 +3258,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3296,7 +3295,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3333,7 +3332,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR rc_vec = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -3381,7 +3380,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3424,7 +3423,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3468,7 +3467,7 @@ extern "C" {
         AMGX_RC rc0 = AMGX_RC_OK;
 
 //since resize falls directly into the thrust we can only catch bad_alloc here:
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3511,7 +3510,7 @@ extern "C" {
         AMGX_RC rc0 = AMGX_RC_OK;
 
 //since resize falls directly into the thrust we can only catch bad_alloc here:
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3547,7 +3546,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3591,7 +3590,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3635,7 +3634,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             write_system_preamble(mtx, rhs, sol, resources, mode);
 
@@ -3680,7 +3679,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             write_system_preamble(mtx, rhs, sol, resources, mode);
 
@@ -3717,7 +3716,7 @@ extern "C" {
         //if (!c_solver || !c_solver->is_valid()) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(slv);
 
@@ -3755,7 +3754,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(slv);
 
@@ -3852,7 +3851,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(slv);
 
@@ -3932,7 +3931,7 @@ extern "C" {
         //if (!c_mtx || !c_mtx->is_valid()) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -3972,7 +3971,7 @@ extern "C" {
         //if (!c_mtx || !c_mtx->is_valid()) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4012,7 +4011,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(matrix, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(matrix);
 
@@ -4066,7 +4065,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             rc0 = read_system_preamble(mtx, rhs, sol, resources, mode, props);
 
@@ -4108,7 +4107,7 @@ extern "C" {
         rc = AMGX_OK;
         rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {
@@ -4150,7 +4149,7 @@ extern "C" {
         //if (!c_mtx) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4214,7 +4213,7 @@ extern "C" {
         Resources *resources = NULL;
         AMGX_ERROR rc_rs = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -4326,7 +4325,7 @@ extern "C" {
 
         AMGX_ERROR nvrc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {
@@ -4380,7 +4379,7 @@ extern "C" {
         Resources *resources = NULL;
         AMGX_ERROR rc_rs = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -4578,7 +4577,7 @@ extern "C" {
 
         AMGX_RC rc0;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4654,7 +4653,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4697,7 +4696,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4728,7 +4727,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4769,7 +4768,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4832,7 +4831,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4866,7 +4865,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4903,7 +4902,7 @@ extern "C" {
 
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ConfigW cfg(cfg_h);
             auto *resources = create_managed_object<Resources, AMGX_resources_handle>(rsc, cfg.wrapped().get(), comm, device_num, devices);
@@ -4927,7 +4926,7 @@ extern "C" {
         const int devices[1] = { 0 };
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ConfigW cfg(cfg_h);
             auto *resources = create_managed_object<Resources, AMGX_resources_handle>(rsc, cfg.wrapped().get(), nullptr, num_devices, devices);
@@ -4949,7 +4948,7 @@ extern "C" {
 
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             bool found = remove_managed_object<AMGX_resources_handle, Resources>(rsc);
         }
@@ -4964,7 +4963,7 @@ extern "C" {
         nvtxRange nvrf(__func__);
 
         AMGX_ERROR rc = AMGX_OK;
-        try
+        AMGX_TRIES()
         {
             auto *mdist = create_managed_object<MatrixDistribution, AMGX_distribution_handle>(dist);
             if (cfg != NULL)
@@ -4988,7 +4987,7 @@ extern "C" {
         nvtxRange nvrf(__func__);
 
         AMGX_ERROR rc = AMGX_OK;
-        try
+        AMGX_TRIES()
         {
             if (!remove_managed_object<AMGX_distribution_handle, MatrixDistribution>(dist))
             {
@@ -5059,7 +5058,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             rc0 = read_system_preamble(mtx, rhs, sol, resources, mode, props, true);
 
@@ -5089,7 +5088,7 @@ extern "C" {
         rc = AMGX_OK;
         rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {
@@ -5267,7 +5266,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             rc0 = read_system_preamble(mtx, rhs, sol, resources, mode, props, true);
 
@@ -5297,7 +5296,7 @@ extern "C" {
         rc = AMGX_OK;
         rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {

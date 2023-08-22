@@ -73,7 +73,7 @@ void permuteVector(VectorType1 &v1, VectorType2 &v2, VectorType3 &p, int size_v1
     //int N=v1.size();
     int threads = 256;
     int blocks = (size_v1 + threads - 1) / threads;
-    blocks = min(4096, blocks);
+    blocks = std::min(4096, blocks);
     assert(v1.get_block_size() == v2.get_block_size());
     permuteVector_kernel <<< blocks, threads>>>(v1.pod(), v2.pod(), p.pod(), size_v1);
     cudaCheckError();
@@ -86,7 +86,7 @@ void unpermuteVector(VectorType1 &v1, VectorType2 &v2, VectorType3 &p, int size_
     //int N=v2.size();
     int threads = 256;
     int blocks = (size_v2 + threads - 1) / threads;
-    blocks = min(4096, blocks);
+    blocks = std::min(4096, blocks);
     assert(v1.get_block_size() == v2.get_block_size());
     unpermuteVector_kernel <<< blocks, threads>>>(v1.pod(), v2.pod(), p.pod(), size_v2);
     cudaCheckError();

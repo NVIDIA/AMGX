@@ -86,12 +86,12 @@ void AMG_Level<T_Config>::transfer_from(AMG_Level<T_Config1> *ref_lvl)
 template <class T_Config>
 void AMG_Level<T_Config>::setup()
 {
-    ViewType separation_interior = amg->m_cfg->AMG_Config::getParameter<ViewType>("separation_interior", "default");
-    ViewType separation_exterior = amg->m_cfg->AMG_Config::getParameter<ViewType>("separation_exterior", "default" );
+    ViewType separation_interior = amg->m_cfg->AMG_Config::template getParameter<ViewType>("separation_interior", "default");
+    ViewType separation_exterior = amg->m_cfg->AMG_Config::template getParameter<ViewType>("separation_exterior", "default" );
 
     if (separation_interior > separation_exterior) { FatalError("Interior separation cannot be wider than the exterior separation", AMGX_ERR_CONFIGURATION); }
 
-    if (separation_interior & INTERIOR == 0) { FatalError("Interior separation must include interior nodes", AMGX_ERR_CONFIGURATION); }
+    if ((separation_interior & INTERIOR) == 0) { FatalError("Interior separation must include interior nodes", AMGX_ERR_CONFIGURATION); }
 
     this->getA().setExteriorView(separation_exterior);
     int offset, size;
@@ -229,7 +229,7 @@ template<class TConfig>
 AMG_Level<TConfig> *AMG_LevelFactory<TConfig>::allocate(AMG_Class *amg, ThreadManager *tmng)
 {
     std::map<AlgorithmType, AMG_LevelFactory<TConfig>*> &factories = getFactories( );
-    AlgorithmType amg_level = amg->m_cfg->AMG_Config::getParameter<AlgorithmType>("algorithm", amg->m_cfg_scope);
+    AlgorithmType amg_level = amg->m_cfg->AMG_Config::template getParameter<AlgorithmType>("algorithm", amg->m_cfg_scope);
     typename std::map<AlgorithmType, AMG_LevelFactory<TConfig> *>::const_iterator it = factories.find(amg_level);
 
     if (it == factories.end())

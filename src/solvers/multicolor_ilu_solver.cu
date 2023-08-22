@@ -41,7 +41,6 @@
 #include <matrix_io.h>
 #include <permute.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 #include <algorithm>
 
@@ -1446,12 +1445,12 @@ computeLUFactors_4x4_kernel( int A_nRows,
 template<class T_Config>
 MulticolorILUSolver_Base<T_Config>::MulticolorILUSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    m_sparsity_level = cfg.AMG_Config::getParameter<int>("ilu_sparsity_level", cfg_scope);
-    m_weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
-    this->m_insert_diagonal_desired = (cfg.AMG_Config::getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
+    m_sparsity_level = cfg.AMG_Config::template getParameter<int>("ilu_sparsity_level", cfg_scope);
+    m_weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    this->m_insert_diagonal_desired = (cfg.AMG_Config::template getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
 
-    if (cfg.AMG_Config::getParameter<int>("use_bsrxmv", cfg_scope))
+    if (cfg.AMG_Config::template getParameter<int>("use_bsrxmv", cfg_scope))
     {
         this->m_use_bsrxmv = 1;
     }

@@ -195,7 +195,7 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 
             cudaStream_t str = 0;
             const int threads_per_block = 256;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (numRows-1)/threads_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (numRows-1)/threads_per_block + 1 );
             rescaleVector<<<num_blocks, threads_per_block, 0, str>>>( x.raw(), numRows );
 
 

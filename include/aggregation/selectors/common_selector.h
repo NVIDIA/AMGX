@@ -144,7 +144,7 @@ void computeEdgeWeightsBlockDiaCsr_V2( const IndexType *row_offsets, const Index
             }
 
             // 05/09/13: Perturb the edge weights slightly to handle cases where edge weights are uniform
-            WeightType small_fraction = scaling_factor<WeightType>() * hash_val(min(i, j), max(i, j)) / UINT_MAX;
+            WeightType small_fraction = scaling_factor<WeightType>() * hash_val(min(i, j), max(i, j)) / static_cast<WeightType>(UINT_MAX);
             ed_weight += small_fraction * ed_weight;
             str_edge_weights[tid] = ed_weight;
 

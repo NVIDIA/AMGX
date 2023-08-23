@@ -1567,7 +1567,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 
         if (size != 0)
         {
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             //write the position in RAP_ext_row_ids
             csr_multiply_sm70::flag_halo_rows <<< num_blocks, 128>>>(
                 RAP_ext_row_ids[i].raw(),
@@ -2082,7 +2082,7 @@ void CSR_Multiply_Sm70<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
         if (size != 0)
         {
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
             //write the position in RAP_ext_row_ids
             csr_multiply_sm70::flag_halo_rows <<< num_blocks, 128>>>(
                 RAP_ext_row_ids[i].raw(),

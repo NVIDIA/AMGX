@@ -34,7 +34,6 @@
 #include <util.h>
 #include <ld_functions.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 #include <texture.h>
 #include <typeinfo>

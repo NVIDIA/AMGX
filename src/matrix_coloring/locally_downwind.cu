@@ -394,7 +394,7 @@ void repair( const IndexType *ia, const IndexType *ja, const ValueType *aa, cons
 template<class T_Config>
 LocallyDownwindColoringBase<T_Config>::LocallyDownwindColoringBase(AMG_Config &cfg, const std::string &cfg_scope) : MatrixColoring<T_Config>(cfg, cfg_scope)
 {
-    this->m_num_colors = cfg.AMG_Config::getParameter<int>("num_colors", cfg_scope);
+    this->m_num_colors = cfg.AMG_Config::template getParameter<int>("num_colors", cfg_scope);
 }
 
 template<class TConfig>
@@ -600,7 +600,7 @@ void LocallyDownwindColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     IndexType *row_colors_ptr = this->m_row_colors.raw();
 
     const int threads_per_block = 64;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows-1)/threads_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows-1)/threads_per_block + 1);
 
     locally_downwind_kernels::colorRowsKernel<IndexType> <<<num_blocks,threads_per_block>>>(row_colors_ptr, this->m_num_colors, num_rows);
     cudaCheckError();

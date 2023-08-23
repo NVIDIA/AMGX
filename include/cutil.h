@@ -311,7 +311,7 @@ __global__ void containsNan_kernel( ScalarType *mem, int num, bool *retval)
 template <class ScalarType> bool containsNan( ScalarType *mem, int num )
 {
     int threads = 256;
-    int blocks = min(512, (num + threads - 1) / threads);
+    int blocks = std::min(512, (num + threads - 1) / threads);
     bool *d_retval, retval = false;
 
     if (num > 0)

@@ -327,7 +327,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
         {
             IVector separation_offsets_rows_per_color(m_num_colors);
             int size = num_rows;
-            int num_blocks = min(4096, (size + 123) / 124);
+            int num_blocks = std::min(4096, (size + 123) / 124);
             findSeparation <<< num_blocks, 128>>>(m_sorted_rows_by_color.raw(), offsets_rows_per_color.raw(), separation_offsets_rows_per_color.raw(), separation, m_num_colors, num_rows);
             thrust::copy(separation_offsets_rows_per_color.begin(), separation_offsets_rows_per_color.end(), m_offsets_rows_per_color_separation.begin());
             cudaCheckError();

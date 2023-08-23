@@ -180,6 +180,7 @@ class AMG_Level
         inline void resetNextLevel( device_memory ) { next_d = 0L; }
         inline void deleteNextLevel( device_memory ) { delete next_d; next_d = 0L; }
         inline bool isConsolidationLevel() { return m_is_consolidation_level; }
+        inline bool isRootPartition() const { return m_is_root_partition; }
         inline void setIsConsolidationLevel(bool is_consolidation_level) { m_is_consolidation_level = is_consolidation_level; }
         inline bool isReuseLevel() { return m_is_reuse_level; }
         inline void setReuseLevel(bool is_reuse_level) { m_is_reuse_level = is_reuse_level; }

@@ -290,18 +290,21 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
         cudaCheckError();
         printRowsStart = (srows < 0) ? 0                    : srows;
         printRowsEnd  = (erows < 0) ? this->get_num_rows() : erows;
-        tnnz = this->get_num_nz();
+        tnnz = this->get_num_nz() * this->get_block_size();
 
         //matrix might have separate diagonal (need to accoutn for it in nnz)
         if (this->hasProps(DIAG, this->props))
         {
-            //matrix might be non-square so take min of # of rows and cols
-            tnnz += min(this->get_num_rows(), this->get_num_cols());
+            //matrix might be non-square so take std::min of # of rows and cols
+            tnnz += std::min(this->get_num_rows(), this->get_num_cols());
         }
+
+        auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
+        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
 
         fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
         fprintf(fid, "%% %s\n", s);
-        fprintf(fid, "%d %d %d\n", this->get_num_rows(), this->get_num_cols(), tnnz);
+        fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
@@ -309,12 +312,12 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
             {
                 if (this->hasProps(DIAG, this->props))
                 {
-                    if (i < min(this->get_num_rows(), this->get_num_cols()))
+                    if (i < std::min(this->get_num_rows(), this->get_num_cols()))
                     {
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
                             a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                            fprintf(fid, "%d %d ", i + 1, i + 1);
+                            fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
                         }
@@ -328,7 +331,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
                     for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                     {
                         a = this->values[ii * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                        fprintf(fid, "%d %d ", i + 1, j + 1);
+                        fprintf(fid, "%d %d ", trafI(i, ydim), trafJ(j, xdim));
                         types::util<value_type>::fprintf(fid, "%20.16f", a);
                         fprintf(fid, "\n");
                     }
@@ -398,18 +401,21 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
         cudaCheckError();
         printRowsStart = (srows < 0) ? 0                    : srows;
         printRowsEnd  = (erows < 0) ? this->get_num_rows() : erows;
-        tnnz = this->get_num_nz();
+        tnnz = this->get_num_nz() * this->get_block_size();
 
         //matrix might have separate diagonal (need to accoutn for it in nnz)
         if (this->hasProps(DIAG, this->props))
         {
             //matrix might be non-square so take min of # of rows and cols
-            tnnz += min(this->get_num_rows(), this->get_num_cols());
+            tnnz += std::min(this->get_num_rows(), this->get_num_cols()) * this->get_block_size();
         }
 
         fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
         fprintf(fid, "%% %s\n", s);
-        fprintf(fid, "%d %d %d\n", this->get_num_rows(), this->get_num_cols(), tnnz);
+        fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
+
+        auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
+        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
@@ -417,12 +423,12 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
             {
                 if (this->hasProps(DIAG, this->props))
                 {
-                    if (i < min(this->get_num_rows(), this->get_num_cols()))
+                    if (i < std::min(this->get_num_rows(), this->get_num_cols()))
                     {
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
                             a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                            fprintf(fid, "%d %d ", i + 1, i + 1);
+                            fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
                         }
@@ -1102,17 +1108,17 @@ void Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::comp
 
     if (this->hasProps(DIAG))
     {
-        int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+        int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
         computeDiagonalKernelDiagProp <<< num_blocks, 512, 0, amgx::thrust::global_thread_handle::get_stream()>>>(this->get_num_rows(), this->get_num_nz(), this->diag.raw(), this->m_diag_end_offsets.raw());
     }
     else if (this->hasProps(COO))
     {
-        int num_blocks = min(4096, (this->get_num_nz() + 511) / 512);
+        int num_blocks = std::min(4096, (this->get_num_nz() + 511) / 512);
         computeDiagonalKernelCOO <<< num_blocks, 512>>>(this->get_num_nz(), this->row_indices.raw(), this->col_indices.raw(), this->diag.raw(), this->m_diag_end_offsets.raw());
     }
     else
     {
-        int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+        int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
         computeDiagonalKernelCSR <<< num_blocks, 512>>>(this->get_num_rows(), this->row_offsets.raw(), this->col_indices.raw(), this->diag.raw(), null_index, this->m_diag_end_offsets.raw());
     }
 

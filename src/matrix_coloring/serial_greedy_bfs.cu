@@ -747,11 +747,11 @@ Serial_Greedy_BFS_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::colorMa
 
     //copies color -> m_row_colors, using a pinned memory buffer
     copy_using_buffer_h2d(thrust::raw_pointer_cast(this->m_row_colors.data()), color, A.get_num_rows()*sizeof(int));
-    delete color;
-    delete A_row_offsets;
-    delete A_col_indices;
-    delete sorted_rows_by_color;
-    delete queue;
+    delete[] color;
+    delete[] A_row_offsets;
+    delete[] A_col_indices;
+    delete[] sorted_rows_by_color;
+    delete[] queue;
     A.setView(oldView);
 }
 
@@ -781,8 +781,8 @@ Serial_Greedy_BFS_MatrixColoring_Base<T_Config>::Serial_Greedy_BFS_MatrixColorin
         FatalError( "Not implemented for coloring_level != 1", AMGX_ERR_NOT_SUPPORTED_TARGET );
     }
 
-    m_coloring_custom_arg = cfg.AMG_Config::getParameter<std::string>( "coloring_custom_arg", cfg_scope );
-    m_coloring_try_remove_last_color_ = cfg.AMG_Config::getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
+    m_coloring_custom_arg = cfg.AMG_Config::template getParameter<std::string>( "coloring_custom_arg", cfg_scope );
+    m_coloring_try_remove_last_color_ = cfg.AMG_Config::template getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
 }
 
 #define AMGX_CASE_LINE(CASE) template class Serial_Greedy_BFS_MatrixColoring_Base<TemplateMode<CASE>::Type>;

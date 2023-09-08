@@ -307,7 +307,7 @@ void __spmv_coo_flat(const Matrix&    A,
     const ValueType * V = amgx::thrust::raw_pointer_cast(&A.values[0]);
 
     if (InitializeY)
-        amgx::thrust::fill(amgx::thrust::device_pointer_cast(y), amgx::thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
+        thrust_wrapper::fill(amgx::thrust::device_pointer_cast(y), amgx::thrust::device_pointer_cast(y) + A.num_rows, ValueType(0));
 
     if(A.num_entries == 0)
     {

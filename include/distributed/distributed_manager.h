@@ -297,7 +297,7 @@ template <typename TConfig> class DistributedManagerBase
                                Vector<ivec_value_type_h> neighbors_,
                                INDEX_TYPE interior_nodes_, INDEX_TYPE boundary_nodes_,
                                Vector<ivec_value_type_h> halo_offsets_,
-                               thrust::host_vector<Vector<ivec_value_type> > B2L_maps_) : m_fine_level_comms(NULL),
+                               amgx::thrust::host_vector<Vector<ivec_value_type> > B2L_maps_) : m_fine_level_comms(NULL),
             A(&a), m_pinned_buffer(NULL), m_pinned_buffer_size(0), _num_interior_nodes(interior_nodes_), _num_boundary_nodes(boundary_nodes_),
             neighbors(_neighbors), halo_offsets(halo_offsets_),
             B2L_maps(_B2L_maps),   L2H_maps(_L2H_maps), B2L_rings(_B2L_rings),
@@ -451,7 +451,7 @@ template <typename TConfig> class DistributedManagerBase
             this->createComms(A->getResources());
             DistributedArranger<TConfig> *prep = new DistributedArranger<TConfig>;
             neighbors.resize(num_neighbors);
-            thrust::copy(&neighbors_[0], &neighbors_[num_neighbors], neighbors.begin());
+            amgx::thrust::copy(&neighbors_[0], &neighbors_[num_neighbors], neighbors.begin());
             I64Vector_h tmp_halo_ranges_h;
             tmp_halo_ranges_h.resize(2 * num_neighbors);
 
@@ -1127,14 +1127,14 @@ template <typename TConfig> class DistributedManagerBase
 
         void export_neighbors(VecInt_t *neighbors_e)
         {
-            thrust::copy(neighbors.begin(), neighbors.end(), &neighbors_e[0]);
+            amgx::thrust::copy(neighbors.begin(), neighbors.end(), &neighbors_e[0]);
         }
 
         void malloc_export_maps(VecInt_t ***b2l_maps_e, VecInt_t **b2l_maps_ptrs_e, VecInt_t ***l2h_maps_e, VecInt_t **l2h_maps_ptrs_e);
 
         void export_halo_ranges(VecInt_t *halo_ranges_e)
         {
-            thrust::copy(halo_ranges.begin(), halo_ranges.end(), &halo_ranges_e[0]);
+            amgx::thrust::copy(halo_ranges.begin(), halo_ranges.end(), &halo_ranges_e[0]);
         }
 
         // scalar reductions
@@ -1543,8 +1543,8 @@ template <typename TConfig> class DistributedManagerBase
                     gatherToBuffer_v3 <<< num_blocks, 128>>>(
                         b.raw(),
                         this->B2L_maps_offsets[num_rings - 1].raw(),
-                        thrust::raw_pointer_cast(&B2L_maps_ptrs[0]),
-                        thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
+                        amgx::thrust::raw_pointer_cast(&B2L_maps_ptrs[0]),
+                        amgx::thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
                         b.get_block_size(),
                         size,
                         num_neighbors);
@@ -1613,8 +1613,8 @@ template <typename TConfig> class DistributedManagerBase
                     scatterFromBuffer_v3 <<< num_blocks, 128>>>(
                         b.raw(),
                         this->B2L_maps_offsets[num_rings - 1].raw(),
-                        thrust::raw_pointer_cast(&B2L_maps_ptrs[0]),
-                        thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
+                        amgx::thrust::raw_pointer_cast(&B2L_maps_ptrs[0]),
+                        amgx::thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
                         b.get_block_size(),
                         size,
                         num_neighbors);

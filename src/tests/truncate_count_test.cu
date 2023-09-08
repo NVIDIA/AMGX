@@ -49,7 +49,7 @@ void run()
     VVector x(A.get_num_rows(), 4.), new_row_sum(A.get_num_rows(), 0.);
     const double trunc_factor = 0.5;
     countTruncElements(A, trunc_factor, x, count, new_row_sum);
-    int new_count = thrust::reduce(count.begin(), count.end());
+    int new_count = amgx::thrust::reduce(count.begin(), count.end());
     this->PrintOnFail("truncateCountTest: new nnz should = num rows");
     UNITTEST_ASSERT_TRUE(A.get_num_rows() == new_count);
 

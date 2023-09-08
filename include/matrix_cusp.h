@@ -113,7 +113,7 @@ class MatrixCusp
             }
 
             column_indices_array_type element_permutation(num_entries);
-            thrust::sequence(element_permutation.begin(), element_permutation.end());
+            thrust_wrapper::sequence(element_permutation.begin(), element_permutation.end());
             cusp::detail::sort_by_row_and_column(pM->row_indices, pM->col_indices, element_permutation);
             cudaCheckError();
             MVector temp_values;
@@ -129,15 +129,15 @@ class MatrixCusp
         // determine whether matrix elements are sorted by row index
         bool is_sorted_by_row(void)
         {
-            return thrust::is_sorted(row_indices.begin(), row_indices.end());
+            return amgx::thrust::is_sorted(row_indices.begin(), row_indices.end());
         }
 
         // determine whether matrix elements are sorted by row and column index
         bool is_sorted_by_row_and_column(void)
         {
-            return thrust::is_sorted
-                   (thrust::make_zip_iterator(thrust::make_tuple(row_indices.begin(), column_indices.begin())),
-                    thrust::make_zip_iterator(thrust::make_tuple(row_indices.end(),   column_indices.end())));
+            return amgx::thrust::is_sorted
+                   (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.begin(), column_indices.begin())),
+                    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(row_indices.end(),   column_indices.end())));
         }
 };
 } //end namespace amgx

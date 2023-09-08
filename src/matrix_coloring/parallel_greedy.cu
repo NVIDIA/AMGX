@@ -710,10 +710,10 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     }
 
     const int GRID_SIZE = std::min( MAX_GRID_SIZE, (num_rows + CTA_SIZE - 1) / CTA_SIZE);
-    thrust::fill( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
+    thrust_wrapper::fill<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.end(), 0 );
     cudaCheckError();
     typedef typename Matrix_d::IVector IVector_d;
-    cudaStream_t stream = thrust::global_thread_handle::get_stream();
+    cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     IVector_d d_new_color(1);
     cudaMemsetAsync(d_new_color.raw(), 0, sizeof(int), stream);
     this->m_num_colors = 1;
@@ -725,7 +725,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     IVector_d d_num_uncolored(1);
     IVector_d d_num_uncolored_block(MAX_GRID_SIZE);
     int *h_done = NULL;
-    thrust::global_thread_handle::cudaMallocHost( (void **) &h_done, sizeof(int));
+    amgx::thrust::global_thread_handle::cudaMallocHost( (void **) &h_done, sizeof(int));
     IVector_d d_done(1);
     d_done[0] = 0;
     *h_done = 0;
@@ -807,10 +807,10 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 this->m_num_colors,
-                thrust::raw_pointer_cast (&new_color.front()),
+                amgx::thrust::raw_pointer_cast (&new_color.front()),
                 this->m_row_colors.raw() );
             cudaCheckError();
-            num_uncolored = (int) thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_zero() );
+            num_uncolored = (int) amgx::thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_zero() );
 
             if (new_color[0]) { this->m_num_colors++; }
 
@@ -826,7 +826,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
         A.col_indices.raw(),
         this->m_row_colors.raw(),
         NULL,
-        thrust::raw_pointer_cast( &error_found.front() ) );
+        amgx::thrust::raw_pointer_cast( &error_found.front() ) );
     cudaCheckError();
 
     if ( error_found[0] != 0 )
@@ -835,7 +835,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     }
 
 #endif
-    thrust::global_thread_handle::cudaFreeHost(h_done);
+    amgx::thrust::global_thread_handle::cudaFreeHost(h_done);
     A.setView(oldView);
 }
 

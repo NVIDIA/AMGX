@@ -55,7 +55,7 @@ namespace detail
           amgx::thrust::detail::eval_if<
             amgx::thrust::detail::is_convertible<MemorySpace, device_memory>::value,
   
-            amgx::thrust::detail::identity_< amgx::thrust_amgx_allocator<T> >,
+            amgx::thrust::detail::identity_< amgx::thrust_amgx_allocator<T, AMGX_device> >,
   
             amgx::thrust::detail::identity_< MemorySpace >
           >

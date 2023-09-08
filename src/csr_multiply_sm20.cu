@@ -1589,7 +1589,7 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
     for (int i = 0; i < num_neighbors; i++)
     {
         flagArray[i].resize(RAP_size);
-        thrust::fill(flagArray[i].begin(), flagArray[i].end(), -1);
+        thrust_wrapper::fill<AMGX_device>(flagArray[i].begin(), flagArray[i].end(), -1);
     }
 
     cudaCheckError();
@@ -1599,9 +1599,9 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 
     for (int i = 0; i < num_neighbors; i++)
     {
-        flagArray_ptrs_h[i] = thrust::raw_pointer_cast(&flagArray[i][0]);
-        RAP_ext_row_offsets_ptrs_h[i] = thrust::raw_pointer_cast(&RAP_ext_row_offsets[i][0]);
-        RAP_ext_col_indices_ptrs_h[i] = thrust::raw_pointer_cast(&RAP_ext_col_indices[i][0]);
+        flagArray_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&flagArray[i][0]);
+        RAP_ext_row_offsets_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&RAP_ext_row_offsets[i][0]);
+        RAP_ext_col_indices_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&RAP_ext_col_indices[i][0]);
     }
 
     device_vector_alloc<int *> flagArray_ptrs = flagArray_ptrs_h;
@@ -1629,11 +1629,11 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
         RAP_size,
         RAP_int.row_offsets.raw(),
         RAP_int.col_indices.raw(),
-        thrust::raw_pointer_cast(&RAP_ext_row_offsets_ptrs[0]),
-        thrust::raw_pointer_cast(&RAP_ext_col_indices_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&RAP_ext_row_offsets_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&RAP_ext_col_indices_ptrs[0]),
         RAP.row_offsets.raw(),
         (int *) NULL,
-        thrust::raw_pointer_cast(&flagArray_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&flagArray_ptrs[0]),
         this->m_gmem_size,
         this->m_keys,
         this->m_work_queue,
@@ -1657,7 +1657,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
+                amgx::thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 B.row_offsets.raw(),
@@ -1673,7 +1673,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
+                amgx::thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 B.row_offsets.raw(),
@@ -1689,7 +1689,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
+                amgx::thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 B.row_offsets.raw(),
@@ -1705,7 +1705,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
+                amgx::thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 B.row_offsets.raw(),
@@ -1721,7 +1721,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 A.get_num_rows(),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
+                amgx::thrust::raw_pointer_cast( &A.getMatrixColoring().getRowColors()[0] ),
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
                 B.row_offsets.raw(),
@@ -1774,9 +1774,9 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroes_
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::compute_offsets( Matrix_d &C )
 {
-    thrust::device_ptr<int> offsets_begin(C.row_offsets.raw());
-    thrust::device_ptr<int> offsets_end  (C.row_offsets.raw() + C.get_num_rows() + 1);
-    thrust_wrapper::exclusive_scan( C.row_offsets.begin(), C.row_offsets.begin() + C.get_num_rows() + 1, C.row_offsets.begin() );
+    amgx::thrust::device_ptr<int> offsets_begin(C.row_offsets.raw());
+    amgx::thrust::device_ptr<int> offsets_end  (C.row_offsets.raw() + C.get_num_rows() + 1);
+    thrust_wrapper::exclusive_scan<AMGX_device>( C.row_offsets.begin(), C.row_offsets.begin() + C.get_num_rows() + 1, C.row_offsets.begin() );
     cudaCheckError();
 }
 
@@ -2097,7 +2097,7 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
     for (int i = 0; i < num_neighbors; i++)
     {
         flagArray[i].resize(RAP_size);
-        thrust::fill(flagArray[i].begin(), flagArray[i].end(), -1);
+        thrust_wrapper::fill<AMGX_device>(flagArray[i].begin(), flagArray[i].end(), -1);
     }
 
     cudaCheckError();
@@ -2108,10 +2108,10 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
 
     for (int i = 0; i < num_neighbors; i++)
     {
-        flagArray_ptrs_h[i] = thrust::raw_pointer_cast(&flagArray[i][0]);
-        RAP_ext_row_offsets_ptrs_h[i] = thrust::raw_pointer_cast(&RAP_ext_row_offsets[i][0]);
-        RAP_ext_col_indices_ptrs_h[i] = thrust::raw_pointer_cast(&RAP_ext_col_indices[i][0]);
-        RAP_ext_values_ptrs_h[i] = thrust::raw_pointer_cast(&RAP_ext_values[i][0]);
+        flagArray_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&flagArray[i][0]);
+        RAP_ext_row_offsets_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&RAP_ext_row_offsets[i][0]);
+        RAP_ext_col_indices_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&RAP_ext_col_indices[i][0]);
+        RAP_ext_values_ptrs_h[i] = amgx::thrust::raw_pointer_cast(&RAP_ext_values[i][0]);
     }
 
     device_vector_alloc<int *> flagArray_ptrs = flagArray_ptrs_h;
@@ -2143,13 +2143,13 @@ void CSR_Multiply_Sm20<TemplateConfig<AMGX_device, V, M, I> >::compute_values_RA
         RAP_int.row_offsets.raw(),
         RAP_int.col_indices.raw(),
         RAP_int.values.raw(),
-        thrust::raw_pointer_cast(&RAP_ext_row_offsets_ptrs[0]),
-        thrust::raw_pointer_cast(&RAP_ext_col_indices_ptrs[0]),
-        thrust::raw_pointer_cast(&RAP_ext_values_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&RAP_ext_row_offsets_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&RAP_ext_col_indices_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&RAP_ext_values_ptrs[0]),
         RAP.row_offsets.raw(),
         RAP.col_indices.raw(),
         RAP.values.raw(),
-        thrust::raw_pointer_cast(&flagArray_ptrs[0]),
+        amgx::thrust::raw_pointer_cast(&flagArray_ptrs[0]),
         this->m_gmem_size,
         this->m_keys,
         this->m_vals,

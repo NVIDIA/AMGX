@@ -572,7 +572,7 @@ void JacobiL1Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     //It is only safe to swap these vectors if there is no halo exchange in process
     if (separation_flags != this->m_explicit_A->getViewExterior())
     {
-        thrust::copy(x.begin(), x.end(), xout.begin()); //TODO: only interior+bndry part
+        amgx::thrust::copy(x.begin(), x.end(), xout.begin()); //TODO: only interior+bndry part
         cudaCheckError();
         x_ptr = xout.raw();
         xout_ptr = x.raw();

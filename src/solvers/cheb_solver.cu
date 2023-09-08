@@ -30,7 +30,7 @@
 #include <blas.h>
 #include <util.h>
 
-#include <thrust/extrema.h> // for thrust::max_element
+#include <thrust/extrema.h> // for amgx::thrust::max_element
 
 namespace amgx
 {
@@ -91,7 +91,7 @@ void Chebyshev_Solver<T_Config>::compute_eigenmax_estimate(const Matrix<T_Config
         (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, A.get_num_rows(), tsum.raw());
     }
 
-    lambda = *(thrust::max_element(tsum.begin(), tsum.end()));
+    lambda = *(amgx::thrust::max_element(tsum.begin(), tsum.end()));
 }
 
 // Constructor

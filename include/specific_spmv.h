@@ -317,7 +317,7 @@ void rowSum(const Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPr
     typedef TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> TConfig_h;
     typedef typename Matrix<TConfig_h>::VVector VVector;
     VVector x(A.get_num_rows());
-    thrust::host_vector<row_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows(), 0);
+    amgx::thrust::host_vector<row_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows(), 0);
     default_state st;
     genericSpmvCSR(A, x, y, st);
     retrieveOneArgument(y, row_sums);
@@ -344,7 +344,7 @@ void absRowSum(const Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     typedef TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> TConfig_h;
     typedef typename Matrix<TConfig_h>::VVector VVector;
     VVector x(A.get_num_rows());
-    thrust::host_vector<abs_row_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows(), 0);
+    amgx::thrust::host_vector<abs_row_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows(), 0);
     default_state st;
     genericSpmvCSR(A, x, y, st);
     retrieveOneArgument(y, row_sums);
@@ -370,7 +370,7 @@ void weightedRowSum(const Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec,
     typedef TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> TConfig_h;
     typedef typename Matrix<TConfig_h>::VVector VVector;
     VVector x(A.get_num_rows());
-    thrust::host_vector<weighted_row_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows(), 0);
+    amgx::thrust::host_vector<weighted_row_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows(), 0);
     default_state st;
     genericSpmvCSR(A, x, y, st);
     retrieveOneArgument(y, row_sums);
@@ -396,7 +396,7 @@ void maxCoef(const Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indP
     typedef TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> TConfig_h;
     typedef typename Matrix<TConfig_h>::VVector VVector;
     VVector x(A.get_num_rows());
-    thrust::host_vector<max_coef<typename TConfig_h::VecPrec> > y(A.get_num_rows());
+    amgx::thrust::host_vector<max_coef<typename TConfig_h::VecPrec> > y(A.get_num_rows());
     default_state st;
     genericSpmvCSR(A, x, y, st);
     retrieveOneArgument(y, max_coefs);
@@ -424,7 +424,7 @@ void maxCoefAndSum(const Matrix<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, 
     typedef TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> TConfig_h;
     typedef typename Matrix<TConfig_h>::VVector VVector;
     VVector x(A.get_num_rows());
-    thrust::host_vector<max_coef_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows());
+    amgx::thrust::host_vector<max_coef_sum<typename TConfig_h::VecPrec> > y(A.get_num_rows());
     default_state st;
     genericSpmvCSR(A, x, y, st);
     retrieveTwoArguments(y, max_coefs, row_sums);

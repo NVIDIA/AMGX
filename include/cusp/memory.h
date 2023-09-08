@@ -21,7 +21,6 @@
 #pragma once
 
 #include <cusp/detail/config.h>
-
 #include <thrust/iterator/iterator_traits.h>
 
 namespace cusp
@@ -40,4 +39,13 @@ namespace cusp
 } // end namespace cusp
 
 #include <cusp/detail/memory.inl>
+#include <basic_types.h>
+
+namespace cusp
+{
+    template <typename T> struct CuspMemMap;
+    template <> struct CuspMemMap<host_memory> { static const int value = AMGX_host; };
+    template <> struct CuspMemMap<device_memory> { static const int value = AMGX_device; };
+    template <> struct CuspMemMap<any_memory> { static const int value = AMGX_host; };
+} // end namespace cusp
 

@@ -53,9 +53,9 @@ void spmv_coo_serial_device(const coo_matrix<IndexType,ValueType,cusp::device_me
                             const ValueType * d_x, 
                                   ValueType * d_y)
 {
-    const IndexType * I = thrust::raw_pointer_cast(&coo.row_indices[0]);
-    const IndexType * J = thrust::raw_pointer_cast(&coo.column_indices[0]);
-    const ValueType * V = thrust::raw_pointer_cast(&coo.values[0]);
+    const IndexType * I = amgx::thrust::raw_pointer_cast(&coo.row_indices[0]);
+    const IndexType * J = amgx::thrust::raw_pointer_cast(&coo.column_indices[0]);
+    const ValueType * V = amgx::thrust::raw_pointer_cast(&coo.values[0]);
 
     spmv_coo_serial_kernel<IndexType,ValueType> <<<1,1>>>
         (coo.num_nonzeros, coo.I, coo.J, coo.V, d_x, d_y);

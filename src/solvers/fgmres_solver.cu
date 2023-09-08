@@ -455,7 +455,7 @@ FGMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         // normalize initial residual
         scal( subspace.V(0), ValueTypeB(1.0 / this->beta), offset, size );
         //set reduced system rhs = beta*e1
-        cusp::blas::fill( m_s, ValueTypeB(0.0) );
+        thrust_wrapper::fill<AMGX_host>( m_s.begin(), m_s.end(), ValueTypeB(0.0) );
         m_s[0] = this->beta;
     }
 

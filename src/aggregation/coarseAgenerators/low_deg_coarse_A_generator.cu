@@ -888,9 +888,9 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
 
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int *h_status;
-    thrust::global_thread_handle::cudaMallocHost((void **) &h_status, sizeof(int));
+    amgx::thrust::global_thread_handle::cudaMallocHost((void **) &h_status, sizeof(int));
     int *h_work_offset;
-    thrust::global_thread_handle::cudaMallocHost((void **) &h_work_offset, sizeof(int));
+    amgx::thrust::global_thread_handle::cudaMallocHost((void **) &h_work_offset, sizeof(int));
     int attempt = 0;
     bool warning_printed = 0;
 
@@ -912,15 +912,15 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
         // Reset the status.
         int *p_status = h_status;
         *p_status = 0;
-        cudaMemcpyAsync( hash_wk.get_status(), p_status, sizeof(int), cudaMemcpyHostToDevice, thrust::global_thread_handle::get_stream() );
+        cudaMemcpyAsync( hash_wk.get_status(), p_status, sizeof(int), cudaMemcpyHostToDevice, amgx::thrust::global_thread_handle::get_stream() );
         cudaCheckError();
         // Reset the work queue.
         int *p_work_offset = h_work_offset;
         *p_work_offset = GRID_SIZE * NUM_WARPS;
-        cudaMemcpyAsync( hash_wk.get_work_queue(), p_work_offset, sizeof(int), cudaMemcpyHostToDevice, thrust::global_thread_handle::get_stream() );
+        cudaMemcpyAsync( hash_wk.get_work_queue(), p_work_offset, sizeof(int), cudaMemcpyHostToDevice, amgx::thrust::global_thread_handle::get_stream() );
         cudaCheckError();
         // Launch the kernel.
-        compute_sparsity_kernel<8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, HAS_DIAG, COUNT_ONLY> <<< GRID_SIZE, CTA_SIZE, 0, thrust::global_thread_handle::get_stream()>>>(
+        compute_sparsity_kernel<8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, HAS_DIAG, COUNT_ONLY> <<< GRID_SIZE, CTA_SIZE, 0, amgx::thrust::global_thread_handle::get_stream()>>>(
             R_num_rows,
             R_rows,
             R_cols,
@@ -936,14 +936,14 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
             hash_wk.get_status() );
         cudaCheckError();
         // Read the result from count_non_zeroes.
-        cudaMemcpyAsync( p_status, hash_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost, thrust::global_thread_handle::get_stream() );
-        cudaStreamSynchronize(thrust::global_thread_handle::get_stream());
+        cudaMemcpyAsync( p_status, hash_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost, amgx::thrust::global_thread_handle::get_stream() );
+        cudaStreamSynchronize(amgx::thrust::global_thread_handle::get_stream());
         done = (*p_status == 0);
         cudaCheckError();
     }
 
-    thrust::global_thread_handle::cudaFreeHost(h_status);
-    thrust::global_thread_handle::cudaFreeHost(h_work_offset);
+    amgx::thrust::global_thread_handle::cudaFreeHost(h_status);
+    amgx::thrust::global_thread_handle::cudaFreeHost(h_work_offset);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -972,7 +972,7 @@ void fill_A_dispatch( Workspace &hash_wk,
 
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int work_offset = GRID_SIZE * NUM_WARPS;
-    cudaMemcpyAsync( hash_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice, thrust::global_thread_handle::get_stream() );
+    cudaMemcpyAsync( hash_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice, amgx::thrust::global_thread_handle::get_stream() );
     cudaCheckError();
 
     // Launch the kernel.
@@ -1062,7 +1062,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                     reinterpret_cast<int *>( hash_wk.get_vals() ),
                     hash_wk.get_work_queue() );
             else
-                fill_A_kernel_4x4<Value_type, CTA_SIZE, SMEM_SIZE, 32, HAS_DIAG> <<< GRID_SIZE, CTA_SIZE, 0, thrust::global_thread_handle::get_stream()>>>(
+                fill_A_kernel_4x4<Value_type, CTA_SIZE, SMEM_SIZE, 32, HAS_DIAG> <<< GRID_SIZE, CTA_SIZE, 0, amgx::thrust::global_thread_handle::get_stream()>>>(
                     R_num_rows,
                     R_rows,
                     R_cols,
@@ -1216,7 +1216,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
 
     cudaCheckError();
     // Compute the number of non-zeroes.
-    thrust_wrapper::exclusive_scan( Ac.row_offsets.begin(), Ac.row_offsets.end(), Ac.row_offsets.begin() );
+    thrust_wrapper::exclusive_scan<AMGX_device>( Ac.row_offsets.begin(), Ac.row_offsets.end(), Ac.row_offsets.begin() );
     cudaCheckError();
     int nonzero_blocks = Ac.row_offsets[num_aggregates];
 
@@ -1255,7 +1255,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
             aggregates.raw(),
             Ac.row_offsets.raw(),
             Ac.col_indices.raw(),
-            thrust::raw_pointer_cast( &Ac_pos.front() ));
+            amgx::thrust::raw_pointer_cast( &Ac_pos.front() ));
     else
         compute_sparsity_dispatch<CTA_SIZE, false, false>(
             hash_wk,
@@ -1267,14 +1267,14 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
             aggregates.raw(),
             Ac.row_offsets.raw(),
             Ac.col_indices.raw(),
-            thrust::raw_pointer_cast( &Ac_pos.front() ));
+            amgx::thrust::raw_pointer_cast( &Ac_pos.front() ));
 
     cudaCheckError();
 
     // Reset values if needed.
     if ( A.get_block_dimy() != 1 )
     {
-        thrust::fill( Ac.values.begin(), Ac.values.end(), types::util<ValueType>::get_zero() );
+        thrust_wrapper::fill<AMGX_device>( Ac.values.begin(), Ac.values.end(), types::util<ValueType>::get_zero() );
         cudaCheckError();
     }
 
@@ -1294,7 +1294,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
             aggregates.raw(),
             Ac.row_offsets.raw(),
             Ac.col_indices.raw(),
-            thrust::raw_pointer_cast( &Ac_pos.front() ),
+            amgx::thrust::raw_pointer_cast( &Ac_pos.front() ),
             Ac.diag.raw(),
             Ac.values.raw(),
             this->m_force_determinism );
@@ -1314,7 +1314,7 @@ LowDegCoarseAGenerator<TemplateConfig<AMGX_device, V, M, I> >::computeAOperator(
             aggregates.raw(),
             Ac.row_offsets.raw(),
             Ac.col_indices.raw(),
-            thrust::raw_pointer_cast( &Ac_pos.front() ),
+            amgx::thrust::raw_pointer_cast( &Ac_pos.front() ),
             Ac.diag.raw(),
             Ac.values.raw(),
             this->m_force_determinism );

@@ -42,6 +42,7 @@
 #include <matrix.h>
 #include <complex>
 #include <thrust/inner_product.h>
+#include <thrust_wrapper.h>
 #include <amgx_cublas.h>
 #ifdef AMGX_USE_LAPACK
 #include "mkl.h"
@@ -55,7 +56,7 @@ namespace amgx
 
 // conjugate<T> computes the complex conjugate of a number f(a + b * i) -> a - b * i
 template <typename T>
-struct conjugate : public thrust::unary_function<T, T>
+struct conjugate : public amgx::thrust::unary_function<T, T>
 {
     __host__ __device__
     T operator()(T x)
@@ -66,7 +67,7 @@ struct conjugate : public thrust::unary_function<T, T>
 
 // square<T> computes the square of a number f(x) -> x*conj(x)
 template <typename T>
-struct norm_squared : public thrust::unary_function<T, T>
+struct norm_squared : public amgx::thrust::unary_function<T, T>
 {
     __host__ __device__
     typename types::PODTypes<T>::type operator()(T x)
@@ -103,8 +104,8 @@ struct AXPY
     __host__ __device__
     void operator()(Tuple t)
     {
-        thrust::get<1>(t) = thrust::get<0>(t) * alpha +
-                            thrust::get<1>(t);
+        amgx::thrust::get<1>(t) = amgx::thrust::get<0>(t) * alpha +
+                            amgx::thrust::get<1>(t);
     }
 };
 
@@ -121,8 +122,8 @@ struct AXPBY
     __host__ __device__
     void operator()(Tuple t)
     {
-        thrust::get<2>(t) = thrust::get<0>(t) * alpha +
-                            thrust::get<1>(t) * beta;
+        amgx::thrust::get<2>(t) = amgx::thrust::get<0>(t) * alpha +
+                            amgx::thrust::get<1>(t) * beta;
     }
 };
 
@@ -140,15 +141,15 @@ struct AXPBYPCZ
     __host__ __device__
     void operator()(Tuple t)
     {
-        thrust::get<3>(t) = thrust::get<0>(t) * alpha +
-                            thrust::get<1>(t) * beta +
-                            thrust::get<2>(t) * gamma;
+        amgx::thrust::get<3>(t) = amgx::thrust::get<0>(t) * alpha +
+                            amgx::thrust::get<1>(t) * beta +
+                            amgx::thrust::get<2>(t) * gamma;
     }
 };
 
 // absolute<T> computes the absolute value of a number f(x) -> |x|
 template <typename T>
-struct absolute : public thrust::unary_function<T, T>
+struct absolute : public amgx::thrust::unary_function<T, T>
 {
     __host__ __device__
     typename types::PODTypes<T>::type operator()(T x)
@@ -159,12 +160,12 @@ struct absolute : public thrust::unary_function<T, T>
 
 // maximum<T> returns the largest of two numbers
 template <typename T>
-struct maximum : public thrust::binary_function<T, T, T>
+struct maximum : public amgx::thrust::binary_function<T, T, T>
 {
     __host__ __device__
     T operator()(T x, T y)
     {
-        return thrust::maximum<T>()(x, y);
+        return amgx::thrust::maximum<T>()(x, y);
     }
 };
 
@@ -177,12 +178,13 @@ void thrust_axpy(ForwardIterator1 first1,
                  ScalarType alpha)
 {
     size_t N = last1 - first1;
-    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(first1, first2)),
-                     thrust::make_zip_iterator(thrust::make_tuple(first1, first2)) + N,
+    amgx::thrust::for_each(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2)),
+                     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2)) + N,
                      AXPY<ScalarType>(alpha));
 }
 
-template <typename InputIterator1,
+template <int MemSpace,
+          typename InputIterator1,
           typename InputIterator2,
           typename OutputIterator,
           typename ScalarType1,
@@ -195,8 +197,8 @@ void thrust_axpby(InputIterator1 first1,
                   ScalarType2 beta)
 {
     size_t N = last1 - first1;
-    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(first1, first2, output)),
-                     thrust::make_zip_iterator(thrust::make_tuple(first1, first2, output)) + N,
+    thrust_wrapper::for_each<MemSpace>(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, output)),
+                     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, output)) + N,
                      AXPBY<ScalarType1, ScalarType2>(alpha, beta));
 }
 
@@ -217,66 +219,66 @@ void thrust_axpbypcz(InputIterator1 first1,
                      ScalarType3 gamma)
 {
     size_t N = last1 - first1;
-    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(first1, first2, first3, output)),
-                     thrust::make_zip_iterator(thrust::make_tuple(first1, first2, first3, output)) + N,
+    amgx::thrust::for_each(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, first3, output)),
+                     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(first1, first2, first3, output)) + N,
                      AXPBYPCZ<ScalarType1, ScalarType2, ScalarType3>(alpha, beta, gamma));
 }
 
 template <typename InputIterator1,
           typename InputIterator2>
-typename thrust::iterator_value<InputIterator1>::type
+typename amgx::thrust::iterator_value<InputIterator1>::type
 thrust_dotc(InputIterator1 first1,
             InputIterator1 last1,
             InputIterator2 first2)
 {
-    typedef typename thrust::iterator_value<InputIterator1>::type OutputType;
-    return thrust::inner_product(thrust::make_transform_iterator(first1, conjugate<OutputType>()),
-                                 thrust::make_transform_iterator(last1,  conjugate<OutputType>()),
+    typedef typename amgx::thrust::iterator_value<InputIterator1>::type OutputType;
+    return amgx::thrust::inner_product(amgx::thrust::make_transform_iterator(first1, conjugate<OutputType>()),
+                                 amgx::thrust::make_transform_iterator(last1,  conjugate<OutputType>()),
                                  first2,
                                  types::util<OutputType>::get_zero());
 }
 
-template <typename InputIterator>
-typename types::PODTypes<typename thrust::iterator_value<InputIterator>::type>::type
+template <int MemSpace, typename InputIterator>
+typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
 thrust_nrm1(InputIterator first,
             InputIterator last)
 {
-    typedef typename thrust::iterator_value<InputIterator>::type ValueType;
-    typedef typename types::PODTypes<typename thrust::iterator_value<InputIterator>::type>::type OutType;
+    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type OutType;
     absolute<ValueType> unary_op;
-    thrust::plus<OutType> binary_op;
+    amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce<MemSpace>(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return result;
 }
 
-template <typename InputIterator>
-typename types::PODTypes<typename thrust::iterator_value<InputIterator>::type>::type
+template <int MemSpace, typename InputIterator>
+typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
 thrust_nrm2(InputIterator first,
             InputIterator last)
 {
-    typedef typename thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
     typedef typename types::PODTypes<ValueType>::type OutType;
     norm_squared<ValueType> unary_op;
-    thrust::plus<OutType> binary_op;
+    amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce<MemSpace>(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return std::sqrt( result );
 }
 
-template <typename InputIterator>
-typename types::PODTypes<typename thrust::iterator_value<InputIterator>::type>::type
+template <int MemSpace, typename InputIterator>
+typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
 thrust_nrmmax(InputIterator first,
               InputIterator last)
 {
-    typedef typename thrust::iterator_value<InputIterator>::type ValueType;
-    typedef typename types::PODTypes<typename thrust::iterator_value<InputIterator>::type>::type OutType;
+    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type OutType;
     absolute<ValueType>  unary_op;
     maximum<OutType>   binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
-    OutType result = thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    OutType result = thrust_wrapper::transform_reduce<MemSpace>(first, last, unary_op, init, binary_op);
     cudaCheckError();
     return result;
 }
@@ -287,7 +289,7 @@ void thrust_scal(ForwardIterator first,
                  ForwardIterator last,
                  ScalarType alpha)
 {
-    thrust::for_each(first,
+    amgx::thrust::for_each(first,
                      last,
                      SCAL<ScalarType>(alpha));
     cudaCheckError();
@@ -333,7 +335,7 @@ void axpby(const Vector &x, const Vector &y, Vector &out, Scalar a, Scalar b, in
     if (out.get_block_dimx() == -1) { FatalError("out block dims not set", AMGX_ERR_NOT_IMPLEMENTED); }
 
 #endif
-    thrust_axpby(x.begin() + offset * x.get_block_size(),
+    thrust_axpby<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                  x.begin() + (offset + size) * x.get_block_size(),
                  y.begin() + offset * x.get_block_size(),
                  out.begin() + offset * x.get_block_size(),
@@ -636,7 +638,8 @@ void axmb(Matrix &A, Vector &x, Vector &b, Vector &r, int offset, int size)
 #endif
     typedef typename Matrix::value_type ValueType;
     A.apply(x, r);
-    thrust_axpby(r.begin() + offset * x.get_block_size(),
+    thrust_axpby<Vector::TConfig::memSpace>(
+                 r.begin() + offset * x.get_block_size(),
                  r.begin() + (offset + size) * x.get_block_size(),
                  b.begin() + offset * x.get_block_size(),
                  r.begin() + offset * x.get_block_size(),
@@ -767,7 +770,7 @@ void copy(const Vector &a, Vector &b, int offset, int size)
 
     if (TConfig::memSpace == AMGX_host)
     {
-        thrust::copy(a.begin() + a_first, a.begin() + a_last, b.begin() + b_first);
+        amgx::thrust::copy(a.begin() + a_first, a.begin() + a_last, b.begin() + b_first);
     }
     else
     {
@@ -801,7 +804,7 @@ void copy_ext(Vector &a, Vector &b, int offseta,  int offsetb, int size)
 
     if (TConfig::memSpace == AMGX_host)
     {
-        thrust::copy(a.begin() + a_first, a.begin() + a_last, b.begin() + b_first);
+        amgx::thrust::copy(a.begin() + a_first, a.begin() + a_last, b.begin() + b_first);
     }
     else
     {
@@ -826,7 +829,7 @@ void fill(Vector &x, typename Vector::value_type val, int offset, int size)
     if (x.get_block_dimx() == -1) { FatalError("x block dims not set", AMGX_ERR_NOT_IMPLEMENTED); }
 
 #endif
-    thrust::fill(x.begin() + offset * x.get_block_size(),
+    thrust_wrapper::fill<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                  x.begin() + (offset + size) * x.get_block_size(), val);
     x.dirtybit = 1;
     cudaCheckError();
@@ -844,7 +847,7 @@ nrm1(const Vector &x, int offset, int size)
 
 #endif
     typename types::PODTypes<typename Vector::value_type>::type out =
-        thrust_nrm1(x.begin() + offset * x.get_block_size(),
+        thrust_nrm1<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                     x.begin() + (offset + size) * x.get_block_size());
     cudaCheckError();
     return out;
@@ -890,7 +893,7 @@ nrm2(const Vector &x, int offset, int size)
     int x_first = offset * x.get_block_size();
     int x_last = (offset + size) * x.get_block_size();
     // We are not using CUBLAS for nrm2 since the implementation is slower.
-    return thrust_nrm2(x.begin() + x_first,
+    return thrust_nrm2<Vector::TConfig::memSpace>(x.begin() + x_first,
                        x.begin() + x_last);
 }
 
@@ -931,7 +934,7 @@ nrmmax(const Vector &x, int offset, int size)
 
 #endif
     typename types::PODTypes<typename Vector::value_type>::type out =
-        thrust_nrmmax(x.begin() + offset * x.get_block_size(),
+        thrust_nrmmax<Vector::TConfig::memSpace>(x.begin() + offset * x.get_block_size(),
                       x.begin() + (offset + size) * x.get_block_size());
     cudaCheckError();
     return out;

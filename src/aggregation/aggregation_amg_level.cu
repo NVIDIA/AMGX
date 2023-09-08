@@ -58,6 +58,7 @@
 #include <thrust/unique.h>
 #include <thrust/inner_product.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -306,7 +307,7 @@ void Aggregation_AMG_Level_Base<T_Config>::computeRestrictionOperator_common()
 #endif
     {
         m_R_column_indices.resize(this->A->get_num_rows());
-        amgx::thrust::sequence(m_R_column_indices.begin(), m_R_column_indices.end());
+        thrust_wrapper::sequence<TConfig::memSpace>(m_R_column_indices.begin(), m_R_column_indices.end());
         cudaCheckError();
         amgx::thrust::sort_by_key(R_row_indices.begin(), R_row_indices.end(), m_R_column_indices.begin());
         cudaCheckError();
@@ -451,8 +452,8 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_ind
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::restrictResidual_1x1(const VVector &r, VVector &rr)
 {
-    int block_size = 64;
-    int max_threads;;
+    int block_size = 128;
+    int max_threads;
 
     if (!this->isConsolidationLevel())
     {
@@ -463,7 +464,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         max_threads = this->m_num_all_aggregates;
     }
 
-    int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (max_threads - 1) / block_size + 1);
+    int num_blocks = max_threads / block_size + 1;
     const IndexType *R_row_offsets_ptr = this->m_R_row_offsets.raw();
     const IndexType *R_column_indices_ptr = this->m_R_column_indices.raw();
     const ValueTypeB *r_ptr = r.raw();
@@ -476,7 +477,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::restrictResidual_4x4(const VVector &r, VVector &rr)
 {
-    int block_size = 64;
+    int block_size = 128;
     int max_threads;
 
     if (!this->isConsolidationLevel())
@@ -488,8 +489,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         max_threads = this->m_num_all_aggregates;
     };
 
-    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (max_threads + block_size - 1) / block_size);
-
+    const int num_blocks = max_threads / block_size + 1;
     const IndexType *R_row_offsets_ptr = this->m_R_row_offsets.raw();
 
     const IndexType *R_column_indices_ptr = this->m_R_column_indices.raw();
@@ -694,8 +694,8 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::prolongateAndApplyCorrection_1x1(Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &e, Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &bc, Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &x, Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > &tmp)
 {
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
-    const int block_size = 64;
-    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) ( (this->A->get_num_rows() + block_size - 1) / block_size ) );
+    const int block_size = 128;
+    const int num_blocks = this->A->get_num_rows() / block_size + 1;
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = x.raw();
     const ValueTypeB *e_ptr = e.raw();
@@ -723,8 +723,8 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
             const IndexType *aggregates_ptr = this->m_aggregates.raw();
             ValueTypeB *x_ptr = xf.raw();
             const ValueTypeB *e_ptr = ec.raw();
-            const int block_size = 64;
-            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
+            const int block_size = 128;
+            const int num_blocks = (this->A->get_num_rows() - 1) / block_size + 1;
             prolongateAndApplyCorrectionBlockDiaCsrKernel <<< num_blocks, block_size>>>(this->scale, (int)this->getA().get_num_rows(), x_ptr, e_ptr, aggregates_ptr, this->m_num_aggregates, this->getA().get_block_dimy());
             cudaCheckError();
             this->scale_counter--;
@@ -770,7 +770,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 
         if ( vanek_scaling )
         {
-            amgx::thrust::fill( Aef.begin(), Aef.end(), types::util<ValueTypeB>::get_zero() );
+            thrust_wrapper::fill<TConfig::memSpace>( Aef.begin(), Aef.end(), types::util<ValueTypeB>::get_zero() );
             cudaCheckError();
             this->smoother->solve( Aef, ef, false ); //smooth correction with rhs 0
             this->smoother->solve( bf, xf, false ); // smooth x with rhs residual
@@ -840,8 +840,8 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     }
 
     ValueTypeB alpha = types::util<ValueTypeB>::get_one();
-    const int block_size = 64;
-    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) ((this->A->get_num_rows() - 1) / block_size + 1));
+    const int block_size = 128;
+    const int num_blocks = this->A->get_num_rows() / block_size + 1;
     const IndexType *aggregates_ptr = this->m_aggregates.raw();
     ValueTypeB *x_ptr = xf.raw();
     const ValueTypeB *e_ptr = ec.raw();
@@ -1286,13 +1286,13 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
 
             //calculate row length and row_offsets
             halo_rows[i].row_offsets.resize(num_unique + 1);
-            amgx::thrust::transform(amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin() + 1, Ac.manager->B2L_maps[i].begin()),
+            thrust_wrapper::transform<TConfig::memSpace>(amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin() + 1, Ac.manager->B2L_maps[i].begin()),
                               amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin() + 1, Ac.manager->B2L_maps[i].end()),
                               amgx::thrust::make_permutation_iterator(Ac.row_offsets.begin(), Ac.manager->B2L_maps[i].begin()),
                               halo_rows[i].row_offsets.begin(),
                               amgx::thrust::minus<IndexType>());
             cudaCheckError();
-            amgx::thrust::exclusive_scan(halo_rows[i].row_offsets.begin(), halo_rows[i].row_offsets.end(), halo_rows[i].row_offsets.begin());
+            thrust_wrapper::exclusive_scan<TConfig::memSpace>(halo_rows[i].row_offsets.begin(), halo_rows[i].row_offsets.end(), halo_rows[i].row_offsets.begin());
             cudaCheckError();
             //resize halo matrix
             IndexType num_nz = halo_rows[i].row_offsets[num_unique];
@@ -1321,7 +1321,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
         // Step 1 - calculate inverse renumbering (to global indices - base_index)
         //
         Ac.manager->inverse_renumbering.resize(c_size);
-        amgx::thrust::transform(renumbering.begin(),
+        thrust_wrapper::transform<TConfig::memSpace>(renumbering.begin(),
                           renumbering.begin() + c_size,
                           amgx::thrust::constant_iterator<IndexType>(A.manager->base_index()),
                           Ac.manager->inverse_renumbering.begin(),
@@ -1329,7 +1329,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
         cudaCheckError();
         //big renumbering table for going from global index to owned local index
         IVector global_to_coarse_local(Ac.manager->index_range());
-        amgx::thrust::fill(global_to_coarse_local.begin(), global_to_coarse_local.begin() + Ac.manager->index_range(), -1);
+        thrust_wrapper::fill<TConfig::memSpace>(global_to_coarse_local.begin(), global_to_coarse_local.begin() + Ac.manager->index_range(), -1);
         cudaCheckError();
         calc_gbl_renumbering <<< num_blocks, 512>>>(Ac.manager->inverse_renumbering.raw(), global_to_coarse_local.raw(), c_size);
         cudaCheckError();
@@ -1347,11 +1347,11 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
             max_num_rows = max_num_rows > halo_rows[i].get_num_rows() ? max_num_rows : halo_rows[i].get_num_rows();
         }
 
-        amgx::thrust::exclusive_scan(neighbor_rows.begin(), neighbor_rows.end(), neighbor_rows.begin());
+        thrust_wrapper::exclusive_scan<TConfig::memSpace>(neighbor_rows.begin(), neighbor_rows.end(), neighbor_rows.begin());
         cudaCheckError();
         int total_rows_of_neighbors = neighbor_rows[num_neighbors];
         IVector halo_mapping(total_rows_of_neighbors);
-        amgx::thrust::fill(halo_mapping.begin(), halo_mapping.end(), -1);
+        thrust_wrapper::fill<TConfig::memSpace>(halo_mapping.begin(), halo_mapping.end(), -1);
         cudaCheckError();
 
         for (int ring = 0; ring < rings; ring++)
@@ -1414,7 +1414,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
 
         cudaCheckError();
         INDEX_TYPE old_nnz = Ac.row_offsets[Ac.row_offsets.size() - 1];
-        amgx::thrust::exclusive_scan(Ac.row_offsets.begin() + c_size, Ac.row_offsets.end(), Ac.row_offsets.begin() + c_size, owned_nnz);
+        thrust_wrapper::exclusive_scan<TConfig::memSpace>(Ac.row_offsets.begin() + c_size, Ac.row_offsets.end(), Ac.row_offsets.begin() + c_size, owned_nnz);
         cudaCheckError();
         //
         // Step 4 - consolidate column indices and values
@@ -1650,8 +1650,8 @@ void Aggregation_AMG_Level_Base<T_Config>::createCoarseB2LMaps(std::vector<IVect
     for (int i = 0; i < num_neighbors; i++ )
     {
         int size = A.manager->B2L_rings[i][1];
-        amgx::thrust::fill(B2L_aggregates.begin(), B2L_aggregates.begin() + size, 0);
-        amgx::thrust::sequence(indices.begin(), indices.begin() + size);
+        thrust_wrapper::fill<TConfig::memSpace>(B2L_aggregates.begin(), B2L_aggregates.begin() + size, 0);
+        thrust_wrapper::sequence<TConfig::memSpace>(indices.begin(), indices.begin() + size);
         //substitute coarse aggregate indices for fine boundary nodes
         amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin()),
                      amgx::thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin() + size),
@@ -1756,12 +1756,12 @@ void Aggregation_AMG_Level_Base<T_Config>::setNeighborAggregates()
 
     for (int i = 0; i < A.manager->neighbors.size(); i++)
     {
-        amgx::thrust::fill(B2L_aggregates.begin(), B2L_aggregates.begin() + vec_size, 0);
+        thrust_wrapper::fill<TConfig::memSpace>(B2L_aggregates.begin(), B2L_aggregates.begin() + vec_size, 0);
         int size = A.manager->B2L_rings[i][1];
         int block_size = 128;
         int grid_size = std::min( 4096, ( size + block_size - 1 ) / block_size);
         flag_coarse_boundary <<< grid_size, block_size>>>(B2L_aggregates.raw(), A.manager->B2L_maps[i].raw(), this->m_aggregates.raw(), size);
-        amgx::thrust::exclusive_scan(B2L_aggregates.begin(), B2L_aggregates.begin() + vec_size, B2L_aggregates.begin());
+        thrust_wrapper::exclusive_scan<TConfig::memSpace>(B2L_aggregates.begin(), B2L_aggregates.begin() + vec_size, B2L_aggregates.begin());
         (Ac.manager->B2L_maps)[i].resize(B2L_aggregates[vec_size - 1]);
         populate_coarse_boundary <<< grid_size, block_size>>>(B2L_aggregates.raw(), A.manager->B2L_maps[i].raw(), this->m_aggregates.raw(), Ac.manager->B2L_maps[i].raw(), size);
     }
@@ -1828,7 +1828,7 @@ void Aggregation_AMG_Level_Base<T_Config>::setNeighborAggregates()
         amgx::thrust::copy(amgx::thrust::make_permutation_iterator(A.manager->inverse_renumbering.begin(), this->m_aggregates_fine_idx.begin()),
                      amgx::thrust::make_permutation_iterator(A.manager->inverse_renumbering.begin(), this->m_aggregates_fine_idx.begin() + f_size),
                      this->m_aggregates_fine_idx.begin());
-        amgx::thrust::transform(this->m_aggregates_fine_idx.begin(),
+        thrust_wrapper::transform<TConfig::memSpace>(this->m_aggregates_fine_idx.begin(),
                           this->m_aggregates_fine_idx.begin() + f_size,
                           amgx::thrust::constant_iterator<IndexType>(A.manager->base_index()),
                           this->m_aggregates_fine_idx.begin(),
@@ -1867,11 +1867,11 @@ void Aggregation_AMG_Level_Base<T_Config>::setNeighborAggregates()
         int size = A.manager->halo_offsets[i + 1] - A.manager->halo_offsets[i];
         //Could also use local minimums to perform the same operation. The results are the same.
         //int min_local = amgx::thrust::reduce(exchanged_aggregates.begin()+A.manager->halo_offsets[i], exchanged_aggregates.begin()+A.manager->halo_offsets[i+1], (int)0xFFFFFFF, amgx::thrust::minimum<int>());
-        amgx::thrust::fill(scratch.begin(), scratch.begin() + s_size, 0);
+        thrust_wrapper::fill<TConfig::memSpace>(scratch.begin(), scratch.begin() + s_size, 0);
         int block_size = 128;
         int grid_size = std::min( 4096, ( size + block_size - 1 ) / block_size);
         flag_halo_indices <<< grid_size, block_size>>>(scratch.raw(), exchanged_aggregates.raw() + A.manager->halo_offsets[i], min_index /*min_local*/, size);
-        amgx::thrust::exclusive_scan(scratch.begin(), scratch.begin() + s_size, scratch.begin());
+        thrust_wrapper::exclusive_scan<TConfig::memSpace>(scratch.begin(), scratch.begin() + s_size, scratch.begin());
         apply_halo_aggregate_indices <<< grid_size, block_size>>>(scratch.raw(), exchanged_aggregates.raw() + A.manager->halo_offsets[i], this->m_aggregates.raw() + A.manager->halo_offsets[i], min_index /*min_local*/, m_num_all_aggregates, size);
         Ac.manager->halo_offsets[i] = m_num_all_aggregates;
         m_num_all_aggregates += scratch[s_size - 1];
@@ -2070,7 +2070,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidationBookKeeping()
 
     // Create mapping from coarse partition indices (ranks on the coarse consolidated level) to partition indices on the fine level (ranks on the fine level)
     IVector_h coarse_part_to_fine_part = destination_part;
-    thrust::sort(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end());
+    amgx::thrust::sort(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end());
     cudaCheckError();
     coarse_part_to_fine_part.erase(thrust::unique(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end()), coarse_part_to_fine_part.end());
     cudaCheckError();
@@ -2078,7 +2078,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidationBookKeeping()
     int num_coarse_partitions = coarse_part_to_fine_part.size();
     // Create mapping from fine partition indices to coarse partition indices, with fine partitions that are merging together having the same coarse indices
     IVector_h fine_part_to_coarse_part(num_parts);
-    thrust::lower_bound(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end(), destination_part.begin(), destination_part.end(), fine_part_to_coarse_part.begin());
+    amgx::thrust::lower_bound(coarse_part_to_fine_part.begin(), coarse_part_to_fine_part.end(), destination_part.begin(), destination_part.end(), fine_part_to_coarse_part.begin());
     cudaCheckError();
     // Create mapping from this specific partition's neighbors to consolidated coarse neighbors, but using their fine index (aka. destination partition indices for my neighbors)
     IVector_h fine_neigh_to_fine_part;
@@ -2141,19 +2141,19 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidationBookKeeping()
     for (int i = 0; i < num_neighbors_temp; i++ )
     {
         int size = A.manager->B2L_rings[i][1];
-        thrust::fill(B2L_aggregates.begin(), B2L_aggregates.begin() + size, 0);
-        thrust::sequence(indices.begin(), indices.begin() + size);
+        thrust_wrapper::fill<TConfig::memSpace>(B2L_aggregates.begin(), B2L_aggregates.begin() + size, 0);
+        thrust_wrapper::sequence<TConfig::memSpace>(indices.begin(), indices.begin() + size);
         //substitute coarse aggregate indices for fine boundary nodes
-        thrust::copy(thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin()),
-                        thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin() + size),
+        amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin()),
+                        amgx::thrust::make_permutation_iterator(this->m_aggregates.begin(), A.manager->B2L_maps[i].begin() + size),
                         B2L_aggregates.begin());
         //find the unique ones
-        thrust::sort_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin());
-        IndexType num_unique = thrust::unique_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin()).first - B2L_aggregates.begin();
+        amgx::thrust::sort_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin());
+        IndexType num_unique = amgx::thrust::unique_by_key(B2L_aggregates.begin(), B2L_aggregates.begin() + size, indices.begin()).first - B2L_aggregates.begin();
         coarse_B2L_maps[i].resize(num_unique);
         //sort it back so we have the original ordering
-        thrust::sort_by_key(indices.begin(), indices.begin() + num_unique, B2L_aggregates.begin());
-        thrust::copy(B2L_aggregates.begin(), B2L_aggregates.begin() + num_unique, coarse_B2L_maps[i].begin());
+        amgx::thrust::sort_by_key(indices.begin(), indices.begin() + num_unique, B2L_aggregates.begin());
+        amgx::thrust::copy(B2L_aggregates.begin(), B2L_aggregates.begin() + num_unique, coarse_B2L_maps[i].begin());
     }
 
     cudaCheckError();
@@ -2293,11 +2293,11 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidationBookKeeping()
 
     for (int i = 0; i < num_coarse_neighbors; i++)
     {
-        thrust::transform(dest_coarse_B2L_maps[i].begin(),
+        thrust_wrapper::transform<TConfig::memSpace>(dest_coarse_B2L_maps[i].begin(),
                             dest_coarse_B2L_maps[i].end(),
-                            thrust::constant_iterator<IndexType>(boundary_offset),
+                            amgx::thrust::constant_iterator<IndexType>(boundary_offset),
                             dest_coarse_B2L_maps[i].begin(),
-                            thrust::plus<IndexType>());
+                            amgx::thrust::plus<IndexType>());
     }
 
     cudaCheckError();
@@ -2367,7 +2367,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidationBookKeeping()
     {
         for (int i = 0; i < consolidated_B2L_maps.size(); i++)
         {
-            thrust::sort(consolidated_B2L_maps[i].begin(), consolidated_B2L_maps[i].end());
+            amgx::thrust::sort(consolidated_B2L_maps[i].begin(), consolidated_B2L_maps[i].end());
         }
 
         this->m_consolidated_neighbors.resize(num_consolidated_neighbors);
@@ -2421,7 +2421,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
         //if diags are inside then we won't be counting those twice when computing halo row length
         if (!Ac.hasProps(DIAG))
         {
-            thrust::fill(new_row_offsets.begin() + halo_offsets[0], new_row_offsets.begin() + halo_offsets[num_consolidated_neighbors], 1);
+            thrust_wrapper::fill<TConfig::memSpace>(new_row_offsets.begin() + halo_offsets[0], new_row_offsets.begin() + halo_offsets[num_consolidated_neighbors], 1);
             cudaCheckError();
         }
 
@@ -2459,18 +2459,18 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
             }
 
             //Get interior row length
-            thrust::transform(work_row_offsets->begin() + interior_offset + 1,
+            thrust_wrapper::transform<TConfig::memSpace>(work_row_offsets->begin() + interior_offset + 1,
                                 work_row_offsets->begin() + interior_offset + vertex_counts[i][0] + 1,
                                 work_row_offsets->begin() + interior_offset,
                                 new_row_offsets.begin() + interior_offset,
-                                thrust::minus<IndexType>());
+                                amgx::thrust::minus<IndexType>());
             cudaCheckError();
             //Get boundary row length
-            thrust::transform(work_row_offsets->begin() + boundary_offset + 1,
+            thrust_wrapper::transform<TConfig::memSpace>(work_row_offsets->begin() + boundary_offset + 1,
                                 work_row_offsets->begin() + boundary_offset + vertex_counts[i][1] + 1,
                                 work_row_offsets->begin() + boundary_offset,
                                 new_row_offsets.begin() + boundary_offset,
-                                thrust::minus<IndexType>());
+                                amgx::thrust::minus<IndexType>());
             cudaCheckError();
             //Increment halo row length by one for every nonzero that is an edge from the halo into this partition
             int size = halo_offsets[num_consolidated_neighbors] - halo_offsets[0];
@@ -2488,7 +2488,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
 
         A.manager->setConsolidationArrayOffsets(index_offset_array);
         //Exclusive scan row length array to get row offsets
-        thrust::exclusive_scan(new_row_offsets.begin(), new_row_offsets.end(), new_row_offsets.begin());
+        thrust_wrapper::exclusive_scan<TConfig::memSpace>(new_row_offsets.begin(), new_row_offsets.end(), new_row_offsets.begin());
         cudaCheckError();
         //Prepare to receive column indices and values
         int num_nz_consolidated = new_row_offsets[new_row_offsets.size() - 1];
@@ -2496,10 +2496,10 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
         IVector new_col_indices(num_nz_consolidated);
         MVector recv_values((max_num_nz + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
         MVector new_values((num_nz_consolidated + 1 + Ac.hasProps(DIAG) * (halo_offsets[num_consolidated_neighbors] - 1))*Ac.get_block_size());
-        thrust::fill(new_col_indices.begin() + new_row_offsets[halo_offsets[0]], new_col_indices.end(), -1); //Set all the halo col indices to -1
+        thrust_wrapper::fill<TConfig::memSpace>(new_col_indices.begin() + new_row_offsets[halo_offsets[0]], new_col_indices.end(), -1); //Set all the halo col indices to -1
 
 
-        if (!Ac.hasProps(DIAG)) { thrust::fill(new_values.begin() + num_nz_consolidated * Ac.get_block_size(), new_values.end(), types::util<ValueTypeA>::get_zero()); }
+        if (!Ac.hasProps(DIAG)) { thrust_wrapper::fill<TConfig::memSpace>(new_values.begin() + num_nz_consolidated * Ac.get_block_size(), new_values.end(), types::util<ValueTypeA>::get_zero()); }
 
         cudaCheckError();
         IVector *work_col_indices;
@@ -2533,20 +2533,20 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
             }
 
             //Put interior rows in place
-            thrust::copy(work_col_indices->begin() + (*work_row_offsets)[interior_offset],
+            amgx::thrust::copy(work_col_indices->begin() + (*work_row_offsets)[interior_offset],
                             work_col_indices->begin() + (*work_row_offsets)[interior_offset + vertex_counts[i][0]],
                             new_col_indices.begin() + new_row_offsets[interior_offset]);
             cudaCheckError();
-            thrust::copy(work_values->begin() + (*work_row_offsets)[interior_offset]*Ac.get_block_size(),
+            amgx::thrust::copy(work_values->begin() + (*work_row_offsets)[interior_offset]*Ac.get_block_size(),
                             work_values->begin() + ((*work_row_offsets)[interior_offset + vertex_counts[i][0]])*Ac.get_block_size(),
                             new_values.begin() + new_row_offsets[interior_offset]*Ac.get_block_size());
             cudaCheckError();
             //Put boundary rows in place
-            thrust::copy(work_col_indices->begin() + (*work_row_offsets)[boundary_offset],
+            amgx::thrust::copy(work_col_indices->begin() + (*work_row_offsets)[boundary_offset],
                             work_col_indices->begin() + (*work_row_offsets)[boundary_offset + vertex_counts[i][1]],
                             new_col_indices.begin() + new_row_offsets[boundary_offset]);
             cudaCheckError();
-            thrust::copy(work_values->begin() + (*work_row_offsets)[boundary_offset]*Ac.get_block_size(),
+            amgx::thrust::copy(work_values->begin() + (*work_row_offsets)[boundary_offset]*Ac.get_block_size(),
                             work_values->begin() + ((*work_row_offsets)[boundary_offset + vertex_counts[i][1]])*Ac.get_block_size(),
                             new_values.begin() + new_row_offsets[boundary_offset]*Ac.get_block_size());
             cudaCheckError();
@@ -2568,11 +2568,11 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
             if (Ac.hasProps(DIAG))
             {
                 // Diagonal corresponding to interior rows
-                thrust::copy(work_values->begin() + (num_nz[i] + interior_offset)*Ac.get_block_size(),
+                amgx::thrust::copy(work_values->begin() + (num_nz[i] + interior_offset)*Ac.get_block_size(),
                                 work_values->begin() + (num_nz[i] + interior_offset + vertex_counts[i][0])*Ac.get_block_size(),
                                 new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + interior_offset)*Ac.get_block_size());
                 // Diagonal corresponding to boundary rows
-                thrust::copy(work_values->begin() + (num_nz[i] + boundary_offset)*Ac.get_block_size(),
+                amgx::thrust::copy(work_values->begin() + (num_nz[i] + boundary_offset)*Ac.get_block_size(),
                                 work_values->begin() + (num_nz[i] + boundary_offset + vertex_counts[i][1])*Ac.get_block_size(),
                                 new_values.begin() + (new_row_offsets[halo_offsets[halo_offsets.size() - 1]] + boundary_offset)*Ac.get_block_size());
                 cudaCheckError();

@@ -128,9 +128,9 @@ struct is_strong_connection
     __host__ __device__
   bool operator()(const Tuple& t) const
   {
-    ValueType Aij = thrust::get<0>(t);
-    ValueType Aii = thrust::get<1>(t);
-    ValueType Ajj = thrust::get<2>(t);
+    ValueType Aij = amgx::thrust::get<0>(t);
+    ValueType Aii = amgx::thrust::get<1>(t);
+    ValueType Ajj = amgx::thrust::get<2>(t);
 
     // square everything to eliminate the sqrt()
     return (Aij * Aij) >= (theta * theta) * absolute_value(Aii * Ajj);
@@ -151,15 +151,15 @@ void symmetric_strength_of_connection(const Matrix1& A, Matrix2& S, const double
   is_strong_connection<ValueType> pred(theta);
 
   // compute number of entries in output
-  IndexType num_entries = thrust::count_if
-    (thrust::make_zip_iterator(thrust::make_tuple
+  IndexType num_entries = amgx::thrust::count_if
+    (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple
        (A.values.begin(),
-        thrust::make_permutation_iterator(diagonal.begin(), A.row_indices.begin()),
-        thrust::make_permutation_iterator(diagonal.begin(), A.column_indices.begin()))),
-     thrust::make_zip_iterator(thrust::make_tuple
+        amgx::thrust::make_permutation_iterator(diagonal.begin(), A.row_indices.begin()),
+        amgx::thrust::make_permutation_iterator(diagonal.begin(), A.column_indices.begin()))),
+     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple
        (A.values.begin(),
-        thrust::make_permutation_iterator(diagonal.begin(), A.row_indices.begin()),
-        thrust::make_permutation_iterator(diagonal.begin(), A.column_indices.begin()))) + A.num_entries,
+        amgx::thrust::make_permutation_iterator(diagonal.begin(), A.row_indices.begin()),
+        amgx::thrust::make_permutation_iterator(diagonal.begin(), A.column_indices.begin()))) + A.num_entries,
      pred);
 
   // this is just zipping up (A[i,j],A[i,i],A[j,j]) and applying is_strong_connection to each tuple
@@ -168,13 +168,13 @@ void symmetric_strength_of_connection(const Matrix1& A, Matrix2& S, const double
   S.resize(A.num_rows, A.num_cols, num_entries);
 
   // copy strong connections to output
-  thrust::copy_if(thrust::make_zip_iterator(thrust::make_tuple(A.row_indices.begin(), A.column_indices.begin(), A.values.begin())),
-                  thrust::make_zip_iterator(thrust::make_tuple(A.row_indices.begin(), A.column_indices.begin(), A.values.begin())) + A.num_entries,
-                  thrust::make_zip_iterator(thrust::make_tuple
+  amgx::thrust::copy_if(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(A.row_indices.begin(), A.column_indices.begin(), A.values.begin())),
+                  amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(A.row_indices.begin(), A.column_indices.begin(), A.values.begin())) + A.num_entries,
+                  amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple
                     (A.values.begin(),
-                     thrust::make_permutation_iterator(diagonal.begin(), A.row_indices.begin()),
-                     thrust::make_permutation_iterator(diagonal.begin(), A.column_indices.begin()))),
-                  thrust::make_zip_iterator(thrust::make_tuple(S.row_indices.begin(), S.column_indices.begin(), S.values.begin())),
+                     amgx::thrust::make_permutation_iterator(diagonal.begin(), A.row_indices.begin()),
+                     amgx::thrust::make_permutation_iterator(diagonal.begin(), A.column_indices.begin()))),
+                  amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(S.row_indices.begin(), S.column_indices.begin(), S.values.begin())),
                   pred);
 }
 

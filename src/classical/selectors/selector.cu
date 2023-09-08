@@ -856,7 +856,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
     }
 
     // get the sequence of values
-    thrust_wrapper::inclusive_scan(mark.begin(), mark.end(), mark.begin());
+    thrust_wrapper::inclusive_scan<AMGX_device>(mark.begin(), mark.end(), mark.begin());
     cudaCheckError();
 
     // assign to cf_map
@@ -867,7 +867,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
     }
 
 
-    num_coarse_points = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_rows, is_non_neg());
+    num_coarse_points = (int) thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.begin() + num_rows, is_non_neg());
     cudaCheckError();
 }
 
@@ -984,7 +984,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     }
 
     // Compute row offsets.
-    thrust_wrapper::exclusive_scan(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
     cudaCheckError();
     //if ( (!A.is_matrix_singleGPU() && A.manager->global_id() == 0) || A.is_matrix_singleGPU())
     //  std::cerr << "pool::allocate; before c_hat resize" << std::endl;
@@ -1066,15 +1066,15 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
-        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         S2_num_rows = num_owned_coarse_pts;
         prep->initialize_manager(A, S2, num_owned_coarse_pts);
     }
     else
     {
-        S2_num_rows = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        S2_num_rows = (int) thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
     }
 
@@ -1088,10 +1088,10 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             nonZerosPerRow_ptr);
     cudaCheckError();
     // get total with a reduction
-    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[S2_num_rows] = nonZeros;
     // resize S2
@@ -1107,7 +1107,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     S2.set_block_dimy(A.get_block_dimy());
     cudaCheckError();
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), S2.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), S2.row_offsets.begin());
     cudaCheckError();
     {
         const int CTA_SIZE  = 256;

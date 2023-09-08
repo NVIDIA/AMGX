@@ -40,6 +40,7 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/logical.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/random.h>
@@ -110,8 +111,8 @@ struct prg
     float operator()(const unsigned int n) const
     {
 #if 1
-        thrust::default_random_engine rng;
-        thrust::uniform_real_distribution<float> dist(a, b);
+        amgx::thrust::default_random_engine rng;
+        amgx::thrust::uniform_real_distribution<float> dist(a, b);
         rng.discard(n);
         return dist(rng);
 #else
@@ -126,8 +127,8 @@ template <class Vector>
 void initRandom(Vector &vec, int size)
 {
     vec.resize(size);
-    thrust::counting_iterator<unsigned int> index_sequence_begin(0);
-    thrust::transform(index_sequence_begin,
+    amgx::thrust::counting_iterator<unsigned int> index_sequence_begin(0);
+    thrust_wrapper::transform<Vector::TConfig::memSpace>(index_sequence_begin,
                       index_sequence_begin + size,
                       vec.begin(),
                       prg(-1.f, 1.f));

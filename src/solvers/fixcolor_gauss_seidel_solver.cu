@@ -884,7 +884,7 @@ void FixcolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec,
 
     int num_colors = this->num_colors;
     VVector y(b.size());
-    thrust::copy(b.begin(), b.end(), y.begin());                                                                          // y= b             for all colors
+    amgx::thrust::copy(b.begin(), b.end(), y.begin());                                                                          // y= b             for all colors
     cudaCheckError();
 
     for (int color = 0; color < num_colors; color++)
@@ -960,7 +960,7 @@ FixcolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &
 
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), 0.);
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 0.);
         cudaCheckError();
     }
 

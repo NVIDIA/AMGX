@@ -703,7 +703,7 @@ struct generateMatrixRandomStruct<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec
         {
             int new_vals = (newA.get_num_nz() + 1) * bsize_sq;
             newA.values.resize(new_vals);
-            thrust::fill(newA.values.begin() + (newA.diagOffset()*newA.get_block_size()), newA.values.end(), 0.0);
+            thrust_wrapper::fill<AMGX_host>(newA.values.begin() + (newA.diagOffset()*newA.get_block_size()), newA.values.end(), 0.0);
         }
 
         newA.computeDiagonal();
@@ -793,7 +793,7 @@ struct fillRandom < Vector<TConfig> >
     typedef Vector< TemplateConfig<AMGX_host, TConfig::vecPrec, TConfig::matPrec, TConfig::indPrec> > Vector_h;
     static void fill(Vector<TConfig> &b)
     {
-        //thrust::generate(b.begin(), b.end(), rand);
+        //amgx::thrust::generate(b.begin(), b.end(), rand);
         Vector_h tV(b.size());
 
         for (unsigned int i = 0; i < tV.size(); i++)

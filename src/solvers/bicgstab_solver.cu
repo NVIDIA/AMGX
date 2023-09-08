@@ -102,12 +102,12 @@ BiCGStab_Solver<T_Config>::solve_init(  VVector &b, VVector &x, bool xIsZero )
     }
 
     // r_tilde = r. TODO: use a random vector as r_star.
-    thrust::copy(this->m_r->begin(), this->m_r->end(), m_r_tilde.begin()); //these guys should have the same size (OWNED)
+    amgx::thrust::copy(this->m_r->begin(), this->m_r->end(), m_r_tilde.begin()); //these guys should have the same size (OWNED)
     cudaCheckError();
     // Set rho to <r, r_tilde>.
     m_rho = dot(*this->m_A, m_r_tilde, *this->m_r);
     // p = r.
-    thrust::copy(this->m_r->begin(), this->m_r->end(), m_p.begin());
+    amgx::thrust::copy(this->m_r->begin(), this->m_r->end(), m_p.begin());
     cudaCheckError();
     m_p.dirtybit = 1;
 }

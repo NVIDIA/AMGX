@@ -262,7 +262,7 @@ void AddFromHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConf
     if (linear_buffers_changed)
     {
         b.linear_buffers_ptrs.resize(neighbors);
-        cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault, stream);
+        cudaMemcpyAsync(amgx::thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault, stream);
     }
 
     // If we are on a stream synchronise the copies
@@ -313,7 +313,7 @@ void AddFromHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
     if (linear_buffers_changed)
     {
         b.linear_buffers_ptrs.resize(neighbors);
-        cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
+        cudaMemcpyAsync(amgx::thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]),
                         & (b.linear_buffers[0]),
                         neighbors * sizeof(vtyp *),
                         cudaMemcpyDefault, stream);

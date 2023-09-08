@@ -138,7 +138,7 @@ void spmv_example(amgx::Resources& res)
 
     x.resize(nrows);
     y.resize(nrows);
-    thrust::fill(y.begin(), y.end(), 0.);
+    amgx::thrust::fill(y.begin(), y.end(), 0.);
 
     // vector values
     x_h.resize(nrows);

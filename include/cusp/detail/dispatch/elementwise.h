@@ -57,7 +57,7 @@ void add(const Matrix1& A,
          cusp::host_memory)
 {
     typedef typename Matrix3::value_type ValueType;
-    cusp::detail::host::transform_elementwise(A, B, C, thrust::plus<ValueType>());
+    cusp::detail::host::transform_elementwise(A, B, C, amgx::thrust::plus<ValueType>());
 }
 
 template <typename Matrix1,
@@ -71,7 +71,7 @@ void subtract(const Matrix1& A,
               cusp::host_memory)
 {
     typedef typename Matrix3::value_type ValueType;
-    cusp::detail::host::transform_elementwise(A, B, C, thrust::minus<ValueType>());
+    cusp::detail::host::transform_elementwise(A, B, C, amgx::thrust::minus<ValueType>());
 }
 
 //////////////////

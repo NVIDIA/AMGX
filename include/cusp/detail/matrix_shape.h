@@ -37,8 +37,8 @@ namespace cusp
 
             void swap(matrix_shape& shape)
             {
-                thrust::swap(num_rows, shape.num_rows);
-                thrust::swap(num_cols, shape.num_cols);
+                amgx::thrust::swap(num_rows, shape.num_rows);
+                amgx::thrust::swap(num_cols, shape.num_cols);
             }
     };
 

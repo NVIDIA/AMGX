@@ -783,7 +783,7 @@ class AMG_Setup
                 if (async_global::singleton()->using_async_coloring)
                 {
                     //cancel the CPU coloring task if the GPU is idle
-                    cudaStreamSynchronize(thrust::global_thread_handle::get_stream());
+                    cudaStreamSynchronize(amgx::thrust::global_thread_handle::get_stream());
                     enqueue_async(asyncmanager::singleton()->global_parallel_queue, async_global::singleton()->cancel_cpu_coloring_task);
                     //wait for every spawning task
                     asyncmanager::singleton()->waitall();
@@ -826,8 +826,8 @@ class AMG_Setup
             } //end of while(true)
 
 #if 0 //AMGX_ASYNCCPU_PROOF_OF_CONCEPT
-            cudaStreamSynchronize(thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
-            thrust::global_thread_handle::threadStream[getCurrentThreadId()] = 0;
+            cudaStreamSynchronize(amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
+            amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()] = 0;
 #endif
             return prev_level;
         }

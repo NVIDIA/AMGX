@@ -49,17 +49,17 @@ void Selector<T_Config>::renumberAndCountAggregates(IVector &aggregates, IVector
     {
         // we are in a distributed environment
         aggregates_global.resize(aggregates.size());
-        thrust::copy(aggregates.begin(), aggregates.begin() + num_block_rows, aggregates_global.begin());
+        amgx::thrust::copy(aggregates.begin(), aggregates.begin() + num_block_rows, aggregates_global.begin());
     }
 
     // set scratch[aggregates[i]] = 1
-    thrust::fill(thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
-                 thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows), 1);
+    thrust::fill(amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
+                 amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows), 1);
     // do prefix sum on scratch
-    thrust::exclusive_scan(scratch.begin(), scratch.end(), scratch.begin());
+    thrust_wrapper::exclusive_scan<T_Config::memSpace>(scratch.begin(), scratch.end(), scratch.begin());
     // aggregates[i] = scratch[aggregates[i]]
-    thrust::copy(thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
-                 thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows),
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
+                 amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows),
                  aggregates.begin());
     // update number of aggregates
     num_aggregates = scratch[scratch.size() - 1];
@@ -107,9 +107,9 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     P.values.resize( num_rows, types::util<typename MVector::value_type>::get_one());
     P.col_indices.resize( num_rows );
     //setup offset array.
-    thrust::sequence( P.row_offsets.begin(), P.row_offsets.end() );
+    thrust_wrapper::sequence<TConfig::memSpace>( P.row_offsets.begin(), P.row_offsets.end() );
     //swap in aggregates
-    thrust::copy( aggregates.begin(), aggregates.end(), P.col_indices.begin() );
+    amgx::thrust::copy( aggregates.begin(), aggregates.end(), P.col_indices.begin() );
     cudaCheckError();
     //inform P about its size
     P.resize( num_rows, num_aggregates, num_rows, 1, 1, false ); //declare scalar, otherwise transpose won't work
@@ -129,9 +129,9 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     cudaDeviceSynchronize();
     cudaCheckError();
     //copy to host and print
-    thrust::host_vector<int> size_array_host;
+    amgx::thrust::host_vector<int> size_array_host;
     size_array_host.resize(size_array.size() );
-    thrust::copy( size_array.begin(), size_array.end(), size_array_host.begin() );
+    amgx::thrust::copy( size_array.begin(), size_array.end(), size_array_host.begin() );
     std::cout << "number of nodes " << num_rows << std::endl;
     std::cout << "number of aggregates by size" << std::endl;
 

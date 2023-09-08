@@ -144,7 +144,7 @@ KPZPolynomialSolver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero 
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 KPZPolynomialSolver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if ( this->m_explicit_A->get_block_dimx() == 1 && this->m_explicit_A->get_block_dimy() == 1 )

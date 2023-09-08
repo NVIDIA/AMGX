@@ -85,7 +85,7 @@ class GaussSeidelSolver_Base : public Solver<T_Config>
         // Initialize the solver before running the iterations.
         void solve_init( VVector &b, VVector &x, bool xIsZero );
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        bool solve_iteration( VVector &b, VVector &x, bool xIsZero );
+        AMGX_STATUS solve_iteration( VVector &b, VVector &x, bool xIsZero );
         // Finalize the solver after running the iterations.
         void solve_finalize( VVector &b, VVector &x );
 };

@@ -919,7 +919,8 @@ solver_setup(bool reuse_matrix_structure)
 // For multi GPU cases, this is essentially block Jacobi. Since the block size
 // is the size of each partition, this is OK trade-off between accuracy and runtime.
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-bool DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::
+AMGX_STATUS
+DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::
 solve_iteration(Vector_d &rhs,
                 Vector_d &x,
                 bool xIsZero)
@@ -999,7 +1000,7 @@ solve_iteration(Vector_d &rhs,
     //Speculative send of x vector
     x.dirtybit = 1;
     A->setView(oldView);
-    return true; // direct solver always converges
+    return AMGX_ST_CONVERGED; // direct solver always converges
 }
 
 

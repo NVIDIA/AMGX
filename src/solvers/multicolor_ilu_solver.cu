@@ -1858,7 +1858,7 @@ MulticolorILUSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIs
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 MulticolorILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if ( !m_use_bsrxmv && (this->m_LU.get_block_dimx() == 4 && this->m_LU.get_block_dimy() == 4) )

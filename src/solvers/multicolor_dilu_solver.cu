@@ -3845,7 +3845,7 @@ MulticolorDILUSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xI
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if ( this->m_explicit_A->get_block_dimx() != this->m_explicit_A->get_block_dimy() )

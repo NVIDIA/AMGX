@@ -329,7 +329,9 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
                                };
     fwrite(header, sizeof(char), strlen(header), fout);
     fwrite(system_flags, sizeof(uint32_t), system_header_size, fout);
-    std::vector< UpValueType > tempv(A.values.size(), types::util< UpValueType >::get_zero());
+    std::vector< ValueTypeA > tempVA(A.values.size());
+    std::vector< UpValueType > tempv(A.values.size());
+    thrust::copy(A.values.begin(), A.values.end(), tempVA.begin());
 
     if (is_mtx)
     {
@@ -342,7 +344,7 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
 
             for (int k = 0; k < A.values.size(); k++)
             {
-                types::util<ValueTypeA>::to_uptype(A.values[k], tempv[k]);
+                types::util<ValueTypeA>::to_uptype(tempVA[k], tempv[k]);
             }
 
             fwrite(&tempv[0], sizeof(UpValueType), A.get_block_dimx() * A.get_block_dimy() * (A.get_num_nz() + (A.hasProps(DIAG) ? A.get_num_rows() : 0) ), fout); // including diag in the end if exists.
@@ -363,11 +365,14 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
             FatalError("rhs vector and matrix dimension does not match", AMGX_ERR_BAD_PARAMETERS);
         }
 
+        std::vector< ValueTypeB > tempvB(pb->size());
+        thrust::copy(&(*pb)[0], &(*pb)[pb->size()-1], tempvB.begin());
+
         tempv.resize(A.get_num_rows()*A.get_block_dimy());
 
         for (int k = 0; k < pb->size(); k++)
         {
-            types::util<ValueTypeB>::to_uptype((*pb)[k], tempv[k]);
+            types::util<ValueTypeB>::to_uptype(tempvB[k], tempv[k]);
         }
 
         fwrite(&tempv[0], sizeof(UpValueType), pb->size(), fout);
@@ -381,11 +386,14 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
             FatalError("solution vector and matrix dimension does not match", AMGX_ERR_BAD_PARAMETERS);
         }
 
+        std::vector< ValueTypeB > tempvB(px->size());
+        thrust::copy(&(*px)[0], &(*px)[px->size()-1], tempvB.begin());
+
         tempv.resize(A.get_num_rows()*A.get_block_dimy());
 
         for (int k = 0; k < px->size(); k++)
         {
-            types::util<ValueTypeB>::to_uptype((*px)[k], tempv[k]);
+            types::util<ValueTypeB>::to_uptype(tempvB[k], tempv[k]);
         }
 
         fwrite(&tempv[0], sizeof(UpValueType), px->size(), fout);

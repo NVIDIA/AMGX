@@ -464,6 +464,7 @@ struct MemoryManager
     MemoryManager()
         : m_main_pinned_pool(NULL)
         , m_main_device_pool(NULL)
+        , m_main_stream(0)
         , m_use_async_free(false)
         , m_use_device_pool(false)
         , m_alloc_scaling_factor(0)
@@ -847,7 +848,7 @@ cudaError_t cudaMalloc(void **ptr, size_t size)
 {
 #ifndef USE_LEGACY_MEMPOOL
 
-    cudaError_t e = ::cudaMallocAsync(ptr, size, 0);
+    cudaError_t e = ::cudaMallocAsync(ptr, size, getStream());
     if(e != cudaSuccess) { return e; }
 
     return cudaStreamSynchronize(0);
@@ -965,7 +966,7 @@ cudaError_t cudaFreeAsync(void *ptr)
 {
 #ifndef USE_LEGACY_MEMPOOL
 
-    return ::cudaFreeAsync(ptr, 0);
+    return ::cudaFreeAsync(ptr, getStream());
 
 #else
 

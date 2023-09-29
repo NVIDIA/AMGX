@@ -102,14 +102,14 @@ class UnittestSolver: public Solver<TConfig>
             is_finalized = false;
         }
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        virtual bool solve_iteration( VVector &b, VVector &x, bool xIsZero )
+        virtual AMGX_STATUS solve_iteration( VVector &b, VVector &x, bool xIsZero )
         {
             if ( !is_init )
             {
                 FatalError("UnittestSolver has not been initialized before calling solve_iteration", AMGX_ERR_UNKNOWN);
             }
 
-            return true;
+            return AMGX_ST_CONVERGED;
         }
         // Finalize the solver after running the iterations.
         virtual void solve_finalize( VVector &b, VVector &x )

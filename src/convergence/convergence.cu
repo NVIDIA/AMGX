@@ -48,7 +48,6 @@ template<class TConfig>
 AMGX_STATUS Convergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
 {
     FatalError("Convergence::converge_and_update_check not implemented for this type", AMGX_ERR_NOT_IMPLEMENTED);
-    return AMGX_ST_ERROR;
 }
 
 

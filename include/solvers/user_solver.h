@@ -66,7 +66,7 @@ class User_Solver : public Solver<T_Config>
         inline void setCallback( UserSolverCallback callback ) { this->callback = callback; }
 
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        bool solve_iteration( VVector &b, VVector &x, bool xIsZero );
+        AMGX_STATUS solve_iteration( VVector &b, VVector &x, bool xIsZero );
 
     private:
         // The callback.

@@ -271,7 +271,7 @@ void Solver<TConfig>::set_norm(const PODVector_h &nrm)
 
 // Method to check convergence
 template<class TConfig>
-bool Solver<TConfig>::converged(const VVector &b, VVector &x)
+AMGX_STATUS Solver<TConfig>::converged(const VVector &b, VVector &x)
 {
     AMGX_CPU_PROFILER( "Solver::converged_bx " );
 
@@ -280,7 +280,7 @@ bool Solver<TConfig>::converged(const VVector &b, VVector &x)
         this->compute_residual(b, x);
     }
 
-    bool converged = false;
+    AMGX_STATUS converged = AMGX_ST_NOT_CONVERGED;
 
     if (m_monitor_convergence)
     {
@@ -292,14 +292,14 @@ bool Solver<TConfig>::converged(const VVector &b, VVector &x)
 }
 
 template<class TConfig>
-bool Solver<TConfig>::converged() const
+AMGX_STATUS Solver<TConfig>::converged() const
 {
     AMGX_CPU_PROFILER( "Solver::converged " );
     return m_convergence->convergence_update_and_check(m_nrm, m_nrm_ini);
 }
 
 template<class TConfig>
-bool Solver<TConfig>::converged(PODVector_h &nrm) const
+AMGX_STATUS Solver<TConfig>::converged(PODVector_h &nrm) const
 {
     AMGX_CPU_PROFILER( "Solver::converged_nrm " );
     return m_convergence->convergence_update_and_check(nrm, m_nrm_ini);
@@ -786,7 +786,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
     }
 
     // Initialize the solver
-    bool done = m_monitor_convergence ? converged() : false;
+    bool done = m_monitor_convergence ? (converged() == AMGX_ST_CONVERGED) : false;
 
     if (m_max_iters == 0)
     {
@@ -798,17 +798,19 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         solve_init(b, x, xIsZero);
     }
 
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     // Run the iterations
     std::stringstream ss;
 
     for (m_curr_iter = 0; m_curr_iter < m_max_iters && !done; ++m_curr_iter)
     {
         // Run one iteration. Compute residual and its norm and decide convergence
-        bool has_converged = solve_iteration(b, x, xIsZero);
+        conv_stat = solve_iteration(b, x, xIsZero);
         // Make sure x is not zero anymore.
         xIsZero = false;
         // Is it done ?
-        done = m_monitor_convergence && has_converged;
+        done = m_monitor_convergence && isDone(conv_stat);
 
         // If we print stats... Let's do it.
         if (m_verbosity_level > 2 && getPrintSolveStats())
@@ -964,9 +966,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         print_timings();
     }
 
-    return
-        done || !m_monitor_convergence ?
-        AMGX_ST_CONVERGED : AMGX_ST_NOT_CONVERGED;
+    return conv_stat;
 }
 
 template<class TConfig>

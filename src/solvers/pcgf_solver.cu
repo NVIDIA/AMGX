@@ -125,10 +125,13 @@ PCGF_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 }
 
 template<class T_Config>
-bool
+AMGX_STATUS
 PCGF_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     AMGX_CPU_PROFILER( "PCGF_Solver::solve_iteration " );
+
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -148,17 +151,18 @@ PCGF_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     axpy( m_Ap, *this->m_r, -alpha, offset, size );
 
     // Do we converge ?
-    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+    if ( this->m_monitor_convergence &&
+         isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
     {
         A.setView(oldView);
-        return true;
+        return conv_stat;
     }
 
     // Early exit: last iteration, no need to prepare the next one.
     if ( this->is_last_iter() )
     {
         A.setView(oldView);
-        return !this->m_monitor_convergence;
+        return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
     }
 
     // d = r - d. The delta between old and new r.
@@ -186,7 +190,7 @@ PCGF_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     axpby( m_z, m_p, m_p, ValueTypeB( 1 ), beta, offset, size );
     // No convergence so far.
     A.setView(oldView);
-    return !this->m_monitor_convergence;
+    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>

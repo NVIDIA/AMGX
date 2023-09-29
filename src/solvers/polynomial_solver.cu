@@ -213,7 +213,7 @@ PolynomialSolverBase<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 PolynomialSolverBase<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     smooth_common_sqblocks( *this->m_explicit_A, b, x );

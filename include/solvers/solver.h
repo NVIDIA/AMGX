@@ -112,12 +112,12 @@ class Solver : public AuxData
         // Set the norm m_nrm.
         void set_norm( const PODVector_h &nrm );
         // Compute residual and decide convergence.
-        bool converged( const VVector &b, VVector &x );
+        AMGX_STATUS converged( const VVector &b, VVector &x );
         // Decide convergence based m_nrm.
-        bool converged() const;
+        AMGX_STATUS converged() const;
 
         // Compute the norm and decide convergence.
-        inline bool compute_norm_and_converged()
+        inline AMGX_STATUS compute_norm_and_converged()
         {
             compute_norm();
 
@@ -131,10 +131,10 @@ class Solver : public AuxData
         // Compute the norm of v.
         void compute_residual_norm_external( Operator<TConfig> &mtx, const VVector &b, const VVector &x, typename PODVector_h::value_type *nrm ) const;
         // Decide convergence based on nrm.
-        bool converged( PODVector_h &nrm ) const;
+        AMGX_STATUS converged( PODVector_h &nrm ) const;
 
         // Compute the norm and decide convergence.
-        inline bool compute_norm_and_converged( const VVector &v, PODVector_h &nrm ) const
+        inline AMGX_STATUS compute_norm_and_converged( const VVector &v, PODVector_h &nrm ) const
         {
             compute_norm( v, nrm );
             return converged( nrm );
@@ -174,7 +174,7 @@ class Solver : public AuxData
         // Initialize the solver before running the iterations.
         virtual void solve_init( VVector &b, VVector &x, bool xIsZero ) {}
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        virtual bool solve_iteration( VVector &b, VVector &x, bool xIsZero ) = 0;
+        virtual AMGX_STATUS solve_iteration( VVector &b, VVector &x, bool xIsZero ) = 0;
         // Finalize the solver after running the iterations.
         virtual void solve_finalize( VVector &b, VVector &x ) {}
 

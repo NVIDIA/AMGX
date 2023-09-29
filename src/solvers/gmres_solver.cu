@@ -238,7 +238,7 @@ GMRES_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 {}
 
 template<class T_Config>
-bool
+AMGX_STATUS
 GMRES_Solver<T_Config>::solve_one_iteration( VVector &b, VVector &x )
 {
     ViewType oldView = this->m_A->currentView();
@@ -286,11 +286,11 @@ GMRES_Solver<T_Config>::solve_one_iteration( VVector &b, VVector &x )
     //  Update the solution
     axpy( m_Z_vector, x, m_s[0], offset, size );
     this->m_A->setView(oldView);
-    return !this->m_monitor_convergence || this->converged();
+    return this->m_monitor_convergence ? this->converged() : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>
-bool
+AMGX_STATUS
 GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     Operator<T_Config> &A = *this->m_A;
@@ -304,7 +304,8 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         return solve_one_iteration( b, x );
     }
 
-    bool done = false;
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     int i = this->m_curr_iter % m_R; //current iteration within restart
 
     if (i == 0)
@@ -318,9 +319,9 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         {
             this->m_nrm[0] = beta;
 
-            if ( this->converged() )
+            if ( isDone( ( conv_stat = this->converged() ) ) )
             {
-                return true;
+                return conv_stat;
             }
         }
 
@@ -363,11 +364,11 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     if ( Base::m_monitor_convergence )
     {
         this->m_nrm[0] = types::util<ValueTypeB>::abs( m_s[i + 1] );
-        done = this->converged();
+        conv_stat = this->converged();
     }
 
     // If reached restart limit or last iteration or if converged, compute x vector
-    if ( i == (m_R - 1) || this->is_last_iter() || done )
+    if ( i == (m_R - 1) || this->is_last_iter() || isDone(conv_stat) )
     {
         // Solve upper triangular system in place
         for (int j = i; j >= 0; j--)
@@ -410,7 +411,7 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     }
 
     this->m_A->setView(oldView);
-    return !Base::m_monitor_convergence || done;
+    return Base::m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : conv_stat;
 }
 
 template<class T_Config>

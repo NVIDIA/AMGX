@@ -681,7 +681,7 @@ KaczmarzSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero 
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 KaczmarzSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if (xIsZero) { x.dirtybit = 0; }

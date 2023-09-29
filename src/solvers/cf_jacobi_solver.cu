@@ -314,7 +314,7 @@ CFJacobiSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero 
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 CFJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     //bool done = false;

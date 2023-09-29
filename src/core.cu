@@ -542,7 +542,6 @@ inline void registerParameters()
     AMG_Config::registerParameter<int>("use_scalar_norm", "a flag that allows to use a scalar norm (as opposed to block norms) when dealing with block matrices (0: use block norm, 1: force use of scalar norm) <0>", 0);
     AMG_Config::registerParameter<double>("tolerance", "the convergence tolerance", 1e-12);
     AMG_Config::registerParameter<double>("alt_rel_tolerance", "alternative convergence relative tolerance for combined criteria", 1e-12);
-    AMG_Config::registerParameter<double>("rel_div_tolerance", "relative tolerance for divergence checks (-1: disabled)", -1);
     //Register Statistics and Reporting Parameters
     AMG_Config::registerParameter<int>("verbosity_level", "verbosity level for output, 3 - custom print-outs <0|1|2|3>", 3);
     AMG_Config::registerParameter<int>("solver_verbose", "The solver will print information about its parameters, <0|1>", 0);

@@ -77,11 +77,9 @@ CG_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 
 // launches a single standard cycle
 template<class T_Config>
-AMGX_STATUS
+bool
 CG_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
-    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
-
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -97,18 +95,17 @@ CG_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     axpy( m_Ap, *this->m_r, -alpha, offset, size );
 
     // Do we converge ?
-    if ( this->m_monitor_convergence &&
-         isDone( (conv_stat = this->compute_norm_and_converged()) ) )
+    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
     {
         A.setView(oldView);
-        return conv_stat;
+        return true;
     }
 
     // Early exit: last iteration, no need to prepare the next one.
     if ( this->is_last_iter() )
     {
         A.setView(oldView);
-        return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
+        return !this->m_monitor_convergence;
     }
 
     ValueTypeB rr_old = m_r_r;
@@ -120,7 +117,7 @@ CG_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     axpby( *this->m_r, m_p, m_p, ValueTypeB(1), beta, offset, size);
     // No convergence so far.
     A.setView(oldView);
-    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
+    return !this->m_monitor_convergence;
 }
 
 template<class T_Config>

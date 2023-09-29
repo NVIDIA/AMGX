@@ -45,7 +45,7 @@ void RelativeAbsoluteCombinedConvergence<TConfig>::convergence_init()
 }
 
 template<class TConfig>
-AMGX_STATUS RelativeAbsoluteCombinedConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
+bool RelativeAbsoluteCombinedConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
 {
     bool res_converged = true;
     bool res_converged_abs = true;
@@ -63,10 +63,10 @@ AMGX_STATUS RelativeAbsoluteCombinedConvergence<TConfig>::convergence_update_and
 
     if (res_converged_abs_precision)
     {
-        return AMGX_ST_CONVERGED;
+        return true;
     }
 
-    return (res_converged || res_converged_abs) ? AMGX_ST_CONVERGED : AMGX_ST_NOT_CONVERGED;
+    return res_converged || res_converged_abs;
 }
 
 

@@ -183,13 +183,10 @@ IDR_Solver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 }
 
 template<class T_Config>
-AMGX_STATUS
+bool
 IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     AMGX_CPU_PROFILER( "IDR_Solver::solve_iteration " );
-
-    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
-
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -279,18 +276,17 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
         // Do we converge ?
         this->m_curr_iter = this->m_curr_iter + 1;
 
-        if ( this->m_monitor_convergence &&
-             isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
+        if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
         {
             A.setView(oldView);
-            return conv_stat;
+            return true;
         }
 
         //Early exit: last iteration, no need to prepare the next one.
         if ( this->is_last_iter() )
         {
             A.setView(oldView);
-            return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
+            return !this->m_monitor_convergence;
         }
 
         // New f = P'*r (first k  components are zero)
@@ -304,11 +300,10 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
     }/// for ends for smaller space
 
     //check for convergence once again. If converged just leave the function
-    if ( this->m_monitor_convergence &&
-         isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
+    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
     {
         A.setView(oldView);
-        return conv_stat;
+        return true;
     }
 
     copy( *this->m_r, m_v, 0, N);
@@ -351,7 +346,7 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
     axpy( m_v, x, this->omega, 0, N );
     // No convergence so far.
     A.setView(oldView);
-    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
+    return !this->m_monitor_convergence;
 }
 
 template<class T_Config>

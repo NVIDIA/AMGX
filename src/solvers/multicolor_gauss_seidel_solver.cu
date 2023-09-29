@@ -1431,7 +1431,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
 // Solve one iteration
 template<class T_Config>
-AMGX_STATUS
+bool
 MulticolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if (xIsZero) { x.dirtybit = 0; }

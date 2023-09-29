@@ -46,7 +46,7 @@ void RelativeMaxConvergence<TConfig>::convergence_init()
 }
 
 template<class TConfig>
-AMGX_STATUS RelativeMaxConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
+bool RelativeMaxConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
 {
     /*WARNING: this routine assumes that the input vector has all positive values,
                for example, it is the vector of norms (which are always positive).
@@ -80,10 +80,10 @@ AMGX_STATUS RelativeMaxConvergence<TConfig>::convergence_update_and_check(const 
 
     if (res_converged_abs)
     {
-        return AMGX_ST_CONVERGED;
+        return true;
     }
 
-    return res_converged ? AMGX_ST_CONVERGED : AMGX_ST_NOT_CONVERGED;
+    return res_converged;
 }
 
 

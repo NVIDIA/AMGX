@@ -43,7 +43,7 @@ void RelativeIniConvergence<TConfig>::convergence_init()
 }
 
 template<class TConfig>
-AMGX_STATUS RelativeIniConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
+bool RelativeIniConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
 {
     bool res_converged = true;
     bool res_converged_abs = true;
@@ -58,10 +58,10 @@ AMGX_STATUS RelativeIniConvergence<TConfig>::convergence_update_and_check(const 
 
     if (res_converged_abs)
     {
-        return AMGX_ST_CONVERGED;
+        return true;
     }
 
-    return res_converged ? AMGX_ST_CONVERGED : AMGX_ST_NOT_CONVERGED;
+    return res_converged;
 }
 
 

@@ -100,7 +100,7 @@ GaussSeidelSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZe
 
 // Solve one iteration
 template<class T_Config>
-AMGX_STATUS
+bool
 GaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     Matrix<T_Config> *A_as_matrix = (Matrix<T_Config> *) this->m_A;

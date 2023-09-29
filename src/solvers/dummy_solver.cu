@@ -41,7 +41,7 @@ Dummy_Solver<T_Config>::solver_setup(bool reuse_matrix_structure)
 
 //launches a single standard cycle
 template<class T_Config>
-AMGX_STATUS
+bool
 Dummy_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if (xIsZero)

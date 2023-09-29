@@ -105,7 +105,7 @@ class FGMRES_Solver : public Solver<T_Config>
         // Run a single iteration. Compute the residual and its norm and decide convergence.
         bool solve_one_iteration( VVector &b, VVector &x );
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        AMGX_STATUS solve_iteration( VVector &b, VVector &x, bool xIsZero );
+        bool solve_iteration( VVector &b, VVector &x, bool xIsZero );
         void solve_finalize( VVector &b, VVector &x );
 
     private:
@@ -133,7 +133,7 @@ class FGMRES_Solver : public Solver<T_Config>
 
         VVector residual; //compute the whole residual recursively
 
-        AMGX_STATUS checkConvergenceGMRES(bool check_V_0);
+        bool checkConvergenceGMRES(bool check_V_0);
 
 };
 

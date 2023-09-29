@@ -75,7 +75,7 @@ AlgebraicMultigrid_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xI
 }
 
 template<class T_Config>
-AMGX_STATUS
+bool
 AlgebraicMultigrid_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     m_amg.solve_iteration( b, x );

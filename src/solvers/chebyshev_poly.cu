@@ -231,7 +231,7 @@ ChebyshevPolySolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIs
 
 // Solve one iteration
 template<class T_Config>
-AMGX_STATUS
+bool
 ChebyshevPolySolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     Matrix<T_Config> *A_as_matrix = (Matrix<T_Config> *) this->m_A;

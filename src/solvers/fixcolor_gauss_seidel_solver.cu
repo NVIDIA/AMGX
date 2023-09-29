@@ -911,7 +911,7 @@ void FixcolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec,
 
 // Solve one iteration
 template<class T_Config>
-AMGX_STATUS
+bool
 FixcolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero)
 {
     Matrix<T_Config> *A_as_matrix = (Matrix<T_Config> *) this->m_A;

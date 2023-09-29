@@ -383,8 +383,7 @@ FGMRES_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 //check for convergence
 //al the complicated stuff happens here
 template <class TConfig>
-AMGX_STATUS
-FGMRES_Solver<TConfig>::checkConvergenceGMRES(bool check_V_0)
+bool FGMRES_Solver<TConfig>::checkConvergenceGMRES(bool check_V_0)
 {
     if ( Base::m_monitor_convergence)
     {
@@ -420,23 +419,22 @@ FGMRES_Solver<TConfig>::checkConvergenceGMRES(bool check_V_0)
     }
     else
     {
-        return AMGX_ST_CONVERGED;
+        return false;
     }
 }
 
 
 //Run preconditioned GMRES
 template<class T_Config>
-AMGX_STATUS
+bool
 FGMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
-    AMGX_STATUS conv_stat = AMGX_ST_CONVERGED;
-
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
     int offset, size;
     A.getOffsetAndSizeForView(A.getViewExterior(), &offset, &size);
+    bool done = false;
     int m = this->m_curr_iter % m_R; //current iteration within restart
 
     if (m == 0)
@@ -449,10 +447,9 @@ FGMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         this->beta = get_norm(A, subspace.V(0), L2);
 
         // check for convergence (do we need it? leave it here for now)
-        if ( (this->m_curr_iter == 0) &&
-             isDone( (conv_stat = checkConvergenceGMRES( true ) ) ) )
+        if ((this->m_curr_iter == 0) && checkConvergenceGMRES( true ))
         {
-            return conv_stat;
+            return true;
         }
 
         // normalize initial residual
@@ -562,10 +559,10 @@ FGMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     // Check for convergence
     // abs(s[m+1]) = L2 norm of residual
     this->beta = abs( m_s[m + 1] );
-    conv_stat = checkConvergenceGMRES( false );
+    done = checkConvergenceGMRES( false );
 
     // If reached restart limit or last iteration or if converged, compute x vector
-    if ( !update_x_every_iteration && (m == m_R - 1 || this->is_last_iter() || isDone(conv_stat) ))
+    if ( !update_x_every_iteration && (m == m_R - 1 || this->is_last_iter() || done ))
     {
         // Solve upper triangular system in place
         for (int j = m; j >= 0; j--)
@@ -588,7 +585,7 @@ FGMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     }
 
     A.setView(oldView);
-    return Base::m_monitor_convergence ? conv_stat : AMGX_ST_CONVERGED;
+    return !Base::m_monitor_convergence || done;
 }
 
 template<class T_Config>

@@ -725,7 +725,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     IVector_d d_num_uncolored(1);
     IVector_d d_num_uncolored_block(MAX_GRID_SIZE);
     int *h_done = NULL;
-    amgx::thrust::global_thread_handle::cudaMallocHost( (void **) &h_done, sizeof(int));
+    amgx::memory::cudaMallocHost( (void **) &h_done, sizeof(int));
     IVector_d d_done(1);
     d_done[0] = 0;
     *h_done = 0;
@@ -835,7 +835,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     }
 
 #endif
-    amgx::thrust::global_thread_handle::cudaFreeHost(h_done);
+    amgx::memory::cudaFreeHost(h_done);
     A.setView(oldView);
 }
 

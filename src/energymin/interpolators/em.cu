@@ -662,31 +662,31 @@ EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
 
     if (m_dense_Aijs)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_dense_Aijs);
+        amgx::memory::cudaFreeAsync(m_dense_Aijs);
         m_dense_Aijs = 0;
     }
 
     if (m_dense_invAijs)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_dense_invAijs);
+        amgx::memory::cudaFreeAsync(m_dense_invAijs);
         m_dense_invAijs = 0;
     }
 
     if (m_ipiv)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_ipiv);
+        amgx::memory::cudaFreeAsync(m_ipiv);
         m_ipiv = 0;
     }
 
     if (m_cuds_wspace)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_cuds_wspace);
+        amgx::memory::cudaFreeAsync(m_cuds_wspace);
         m_cuds_wspace = 0;
     }
 
     if (m_cuds_info)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_cuds_info);
+        amgx::memory::cudaFreeAsync(m_cuds_info);
         m_cuds_info = 0;
     }
 }
@@ -1120,7 +1120,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
         cudaDeviceSynchronize();
     }
 
-    if (place_holder_ptr) { amgx::thrust::global_thread_handle::cudaFreeAsync(place_holder_ptr); place_holder_ptr = 0; }
+    if (place_holder_ptr) { amgx::memory::cudaFreeAsync(place_holder_ptr); place_holder_ptr = 0; }
 }
 
 
@@ -1199,7 +1199,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     // Compute Ma matrix
     computeMa(Ma, AnumRows, numCoarse, P, m_dense_invAijs, AijOffsets, Ma_nzDiagRows);
 
-    if (m_dense_invAijs) { amgx::thrust::global_thread_handle::cudaFreeAsync(m_dense_invAijs);  m_dense_invAijs = 0; }
+    if (m_dense_invAijs) { amgx::memory::cudaFreeAsync(m_dense_invAijs);  m_dense_invAijs = 0; }
 
     /* At this point, we are done with the following Matlab code analogue.
     for (int j=1; j<=nc; j++)
@@ -1238,13 +1238,13 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     // Compute the values of P
     computePvalues( AnumRows, numCoarse, P, v_x, m_dense_Aijs, AijOffsets, m_ipiv, m_cuds_handle, m_cuds_info );
 
-    if (m_dense_Aijs) { amgx::thrust::global_thread_handle::cudaFreeAsync(m_dense_Aijs);  m_dense_Aijs = 0; }
+    if (m_dense_Aijs) { amgx::memory::cudaFreeAsync(m_dense_Aijs);  m_dense_Aijs = 0; }
 
-    if (m_ipiv)       { amgx::thrust::global_thread_handle::cudaFreeAsync(m_ipiv);        m_ipiv = 0; }
+    if (m_ipiv)       { amgx::memory::cudaFreeAsync(m_ipiv);        m_ipiv = 0; }
 
-    if (m_cuds_info)  { amgx::thrust::global_thread_handle::cudaFreeAsync(m_cuds_info);   m_cuds_info = 0; }
+    if (m_cuds_info)  { amgx::memory::cudaFreeAsync(m_cuds_info);   m_cuds_info = 0; }
 
-    //if (m_dense_invAijs) { amgx::thrust::global_thread_handle::cudaFreeAsync(m_dense_invAijs);  m_dense_invAijs = 0; }
+    //if (m_dense_invAijs) { amgx::memory::cudaFreeAsync(m_dense_invAijs);  m_dense_invAijs = 0; }
     /* Now, we are done building columns of P (stored as rows of P^T in CSR).
      * Here's the equivalent matlab code.
     P = zeros(n,nc);

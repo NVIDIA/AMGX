@@ -1014,7 +1014,7 @@ void gpu_geqrf(int m, int n, T *a, int lda,
 {
     int k = std::min(m, n);
     T *aii;
-    cudaMalloc(&aii, sizeof(T));
+    amgx::memory::cudaMalloc((void**)&aii, sizeof(T));
 
     for (int i = 0; i < k; ++i)
     {
@@ -1040,7 +1040,7 @@ void gpu_geqrf(int m, int n, T *a, int lda,
         }
     }
 
-    cudaFree(aii);
+    amgx::memory::cudaFreeAsync(aii);
 }
 } // end anonymous namespace
 

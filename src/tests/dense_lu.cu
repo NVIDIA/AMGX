@@ -111,10 +111,12 @@ template< typename Matrix_data >
 void l_times_u(int n, Matrix_data *lu_d, int lda)
 {
     Matrix_data *l_d, *u_d;
-    cudaMalloc((void **) &l_d, n * lda * sizeof(Matrix_data));
+    cudaMallocAsync((void **) &l_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
-    cudaMalloc((void **) &u_d, n * lda * sizeof(Matrix_data));
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
+    cudaMallocAsync((void **) &u_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
     // Split LU.
     dim3 block_dim(16, 16);
     dim3 grid_dim((n + block_dim.x - 1) / block_dim.x, (n + block_dim.y - 1) / block_dim.y);
@@ -137,10 +139,12 @@ void l_times_u(int n, Matrix_data *lu_d, int lda)
     UNITTEST_ASSERT_EQUAL(cublas_status, CUBLAS_STATUS_SUCCESS);
     cublas_status = cublasDestroy(cublas_handle);
     UNITTEST_ASSERT_EQUAL(cublas_status, CUBLAS_STATUS_SUCCESS);
-    cudaFree(l_d);
+    cudaFreeAsync(l_d, 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
-    cudaFree(u_d);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
+    cudaFreeAsync(u_d, 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
 }
 
 template< typename Matrix, typename Matrix_data >

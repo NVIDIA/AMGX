@@ -888,9 +888,9 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
 
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int *h_status;
-    amgx::thrust::global_thread_handle::cudaMallocHost((void **) &h_status, sizeof(int));
+    amgx::memory::cudaMallocHost((void **) &h_status, sizeof(int));
     int *h_work_offset;
-    amgx::thrust::global_thread_handle::cudaMallocHost((void **) &h_work_offset, sizeof(int));
+    amgx::memory::cudaMallocHost((void **) &h_work_offset, sizeof(int));
     int attempt = 0;
     bool warning_printed = 0;
 
@@ -942,8 +942,8 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
         cudaCheckError();
     }
 
-    amgx::thrust::global_thread_handle::cudaFreeHost(h_status);
-    amgx::thrust::global_thread_handle::cudaFreeHost(h_work_offset);
+    amgx::memory::cudaFreeHost(h_status);
+    amgx::memory::cudaFreeHost(h_work_offset);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

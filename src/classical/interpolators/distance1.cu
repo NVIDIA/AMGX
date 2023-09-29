@@ -150,7 +150,7 @@ struct compute_weights
     inline
     int get_thread_id( ) const
     {
-#if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
+#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
         return omp_get_thread_num( );
 #else
         return 0;
@@ -333,7 +333,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
                             P.row_offsets.begin( ) );
     cudaCheckError();
     // For each row we compute the weights.
-#if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
+#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
     typedef IntVector IntArray1d;
     int nthreads = omp_get_max_threads( );
     size_t sz = nthreads * sizeof( IntArray1d );
@@ -355,7 +355,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
                       amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                       compute_fct );
     cudaCheckError();
-#if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
+#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
 
     for ( int i = 0 ; i < nthreads ; ++i )
     {

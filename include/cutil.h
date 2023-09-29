@@ -316,12 +316,12 @@ template <class ScalarType> bool containsNan( ScalarType *mem, int num )
 
     if (num > 0)
     {
-        cudaMalloc(&d_retval, sizeof(bool));
+        amgx::memory::cudaMalloc((void**)&d_retval, sizeof(bool));
         cudaMemcpy(d_retval, &retval, sizeof(bool), cudaMemcpyHostToDevice);
         containsNan_kernel <<< blocks, threads>>>(mem, num, d_retval);
         cudaCheckError();
         cudaMemcpy(&retval, d_retval, sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(d_retval);
+        amgx::memory::cudaFreeAsync(d_retval);
     }
 
     return retval;

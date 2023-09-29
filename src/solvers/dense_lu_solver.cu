@@ -587,7 +587,7 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
 
     if (m_trf_wspace)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_trf_wspace);
+        amgx::memory::cudaFreeAsync(m_trf_wspace);
         m_trf_wspace = 0;
     }
 }
@@ -625,11 +625,11 @@ allocMem(DataType *&ptr,
          IndexType numEntry,
          bool initToZero)
 {
-    if ( ptr != NULL ) { amgx::thrust::global_thread_handle::cudaFreeAsync(ptr); }
+    if ( ptr != NULL ) { amgx::memory::cudaFreeAsync(ptr); }
 
     cudaCheckError();
     size_t sz = numEntry * sizeof(DataType);
-    amgx::thrust::global_thread_handle::cudaMalloc((void **)&ptr, sz);
+    amgx::memory::cudaMalloc((void **)&ptr, sz);
     cudaCheckError();
 
     if (initToZero)
@@ -701,22 +701,22 @@ DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::~DenseLUSolver()
 
     if (m_dense_A)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_dense_A);
+        amgx::memory::cudaFreeAsync(m_dense_A);
     }
 
     if (m_ipiv)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_ipiv);
+        amgx::memory::cudaFreeAsync(m_ipiv);
     }
 
     if (m_trf_wspace)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_trf_wspace);
+        amgx::memory::cudaFreeAsync(m_trf_wspace);
     }
 
     if (m_cuds_info)
     {
-        amgx::thrust::global_thread_handle::cudaFreeAsync(m_cuds_info);
+        amgx::memory::cudaFreeAsync(m_cuds_info);
     }
 
     cudaCheckError();

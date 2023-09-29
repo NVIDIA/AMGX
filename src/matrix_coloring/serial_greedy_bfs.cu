@@ -577,7 +577,7 @@ void copy_using_buffer_d2h(void *dst, void *src, size_t size)
 
     void *buffer = 0;
     size_t buffer_size = std::min((size_t)(1024 * 1024 * 1), size);
-    amgx::thrust::global_thread_handle::cudaMallocHost((void **)&buffer, buffer_size);
+    amgx::memory::cudaMallocHost((void **)&buffer, buffer_size);
     size_t offset = 0;
 
     while (offset < size)
@@ -593,7 +593,7 @@ void copy_using_buffer_d2h(void *dst, void *src, size_t size)
         offset = end;
     }
 
-    amgx::thrust::global_thread_handle::cudaFreeHost(buffer);
+    amgx::memory::cudaFreeHost(buffer);
 }
 
 void copy_using_buffer_h2d(void *dst, void *src, size_t size)
@@ -608,7 +608,7 @@ void copy_using_buffer_h2d(void *dst, void *src, size_t size)
     cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     void *buffer = 0;
     size_t buffer_size = std::min((size_t)(1024 * 1024 * 1), size);
-    amgx::thrust::global_thread_handle::cudaMallocHost((void **)&buffer, buffer_size);
+    amgx::memory::cudaMallocHost((void **)&buffer, buffer_size);
     size_t offset = 0;
 
     while (offset < size)
@@ -624,7 +624,7 @@ void copy_using_buffer_h2d(void *dst, void *src, size_t size)
         offset = end;
     }
 
-    amgx::thrust::global_thread_handle::cudaFreeHost(buffer);
+    amgx::memory::cudaFreeHost(buffer);
 }
 
 // Block version

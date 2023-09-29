@@ -67,7 +67,7 @@ scalar_t count_block_results_pinned_memory(const int a, const int i, const int n
 
     if (ret == 0)
     {
-        amgx::thrust::global_thread_handle::cudaMallocHost((void **)&ret, buffers * sizeof(scalar_t));
+        amgx::memory::cudaMallocHost((void **)&ret, buffers * sizeof(scalar_t));
         ret[0] = 0;
         cudaEventCreateWithFlags(&throttle_event, cudaEventDisableTiming);
     }

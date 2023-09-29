@@ -1752,7 +1752,7 @@ void DistributedManagerBase<TConfig>::checkPinnedBuffer(size_t size)
 {
     if ((m_pinned_buffer_size < size) && (m_pinned_buffer != NULL))
     {
-        cudaFreeHost(m_pinned_buffer);
+        amgx::memory::cudaFreeHost(m_pinned_buffer);
         m_pinned_buffer = NULL;
         m_pinned_buffer_size = 0;
     }
@@ -1760,7 +1760,7 @@ void DistributedManagerBase<TConfig>::checkPinnedBuffer(size_t size)
     if (m_pinned_buffer == NULL)
     {
         m_pinned_buffer_size = (size_t)(size * 1.1);
-        cudaMallocHost(&m_pinned_buffer, m_pinned_buffer_size);
+        amgx::memory::cudaMallocHost(&m_pinned_buffer, m_pinned_buffer_size);
     }
 }
 
@@ -1770,7 +1770,7 @@ DistributedManagerBase<TConfig>::~DistributedManagerBase()
 {
     if (m_pinned_buffer != NULL)
     {
-        cudaFreeHost(m_pinned_buffer);
+        amgx::memory::cudaFreeHost(m_pinned_buffer);
     }
 
     destroyComms();
@@ -2079,7 +2079,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
     else
     {
         // Received unregistered or host allocated data (malloc)
-        rc = cudaMalloc(&ptr_d, size);
+        rc = amgx::memory::cudaMalloc(&ptr_d, size);
 
         if (rc != cudaSuccess)
         {
@@ -2110,7 +2110,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
         if (rc != cudaSuccess)
         {
             //you are in case 1
-            rc = cudaMalloc(&ptr_d, size);
+            rc = amgx::memory::cudaMalloc(&ptr_d, size);
 
             if (rc != cudaSuccess)
             {
@@ -2200,7 +2200,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
     else
     {
         // Received unregistered or host allocated data (malloc)
-        rc = cudaMalloc(&ptr_d, size);
+        rc = amgx::memory::cudaMalloc(&ptr_d, size);
 
         if (rc != cudaSuccess)
         {
@@ -2231,7 +2231,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
         if (rc != cudaSuccess)
         {
             //you are in case 1
-            rc = cudaMalloc(&ptr_d, size);
+            rc = amgx::memory::cudaMalloc(&ptr_d, size);
 
             if (rc != cudaSuccess)
             {
@@ -4695,12 +4695,12 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
             cudaCheckError();
             cudaEventDestroy(event);
-            cudaFreeHost(child_col_indices);
-            cudaFreeHost(child_data);
+            amgx::memory::cudaFreeHost(child_col_indices);
+            amgx::memory::cudaFreeHost(child_data);
 
             if (diag != NULL)
             {
-                cudaFreeHost(child_diag);
+                amgx::memory::cudaFreeHost(child_diag);
             }
         } // If root partition
 
@@ -4770,9 +4770,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     /* free memory (if needed) */
-    if (col_alloc) { cudaFree(col_indices_hd); }
-    if (data_alloc) { cudaFree(data_hd); }
-    if (diag_alloc) { cudaFree(diag_hd); }
+    if (col_alloc) { amgx::memory::cudaFreeAsync(col_indices_hd); }
+    if (data_alloc) { amgx::memory::cudaFreeAsync(data_hd); }
+    if (diag_alloc) { amgx::memory::cudaFreeAsync(diag_hd); }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -4831,8 +4831,8 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     cudaCheckError();
 
     /* free memory (if needed) */
-    if (data_alloc) { cudaFree(data_hd); }
-    if (diag_alloc) { cudaFree(diag_hd); }
+    if (data_alloc) { amgx::memory::cudaFreeAsync(data_hd); }
+    if (diag_alloc) { amgx::memory::cudaFreeAsync(diag_hd); }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -4957,11 +4957,11 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
                 cudaCheckError();
                 cudaEventDestroy(event);
-                cudaFreeHost(child_data);
+                amgx::memory::cudaFreeHost(child_data);
 
                 if (diag_pinned != NULL)
                 {
-                    cudaFreeHost(child_diag);
+                    amgx::memory::cudaFreeHost(child_diag);
                 }
             } // If root partition
 
@@ -5059,11 +5059,11 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                 this->A->getOffsetAndSizeForView(OWNED, &os, &n);
                 replaceMatrixCoefficientsNoCons( n, nnz,  child_data, child_diag);
                 cudaCheckError();
-                cudaFreeHost(child_data);
+                amgx::memory::cudaFreeHost(child_data);
 
                 if (diag_pinned != NULL)
                 {
-                    cudaFreeHost(child_diag);
+                    amgx::memory::cudaFreeHost(child_diag);
                 }
             } // If root partition
 
@@ -5075,9 +5075,9 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     this->A->setView(OWNED);
 
     /* free memory (if needed) */
-    if (data_alloc) { cudaFree(data_hd); }
+    if (data_alloc) { amgx::memory::cudaFreeAsync(data_hd); }
 
-    if (diag_alloc) { cudaFree(diag_hd); }
+    if (diag_alloc) { amgx::memory::cudaFreeAsync(diag_hd); }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -5208,7 +5208,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
                 cudaCheckError();
                 cudaEventDestroy(event);
-                cudaFreeHost(child_data);
+                amgx::memory::cudaFreeHost(child_data);
             } // If root partition
         } //agg
         else if (this->m_is_fine_level_glued) // cla
@@ -5266,7 +5266,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             v.set_unconsolidated_size(n);
 
             // free host
-            if (child_data) { cudaFreeHost(child_data); }
+            if (child_data) { amgx::memory::cudaFreeHost(child_data); }
 
             cudaCheckError();
         } //cla
@@ -5287,7 +5287,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     }
 
     /* free memory (if needed) */
-    if (data_alloc) { cudaFree(data_hd); }
+    if (data_alloc) { amgx::memory::cudaFreeAsync(data_hd); }
 
     cudaCheckError();
 }

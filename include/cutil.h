@@ -311,18 +311,17 @@ __global__ void containsNan_kernel( ScalarType *mem, int num, bool *retval)
 template <class ScalarType> bool containsNan( ScalarType *mem, int num )
 {
     int threads = 256;
-    int blocks = min(512, (num + threads - 1) / threads);
+    int blocks = std::min(512, (num + threads - 1) / threads);
     bool *d_retval, retval = false;
 
     if (num > 0)
     {
-        cudaMallocAsync(&d_retval, sizeof(bool), 0);
-        cudaStreamSynchronize(0);
+        amgx::memory::cudaMalloc((void**)&d_retval, sizeof(bool));
         cudaMemcpy(d_retval, &retval, sizeof(bool), cudaMemcpyHostToDevice);
         containsNan_kernel <<< blocks, threads>>>(mem, num, d_retval);
         cudaCheckError();
         cudaMemcpy(&retval, d_retval, sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFreeAsync(d_retval, 0);
+        amgx::memory::cudaFreeAsync(d_retval);
     }
 
     return retval;

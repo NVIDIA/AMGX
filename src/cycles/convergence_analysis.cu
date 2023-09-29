@@ -35,7 +35,7 @@ namespace amgx
 template<class T_Config>
 ConvergenceAnalysis<T_Config>::ConvergenceAnalysis( AMG_Config &cfg, std::string &cfg_scope, AMG_Level<T_Config> &curLevel )
 {
-    this->convergence_analysis = cfg.AMG_Config::getParameter<int>( "convergence_analysis", cfg_scope );
+    this->convergence_analysis = cfg.AMG_Config::template getParameter<int>( "convergence_analysis", cfg_scope );
     this->level = &curLevel;
 }
 
@@ -210,7 +210,7 @@ void ConvergenceAnalysis<T_Config>::printConvergenceAnalysis(Matrix &A, VVector 
     axpy( this->delta_e_smoother, this->delta_e_coarse, ValueTypeV(1.0), offset, size );
     ValueTypeV norm_e_total = nrm2( this->delta_e_coarse, offset, size );
     //compute standard deviation of current residual
-    ValueTypeV res_mean = thrust::reduce( r.begin(), r.end(), 0.0, thrust::plus<ValueTypeV>() );
+    ValueTypeV res_mean = amgx::thrust::reduce( r.begin(), r.end(), 0.0, amgx::thrust::plus<ValueTypeV>() );
     cudaCheckError();
     VVector mean_vec( r.size(), res_mean );
     axpy( r, mean_vec, ValueTypeV(-1.0), offset, size );

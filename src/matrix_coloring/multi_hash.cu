@@ -236,16 +236,16 @@ void colorRowsMultiHashKernel(const IndexType *A_offsets, const IndexType *A_col
 template<class T_Config>
 MultiHashMatrixColoringBase<T_Config>::MultiHashMatrixColoringBase(AMG_Config &cfg, const std::string &cfg_scope) : MatrixColoring<T_Config>(cfg, cfg_scope)
 {
-    if (cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default"))
+    if (cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default"))
     {
         m_uncolored_fraction = 0.;
     }
     else
     {
-        m_uncolored_fraction = cfg.AMG_Config::getParameter<double>("max_uncolored_percentage", cfg_scope);
+        m_uncolored_fraction = cfg.AMG_Config::template getParameter<double>("max_uncolored_percentage", cfg_scope);
     }
 
-    max_num_hash = cfg.AMG_Config::getParameter<int>("max_num_hash", cfg_scope);
+    max_num_hash = cfg.AMG_Config::template getParameter<int>("max_num_hash", cfg_scope);
 }
 
 template<class TConfig>
@@ -278,17 +278,16 @@ void MultiHashMatrixColoringBase<TConfig>::colorMatrix(Matrix<TConfig> &A)
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::colorMatrixOneRing(Matrix_d &A)
 {
-    profileSubphaseMatrixColoring();
     // One thread per row
     const int num_rows = A.get_num_rows();
     int max_uncolored_rows = (int) (this->m_uncolored_fraction * ((ValueType) num_rows));
-    thrust::fill(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, -1);
+    thrust_wrapper::fill<AMGX_device>(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, -1);
     cudaCheckError();
     const IndexType *A_row_offsets_ptr    = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     IndexType *row_colors_ptr = this->m_row_colors.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / threads_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / threads_per_block + 1);
     this->m_num_colors = 0;
     // Heuristic for setting the number of hash function to use
     int avg_nonzero = 1.5 * A.row_offsets[num_rows] / num_rows;
@@ -412,17 +411,17 @@ void MultiHashMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
             cudaCheckError();
             seed = hash(seed, 0);
             next_color += 2 * this->num_hash;
-            num_uncolored = (int) thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_less_than_zero() );
+            num_uncolored = (int) amgx::thrust::count_if( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, is_less_than_zero() );
             cudaCheckError();
         }
     }
     else
     {
-        thrust::fill(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
+        thrust_wrapper::fill<AMGX_device>(this->m_row_colors.begin(), this->m_row_colors.end(), 0);
         cudaCheckError();
     }
 
-    this->m_num_colors = *thrust::max_element(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows) + 1;
+    this->m_num_colors = *amgx::thrust::max_element(this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows) + 1;
     cudaCheckError();
 }
 

@@ -7,7 +7,7 @@
 // example of using AMGX code to get matrix vector product
 // to compile
 // 1) either link against AMGX static library (might require linking against MPI depending on whether AMGX_WITH_MPI was used for AMGX compilation):
-//    nvcc -std=c++11 --gpu-architecture=compute_35 --gpu-code=compute_35,sm_35 -I../base/include -I../../../thrust amgx_spmv_internal.cu -lamgx -L../build -lmpi -L/opt/openmpi-1.10.2/lib -lcublas -lcusparse -lcusolver -o amgx_spmv -Xlinker=-rpath=/usr/local/cuda/lib64
+//    nvcc -std=c++11 --gpu-architecture=compute_35 --gpu-code=compute_35,sm_35 -I../include -I../../../thrust amgx_spmv_internal.cu -lamgx -L../build -lmpi -L/opt/openmpi-1.10.2/lib -lcublas -lcusparse -lcusolver -o amgx_spmv -Xlinker=-rpath=/usr/local/cuda/lib64
 // 2) or use Makefile which will compile and link against selected AMGX files required for SpMV:
 //    make example
 // Run: 
@@ -23,7 +23,7 @@ void spmv_example(amgx::Resources& res)
     // double storage for vector values
     // integer for indices values
     //
-    // see base/include/basic_types.h for details
+    // see include/basic_types.h for details
     typedef amgx::TemplateConfig<AMGX_device, AMGX_vecDouble, AMGX_matDouble, AMGX_indInt> TConfig; // Type for spmv calculation
     typedef amgx::Vector<amgx::TemplateConfig<AMGX_host, AMGX_vecDouble, AMGX_matDouble, AMGX_indInt>> VVector_h; // vector type to retrieve result
 
@@ -39,7 +39,7 @@ void spmv_example(amgx::Resources& res)
     A.resize(nrows, nrows, nnz, 1);
     x.resize(nrows);
     y.resize(nrows);
-    thrust::fill(y.begin(), y.end(), 0.);
+    amgx::thrust::fill(y.begin(), y.end(), 0.);
     
     // matrix row offsets
     std::vector<int> row_offsets_h = {0, 2, 5, 7, 10, 13};

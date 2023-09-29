@@ -507,7 +507,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     typedef typename Matrix_d::value_type ValueType;
     // Choose blocksize. Using 1 thread / row for now
     const int blockSize = 256;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() + blockSize - 1) / blockSize));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() + blockSize - 1) / blockSize));
     const int numRows = (int) A.get_num_rows();
     // raw pointers from the cusp arrays
     const IndexType *offsets_ptr = A.row_offsets.raw();
@@ -518,7 +518,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     int *scratch_ptr = scratch.raw();
     IVector mark(cf_map.size());
     // do the initial marking of points
-    thrust::fill(mark.begin(), mark.end(), 0);
+    thrust_wrapper::fill<AMGX_device>(mark.begin(), mark.end(), 0);
     cudaCheckError();
 
     if (numRows > 0)
@@ -564,7 +564,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         one_ring_size = numRows;
     }
 
-    const int numBlocks1Ring = min (AMGX_GRID_MAX_SIZE, (int) ((one_ring_size + blockSize - 1) / blockSize));
+    const int numBlocks1Ring = std::min (AMGX_GRID_MAX_SIZE, (int) ((one_ring_size + blockSize - 1) / blockSize));
     // iterate until all points have been classified
     int numUnassignedMax = numRows;
     //int numUnassignedMaxPrevious;
@@ -586,7 +586,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             }
             else
             {
-                thrust::copy(cf_map.begin(), cf_map.begin() + one_ring_size, scratch.begin());
+                amgx::thrust::copy(cf_map.begin(), cf_map.begin() + one_ring_size, scratch.begin());
                 cudaCheckError();
             }
 
@@ -617,7 +617,7 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         }  // num rows > 0
 
         // count # of points still unassigned
-        numUnassigned = (int) thrust_wrapper::count(cf_map.begin(), cf_map.begin() + numRows, (int)UNASSIGNED);
+        numUnassigned = (int) thrust_wrapper::count<AMGX_device>(cf_map.begin(), cf_map.begin() + numRows, (int)UNASSIGNED);
         cudaCheckError();
         numUnassignedMax = numUnassigned;
         cudaCheckError();

@@ -451,7 +451,9 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                                   &alpha, matA, matB, &beta, matC,
                                   computeType, CUSPARSE_SPGEMM_DEFAULT,
                                   spgemmDesc, &bufferSize1, NULL);
-    cudaMallocAsync(&dBuffer1, bufferSize1, 0);
+    if(bufferSize1 > 0) {
+        amgx::memory::cudaMalloc(&dBuffer1, bufferSize1);
+    }
     // inspect the matrices A and B to understand the memory requiremnent for
     // the next step
     cusparseSpGEMM_workEstimation(handle, opA, opB,
@@ -464,7 +466,9 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
                            &alpha, matA, matB, &beta, matC,
                            computeType, CUSPARSE_SPGEMM_DEFAULT,
                            spgemmDesc, &bufferSize2, NULL);
-    cudaMallocAsync(&dBuffer2, bufferSize2, 0);
+    if(bufferSize2 > 0) {
+        amgx::memory::cudaMalloc(&dBuffer2, bufferSize2);
+    }
 
     // compute the intermediate product of A * B
     cusparseSpGEMM_compute(handle, opA, opB,
@@ -479,7 +483,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     C.row_offsets.resize( A.get_num_rows() + 1 );
     C.col_indices.resize( C_num_nnz1 );
     C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    thrust_wrapper::sequence<AMGX_device>(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     C.set_num_rows( A.get_num_rows() );
     C.set_num_cols( B.get_num_cols() );
     C.diag.resize(C.get_num_rows());
@@ -503,8 +507,8 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     cusparseCheckError( cusparseDestroySpMat(matA) );
     cusparseCheckError( cusparseDestroySpMat(matB) );
     cusparseCheckError( cusparseDestroySpMat(matC) );
-    cudaFreeAsync(dBuffer1, 0);
-    cudaFreeAsync(dBuffer2, 0);
+    amgx::memory::cudaFreeAsync(dBuffer1);
+    amgx::memory::cudaFreeAsync(dBuffer2);
 }
 #endif
 
@@ -541,7 +545,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
             info, &pBufferSizeInBytes));
 
     // Allocate the intermediary buffer
-    cudaMallocAsync(&pBuffer, pBufferSizeInBytes, 0);
+    amgx::memory::cudaMalloc(&pBuffer, pBufferSizeInBytes);
 
     int nnzC;
     int *nnzTotalDevHostPtr = &nnzC;
@@ -550,7 +554,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     C.set_initialized(0);
     C.row_offsets.resize( A.get_num_rows() + 1 );
     C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    thrust_wrapper::sequence<AMGX_device>(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     C.set_num_rows( A.get_num_rows() );
     C.set_num_cols( B.get_num_cols() );
     C.diag.resize(C.get_num_rows());
@@ -596,7 +600,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
         cusparseSetPointerMode(handle, old_pointer_mode));
     cusparseCheckError(
         cusparseDestroyCsrgemm2Info(info));
-    cudaFreeAsync(pBuffer, 0);
+    amgx::memory::cudaFreeAsync(pBuffer);
 }
 #endif
 
@@ -610,7 +614,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
     C.set_num_cols( B.get_num_cols() );
     C.row_offsets.resize( A.get_num_rows() + 1 );
     C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    thrust::sequence(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    thrust_wrapper::sequence<AMGX_device>(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
     cudaCheckError();
     bool done = false;
 
@@ -695,7 +699,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
     // Make C "mutable".
     RAP.set_initialized(0);
     RAP.m_seq_offsets.resize( RAP.get_num_rows() + 1 );
-    thrust::sequence(RAP.m_seq_offsets.begin(), RAP.m_seq_offsets.end());
+    thrust_wrapper::sequence<AMGX_device>(RAP.m_seq_offsets.begin(), RAP.m_seq_offsets.end());
     cudaCheckError();
     int attempt = 0;
 

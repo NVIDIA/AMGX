@@ -143,7 +143,7 @@ struct generateMatrixRandomStructCustom<TemplateConfig<AMGX_host, t_vecPrec, t_m
         newA.set_num_nz(cur_nnz);
         int new_vals = (newA.get_num_nz() + 1) * bsize_sq;
         newA.values.resize(new_vals);
-        thrust::fill(newA.values.begin() + (newA.get_num_nz()*newA.get_block_size()), newA.values.end(), 0.0);
+        thrust_wrapper::fill<Matrix_h::TConfig::memSpace>(newA.values.begin() + (newA.get_num_nz()*newA.get_block_size()), newA.values.end(), 0.0);
         newA.computeDiagonal();
         A = newA;
         A.set_initialized(1);
@@ -271,7 +271,7 @@ void test_selectors(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg
 
     while (!aggregation::SelectorFactory<T_Config>::isIteratorLast(iter))
     {
-        string m_name = iter->first.c_str();
+        std::string m_name = iter->first.c_str();
 
         if ((m_name.compare("GEO") == 0) || (m_name.compare("GEO_ONE_PHASE_HANDSHAKING") == 0) || (m_name.compare("PARALLEL_GREEDY_SELECTOR") == 0))
         {
@@ -323,7 +323,7 @@ void test_matrix_coloring(Matrix<T_Config> &A, AMG_Config &cfg, const std::strin
 }
 
 template<class TConfig>
-bool check_solver_mode_pair(string solver)
+bool check_solver_mode_pair(std::string solver)
 {
     return (solver != "FIXCOLOR_GS" &&
             solver != "AMG" &&
@@ -350,7 +350,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
 
 #endif
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
     b.set_block_dimx(1);
     b.set_block_dimy(A.get_block_dimy());
     x.set_block_dimx(1);
@@ -363,7 +363,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
     {
         //std::cout << "solver=" << iter->first << std::endl;
         solver = NULL;
-        thrust::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
         solver = iter->second->create(cfg, cfg_scope);
@@ -434,8 +434,8 @@ void generatePoissonForTest(Matrix<TConfig > &Aout, int block_size, bool diag_pr
 void test_levels(Resources *res, Matrix<T_Config> &A)
 {
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     int bsize = A.get_block_dimy();
     b.set_block_dimx(1);
     b.set_block_dimy(bsize);
@@ -466,7 +466,7 @@ void test_levels(Resources *res, Matrix<T_Config> &A)
             }
         }
     }
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     {
         AMG_Configuration cfg;
         AMGX_ERROR err = AMGX_OK;
@@ -549,7 +549,7 @@ void test_selectors(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg
 
     while (!classical::SelectorFactory<T_Config>::isIteratorLast(iter))
     {
-        string m_name = iter->first.c_str();
+        std::string m_name = iter->first.c_str();
 
         if ((m_name.compare("GEO") == 0) || (m_name.compare("GEO_ONE_PHASE_HANDSHAKING") == 0))
         {

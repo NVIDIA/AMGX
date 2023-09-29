@@ -41,7 +41,6 @@
 
 #include <amg_level.h>
 #include <amgx_c.h>
-#include <profile.h>
 #include <distributed/glue.h>
 
 #include <misc.h>
@@ -287,7 +286,6 @@ class AMG_Setup
 
                 nextLevel->setLevelIndex( amg->num_levels );
                 level->getA().template setParameter<int>("level", amg->num_levels);
-                //profileLevelDown( );
                 {
                     // only compute aggregates if we can't reuse existing ones
                     if (!reuse_next_level)
@@ -785,7 +783,7 @@ class AMG_Setup
                 if (async_global::singleton()->using_async_coloring)
                 {
                     //cancel the CPU coloring task if the GPU is idle
-                    cudaStreamSynchronize(thrust::global_thread_handle::get_stream());
+                    cudaStreamSynchronize(amgx::thrust::global_thread_handle::get_stream());
                     enqueue_async(asyncmanager::singleton()->global_parallel_queue, async_global::singleton()->cancel_cpu_coloring_task);
                     //wait for every spawning task
                     asyncmanager::singleton()->waitall();
@@ -828,8 +826,8 @@ class AMG_Setup
             } //end of while(true)
 
 #if 0 //AMGX_ASYNCCPU_PROOF_OF_CONCEPT
-            cudaStreamSynchronize(thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
-            thrust::global_thread_handle::threadStream[getCurrentThreadId()] = 0;
+            cudaStreamSynchronize(amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
+            amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()] = 0;
 #endif
             return prev_level;
         }
@@ -1257,10 +1255,14 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
     int64_t total_nnz = 0;
     float total_size = 0;
     ss << "AMG Grid:\n";
-    ss << "         Number of Levels: " << this->num_levels << endl;
-    ss << std::setw(15) << "LVL" << std::setw(13) << "ROWS" << std::setw(18) << "NNZ"
-       << std::setw(10) << "SPRSTY" << std::setw(15) << "Mem (GB)" << std::endl;
-    ss << "         --------------------------------------------------------------\n";
+    ss << "         Number of Levels: " << this->num_levels << std::endl;
+    ss << std::setw(15) << "LVL";
+    ss << std::setw(13) << "ROWS" 
+       << std::setw(18) << "NNZ"
+       << std::setw(7) << "PARTS"
+       << std::setw(10) << "SPRSTY" 
+       << std::setw(15) << "Mem (GB)" << std::endl;
+    ss << "        ----------------------------------------------------------------------\n";
 
     while (level_d != NULL)
     {
@@ -1269,6 +1271,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         int64_t nnz = (int)((level_d->getA( ).get_num_nz()
                              + has_diag * level_d->getA( ).get_num_rows()) * level_d->getA( ).get_block_dimy()
                             * level_d->getA( ).get_block_dimx());
+        int64_t num_parts = level_d->getA().is_matrix_singleGPU() ? 1 : level_d->getA().manager->getComms()->get_num_partitions();
         float size = level_d->bytes(true) / 1024.0 / 1024 / 1024;
 
         // If aggregation AMG, skip this if # of neighbors = 0, since we're consolidating
@@ -1288,6 +1291,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         ss  << std::setw(12) << level_d->getLevelIndex( ) << "(D)"
             << std::setw(13) << num_rows
             << std::setw(18) << nnz
+            << std::setw(7) << num_parts
             << std::setw(10) << std::setprecision(3) << sparsity
             << std::setw(15) << size
             << std::setprecision(6) << std::endl;
@@ -1356,11 +1360,11 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::getGridStatisticsString(std::stringst
         }
     }
 
-    ss << "         --------------------------------------------------------------\n";
+    ss << "         ----------------------------------------------------------------------\n";
     ss << "         Grid Complexity: " << total_rows / (double) fine_rows << std::endl;
     ss << "         Operator Complexity: " << total_nnz / (double) fine_nnz << std::endl;
     ss << "         Total Memory Usage: " << total_size << " GB" << std::endl;
-    ss << "         --------------------------------------------------------------\n";
+    ss << "         ----------------------------------------------------------------------\n";
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -1421,14 +1425,14 @@ using std::fixed;
 void printLine(const int l, const int s)
 {
     std::stringstream ss;
-    ss << setw(s) << " ";
+    ss << std::setw(s) << " ";
 
     for (int i = 0; i < l; i++)
     {
         ss << "-";
     }
 
-    ss << endl;
+    ss << std::endl;
     amgx_output(ss.str().c_str(), static_cast<int>(ss.str().length()));
 }
 
@@ -1452,11 +1456,11 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printCoarsePoints()
             break;
         }
 
-        coarsePoints << level_d->level_id << " " << level_d->getNumRows() << endl;
+        coarsePoints << level_d->level_id << " " << level_d->getNumRows() << std::endl;
 
         for (iVecIter it = originalRows.begin(); it != originalRows.end(); ++it)
         {
-            coarsePoints << *it << endl;
+            coarsePoints << *it << std::endl;
         }
     }
 
@@ -1472,11 +1476,11 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printCoarsePoints()
             break;
         }
 
-        coarsePoints << level_h->level_id << " " << level_h->getNumRows() << endl;
+        coarsePoints << level_h->level_id << " " << level_h->getNumRows() << std::endl;
 
         for (iVecIter it = originalRows.begin(); it != originalRows.end(); ++it)
         {
-            coarsePoints << *it << endl;
+            coarsePoints << *it << std::endl;
         }
     }
 
@@ -1494,7 +1498,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
 
     while (level_d != NULL)
     {
-        connFile << level_d->level_id << " " << level_d->getNumRows() << endl;
+        connFile << level_d->level_id << " " << level_d->getNumRows() << std::endl;
         ATemp_d = level_d->getA();
 
         for (int i = 0; i < ATemp_d.get_num_rows(); i++)
@@ -1518,7 +1522,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
                 }
             }
 
-            connFile << endl;
+            connFile << std::endl;
         }
 
         level_d = level_d->next_d;
@@ -1529,7 +1533,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
 
     while (level_h != NULL)
     {
-        connFile << level_h->level_id << " " << level_h->getNumRows() << endl;
+        connFile << level_h->level_id << " " << level_h->getNumRows() << std::endl;
         ATemp_d = level_h->getA();
 
         for (int i = 0; i < ATemp_h.get_num_rows(); i++)
@@ -1553,7 +1557,7 @@ void AMG<t_vecPrec, t_matPrec, t_indPrec>::printConnections()
                 }
             }
 
-            connFile << endl;
+            connFile << std::endl;
         }
 
         level_h = level_h->next_h;

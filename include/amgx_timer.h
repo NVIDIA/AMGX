@@ -68,13 +68,8 @@ public:
 /**********************************************
  *  class for holding profiling data if desired
  *********************************************/
-using namespace std::chrono;
-using std::cout;
-using std::endl;
-using std::setw;
-
 typedef std::map<const char *, double> Times;
-typedef std::map<const char *, high_resolution_clock::time_point> Event;
+typedef std::map<const char *, std::chrono::high_resolution_clock::time_point> Event;
 
 class levelProfile
 {
@@ -100,7 +95,7 @@ class levelProfile
         {
 #ifdef PROFILE
             cudaDeviceSynchronize();
-            duration<double, std::nano> ns = t2 - t1;
+            std::chrono::duration<double, std::nano> ns = t2 - t1;
             times[event] += ns.count();
 #endif
         }
@@ -245,7 +240,7 @@ class Profiler_entry
 
         inline void stop()
         {
-            m_time = std::max( 0ull, (duration_cast<nanoseconds>(t2 - t1)).count());
+            m_time = std::max( 0ull, (std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1)).count());
         }
 };
 
@@ -318,7 +313,7 @@ class Timer
 
 class TimerCPU : public Timer
 {
-        high_resolution_clock::time_point  m_last_tick;
+    std::chrono::high_resolution_clock::time_point  m_last_tick;
         bool    m_is_running;
     public:
         TimerCPU(bool accumulate_average): Timer(accumulate_average), m_is_running(false) {};
@@ -331,7 +326,7 @@ class TimerCPU : public Timer
         {
             if (!m_is_running)
             {
-                m_last_tick = high_resolution_clock::now();
+                m_last_tick = std::chrono::high_resolution_clock::now();
                 m_is_running = true;
             }
         }
@@ -342,8 +337,8 @@ class TimerCPU : public Timer
 
             if (m_is_running)
             {
-                duration<double> dsec = high_resolution_clock::now() - m_last_tick;
-                res = (duration_cast<nanoseconds>(dsec)).count();
+                std::chrono::duration<double> dsec = std::chrono::high_resolution_clock::now() - m_last_tick;
+                res = (std::chrono::duration_cast<std::chrono::nanoseconds>(dsec)).count();
                 m_is_running = false;
                 m_counter ++;
             }
@@ -358,8 +353,8 @@ class TimerCPU : public Timer
 
             if (m_is_running)
             {
-                duration<double> dsec = high_resolution_clock::now() - m_last_tick;
-                res = (duration_cast<nanoseconds>(dsec)).count();
+                std::chrono::duration<double> dsec = std::chrono::high_resolution_clock::now() - m_last_tick;
+                res = (std::chrono::duration_cast<std::chrono::nanoseconds>(dsec)).count();
             }
 
             return res;

@@ -82,11 +82,14 @@ MemoryPool::MemoryPool(size_t max_block_size, size_t page_size, size_t max_size)
     , m_recently_merged(false)
 {
     //initializeCriticalSection(&m_mutex2);
+
+#ifndef USE_LEGACY_MEMPOOL
     int device;
     cudaGetDevice(&device);
     cudaDeviceGetMemPool(&m_mem_pool, device);
     uint64_t max_threshold = std::numeric_limits<uint64_t>::max();
     cudaMemPoolSetAttribute(m_mem_pool, cudaMemPoolAttrReleaseThreshold, &max_threshold);
+#endif
 }
 
 MemoryPool::~MemoryPool()
@@ -405,7 +408,7 @@ DeviceMemoryPool::DeviceMemoryPool(size_t size,
     }
 
     void *ptr = NULL;
-    ::cudaMallocAsync(&ptr, size, 0);
+    ::cudaMalloc(&ptr, size);
 
     if ( ptr == NULL )
     {
@@ -424,7 +427,7 @@ void DeviceMemoryPool::expandPool(size_t size,
     }
 
     void *ptr = NULL;
-    ::cudaMallocAsync(&ptr, size, 0);
+    ::cudaMalloc(&ptr, size);
 
     if ( ptr == NULL )
     {
@@ -440,7 +443,7 @@ DeviceMemoryPool::~DeviceMemoryPool()
     for ( size_t i = 0 ; i < m_owned_ptrs.size() ; ++i )
         if (m_owned_ptrs[i].m_managed)
         {
-            ::cudaFreeAsync(m_owned_ptrs[i].m_begin, 0);
+            ::cudaFree(m_owned_ptrs[i].m_begin);
         }
 
     m_owned_ptrs.clear();
@@ -834,7 +837,6 @@ cudaError_t cudaFreeHost(void *ptr)
     }
     else
     {
-//printf("calling cudaFreeHost\n");
         error = ::cudaFreeHost(ptr);
     }
 
@@ -843,6 +845,15 @@ cudaError_t cudaFreeHost(void *ptr)
 
 cudaError_t cudaMalloc(void **ptr, size_t size)
 {
+#ifndef USE_LEGACY_MEMPOOL
+
+    cudaError_t e = ::cudaMallocAsync(ptr, size, 0);
+    if(e != cudaSuccess) { return e; }
+
+    return cudaStreamSynchronize(0);
+
+#else
+
     AMGX_CPU_PROFILER("cudaMalloc");
 #ifdef AMGX_PRINT_MALLOC_CALL_STACK
 #ifdef MULTIGPU
@@ -894,7 +905,7 @@ cudaError_t cudaMalloc(void **ptr, size_t size)
         allocated_size = manager.scale(size);
         // We hack the size to make it a multiple of a page size.
         allocated_size = PAGE_SIZE * ((allocated_size + PAGE_SIZE - 1) / PAGE_SIZE);
-        error = ::cudaMallocAsync(ptr, allocated_size, 0);
+        error = ::cudaMalloc(ptr, allocated_size);
 
         // Very last attempt. Try without over allocation.
         if ( *ptr == NULL )
@@ -947,10 +958,17 @@ cudaError_t cudaMalloc(void **ptr, size_t size)
 
 #endif
     return error;
+#endif
 }
 
 cudaError_t cudaFreeAsync(void *ptr)
 {
+#ifndef USE_LEGACY_MEMPOOL
+
+    return ::cudaFreeAsync(ptr, 0);
+
+#else
+
     AMGX_CPU_PROFILER("cudaFreeAsync");
 #ifdef AMGX_PRINT_MALLOC_CALL_STACK
 #ifdef MULTIGPU
@@ -1022,7 +1040,7 @@ cudaError_t cudaFreeAsync(void *ptr)
 #ifdef AMGX_PRINT_MEMORY_INFO
         print_fallback = true;
 #endif
-        status = ::cudaFreeAsync(ptr, 0);
+        status = ::cudaFree(ptr);
     }
 
 #ifdef AMGX_PRINT_MEMORY_INFO
@@ -1057,10 +1075,12 @@ cudaError_t cudaFreeAsync(void *ptr)
 
 #endif
     return status;
+#endif
 }
 
 void cudaFreeWait()
 {
+    cudaStreamSynchronize(0);
 }
 
 // Join device pools

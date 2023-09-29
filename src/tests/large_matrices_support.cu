@@ -196,14 +196,14 @@ void test_matrix_coloring(Matrix<T_Config> &A, AMG_Config &cfg, const std::strin
 void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_scope)
 {
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
     Solver<TConfig> *solver;
     typename SolverFactory<T_Config>::Iterator iter = SolverFactory<T_Config>::getIterator();
 
     while (!SolverFactory<T_Config>::isIteratorLast(iter))
     {
         solver = NULL;
-        thrust::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
         solver = iter->second->create(cfg, cfg_scope);
@@ -263,8 +263,8 @@ void generatePoissonForTest(Matrix<TConfig > &Aout, int block_size, bool diag_pr
 void test_levels(Resources *res, Matrix<T_Config> &A)
 {
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     int bsize = A.get_block_dimy();
     b.set_block_dimx(1);
     b.set_block_dimy(bsize);
@@ -293,7 +293,7 @@ void test_levels(Resources *res, Matrix<T_Config> &A)
             }
         }
     }
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     {
         AMG_Configuration cfg;
         AMGX_ERROR err = AMGX_OK;

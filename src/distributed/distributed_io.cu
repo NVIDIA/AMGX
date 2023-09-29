@@ -82,11 +82,11 @@ void transfer_values(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t 
         FatalError("Partitioning was not performed", AMGX_ERR_BAD_PARAMETERS);
     }
 
-    thrust::copy(A.values.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id]]*A.get_block_size(), A.values.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]]*A.get_block_size(), A_part.values.begin());
+    amgx::thrust::copy(A.values.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id]]*A.get_block_size(), A.values.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]]*A.get_block_size(), A_part.values.begin());
 
     if (A.hasProps(DIAG))
     {
-        thrust::copy(A.values.begin() + (A.diag[0] + part_offsets[my_id])*A.get_block_size(), A.values.begin() + (A.diag[0] + part_offsets[my_id + 1])*A.get_block_size(), A_part.values.begin() + A_part.row_offsets[A_part.row_offsets.size() - 1]*A.get_block_size());
+        amgx::thrust::copy(A.values.begin() + (A.diag[0] + part_offsets[my_id])*A.get_block_size(), A.values.begin() + (A.diag[0] + part_offsets[my_id + 1])*A.get_block_size(), A_part.values.begin() + A_part.row_offsets[A_part.row_offsets.size() - 1]*A.get_block_size());
         cudaCheckError();
     }
 }
@@ -102,8 +102,8 @@ void copyPartition(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t *p
         x_part.set_block_dimy(block_dimx);
         b_part.resize(b.size());
         x_part.resize(x.size());
-        thrust::copy(b.begin(), b.end(), b_part.begin());
-        thrust::copy(x.begin(), x.end(), x_part.begin());
+        amgx::thrust::copy(b.begin(), b.end(), b_part.begin());
+        amgx::thrust::copy(x.begin(), x.end(), x_part.begin());
         cudaCheckError();
     }
     else
@@ -121,8 +121,8 @@ void partition(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t *part_
     x_part.set_block_dimy(block_dimx);
     b_part.resize((part_offsets[my_id + 1] - part_offsets[my_id])*block_dimy);
     x_part.resize((part_offsets[my_id + 1] - part_offsets[my_id])*block_dimx);
-    thrust::copy(b.begin() + part_offsets[my_id]*block_dimy, b.begin() + part_offsets[my_id + 1]*block_dimy, b_part.begin());
-    thrust::copy(x.begin() + part_offsets[my_id]*block_dimx, x.begin() + part_offsets[my_id + 1]*block_dimx, x_part.begin());
+    amgx::thrust::copy(b.begin() + part_offsets[my_id]*block_dimy, b.begin() + part_offsets[my_id + 1]*block_dimy, b_part.begin());
+    amgx::thrust::copy(x.begin() + part_offsets[my_id]*block_dimx, x.begin() + part_offsets[my_id + 1]*block_dimx, x_part.begin());
     cudaCheckError();
 }
 
@@ -136,14 +136,14 @@ void copyPartition(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t *p
         if (A.hasProps(DIAG)) { A_part.addProps(DIAG); }
 
         A_part.resize(A.get_num_rows(), A.get_num_cols(), A.get_num_nz(), A.get_block_dimy(), A.get_block_dimx(), 1);
-        thrust::copy(A.col_indices.begin(), A.col_indices.end(), A_part.col_indices.begin());
-        thrust::copy(A.row_offsets.begin(), A.row_offsets.end(), A_part.row_offsets.begin());
-        thrust::copy(A.values.begin(), A.values.end(), A_part.values.begin());
+        amgx::thrust::copy(A.col_indices.begin(), A.col_indices.end(), A_part.col_indices.begin());
+        amgx::thrust::copy(A.row_offsets.begin(), A.row_offsets.end(), A_part.row_offsets.begin());
+        amgx::thrust::copy(A.values.begin(), A.values.end(), A_part.values.begin());
 
         if (A.hasProps(DIAG))
         {
             /*
-             thrust::copy(A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.end(), A_part.values.begin()+A_part.row_offsets[A_part.row_offsets.size()-1]*A.get_block_size());*/
+               amgx::thrust::copy(A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.end(), A_part.values.begin()+A_part.row_offsets[A_part.row_offsets.size()-1]*A.get_block_size());*/
             A_part.addProps(DIAG);
         }
 
@@ -171,9 +171,9 @@ void partition(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t *part_
     cudaGetDevice( &device );
     printf("Processing partition %d/%d size: %ld offset %d nnz %d on device %d\n", my_id + 1, num_part, part_offsets[my_id + 1] - part_offsets[my_id], (int)part_offsets[my_id], (int)(A.row_offsets[part_offsets[my_id + 1]] - A.row_offsets[part_offsets[my_id]]), device);
     A_part.resize(part_offsets[my_id + 1] - part_offsets[my_id], A.get_num_cols(), (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]] - (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.get_block_dimy(), A.get_block_dimx(), 1);
-    thrust::copy(A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]], A_part.col_indices.begin());
-    thrust::copy(A.row_offsets.begin() + part_offsets[my_id], A.row_offsets.begin() + part_offsets[my_id + 1] + 1, A_part.row_offsets.begin());
-    thrust::transform(A_part.row_offsets.begin(), A_part.row_offsets.end(), thrust::constant_iterator<INDEX_TYPE>(A.row_offsets[part_offsets[my_id]]), A_part.row_offsets.begin(), thrust::minus<INDEX_TYPE>());
+    amgx::thrust::copy(A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]], A_part.col_indices.begin());
+    amgx::thrust::copy(A.row_offsets.begin() + part_offsets[my_id], A.row_offsets.begin() + part_offsets[my_id + 1] + 1, A_part.row_offsets.begin());
+    thrust_wrapper::transform<T_Config_dst::memSpace>(A_part.row_offsets.begin(), A_part.row_offsets.end(), amgx::thrust::constant_iterator<INDEX_TYPE>(A.row_offsets[part_offsets[my_id]]), A_part.row_offsets.begin(), amgx::thrust::minus<INDEX_TYPE>());
     cudaCheckError();
     transfer_values(my_id, num_part, part_offsets, A, A_part);
 }
@@ -216,7 +216,7 @@ void DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     std::stringstream msg;
     int read_partitions = 0;
 
-    for (int i = 0; i < partitionVec.size(); i++) { read_partitions = max(read_partitions, partitionVec[i]); }
+    for (int i = 0; i < partitionVec.size(); i++) { read_partitions = std::max(read_partitions, partitionVec[i]); }
 
     read_partitions++;
 
@@ -232,7 +232,7 @@ void DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
 
     int partsPerRank = read_partitions / partitions;
     partSize.resize(partitions);
-    thrust::fill(partSize.begin(), partSize.end(), 0);
+    thrust_wrapper::fill<AMGX_host>(partSize.begin(), partSize.end(), 0);
     cudaCheckError();
 
     for (int i = 0; i < partitionVec.size(); i++)
@@ -313,7 +313,7 @@ void DistributedRead<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     IVector_h partCount(num_part, 0);// partition counters
     IVector_h &colMapVec = partitionVec; // map for column indices old_glb_i-> new_glb_i, reusing the same vector
     int p;
-    thrust::inclusive_scan(partSize.begin(), partSize.end(), &scanPartSize[1]);
+    amgx::thrust::inclusive_scan(partSize.begin(), partSize.end(), &scanPartSize[1]);
     cudaCheckError();
     scanPartSize[0] = 0;
 
@@ -457,7 +457,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         Ah_part.swap(Ah);
         bh_part.swap(bh);
         xh_part.swap(xh);
-        thrust::inclusive_scan(partSize.begin(), partSize.end(), &part_offsets_h[1]);
+        amgx::thrust::inclusive_scan(partSize.begin(), partSize.end(), &part_offsets_h[1]);
         cudaCheckError();
         part_offsets_h[0] = 0;
     }
@@ -476,7 +476,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         }
 
         xh_part.resize(num_rows * A.get_block_dimx());
-        thrust::fill(xh_part.begin(), xh_part.end(), types::util<ValueTypeB>::get_zero());
+        thrust_wrapper::fill<AMGX_host>(xh_part.begin(), xh_part.end(), types::util<ValueTypeB>::get_zero());
     }
 
     if (A.manager == NULL )

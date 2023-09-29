@@ -51,20 +51,18 @@
 #include "amgx_types/util.h"
 #include "amgx_types/io.h"
 
-using namespace std;
-
 namespace amgx
 {
 
 template<class T_Config>
-MatrixIO<T_Config>::readerMap &MatrixIO<T_Config>::getReaderMap()
+typename MatrixIO<T_Config>::readerMap &MatrixIO<T_Config>::getReaderMap()
 {
     static readerMap readers_map;
     return readers_map;
 }
 
 template<class T_Config>
-void MatrixIO<T_Config>::registerReader(string key, readerFunc func)
+void MatrixIO<T_Config>::registerReader(std::string key, readerFunc func)
 {
     readerMap &readers_map = getReaderMap();
     typename readerMap::const_iterator iter = readers_map.find(key);
@@ -86,14 +84,14 @@ void MatrixIO<T_Config>::unregisterReaders()
 }
 
 template<class T_Config>
-MatrixIO<T_Config>::writerMap &MatrixIO<T_Config>::getWriterMap()
+typename MatrixIO<T_Config>::writerMap &MatrixIO<T_Config>::getWriterMap()
 {
     static writerMap writer_map;
     return writer_map;
 }
 
 template<class T_Config>
-void MatrixIO<T_Config>::registerWriter(string key, writerFunc func)
+void MatrixIO<T_Config>::registerWriter(std::string key, writerFunc func)
 {
     writerMap &writer_map = getWriterMap();
     typename writerMap::const_iterator iter = writer_map.find(key);
@@ -131,7 +129,7 @@ bool MatrixIO<T_Config>::writeSystemMatrixMarket(const char *fname, const Matrix
     }
 
     std::ofstream fout;
-    std::string err = "Writing system to file " + string(fname) + "\n";
+    std::string err = "Writing system to file " + std::string(fname) + "\n";
     amgx_output(err.c_str(), err.length());
     fout.open(fname);
 
@@ -292,7 +290,7 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
 
     FILE *fout;
     const char header [] = "%%NVAMGBinary\n";
-    std::string err = "Writing system to file " + string(fname) + "\n";
+    std::string err = "Writing system to file " + std::string(fname) + "\n";
     amgx_output(err.c_str(), err.length());
     fout = fopen(fname, "wb");
 
@@ -331,7 +329,9 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
                                };
     fwrite(header, sizeof(char), strlen(header), fout);
     fwrite(system_flags, sizeof(uint32_t), system_header_size, fout);
-    std::vector< UpValueType > tempv(A.values.size(), types::util< UpValueType >::get_zero());
+    std::vector< ValueTypeA > tempVA(A.values.size());
+    std::vector< UpValueType > tempv(A.values.size());
+    thrust::copy(A.values.begin(), A.values.end(), tempVA.begin());
 
     if (is_mtx)
     {
@@ -344,7 +344,7 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
 
             for (int k = 0; k < A.values.size(); k++)
             {
-                types::util<ValueTypeA>::to_uptype(A.values[k], tempv[k]);
+                types::util<ValueTypeA>::to_uptype(tempVA[k], tempv[k]);
             }
 
             fwrite(&tempv[0], sizeof(UpValueType), A.get_block_dimx() * A.get_block_dimy() * (A.get_num_nz() + (A.hasProps(DIAG) ? A.get_num_rows() : 0) ), fout); // including diag in the end if exists.
@@ -365,11 +365,14 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
             FatalError("rhs vector and matrix dimension does not match", AMGX_ERR_BAD_PARAMETERS);
         }
 
+        std::vector< ValueTypeB > tempvB(pb->size());
+        thrust::copy(&(*pb)[0], &(*pb)[pb->size()-1], tempvB.begin());
+
         tempv.resize(A.get_num_rows()*A.get_block_dimy());
 
         for (int k = 0; k < pb->size(); k++)
         {
-            types::util<ValueTypeB>::to_uptype((*pb)[k], tempv[k]);
+            types::util<ValueTypeB>::to_uptype(tempvB[k], tempv[k]);
         }
 
         fwrite(&tempv[0], sizeof(UpValueType), pb->size(), fout);
@@ -383,11 +386,14 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
             FatalError("solution vector and matrix dimension does not match", AMGX_ERR_BAD_PARAMETERS);
         }
 
+        std::vector< ValueTypeB > tempvB(px->size());
+        thrust::copy(&(*px)[0], &(*px)[px->size()-1], tempvB.begin());
+
         tempv.resize(A.get_num_rows()*A.get_block_dimy());
 
         for (int k = 0; k < px->size(); k++)
         {
-            types::util<ValueTypeB>::to_uptype((*px)[k], tempv[k]);
+            types::util<ValueTypeB>::to_uptype(tempvB[k], tempv[k]);
         }
 
         fwrite(&tempv[0], sizeof(UpValueType), px->size(), fout);
@@ -420,11 +426,11 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 
         if (io_config::hasProps(io_config::SIZE, props))
         {
-            err = "Reading matrix dimensions in file: " + string(fname) + "\n";
+            err = "Reading matrix dimensions in file: " + std::string(fname) + "\n";
         }
         else if (io_config::hasProps(io_config::PRINT, props))
         {
-            err = "Reading matrix in file: " + string(fname) + "\n";
+            err = "Reading matrix in file: " + std::string(fname) + "\n";
         }
 
         amgx_output(err.c_str(), err.length());
@@ -432,7 +438,7 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 
         if (!fin)
         {
-            err = "Error opening file '" + string(fname) + "'\n";
+            err = "Error opening file '" + std::string(fname) + "'\n";
             FatalError(err.c_str(), AMGX_ERR_IO);
         }
 
@@ -442,7 +448,7 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 
         if (fformat.substr(0, 2) != "%%")
         {
-            err = "Invalid header line in file " + string(fname) + " First line should begin with: %%MatrixFormat\n";
+            err = "Invalid header line in file " + std::string(fname) + " First line should begin with: %%MatrixFormat\n";
             FatalError(err.c_str(), AMGX_ERR_IO);
         }
         else
@@ -508,7 +514,7 @@ AMGX_ERROR MatrixIO<T_Config>::writeSystem (const char *filename, const Matrix<T
             FatalError("Couldn't get resources from matrix or vector", AMGX_ERR_BAD_PARAMETERS);
         }
 
-        format = cfg->AMG_Config::getParameter<std::string>("matrix_writer", "default");
+        format = cfg->AMG_Config::template getParameter<std::string>("matrix_writer", "default");
     }
     catch (amgx_exception e)
     {
@@ -592,17 +598,17 @@ AMGX_ERROR MatrixIO<T_Config>::readSystem(const char *fname
 }
 
 template<class T_Config>
-string MatrixIO<T_Config>::readSystemFormat(const char *fname)
+std::string MatrixIO<T_Config>::readSystemFormat(const char *fname)
 {
     readerMap &readers_map = getReaderMap();
     //open file
-    std::string out = "Reading matrix format in file: " + string(fname) + "\n";
+    std::string out = "Reading matrix format in file: " + std::string(fname) + "\n";
     amgx_output(out.c_str(), out.length());
     std::ifstream fin(fname);
 
     if (!fin)
     {
-        out = "Error opening file: " + string(fname) + "\n";
+        out = "Error opening file: " + std::string(fname) + "\n";
         FatalError(out.c_str(), AMGX_ERR_IO);
     }
 
@@ -627,12 +633,12 @@ string MatrixIO<T_Config>::readSystemFormat(const char *fname)
 AMGX_ERROR MatrixIO<T_Config>::readGeometry( AuxData* obj, const char* fname)
 {
   std::string err;
-  err = "Reading matrix in file: " + string(fname) + "\n";
+  err = "Reading matrix in file: " + std::string(fname) + "\n";
   amgx_output(err.c_str(), err.length());
 
   std::ifstream fin(fname);
   if(!fin) {
-    err = "Error opening file '" + string(fname) + "'\n";
+    err = "Error opening file '" + std::string(fname) + "'\n";
       FatalError(err.c_str(), AMGX_ERR_IO);
   }
 
@@ -676,12 +682,12 @@ template<class T_Config>
 AMGX_ERROR MatrixIO<T_Config>::readColoring( AuxData* obj, const char* fname)
 {
   std::string err;
-  err = "Reading matrix in file: " + string(fname) + "\n";
+  err = "Reading matrix in file: " + std::string(fname) + "\n";
   amgx_output(err.c_str(), err.length());
 
   std::ifstream fin(fname);
   if(!fin) {
-    err = "Error opening file '" + string(fname) + "'\n";
+    err = "Error opening file '" + std::string(fname) + "'\n";
       FatalError(err.c_str(), AMGX_ERR_IO);
   }
 

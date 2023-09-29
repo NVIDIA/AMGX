@@ -39,7 +39,7 @@ namespace amgx
 template<class T_Config>
 GaussSeidelSolver_Base<T_Config>::GaussSeidelSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (this->weight == 0)
     {
@@ -81,7 +81,7 @@ GaussSeidelSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
 
     if (A_as_matrix->hasProps(DIAG))
     {
-        thrust::copy( A_as_matrix->values.begin() + A_as_matrix->diagOffset()*A_as_matrix->get_block_size()/*block_size == 1*/, A_as_matrix->values.end(), this->diag.begin());
+        amgx::thrust::copy( A_as_matrix->values.begin() + A_as_matrix->diagOffset()*A_as_matrix->get_block_size()/*block_size == 1*/, A_as_matrix->values.end(), this->diag.begin());
         cudaCheckError();
     }
     else
@@ -100,7 +100,7 @@ GaussSeidelSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZe
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 GaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     Matrix<T_Config> *A_as_matrix = (Matrix<T_Config> *) this->m_A;
@@ -164,7 +164,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec
 
             if (j == A.row_offsets[i + 1] - 1)
             {
-                std::string error = "Could not find a diagonal value at row " + i;
+                std::string error = "Could not find a diagonal value at row " + std::to_string(i);
                 FatalError(error.c_str(), AMGX_ERR_BAD_PARAMETERS);
             }
         }
@@ -207,7 +207,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueType;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueType)A.get_num_rows() / (ValueType)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueType)A.get_num_rows() / (ValueType)THREADS_PER_BLOCK));
     this->diag.resize(A.get_num_rows());
     find_diag_kernel<IndexType, ValueType> <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK >>>
     ((int)A.get_num_rows(),
@@ -257,7 +257,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     typedef typename Matrix_d::value_type ValueTypeA;
     typedef typename VVector::value_type ValueTypeB;
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
     GS_smooth_kernel<IndexType, ValueTypeA, ValueTypeB> <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK >>>
     ((int)A.get_num_rows(),
      A.row_offsets.raw(),
@@ -273,7 +273,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::smooth_with_0_initial_guess_1x1(const Matrix_d &A, const VVector &b, VVector &x)
 {
-    thrust::fill(x.begin(), x.end(), ValueTypeB(0));
+    thrust_wrapper::fill<AMGX_device>(x.begin(), x.end(), ValueTypeB(0));
     cudaCheckError();
     smooth_1x1(A, b, x);
 }

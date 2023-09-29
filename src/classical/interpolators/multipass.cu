@@ -504,7 +504,7 @@ compute_c_hat_kernel( int A_num_rows,
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // Shared memory to vote.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ KeyType s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
@@ -576,6 +576,8 @@ compute_c_hat_kernel( int A_num_rows,
             {
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
+
+            __syncwarp();
 
             int num_rows = __popc( vote );
 
@@ -821,9 +823,9 @@ compute_interp_weight_kernel( const int A_num_rows,
     // The hash keys stored in shared memory.
     __shared__ KeyType s_keys[NUM_WARPS * SMEM_SIZE];
     // A shared location where threads propose a row of B to load.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // A shared location where threads store a value of B to load.
-    __shared__ volatile Value_type s_b_values[CTA_SIZE];
+    __shared__ Value_type s_b_values[CTA_SIZE];
     // The hash values stored in shared memory.
     __shared__ Value_type s_vals[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
@@ -917,6 +919,8 @@ compute_interp_weight_kernel( const int A_num_rows,
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
                 s_b_values[warp_id * WARP_SIZE + dest] = a_value;
             }
+
+            __syncwarp();
 
             int num_rows = __popc( vote );
 
@@ -1084,9 +1088,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         size_two_ring = A.get_num_rows();
     }
 
-    int numBlocksOneRing = min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
-    int numBlocksTwoRing = min( 4096, (int) (size_two_ring + blockSize - 1) / blockSize );
-    int numBlocks = min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
+    int numBlocksOneRing = std::min( 4096, (int) (size_one_ring + blockSize - 1) / blockSize );
+    int numBlocksTwoRing = std::min( 4096, (int) (size_two_ring + blockSize - 1) / blockSize );
+    int numBlocks = std::min( 4096, (int) (A.get_num_rows() + blockSize - 1) / blockSize );
     // ----------------------------------------------------------
     // First fill out the assigned array and count # of passes
     // ----------------------------------------------------------
@@ -1100,16 +1104,16 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // Initialize assigned array by marking the coarse and fine point directly connected to coarse points
     const int cta_size = 256;
     const int nWarps = cta_size / 32;
-    int grid_size = min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
+    int grid_size = std::min( 4096, (int) (A.get_num_rows() + nWarps - 1) / nWarps);
     initializeAssignedArray<IndexType, cta_size> <<< grid_size, cta_size>>>(cf_map.raw(), assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), C_hat_start.raw(), Anum_rows);
     cudaCheckError();
     // Count the number of passes and fill assigned for pass > 1
     int pass = 2;
     int max_num_passes = 10;
     // Count the number of unassigned nodes by checking which nodes have assigned[i] = -1
-    IndexType num_unassigned = thrust_wrapper::count_if(assigned.begin(), assigned.end(), is_less_than_zero());
+    IndexType num_unassigned = thrust_wrapper::count_if<AMGX_device>(assigned.begin(), assigned.end(), is_less_than_zero());
     cudaCheckError();
-    IndexType num_strong_fine = thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_strong_fine());
+    IndexType num_strong_fine = thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.end(), is_strong_fine());
     cudaCheckError();
     IndexType num_unassigned_max = num_unassigned - num_strong_fine;
 
@@ -1128,7 +1132,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     while (num_unassigned_max && pass < max_num_passes)
     {
         fillAssignedArray<IndexType, cta_size> <<< grid_size, cta_size>>>(assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), Anum_rows, pass);
-        num_unassigned = thrust_wrapper::count_if(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
+        num_unassigned = thrust_wrapper::count_if<AMGX_device>(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
         cudaCheckError();
         num_unassigned_max = num_unassigned - num_strong_fine;
 
@@ -1161,9 +1165,9 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
         cudaCheckError();
-        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         coarsePoints = num_owned_coarse_pts + num_halo_coarse_pts;
         // Partially initialize the distributed manager of matrix P, using num_owned_coarse_pts
@@ -1180,7 +1184,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
     else
     {
-        coarsePoints = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        coarsePoints = (int) thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
         const int cta_size = 128;
         const int grid_size = std::min( 4096, (A.get_num_rows() + cta_size - 1) / cta_size);
@@ -1228,7 +1232,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
 
     // Do an exclusive scan on C_hat_start to compute compute upper bound on row offsets
-    thrust_wrapper::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
+    thrust_wrapper::exclusive_scan<AMGX_device>( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
     cudaCheckError();
     // Now C_hat_start contains the offsets
     // Create a temporary manager that can be used to exchange halo information on values and/or column indices, where there's more than 1 value associated with each node
@@ -1351,10 +1355,10 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
 
     // get total number of non-zeros with reduction
-    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[nonZeroOffsets.size() - 1] = nonZeros;
     // resize P
@@ -1375,7 +1379,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     IndexType *Pcolumn_indices = P.col_indices.raw();
     ValueType *Pvalues = P.values.raw();
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // grab the diagonal terms
     VVector diag(size_one_ring);

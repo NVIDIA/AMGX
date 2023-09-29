@@ -113,8 +113,10 @@ void l_times_u(int n, Matrix_data *lu_d, int lda)
     Matrix_data *l_d, *u_d;
     cudaMallocAsync((void **) &l_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
     cudaMallocAsync((void **) &u_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
     // Split LU.
     dim3 block_dim(16, 16);
     dim3 grid_dim((n + block_dim.x - 1) / block_dim.x, (n + block_dim.y - 1) / block_dim.y);
@@ -139,8 +141,10 @@ void l_times_u(int n, Matrix_data *lu_d, int lda)
     UNITTEST_ASSERT_EQUAL(cublas_status, CUBLAS_STATUS_SUCCESS);
     cudaFreeAsync(l_d, 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
     cudaFreeAsync(u_d, 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
+    UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
 }
 
 template< typename Matrix, typename Matrix_data >
@@ -265,7 +269,7 @@ void run()
     solver.setup(A_d, false);
     const int n = A_h.get_num_rows();
     Vector_d b_d(n), x_d(n), r_d(n);
-    thrust::fill(b_d.begin(), b_d.end(), Matrix_data(1));
+    thrust_wrapper::fill<AMGX_device>(b_d.begin(), b_d.end(), Matrix_data(1));
     solver.solve(b_d, x_d, false);
     solver.compute_residual(b_d, x_d, r_d);
     Vector_h resid_nrm(1);

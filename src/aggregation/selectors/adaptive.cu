@@ -186,7 +186,7 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
             VVector& rhs = *Allocator<VVector>::allocate( numRows );
 
             // initialize rhs
-            thrust::fill( rhs.begin(), rhs.end(), 0.0 );
+            thrust_wrapper::fill( rhs.begin(), rhs.end(), 0.0 );
 
             //compute random numbers
             curandGenerator_t generator;
@@ -195,7 +195,7 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
 
             cudaStream_t str = 0;
             const int threads_per_block = 256;
-            const int num_blocks = min( AMGX_GRID_MAX_SIZE, (numRows-1)/threads_per_block + 1 );
+            const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (numRows-1)/threads_per_block + 1 );
             rescaleVector<<<num_blocks, threads_per_block, 0, str>>>( x.raw(), numRows );
 
 
@@ -208,8 +208,8 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
             Allocator<VVector>::free( &rhs, numRows );
 
             //find min, max
-            ValueType min = thrust::reduce( x.begin(), x.end(), 0.0, thrust::minimum<ValueType>() );
-            ValueType max = thrust::reduce( x.begin(), x.end(), 0.0, thrust::maximum<ValueType>() );
+            ValueType min = amgx::thrust::reduce( x.begin(), x.end(), 0.0, amgx::thrust::minimum<ValueType>() );
+            ValueType max = amgx::thrust::reduce( x.begin(), x.end(), 0.0, amgx::thrust::maximum<ValueType>() );
 
             //bin
             aggregates.resize( numRows );

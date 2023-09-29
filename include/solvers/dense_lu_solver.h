@@ -68,7 +68,7 @@ class DenseLUSolver<TemplateConfig<AMGX_host, V, M, I> >
         {
             FatalError("No host implementation of the dense LU solver", AMGX_ERR_NOT_IMPLEMENTED);
         }
-        virtual bool solve_iteration(Vector_h &b, Vector_h &x, bool xIsZero)
+        virtual AMGX_STATUS solve_iteration(Vector_h &b, Vector_h &x, bool xIsZero)
         {
             FatalError("No host implementation of the dense LU solver", AMGX_ERR_NOT_IMPLEMENTED);
         }
@@ -107,7 +107,7 @@ class DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >
         virtual bool getInsertDiagonalDesired() const { return false; }
         virtual void solver_setup(bool reuse_matrix_structure);
         virtual void solve_init(Vector_d &b, Vector_d &x, bool xIsZero);
-        virtual bool solve_iteration(Vector_d &b, Vector_d &x, bool xIsZero);
+        virtual AMGX_STATUS solve_iteration(Vector_d &b, Vector_d &x, bool xIsZero);
         virtual void solve_finalize(Vector_d &b, Vector_d &x);
 
         inline int get_num_rows() const { return m_num_rows; }

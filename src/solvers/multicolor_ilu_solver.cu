@@ -41,7 +41,6 @@
 #include <matrix_io.h>
 #include <permute.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 #include <algorithm>
 
@@ -53,7 +52,6 @@
 #define EXPERIMENTAL_LU_FORWARD
 #define EXPERIMENTAL_LU_BACKWARD
 
-using namespace std;
 namespace amgx
 {
 
@@ -1447,12 +1445,12 @@ computeLUFactors_4x4_kernel( int A_nRows,
 template<class T_Config>
 MulticolorILUSolver_Base<T_Config>::MulticolorILUSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    m_sparsity_level = cfg.AMG_Config::getParameter<int>("ilu_sparsity_level", cfg_scope);
-    m_weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
-    this->m_insert_diagonal_desired = (cfg.AMG_Config::getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
+    m_sparsity_level = cfg.AMG_Config::template getParameter<int>("ilu_sparsity_level", cfg_scope);
+    m_weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    this->m_insert_diagonal_desired = (cfg.AMG_Config::template getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
 
-    if (cfg.AMG_Config::getParameter<int>("use_bsrxmv", cfg_scope))
+    if (cfg.AMG_Config::template getParameter<int>("use_bsrxmv", cfg_scope))
     {
         this->m_use_bsrxmv = 1;
     }
@@ -1501,24 +1499,24 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     {
         computeAtoLUmappingExtDiag_kernel<CtaSize, SMemSize> <<< GridSize, CtaSize >>> (
             m_A.get_num_rows( ),
-            thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
-            thrust::raw_pointer_cast( &m_A.col_indices[0] ),
-            thrust::raw_pointer_cast( &m_A.diag[0] ),
-            thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-            thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-            thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
-            thrust::raw_pointer_cast( &returnValue[0] ));
+            amgx::thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
+            amgx::thrust::raw_pointer_cast( &m_A.col_indices[0] ),
+            amgx::thrust::raw_pointer_cast( &m_A.diag[0] ),
+            amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+            amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+            amgx::thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
+            amgx::thrust::raw_pointer_cast( &returnValue[0] ));
     }
     else
     {
         computeAtoLUmapping_kernel<CtaSize, SMemSize> <<< GridSize, CtaSize >>> (
             m_A.get_num_rows( ),
-            thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
-            thrust::raw_pointer_cast( &m_A.col_indices[0] ),
-            thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-            thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-            thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
-            thrust::raw_pointer_cast( &returnValue[0] ));
+            amgx::thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
+            amgx::thrust::raw_pointer_cast( &m_A.col_indices[0] ),
+            amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+            amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+            amgx::thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
+            amgx::thrust::raw_pointer_cast( &returnValue[0] ));
     }
 
     cudaCheckError();
@@ -1533,24 +1531,24 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         {
             computeAtoLUmappingExtDiag_kernel<CtaSize, SMemSize2> <<< GridSize, CtaSize >>> (
                 m_A.get_num_rows( ),
-                thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
-                thrust::raw_pointer_cast( &m_A.col_indices[0] ),
-                thrust::raw_pointer_cast( &m_A.diag[0] ),
-                thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-                thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-                thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
-                thrust::raw_pointer_cast( &returnValue[0] ));
+                amgx::thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
+                amgx::thrust::raw_pointer_cast( &m_A.col_indices[0] ),
+                amgx::thrust::raw_pointer_cast( &m_A.diag[0] ),
+                amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+                amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+                amgx::thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
+                amgx::thrust::raw_pointer_cast( &returnValue[0] ));
         }
         else
         {
             computeAtoLUmapping_kernel<CtaSize, SMemSize2> <<< GridSize, CtaSize >>> (
                 m_A.get_num_rows( ),
-                thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
-                thrust::raw_pointer_cast( &m_A.col_indices[0] ),
-                thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-                thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-                thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
-                thrust::raw_pointer_cast( &returnValue[0] ));
+                amgx::thrust::raw_pointer_cast( &m_A.row_offsets[0] ),
+                amgx::thrust::raw_pointer_cast( &m_A.col_indices[0] ),
+                amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+                amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+                amgx::thrust::raw_pointer_cast( &this->m_A_to_LU_mapping[0] ),
+                amgx::thrust::raw_pointer_cast( &returnValue[0] ));
         }
 
         cudaCheckError();
@@ -1581,7 +1579,7 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         // TODO: Should probably store the inverse mapping of AtoLUmapping instead
         //       This will allow to use unpermuteVector and have coalesced writes
         //       instead of coalesced reads
-        thrust::fill(this->m_LU.values.begin(), this->m_LU.values.end(), 0.);
+        thrust_wrapper::fill<AMGX_device>(this->m_LU.values.begin(), this->m_LU.values.end(), 0.);
         cudaCheckError();
 
         if (this->m_explicit_A->hasProps(DIAG))
@@ -1668,31 +1666,31 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             {
                 compute_LU_factors_4x4_kernel_warp<ValueTypeA, CtaSize, SMemSize, true> <<< GridSize, CtaSize>>>(
                     this->m_LU.get_num_rows( ),
-                    thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.values[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.values[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
                     LU_sorted_rows_by_color_ptr + color_offset,
                     num_rows_per_color,
                     i,
-                    thrust::raw_pointer_cast( &returnValue[0] ) );
+                    amgx::thrust::raw_pointer_cast( &returnValue[0] ) );
             }
             else
             {
                 compute_LU_factors_4x4_kernel_warp<ValueTypeA, CtaSize, SMemSize, false> <<< GridSize, CtaSize>>>(
                     this->m_LU.get_num_rows( ),
-                    thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.values[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.values[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
                     LU_sorted_rows_by_color_ptr + color_offset,
                     num_rows_per_color,
                     i,
-                    thrust::raw_pointer_cast( &returnValue[0] ) );
+                    amgx::thrust::raw_pointer_cast( &returnValue[0] ) );
             }
 
             cudaCheckError();
@@ -1717,31 +1715,31 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             {
                 computeLUFactors_4x4_kernel<ValueTypeA, CtaSize, SMemSize, true> <<< GridSize, CtaSize>>> (
                     this->m_LU.get_num_rows( ),
-                    thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.values[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.values[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
                     LU_sorted_rows_by_color_ptr + color_offset,
                     num_rows_per_color,
                     i,
-                    thrust::raw_pointer_cast( &returnValue[0] ) );
+                    amgx::thrust::raw_pointer_cast( &returnValue[0] ) );
             }
             else
             {
                 computeLUFactors_4x4_kernel<ValueTypeA, CtaSize, SMemSize, false> <<< GridSize, CtaSize>>> (
                     this->m_LU.get_num_rows( ),
-                    thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.values[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
-                    thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.row_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.col_indices[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.diag[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.values[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_smaller_color_offsets[0] ),
+                    amgx::thrust::raw_pointer_cast( &this->m_LU.m_larger_color_offsets[0] ),
                     LU_sorted_rows_by_color_ptr + color_offset,
                     num_rows_per_color,
                     i,
-                    thrust::raw_pointer_cast( &returnValue[0] ) );
+                    amgx::thrust::raw_pointer_cast( &returnValue[0] ) );
             }
 
             cudaCheckError();
@@ -1860,7 +1858,7 @@ MulticolorILUSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIs
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 MulticolorILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if ( !m_use_bsrxmv && (this->m_LU.get_block_dimx() == 4 && this->m_LU.get_block_dimy() == 4) )
@@ -2196,12 +2194,12 @@ void MulticolorILUSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
     const IndexType *LU_sorted_rows_by_color_ptr = m_LU.getMatrixColoring().getSortedRowsByColor().raw();
     int num_colors = this->m_LU.getMatrixColoring().getNumColors();
     //delta = b;
-    thrust::copy(b.begin(), b.end(), this->m_delta.begin());
+    amgx::thrust::copy(b.begin(), b.end(), this->m_delta.begin());
     //delta = delta - Ax;
     Cusparse::bsrmv((ValueTypeA) - 1.0, m_A, x, (ValueTypeA)1.0, this->m_delta);
     cudaCheckError();
     // Setting Delta to zero
-    thrust::fill(this->m_Delta.begin(), this->m_Delta.end(), (ValueTypeB)0.0f);
+    thrust_wrapper::fill<AMGX_device>(this->m_Delta.begin(), this->m_Delta.end(), (ValueTypeB)0.0f);
     cudaCheckError();
     bool skipped_end = false;
 

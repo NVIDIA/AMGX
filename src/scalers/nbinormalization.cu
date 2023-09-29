@@ -29,6 +29,7 @@
 #include <sm_utils.inl>
 #include <thrust/inner_product.h>
 #include <solvers/block_common_solver.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -308,7 +309,7 @@ void setOneOverVector(int N, ValueType *x, ValueType sum1, ValueType *beta)
 }
 
 template<typename T>
-struct square_value : public unary_function<T, T>
+struct square_value : public thrust::unary_function<T, T>
 {
     __host__ __device__ T operator()(const T &x) const
     {
@@ -441,9 +442,9 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             x.raw(), y.raw(), beta.raw(), gamma.raw());
     ValueTypeB sum1 = cols, sum2 = rows, std1, std2;
     // calculate initial std1 and std2
-    thrust::device_ptr<ValueTypeB> x_ptr(x.raw()), y_ptr(y.raw()), beta_ptr(beta.raw()), gamma_ptr(gamma.raw());
-    std1 = sqrt(thrust::inner_product(x_ptr, x_ptr + rows, beta_ptr, ValueTypeB(0.), thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum1)) / rows) / sum1;
-    std2 = sqrt(thrust::inner_product(y_ptr, y_ptr + cols, gamma_ptr, ValueTypeB(0.), thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum2)) / cols) / sum2;
+    amgx::thrust::device_ptr<ValueTypeB> x_ptr(x.raw()), y_ptr(y.raw()), beta_ptr(beta.raw()), gamma_ptr(gamma.raw());
+    std1 = sqrt(amgx::thrust::inner_product(x_ptr, x_ptr + rows, beta_ptr, ValueTypeB(0.), amgx::thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum1)) / rows) / sum1;
+    std2 = sqrt(amgx::thrust::inner_product(y_ptr, y_ptr + cols, gamma_ptr, ValueTypeB(0.), thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum2)) / cols) / sum2;
     ValueTypeB std = sqrt(std1 * std1 + std2 * std2);
 
     for (int t = 0; t < max_iters; t++)
@@ -453,14 +454,14 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         // x = sum1 ./ beta
         setOneOverVector <<< 4096, 256>>>(rows, x.raw(), sum1, beta.raw());
         // gamma = C*x := B'*x
-        thrust::fill(gamma.begin(), gamma.end(), ValueTypeB(0.));
+        thrust_wrapper::fill<AMGX_device>(gamma.begin(), gamma.end(), ValueTypeB(0.));
         computeGammaDevice<256, 8> <<< 4096, 256>>>(rows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), x.raw(), gamma.raw());
         // gamma = 1 ./ beta
         setOneOverVector <<< 4096, 256>>>(cols, y.raw(), sum2, gamma.raw());
         // beta = B*y
         computeBetaDevice<256, 8> <<< 4096, 256>>>(rows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), y.raw(), beta.raw());
         //ValueTypeB std_old = std;
-        std = sqrt(thrust::inner_product(x_ptr, x_ptr + rows, beta_ptr, ValueTypeB(0.), thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum1)) / rows) / sum1;
+        std = sqrt(amgx::thrust::inner_product(x_ptr, x_ptr + rows, beta_ptr, ValueTypeB(0.), amgx::thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum1)) / rows) / sum1;
         // print it #, current error, convergence rate
         //printf("ITER: %d     %.3e     %.4lg\n",t, std, std / std_old);
     }
@@ -494,10 +495,10 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         VVector colnorms(nrows, 0.0);
         getColRowNorms<<<4096,256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), rownorms.raw(), colnorms.raw());
         cudaCheckError();
-        ValueTypeB row_max = *(thrust::max_element(rownorms.begin(), rownorms.end()));
-        ValueTypeB row_min = *(thrust::min_element(rownorms.begin(), rownorms.end()));
-        ValueTypeB col_max = *(thrust::max_element(colnorms.begin(), colnorms.end()));
-        ValueTypeB col_min = *(thrust::min_element(colnorms.begin(), colnorms.end()));
+        ValueTypeB row_max = *(amgx::thrust::max_element(rownorms.begin(), rownorms.end()));
+        ValueTypeB row_min = *(amgx::thrust::min_element(rownorms.begin(), rownorms.end()));
+        ValueTypeB col_max = *(amgx::thrust::max_element(colnorms.begin(), colnorms.end()));
+        ValueTypeB col_min = *(amgx::thrust::min_element(colnorms.begin(), colnorms.end()));
         cudaCheckError();
         printf("Original Matrix: rowmax: %e, rowmin: %e, colmax: %e, colmin: %e\n", row_max, row_min, col_max, col_min);fflush(stdout);*/
         // A_scaled = F*A*G (f = diag(F) = sqrt(fabs(x)), g = diag(G) = sqrt(fabs(y))
@@ -507,20 +508,20 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         if (!scaled_before)
         {
-            this->norm_coef = sqrt(thrust::transform_reduce(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., thrust::plus<ValueTypeB>()) / A.get_num_rows());
+            this->norm_coef = sqrt(thrust_wrapper::transform_reduce<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / A.get_num_rows());
             cudaCheckError();
-            thrust::transform(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
-            thrust::transform(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
-            thrust::transform(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
+            thrust_wrapper::transform<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
+            thrust_wrapper::transform<AMGX_device>(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
+            thrust_wrapper::transform<AMGX_device>(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
             cudaCheckError();
-            /*thrust::fill(rownorms.begin(), rownorms.end(), 0.);
-            thrust::fill(colnorms.begin(), colnorms.end(), 0.);
+            /*thrust_wrapper::fill<AMGX_device>(rownorms.begin(), rownorms.end(), 0.);
+              thrust_wrapper::fill<AMGX_device>(colnorms.begin(), colnorms.end(), 0.);
             getColRowNorms<<<4096,256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), rownorms.raw(), colnorms.raw());
             cudaCheckError();
-            row_max = *(thrust::max_element(rownorms.begin(), rownorms.end()));
-            row_min = *(thrust::min_element(rownorms.begin(), rownorms.end()));
-            col_max = *(thrust::max_element(colnorms.begin(), colnorms.end()));
-            col_min = *(thrust::min_element(colnorms.begin(), colnorms.end()));
+            row_max = *(amgx::thrust::max_element(rownorms.begin(), rownorms.end()));
+            row_min = *(amgx::thrust::min_element(rownorms.begin(), rownorms.end()));
+            col_max = *(amgx::thrust::max_element(colnorms.begin(), colnorms.end()));
+            col_min = *(amgx::thrust::min_element(colnorms.begin(), colnorms.end()));
             cudaCheckError();
             printf("Scaled Matrix: rowmax: %e, rowmin: %e, colmax: %e, colmin: %e\n", row_max, row_min, col_max, col_min);fflush(stdout);*/
         }
@@ -630,14 +631,14 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 {
     VVector *scale_vector = (leftOrRight == amgx::LEFT) ? &this->left_scale : &this->right_scale;
 
-    //thrust::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), (scaleOrUnscale == amgx::SCALE) ? vmul_scale<ValueTypeB>() : vmul_unscale<ValueTypeB>() );
+    //thrust_wrapper::transform<AMGX_device>(v.begin(), v.end(), scale_vector->begin(), v.begin(), (scaleOrUnscale == amgx::SCALE) ? vmul_scale<ValueTypeB>() : vmul_unscale<ValueTypeB>() );
     if (scaleOrUnscale == amgx::SCALE)
     {
-        thrust::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_scale<ValueTypeB>() );
+        thrust_wrapper::transform<AMGX_device>(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_scale<ValueTypeB>() );
     }
     else
     {
-        thrust::transform(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_unscale<ValueTypeB>() );
+        thrust_wrapper::transform<AMGX_device>(v.begin(), v.end(), scale_vector->begin(), v.begin(), vmul_unscale<ValueTypeB>() );
     }
 }
 

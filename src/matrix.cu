@@ -290,18 +290,21 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
         cudaCheckError();
         printRowsStart = (srows < 0) ? 0                    : srows;
         printRowsEnd  = (erows < 0) ? this->get_num_rows() : erows;
-        tnnz = this->get_num_nz();
+        tnnz = this->get_num_nz() * this->get_block_size();
 
         //matrix might have separate diagonal (need to accoutn for it in nnz)
         if (this->hasProps(DIAG, this->props))
         {
-            //matrix might be non-square so take min of # of rows and cols
-            tnnz += min(this->get_num_rows(), this->get_num_cols());
+            //matrix might be non-square so take std::min of # of rows and cols
+            tnnz += std::min(this->get_num_rows(), this->get_num_cols());
         }
+
+        auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
+        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
 
         fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
         fprintf(fid, "%% %s\n", s);
-        fprintf(fid, "%d %d %d\n", this->get_num_rows(), this->get_num_cols(), tnnz);
+        fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
@@ -309,12 +312,12 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
             {
                 if (this->hasProps(DIAG, this->props))
                 {
-                    if (i < min(this->get_num_rows(), this->get_num_cols()))
+                    if (i < std::min(this->get_num_rows(), this->get_num_cols()))
                     {
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
                             a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                            fprintf(fid, "%d %d ", i + 1, i + 1);
+                            fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
                         }
@@ -328,7 +331,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
                     for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                     {
                         a = this->values[ii * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                        fprintf(fid, "%d %d ", i + 1, j + 1);
+                        fprintf(fid, "%d %d ", trafI(i, ydim), trafJ(j, xdim));
                         types::util<value_type>::fprintf(fid, "%20.16f", a);
                         fprintf(fid, "\n");
                     }
@@ -398,18 +401,21 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
         cudaCheckError();
         printRowsStart = (srows < 0) ? 0                    : srows;
         printRowsEnd  = (erows < 0) ? this->get_num_rows() : erows;
-        tnnz = this->get_num_nz();
+        tnnz = this->get_num_nz() * this->get_block_size();
 
         //matrix might have separate diagonal (need to accoutn for it in nnz)
         if (this->hasProps(DIAG, this->props))
         {
             //matrix might be non-square so take min of # of rows and cols
-            tnnz += min(this->get_num_rows(), this->get_num_cols());
+            tnnz += std::min(this->get_num_rows(), this->get_num_cols()) * this->get_block_size();
         }
 
         fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
         fprintf(fid, "%% %s\n", s);
-        fprintf(fid, "%d %d %d\n", this->get_num_rows(), this->get_num_cols(), tnnz);
+        fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
+
+        auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
+        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
@@ -417,12 +423,12 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
             {
                 if (this->hasProps(DIAG, this->props))
                 {
-                    if (i < min(this->get_num_rows(), this->get_num_cols()))
+                    if (i < std::min(this->get_num_rows(), this->get_num_cols()))
                     {
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
                             a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
-                            fprintf(fid, "%d %d ", i + 1, i + 1);
+                            fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
                         }
@@ -727,7 +733,7 @@ MatrixBase<T_Config>::resize(index_type num_rows, index_type num_cols, index_typ
         else
         {
             values.resize((num_nz + 1)*block_size);
-            //amgx::thrust::fill(values.begin() + num_nz*block_size, values.end(), static_cast<value_type>(0.0));
+            //thrust_wrapper::fill<T_Config::memSpace>(values.begin() + num_nz*block_size, values.end(), static_cast<value_type>(0.0));
         }
 
         diag.resize(num_rows);
@@ -740,7 +746,7 @@ MatrixBase<T_Config>::resize(index_type num_rows, index_type num_cols, index_typ
         if ( hasProps(CSR) ) { row_offsets.resize(num_rows + 1); }
 
         m_seq_offsets.resize(num_rows + 1);
-        amgx::thrust::sequence(m_seq_offsets.begin(), m_seq_offsets.end());
+        thrust_wrapper::sequence<T_Config::memSpace>(m_seq_offsets.begin(), m_seq_offsets.end());
         cudaCheckError();
 
         if (!skipDiaCompute )
@@ -904,7 +910,7 @@ MatrixBase<T_Config>::reorderColumnsByColor(bool insert_diagonal)
                  element_colors.begin());
     // Compute the permutation vector by sorting by rows and columns
     m_values_permutation_vector.resize(num_non_zeros);
-    amgx::thrust::sequence(m_values_permutation_vector.begin(), m_values_permutation_vector.end());
+    thrust_wrapper::sequence<T_Config::memSpace>(m_values_permutation_vector.begin(), m_values_permutation_vector.end());
     cusp::detail::sort_by_row_and_column(row_indices, element_colors, m_values_permutation_vector);
     cudaCheckError();
     element_colors.clear();
@@ -966,7 +972,7 @@ MatrixBase<T_Config>::sortByRowAndColumn()
 
     size_t N = this->row_indices.size();
     IVector permutation(N);
-    amgx::thrust::sequence(permutation.begin(), permutation.end());
+    thrust_wrapper::sequence<T_Config::memSpace>(permutation.begin(), permutation.end());
     cudaCheckError();
     // compute permutation and sort by (I,J)
     {
@@ -1102,17 +1108,17 @@ void Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::comp
 
     if (this->hasProps(DIAG))
     {
-        int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+        int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
         computeDiagonalKernelDiagProp <<< num_blocks, 512, 0, amgx::thrust::global_thread_handle::get_stream()>>>(this->get_num_rows(), this->get_num_nz(), this->diag.raw(), this->m_diag_end_offsets.raw());
     }
     else if (this->hasProps(COO))
     {
-        int num_blocks = min(4096, (this->get_num_nz() + 511) / 512);
+        int num_blocks = std::min(4096, (this->get_num_nz() + 511) / 512);
         computeDiagonalKernelCOO <<< num_blocks, 512>>>(this->get_num_nz(), this->row_indices.raw(), this->col_indices.raw(), this->diag.raw(), this->m_diag_end_offsets.raw());
     }
     else
     {
-        int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+        int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
         computeDiagonalKernelCSR <<< num_blocks, 512>>>(this->get_num_rows(), this->row_offsets.raw(), this->col_indices.raw(), this->diag.raw(), null_index, this->m_diag_end_offsets.raw());
     }
 
@@ -1209,7 +1215,7 @@ void reorderElementsDeviceCSR(INDEX_TYPE num_rows,
                               INDEX_TYPE block_size)
 {
     amgx::thrust::device_ptr<INDEX_TYPE> dev_ptr = amgx::thrust::device_pointer_cast(row_offsets);
-    INDEX_TYPE max_row_length = std::max(1, amgx::thrust::transform_reduce(dev_ptr, dev_ptr + num_rows, row_length<INDEX_TYPE>(), 0, amgx::thrust::maximum<INDEX_TYPE>()));
+    INDEX_TYPE max_row_length = std::max(1, thrust_wrapper::transform_reduce<AMGX_device>(dev_ptr, dev_ptr + num_rows, row_length<INDEX_TYPE>(), 0, amgx::thrust::maximum<INDEX_TYPE>()));
     //TODO: optimise this in terms of storage
     INDEX_TYPE storage_space = 100 * 1024 * 1024 * sizeof(T) / sizeof(cuDoubleComplex); // because we allocate as for cuComplex
     INDEX_TYPE blocks = 1500 < storage_space / (max_row_length * block_size * sizeof(T)) ? 1500 : storage_space / (max_row_length * block_size * sizeof(T));

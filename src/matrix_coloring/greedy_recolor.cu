@@ -150,7 +150,7 @@ struct neigbor_visitor
                 //}
             }
 
-            neigbor_visitor < COLORING_LEVEL - 1 >::visit<WARP_SIZE, HASHES, DISCARD_COLORED_T>(row_id, base_row_hash, col_id, A_rows, A_cols, A_colors_in, lane_id, seed, is_min, is_max);
+            neigbor_visitor < COLORING_LEVEL - 1 >::template visit<WARP_SIZE, HASHES, DISCARD_COLORED_T>(row_id, base_row_hash, col_id, A_rows, A_cols, A_colors_in, lane_id, seed, is_min, is_max);
         }
     }
 
@@ -210,7 +210,7 @@ void fast_multihash_kernel(
             unsigned long long int is_max = ~0ull;
             int base_row_hash = hash2(row_id, seed);
 #if 1 //COLORING_LEVELR>1
-            neigbor_visitor<COLORING_LEVEL>::visit<WARP_SIZE, HASHES, DISCARD_COLORED_T>(row_id, base_row_hash, row_id, A_rows, A_cols, A_colors_in, lane_id, seed, is_min, is_max);
+            neigbor_visitor<COLORING_LEVEL>::template visit<WARP_SIZE, HASHES, DISCARD_COLORED_T>(row_id, base_row_hash, row_id, A_rows, A_cols, A_colors_in, lane_id, seed, is_min, is_max);
 #else
             int row_begin = A_rows[row_id  ];
             int row_end   = A_rows[row_id + 1];
@@ -358,8 +358,6 @@ void fast_multihash_kernel_gtlt_kernel(
                     col_hash_k = rehash(col_id, base_col_hash, k, seed);
                     row_hash_k = rehash(row_id, base_row_hash, k, seed);
 
-                    //unsigned long long q = (~(1ull << 63-k));
-
                     if (col_hash_k > row_hash_k || (col_hash_k == row_hash_k && row_id < col_id))
                     {
                         if (count_gt[k] < 255) //avoid overflow
@@ -455,7 +453,7 @@ void fast_multihash_kernel_gtlt_assign_kernel(
                         int row_lt_k = (row_gtlt >> (k * 2 + 32)) & 3ull;
                         int col_gt_k = (col_gtlt >> (k * 2 + 0)) & 3ull;
                         int col_lt_k = (col_gtlt >> (k * 2 + 32)) & 3ull;
-                        unsigned long long q = (~(1ull << 63 - k));
+                        unsigned long long q = (~(1ull << (63 - k)));
 
                         if ((row_gt_k > col_gt_k) || (col_gt_k == row_gt_k && row_id < col_id))
                         {
@@ -805,8 +803,8 @@ Greedy_Recolor_MatrixColoring_Base<T_Config>::Greedy_Recolor_MatrixColoring_Base
     //MULTI_HASH: it would be faster but it leaves some uncolored vertices: uncolored vertices cannot be processed in parallel
     first_pass_config.setParameter("matrix_coloring_scheme", std::string("MULTI_HASH"), first_pass_config_scope);
     first_pass_config.setParameter("max_uncolored_percentage", 0.0, first_pass_config_scope);
-    m_coloring_custom_arg = cfg.AMG_Config::getParameter<std::string>( "coloring_custom_arg", cfg_scope );
-    m_coloring_try_remove_last_color_ = cfg.AMG_Config::getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
+    m_coloring_custom_arg = cfg.AMG_Config::template getParameter<std::string>( "coloring_custom_arg", cfg_scope );
+    m_coloring_try_remove_last_color_ = cfg.AMG_Config::template getParameter<int>( "coloring_try_remove_last_colors", cfg_scope );
 }
 
 // Block version
@@ -1016,8 +1014,8 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
             IVector row_colors(this->m_row_colors); //useless copy
             sorted_rows_by_color.resize(num_rows);
             //this->m_sorted_rows_by_color.resize(num_rows);
-            amgx::thrust::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
-            thrust_wrapper::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
+            thrust_wrapper::sequence<AMGX_device>(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
+            thrust_wrapper::sort_by_key<AMGX_device>(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
             cudaCheckError();
             IVector offsets_rows_per_color_d(this->m_num_colors + 1);
             amgx::thrust::lower_bound(row_colors.begin(),
@@ -1172,7 +1170,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     printf("MAXCOLOR ref=%d %d\n",max_colorg,max_color);
     if(max_colorg!=max_color)exit(1);*/
 #else
-    int max_color = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() );
+    int max_color = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() );
 #endif
     //printf("MAXCOLOR %d %d\n",max_color_gold,max_color);
     cudaCheckError();

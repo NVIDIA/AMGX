@@ -30,7 +30,7 @@
 #include <blas.h>
 #include <util.h>
 
-#include <thrust/extrema.h> // for thrust::max_element
+#include <thrust/extrema.h> // for amgx::thrust::max_element
 
 namespace amgx
 {
@@ -72,7 +72,7 @@ void Chebyshev_Solver<T_Config>::compute_eigenmax_estimate(const Matrix<T_Config
     VVector tsum(A.get_num_rows());
     const int threads_per_block = 256;
     const int blockrows_per_cta = threads_per_block;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     const IndexType *A_dia_idx_ptr = A.diag.raw();
@@ -91,7 +91,7 @@ void Chebyshev_Solver<T_Config>::compute_eigenmax_estimate(const Matrix<T_Config
         (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, A.get_num_rows(), tsum.raw());
     }
 
-    lambda = *(thrust::max_element(tsum.begin(), tsum.end()));
+    lambda = *(amgx::thrust::max_element(tsum.begin(), tsum.end()));
 }
 
 // Constructor
@@ -102,8 +102,8 @@ Chebyshev_Solver<T_Config>::Chebyshev_Solver( AMG_Config &cfg, const std::string
 {
     std::string solverName, new_scope, tmp_scope;
     cfg.getParameter<std::string>( "preconditioner", solverName, cfg_scope, new_scope );
-    m_lambda_mode = cfg.AMG_Config::getParameter<int>("chebyshev_lambda_estimate_mode", cfg_scope);
-    m_cheby_order = cfg.AMG_Config::getParameter<int>("chebyshev_polynomial_order", cfg_scope);
+    m_lambda_mode = cfg.AMG_Config::template getParameter<int>("chebyshev_lambda_estimate_mode", cfg_scope);
+    m_cheby_order = cfg.AMG_Config::template getParameter<int>("chebyshev_polynomial_order", cfg_scope);
     // 0 - use eigensolver to get BOTH estimates
     // 1 - use eigensolver to get maximum estimate
     // 2 - use max sum of abs values as a rough estimate for maximum eigenvalue
@@ -111,8 +111,8 @@ Chebyshev_Solver<T_Config>::Chebyshev_Solver( AMG_Config &cfg, const std::string
 
     if (m_lambda_mode == 3)
     {
-        m_user_max_lambda = cfg.AMG_Config::getParameter<double>("cheby_max_lambda", cfg_scope);
-        m_user_min_lambda = cfg.AMG_Config::getParameter<double>("cheby_min_lambda", cfg_scope);
+        m_user_max_lambda = cfg.AMG_Config::template getParameter<double>("cheby_max_lambda", cfg_scope);
+        m_user_min_lambda = cfg.AMG_Config::template getParameter<double>("cheby_min_lambda", cfg_scope);
     }
 
     if (solverName.compare("NOSOLVER") == 0)
@@ -305,9 +305,11 @@ Chebyshev_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 }
 
 template<class T_Config>
-bool
+AMGX_STATUS
 Chebyshev_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     AMGX_CPU_PROFILER( "Chebyshev_Solver::solve_iteration " );
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
@@ -355,15 +357,16 @@ Chebyshev_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZer
     }
 
     // Do we converge ?
-    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+    if ( this->m_monitor_convergence &&
+         isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
     {
         A.setView(oldView);
-        return true;
+        return conv_stat;
     }
 
     // No convergence so far.
     A.setView(oldView);
-    return !this->m_monitor_convergence;
+    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>

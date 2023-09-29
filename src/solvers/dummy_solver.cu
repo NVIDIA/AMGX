@@ -41,12 +41,12 @@ Dummy_Solver<T_Config>::solver_setup(bool reuse_matrix_structure)
 
 //launches a single standard cycle
 template<class T_Config>
-bool
+AMGX_STATUS
 Dummy_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
     }
 

@@ -74,15 +74,15 @@ namespace detail_m
       void operator()(Tuple t)
     {
       // compute \zeta_1^\sigma
-      ScalarType z1, b0, z0=thrust::get<2>(t), zm1 = thrust::get<3>(t),
-		 sigma = thrust::get<4>(t);
+      ScalarType z1, b0, z0=amgx::thrust::get<2>(t), zm1 = amgx::thrust::get<3>(t),
+		 sigma = amgx::thrust::get<4>(t);
       z1 = z0*zm1*beta_m1/(beta_0*alpha_0*(zm1-z0)
                          +beta_m1*zm1*(ScalarType(1)-beta_0*sigma));
       b0 = beta_0*z1/z0;
       if ( abs(z1) < ScalarType(1e-30) )
         z1 = ScalarType(1e-18);
-      thrust::get<0>(t) = z1;
-      thrust::get<1>(t) = b0;
+      amgx::thrust::get<0>(t) = z1;
+      amgx::thrust::get<1>(t) = b0;
     }
   };
 
@@ -104,8 +104,8 @@ namespace detail_m
       void operator()(Tuple t)
     {
       // compute \alpha_0^\sigma
-      thrust::get<0>(t)=alpha_0/beta_0*thrust::get<2>(t)*thrust::get<3>(t)/
-                        thrust::get<1>(t);
+        amgx::thrust::get<0>(t)=alpha_0/beta_0*amgx::thrust::get<2>(t)*amgx::thrust::get<3>(t)/
+                        amgx::thrust::get<1>(t);
     }
   };
 
@@ -120,7 +120,7 @@ namespace detail_m
     __host__ __device__
       void operator()(Tuple t)
     {
-      thrust::get<0>(t)=thrust::get<1>(t)+beta_0*thrust::get<2>(t);
+        amgx::thrust::get<0>(t)=amgx::thrust::get<1>(t)+beta_0*amgx::thrust::get<2>(t);
     }
   };
 
@@ -138,8 +138,8 @@ namespace detail_m
     __host__ __device__
       void operator()(Tuple t)
     {
-      thrust::get<0>(t)=thrust::get<1>(t)
-	                +alpha_1*(thrust::get<0>(t)-chi_0*thrust::get<2>(t));
+        amgx::thrust::get<0>(t)=amgx::thrust::get<1>(t)
+	                +alpha_1*(amgx::thrust::get<0>(t)-chi_0*amgx::thrust::get<2>(t));
     }
   };
 
@@ -155,9 +155,9 @@ namespace detail_m
     __host__ __device__
       void operator()(Tuple t)
     {
-      ScalarType den = ScalarType(1.0)+chi_0*thrust::get<3>(t);
-      thrust::get<0>(t)=chi_0/den;
-      thrust::get<1>(t)=thrust::get<2>(t)/den;
+      ScalarType den = ScalarType(1.0)+chi_0*amgx::thrust::get<3>(t);
+      amgx::thrust::get<0>(t)=chi_0/den;
+      amgx::thrust::get<1>(t)=amgx::thrust::get<2>(t)/den;
     }
   };
 
@@ -204,7 +204,7 @@ namespace detail_m
     __host__ __device__
       void operator()(Tuple t)
     {
-      int index = thrust::get<2>(t);
+      int index = amgx::thrust::get<2>(t);
       int N_s = index / N;
       int N_n = index % N;
       
@@ -213,11 +213,11 @@ namespace detail_m
       ScalarType b0s = rp_beta_0_s[N_s];
       ScalarType c0s = rp_chi_0_s[N_s];
       ScalarType w1 = rp_w_1[N_n];
-      ScalarType s_0 = thrust::get<0>(t);
+      ScalarType s_0 = amgx::thrust::get<0>(t);
 
-      thrust::get<1>(t) = thrust::get<1>(t)-b0s*s_0
+      amgx::thrust::get<1>(t) = amgx::thrust::get<1>(t)-b0s*s_0
 	                    +c0s*rp_rho_0_s[N_s]*z1s*w1;
-      thrust::get<0>(t) = z1s*rp_rho_1_s[N_s]*rp_r_1[N_n]
+      amgx::thrust::get<0>(t) = z1s*rp_rho_1_s[N_s]*rp_r_1[N_n]
 	      +rp_alpha_1_s[N_s]*
 	      (s_0-c0s*rp_rho_0_s[N_s]
 	       /b0s*(z1s*w1-rp_zeta_0_s[N_s]*rp_r_0[N_n]));
@@ -227,7 +227,7 @@ namespace detail_m
 
   // computes new x
   template <typename ScalarType>
-    struct KERNEL_X : thrust::binary_function<int, ScalarType, ScalarType>
+    struct KERNEL_X : amgx::thrust::binary_function<int, ScalarType, ScalarType>
   {
     int N;
     const ScalarType *raw_ptr_beta_0_s;
@@ -268,7 +268,7 @@ namespace detail_m
 
   // computes new p
   template <typename ScalarType>
-    struct KERNEL_P : thrust::binary_function<int, ScalarType, ScalarType>
+    struct KERNEL_P : amgx::thrust::binary_function<int, ScalarType, ScalarType>
   {
     int N;
     const ScalarType *alpha_0_s;
@@ -293,7 +293,7 @@ namespace detail_m
 
   // like blas::copy, but copies the same array many times into a larger array
   template <typename ScalarType>
-    struct KERNEL_VCOPY : thrust::unary_function<int, ScalarType>
+    struct KERNEL_VCOPY : amgx::thrust::unary_function<int, ScalarType>
   {
     int N_t;
     const ScalarType *source;
@@ -314,7 +314,7 @@ namespace detail_m
 } // end namespace detail_m
 
 // Methods in this namespace are all routines that involve using
-// thrust::for_each to perform some transformations on arrays of data.
+// amgx::thrust::for_each to perform some transformations on arrays of data.
 //
 // Except for vectorize_copy, these are specific to CG-M.
 //
@@ -336,9 +336,9 @@ namespace trans_m
 		ScalarType beta_m1, ScalarType beta_0, ScalarType alpha_0)
   {
     size_t N = z_0_s_e - z_0_s_b;
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(z_1_s_b,b_0_s_b,z_0_s_b,z_m1_s_b,sig_b)),
-    thrust::make_zip_iterator(thrust::make_tuple(z_1_s_b,b_0_s_b,z_0_s_b,z_m1_s_b,sig_b))+N,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(z_1_s_b,b_0_s_b,z_0_s_b,z_m1_s_b,sig_b)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(z_1_s_b,b_0_s_b,z_0_s_b,z_m1_s_b,sig_b))+N,
     cusp::krylov::detail_m::KERNEL_ZB<ScalarType>(beta_m1,beta_0,alpha_0)
     );
   }
@@ -372,9 +372,9 @@ namespace trans_m
 		ScalarType beta_0, ScalarType alpha_0)
   {
     size_t N = z_0_s_e - z_0_s_b;
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(alpha_0_s_b,z_0_s_b,z_1_s_b,beta_0_s_b)),
-    thrust::make_zip_iterator(thrust::make_tuple(alpha_0_s_b,z_0_s_b,z_1_s_b,beta_0_s_b))+N,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(alpha_0_s_b,z_0_s_b,z_1_s_b,beta_0_s_b)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(alpha_0_s_b,z_0_s_b,z_1_s_b,beta_0_s_b))+N,
     cusp::krylov::detail_m::KERNEL_A<ScalarType>(beta_0,alpha_0));
   }
 
@@ -419,26 +419,26 @@ namespace trans_m
     size_t N_t = s_0_s.end()-s_0_s.begin();
     assert (N_t == N*N_s);
 
-    // counting iterators to pass to thrust::transform
-    thrust::counting_iterator<int> count(0);
+    // counting iterators to pass to amgx::thrust::transform
+    amgx::thrust::counting_iterator<int> count(0);
 
     // get raw pointers for passing to kernels
     typedef typename Array1::value_type   ScalarType;
-    const ScalarType *raw_ptr_beta_0_s  = thrust::raw_pointer_cast(beta_0_s.data());
-    const ScalarType *raw_ptr_chi_0_s   = thrust::raw_pointer_cast(chi_0_s.data());
-    const ScalarType *raw_ptr_rho_0_s   = thrust::raw_pointer_cast(rho_0_s.data());
-    const ScalarType *raw_ptr_zeta_0_s  = thrust::raw_pointer_cast(zeta_0_s.data());
-    const ScalarType *raw_ptr_alpha_1_s = thrust::raw_pointer_cast(alpha_1_s.data());
-    const ScalarType *raw_ptr_rho_1_s   = thrust::raw_pointer_cast(rho_1_s.data());
-    const ScalarType *raw_ptr_zeta_1_s  = thrust::raw_pointer_cast(zeta_1_s.data());
-    const ScalarType *raw_ptr_r_0       = thrust::raw_pointer_cast(r_0.data());
-    const ScalarType *raw_ptr_r_1       = thrust::raw_pointer_cast(r_1.data());
-    const ScalarType *raw_ptr_w_1       = thrust::raw_pointer_cast(w_1.data());
+    const ScalarType *raw_ptr_beta_0_s  = amgx::thrust::raw_pointer_cast(beta_0_s.data());
+    const ScalarType *raw_ptr_chi_0_s   = amgx::thrust::raw_pointer_cast(chi_0_s.data());
+    const ScalarType *raw_ptr_rho_0_s   = amgx::thrust::raw_pointer_cast(rho_0_s.data());
+    const ScalarType *raw_ptr_zeta_0_s  = amgx::thrust::raw_pointer_cast(zeta_0_s.data());
+    const ScalarType *raw_ptr_alpha_1_s = amgx::thrust::raw_pointer_cast(alpha_1_s.data());
+    const ScalarType *raw_ptr_rho_1_s   = amgx::thrust::raw_pointer_cast(rho_1_s.data());
+    const ScalarType *raw_ptr_zeta_1_s  = amgx::thrust::raw_pointer_cast(zeta_1_s.data());
+    const ScalarType *raw_ptr_r_0       = amgx::thrust::raw_pointer_cast(r_0.data());
+    const ScalarType *raw_ptr_r_1       = amgx::thrust::raw_pointer_cast(r_1.data());
+    const ScalarType *raw_ptr_w_1       = amgx::thrust::raw_pointer_cast(w_1.data());
 
     // compute x
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(s_0_s.begin(),x.begin(),count)),
-    thrust::make_zip_iterator(thrust::make_tuple(s_0_s.begin(),x.begin(),count))+N_t,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(s_0_s.begin(),x.begin(),count)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(s_0_s.begin(),x.begin(),count))+N_t,
     cusp::krylov::detail_m::KERNEL_XS<ScalarType>(N, raw_ptr_beta_0_s, raw_ptr_chi_0_s, raw_ptr_rho_0_s, raw_ptr_zeta_0_s, raw_ptr_alpha_1_s, raw_ptr_rho_1_s, raw_ptr_zeta_1_s, raw_ptr_r_0, raw_ptr_r_1, raw_ptr_w_1));
   }
 
@@ -449,9 +449,9 @@ namespace trans_m
 		    ScalarType beta_0)
   {
     size_t N = r_0_e-r_0_b;
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(w_1_b,r_0_b,As_b)),
-    thrust::make_zip_iterator(thrust::make_tuple(w_1_b,r_0_b,As_b))+N,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(w_1_b,r_0_b,As_b)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(w_1_b,r_0_b,As_b))+N,
     cusp::krylov::detail_m::KERNEL_W<ScalarType>(beta_0));
   }
 
@@ -475,9 +475,9 @@ namespace trans_m
 		    ScalarType chi_0)
   {
     size_t N = w_1_e-w_1_b;
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(r_1_b,w_1_b,Aw_b)),
-    thrust::make_zip_iterator(thrust::make_tuple(r_1_b,w_1_b,Aw_b))+N,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(r_1_b,w_1_b,Aw_b)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(r_1_b,w_1_b,Aw_b))+N,
     cusp::krylov::detail_m::KERNEL_W<ScalarType>(-chi_0));
   }
 
@@ -501,9 +501,9 @@ namespace trans_m
 		    ScalarType alpha_1, ScalarType chi_0)
   {
     size_t N = r_1_e-r_1_b;
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(s_0_b,r_1_b,As_b)),
-    thrust::make_zip_iterator(thrust::make_tuple(s_0_b,r_1_b,As_b))+N,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(s_0_b,r_1_b,As_b)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(s_0_b,r_1_b,As_b))+N,
     cusp::krylov::detail_m::KERNEL_S<ScalarType>(alpha_1,chi_0));
   }
 
@@ -529,9 +529,9 @@ namespace trans_m
 		     ScalarType chi_0)
   {
     size_t N = rho_0_s_e-rho_0_s_b;
-    thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(chi_0_s_b,rho_1_s_b,rho_0_s_b,sigma_b)),
-    thrust::make_zip_iterator(thrust::make_tuple(chi_0_s_b,rho_1_s_b,rho_0_s_b,sigma_b))+N,
+    amgx::thrust::for_each(
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(chi_0_s_b,rho_1_s_b,rho_0_s_b,sigma_b)),
+    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(chi_0_s_b,rho_1_s_b,rho_0_s_b,sigma_b))+N,
     cusp::krylov::detail_m::KERNEL_CHIRHO<ScalarType>(chi_0));
   }
 
@@ -560,15 +560,15 @@ namespace trans_m
     size_t N_t = dest.end()-dest.begin();
     assert ( N_t%N == 0 );
 
-    // counting iterators to pass to thrust::transform
-    thrust::counting_iterator<int> counter(0);
+    // counting iterators to pass to amgx::thrust::transform
+    amgx::thrust::counting_iterator<int> counter(0);
 
     // pointer to data
     typedef typename Array1::value_type   ScalarType;
-    const ScalarType *raw_ptr_source = thrust::raw_pointer_cast(source.data());
+    const ScalarType *raw_ptr_source = amgx::thrust::raw_pointer_cast(source.data());
 
     // compute
-    thrust::transform(counter,counter+N_t,dest.begin(),
+    thrust_wrapper::transform(counter,counter+N_t,dest.begin(),
     cusp::krylov::detail_m::KERNEL_VCOPY<ScalarType>(N,raw_ptr_source));
 
   }

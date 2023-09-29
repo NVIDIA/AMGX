@@ -84,7 +84,7 @@ void Dummy_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     typedef typename Matrix_d::value_type ValueType;
     // Choose blocksize. Using 1 thread / row for now
     const int blockSize = 256;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() + blockSize - 1) / blockSize));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() + blockSize - 1) / blockSize));
     const int numRows = (int) A.get_num_rows();
     // raw pointers from the cusp arrays
     const IndexType *offsets_ptr = A.row_offsets.raw();

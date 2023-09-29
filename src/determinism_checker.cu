@@ -98,19 +98,19 @@ __global__ void fast_hash_kernel_no_permute(unsigned int *din, unsigned int *dou
 
 void hash_path_determinism_checker::checkpoint(const std::string &name, void *data, long long int size_in_bytes, bool no_permute)
 {
-    thrust::device_vector<unsigned int> hash_buff(size_in_bytes / 4);
+    amgx::thrust::device_vector<unsigned int> hash_buff(size_in_bytes / 4);
 
     if ( no_permute )
     {
-        fast_hash_kernel_no_permute <<< 26, 256>>>((unsigned int *)data, thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
+        fast_hash_kernel_no_permute <<< 26, 256>>>((unsigned int *)data, amgx::thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
     }
     else
     {
-        fast_hash_kernel <<< 26, 256>>>((unsigned int *)data, thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
+        fast_hash_kernel <<< 26, 256>>>((unsigned int *)data, amgx::thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
     }
 
     cudaCheckError();
-    unsigned long long int checksum = thrust::reduce(hash_buff.begin(), hash_buff.end(), 0ull, thrust::plus<unsigned long long int>());
+    unsigned long long int checksum = amgx::thrust::reduce(hash_buff.begin(), hash_buff.end(), 0ull, amgx::thrust::plus<unsigned long long int>());
     cudaCheckError();
     int &checkpoint_count = priv->checkpoint_counts[name];
     printf("checksum %s\t\t%d\t%llx\n", name.c_str(), checkpoint_count++, checksum);
@@ -118,19 +118,19 @@ void hash_path_determinism_checker::checkpoint(const std::string &name, void *da
 
 unsigned long long int hash_path_determinism_checker::checksum( void *data, long long int size_in_bytes, bool no_permute )
 {
-    thrust::device_vector<unsigned int> hash_buff(size_in_bytes / 4);
+    amgx::thrust::device_vector<unsigned int> hash_buff(size_in_bytes / 4);
 
     if ( no_permute )
     {
-        fast_hash_kernel_no_permute <<< 26, 256>>>((unsigned int *)data, thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
+        fast_hash_kernel_no_permute <<< 26, 256>>>((unsigned int *)data, amgx::thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
     }
     else
     {
-        fast_hash_kernel <<< 26, 256>>>((unsigned int *)data, thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
+        fast_hash_kernel <<< 26, 256>>>((unsigned int *)data, amgx::thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
     }
 
     cudaCheckError();
-    unsigned long long int checksum = thrust::reduce(hash_buff.begin(), hash_buff.end(), 0ull, thrust::plus<unsigned long long int>());
+    unsigned long long int checksum = amgx::thrust::reduce(hash_buff.begin(), hash_buff.end(), 0ull, amgx::thrust::plus<unsigned long long int>());
     cudaCheckError();
     return checksum;
 }

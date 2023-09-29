@@ -35,7 +35,6 @@
 #include <sstream>
 #include <curand.h>
 
-using namespace std;
 namespace amgx
 {
 namespace idr_solver
@@ -48,7 +47,7 @@ IDR_Solver_Base<T_Config>::IDR_Solver_Base( AMG_Config &cfg, const std::string &
 {
     std::string solverName, new_scope, tmp_scope;
     cfg.getParameter<std::string>( "preconditioner", solverName, cfg_scope, new_scope );
-    s = cfg.AMG_Config::getParameter<int>("subspace_dim_s", cfg_scope);
+    s = cfg.AMG_Config::template getParameter<int>("subspace_dim_s", cfg_scope);
 
     if (solverName.compare("NOSOLVER") == 0)
     {
@@ -184,10 +183,13 @@ IDR_Solver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 }
 
 template<class T_Config>
-bool
+AMGX_STATUS
 IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     AMGX_CPU_PROFILER( "IDR_Solver::solve_iteration " );
+
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -277,17 +279,18 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
         // Do we converge ?
         this->m_curr_iter = this->m_curr_iter + 1;
 
-        if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+        if ( this->m_monitor_convergence &&
+             isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
         {
             A.setView(oldView);
-            return true;
+            return conv_stat;
         }
 
         //Early exit: last iteration, no need to prepare the next one.
         if ( this->is_last_iter() )
         {
             A.setView(oldView);
-            return !this->m_monitor_convergence;
+            return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
         }
 
         // New f = P'*r (first k  components are zero)
@@ -301,10 +304,11 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
     }/// for ends for smaller space
 
     //check for convergence once again. If converged just leave the function
-    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+    if ( this->m_monitor_convergence &&
+         isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
     {
         A.setView(oldView);
-        return true;
+        return conv_stat;
     }
 
     copy( *this->m_r, m_v, 0, N);
@@ -338,7 +342,7 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
 
     if (this->omega == 0)
     {
-        cout << "Error happened in this->omega==0" << endl;
+        std::cout << "Error happened in this->omega==0" << std::endl;
         exit(1);
     }
 
@@ -347,7 +351,7 @@ IDR_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero
     axpy( m_v, x, this->omega, 0, N );
     // No convergence so far.
     A.setView(oldView);
-    return !this->m_monitor_convergence;
+    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>

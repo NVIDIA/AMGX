@@ -95,11 +95,11 @@ void computeEdgeWeightsBlockDiaCsr(const IndexType *row_offsets, const IndexType
 template<class T_Config>
 Size4SelectorBase<T_Config>::Size4SelectorBase(AMG_Config &cfg, const std::string &cfg_scope)
 {
-    deterministic = cfg.AMG_Config::getParameter<IndexType>("determinism_flag", "default");
-    max_iterations = cfg.AMG_Config::getParameter<IndexType>("max_matching_iterations", cfg_scope);
-    numUnassigned_tol = cfg.AMG_Config::getParameter<double>("max_unassigned_percentage", cfg_scope);
-    m_aggregation_edge_weight_component = cfg.AMG_Config::getParameter<int>("aggregation_edge_weight_component", cfg_scope);
-    weight_formula = cfg.AMG_Config::getParameter<int>("weight_formula", cfg_scope);
+    deterministic = cfg.AMG_Config::template getParameter<IndexType>("determinism_flag", "default");
+    max_iterations = cfg.AMG_Config::template getParameter<IndexType>("max_matching_iterations", cfg_scope);
+    numUnassigned_tol = cfg.AMG_Config::template getParameter<double>("max_unassigned_percentage", cfg_scope);
+    m_aggregation_edge_weight_component = cfg.AMG_Config::template getParameter<int>("aggregation_edge_weight_component", cfg_scope);
+    weight_formula = cfg.AMG_Config::template getParameter<int>("weight_formula", cfg_scope);
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -128,7 +128,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     }
 
     // Initially, put each vertex in its own aggregate
-    thrust::sequence(aggregates.begin(), aggregates.begin() + num_block_rows);
+    thrust_wrapper::sequence<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows);
     cudaCheckError();
     IndexType *aggregates_ptr = aggregates.raw();
     // Create row_indices array
@@ -150,14 +150,14 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     IndexType *strongest_neighbour_ptr = strongest_neighbour.raw();
     IndexType *partner_index_ptr = partner_index.raw();
     const int threads_per_block = 256;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (num_block_rows - 1) / threads_per_block + 1);
     int numUnassigned = num_block_rows;
     int numUnassigned_previous = numUnassigned;
     Vector<TemplateConfig<AMGX_device, AMGX_vecFloat, t_matPrec, t_indPrec> > edge_weights(num_nonzero_blocks, -1);
     float *edge_weights_ptr = edge_weights.raw();
     float *rand_edge_weights_ptr = NULL;
     // Compute the edge weights
-    const int num_blocks_V2 = min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
+    const int num_blocks_V2 = std::min( AMGX_GRID_MAX_SIZE, (num_nonzero_blocks - 1) / threads_per_block + 1);
 
     if (num_nonzero_blocks > 0)
     {
@@ -179,7 +179,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         matchEdges <<< num_blocks, threads_per_block>>>(num_block_rows, partner_index_ptr, aggregates_ptr, strongest_neighbour_ptr);
         cudaCheckError();
         numUnassigned_previous = numUnassigned;
-        numUnassigned = (int)thrust::count(partner_index.begin(), partner_index.end(), -1);
+        numUnassigned = (int)amgx::thrust::count(partner_index.begin(), partner_index.end(), -1);
         cudaCheckError();
         icount++;
     }
@@ -210,7 +210,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         matchAggregates <IndexType> <<< num_blocks, threads_per_block>>>(aggregates_ptr, aggregated_ptr, strongest_neighbour_ptr, num_block_rows);
         cudaCheckError();
         numUnassigned_previous = numUnassigned;
-        numUnassigned = thrust::count(aggregated.begin(), aggregated.end(), -1);
+        numUnassigned = amgx::thrust::count(aggregated.begin(), aggregated.end(), -1);
         cudaCheckError();
         icount++;
     }
@@ -224,7 +224,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         {
             mergeWithExistingAggregatesBlockDiaCsr <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, aggregates_ptr, aggregated_ptr, this->deterministic, (IndexType *) NULL);
             cudaCheckError();
-            numUnassigned = (int)thrust::count(aggregated.begin(), aggregated.end(), -1);
+            numUnassigned = (int)amgx::thrust::count(aggregated.begin(), aggregated.end(), -1);
             cudaCheckError();
         };
     }
@@ -238,7 +238,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             cudaCheckError();
             joinExistingAggregates <<< num_blocks, threads_per_block>>>(num_block_rows, aggregates_ptr, aggregated_ptr, aggregates_candidate.raw());
             cudaCheckError();
-            numUnassigned = (int)thrust::count(aggregated.begin(), aggregated.end(), -1);
+            numUnassigned = (int)amgx::thrust::count(aggregated.begin(), aggregated.end(), -1);
             cudaCheckError();
         };
     }

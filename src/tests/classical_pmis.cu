@@ -158,8 +158,8 @@ void run()
     selector->markCoarseFinePoints(A, weights, s_con, cf_map, scratch);
     cudaCheckError();
     // check no points unassigned
-    int num_unassigned = thrust::count(cf_map.begin(), cf_map.end(), UNASSIGNED);
-    int num_coarse     = thrust::count(cf_map.begin(), cf_map.end(), COARSE);
+    int num_unassigned = amgx::thrust::count(cf_map.begin(), cf_map.end(), UNASSIGNED);
+    int num_coarse     = amgx::thrust::count(cf_map.begin(), cf_map.end(), COARSE);
     this->PrintOnFail("PMIS: Some points unassigned");
     UNITTEST_ASSERT_TRUE(num_unassigned == 0);
     this->PrintOnFail("PMIS: No coarse points assigned");
@@ -177,7 +177,7 @@ void run()
         A.get_num_rows()
     );
     cudaCheckError();
-    typedef thrust::counting_iterator<IndexType> c_iter;
+    typedef amgx::thrust::counting_iterator<IndexType> c_iter;
     IVector rows(A.get_num_rows(), 0);
 
     for (int i = 0; i < A.get_num_rows(); i++)
@@ -186,9 +186,9 @@ void run()
     }
 
     IndexType num_bad =
-        thrust::transform_reduce(rows.begin(),
+        thrust_wrapper::transform_reduce(rows.begin(),
                                  rows.end(),
-                                 checker, (IndexType)0, thrust::plus<IndexType>());
+                                 checker, (IndexType)0, amgx::thrust::plus<IndexType>());
     cudaCheckError();
     this->PrintOnFail("PMIS: Invalid selection on %d rows", num_bad);
     UNITTEST_ASSERT_TRUE(num_bad == 0);

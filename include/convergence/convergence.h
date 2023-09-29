@@ -68,6 +68,21 @@ struct Epsilon_conv<cuDoubleComplex>
     static __device__ __host__ __forceinline__ double value( ) { return 1.0e-12; }
 };
 
+inline bool isConverged(AMGX_STATUS const &conv_stat)
+{
+    return conv_stat == AMGX_ST_CONVERGED;
+}
+
+inline bool isDiverged(AMGX_STATUS const &conv_stat)
+{
+    return conv_stat == AMGX_ST_DIVERGED;
+}
+
+inline bool isDone(AMGX_STATUS const &conv_stat)
+{
+    return ( conv_stat != AMGX_ST_NOT_CONVERGED );
+}
+
 template<class TConfig>
 class Convergence
 {
@@ -95,7 +110,7 @@ class Convergence
         virtual void convergence_init();
 
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        virtual bool convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini);
+        virtual AMGX_STATUS convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini);
 
         // Define the tolerance. Does nothing if tolerance doesn't make sense.
         void setTolerance( double tol ) { m_tolerance = tol; }

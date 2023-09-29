@@ -31,6 +31,7 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/count.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/extrema.h>
 
@@ -42,7 +43,6 @@ namespace amgx
 
 namespace aggregation
 {
-using namespace std;
 
 // ---------------------------------------------------------------------
 // Method to print the distribution of number of nonzeros in matrix Ac
@@ -52,14 +52,14 @@ void CoarseAGenerator<T_Config>::printNonzeroStats(const typename Matrix<T_Confi
 {
     // Printing the number of nonzeros per row
     Vector<typename TConfig::template setVecPrec<AMGX_vecBool>::Type> temporary(num_aggregates, 0);
-    int max_nonzero = *thrust::max_element(Ac_row_offsets.begin(), Ac_row_offsets.end()) + 1;
+    int max_nonzero = *amgx::thrust::max_element(Ac_row_offsets.begin(), Ac_row_offsets.end()) + 1;
     amgx_printf("\nnew level, max number of nonzeros per row = %d\n", max_nonzero);
     double *breakdown = new double[max_nonzero];
 
     for (int i = 0; i < max_nonzero; i++)
     {
-        thrust::transform(Ac_row_offsets.begin(), Ac_row_offsets.end(), thrust::make_constant_iterator(i + 1), temporary.begin(), thrust::less<int>());
-        breakdown[i] = 1.0 * (thrust::count(temporary.begin(), temporary.end(), true)) / num_aggregates;
+        thrust_wrapper::transform<T_Config::memSpace>(Ac_row_offsets.begin(), Ac_row_offsets.end(), amgx::thrust::make_constant_iterator(i + 1), temporary.begin(), amgx::thrust::less<int>());
+        breakdown[i] = 1.0 * (amgx::thrust::count(temporary.begin(), temporary.end(), true)) / num_aggregates;
         amgx_printf("Percentage of rows with less than %d nonzeros is %d\n", (i + 1), breakdown[i]);
     }
 
@@ -75,14 +75,14 @@ CoarseAGeneratorFactory<T_Config>::getFactories( )
 }
 
 template<class T_Config>
-void CoarseAGeneratorFactory<T_Config>::registerFactory(string name, CoarseAGeneratorFactory<T_Config> *f)
+void CoarseAGeneratorFactory<T_Config>::registerFactory(std::string name, CoarseAGeneratorFactory<T_Config> *f)
 {
     std::map<std::string, CoarseAGeneratorFactory<T_Config>*> &factories = getFactories( );
-    typename map<string, CoarseAGeneratorFactory<T_Config> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, CoarseAGeneratorFactory<T_Config> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "CoarseAGeneratorFactory '" + name + "' has already been registered\n";
+        std::string error = "CoarseAGeneratorFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -93,11 +93,11 @@ template<class T_Config>
 void CoarseAGeneratorFactory<T_Config>::unregisterFactory(std::string name)
 {
     std::map<std::string, CoarseAGeneratorFactory<T_Config>*> &factories = getFactories( );
-    typename map<string, CoarseAGeneratorFactory<T_Config> *>::iterator it = factories.find(name);
+    typename std::map<std::string, CoarseAGeneratorFactory<T_Config> *>::iterator it = factories.find(name);
 
     if (it == factories.end())
     {
-        string error = "CoarseAGeneratorFactory '" + name + "' has not been registered\n";
+        std::string error = "CoarseAGeneratorFactory '" + name + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -111,7 +111,7 @@ template<class T_Config>
 void CoarseAGeneratorFactory<T_Config>::unregisterFactories( )
 {
     std::map<std::string, CoarseAGeneratorFactory<T_Config>*> &factories = getFactories( );
-    typename map<std::string, CoarseAGeneratorFactory<T_Config> *>::iterator it = factories.begin( );
+    typename std::map<std::string, CoarseAGeneratorFactory<T_Config> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -128,14 +128,14 @@ template<class T_Config>
 CoarseAGenerator<T_Config> *CoarseAGeneratorFactory<T_Config>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, CoarseAGeneratorFactory<T_Config>*> &factories = getFactories( );
-    int agg_lvl_change = cfg.AMG_Config::getParameter<int>("fine_levels", cfg_scope);
-    string generator;
-    generator = cfg.getParameter<string>("coarseAgenerator", cfg_scope);
-    typename map<string, CoarseAGeneratorFactory<T_Config> *>::const_iterator it = factories.find(generator);
+    int agg_lvl_change = cfg.AMG_Config::template getParameter<int>("fine_levels", cfg_scope);
+    std::string generator;
+    generator = cfg.getParameter<std::string>("coarseAgenerator", cfg_scope);
+    typename std::map<std::string, CoarseAGeneratorFactory<T_Config> *>::const_iterator it = factories.find(generator);
 
     if (it == factories.end())
     {
-        string error = "CoarseAGeneratorFactory '" + generator + "' has not been registered\n";
+        std::string error = "CoarseAGeneratorFactory '" + generator + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

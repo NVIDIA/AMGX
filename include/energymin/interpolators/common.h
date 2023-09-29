@@ -64,12 +64,12 @@ void allocMem(DataType *&ptr,
               IndexType numEntry,
               bool initToZero)
 {
-    if ( ptr != NULL ) { cudaFreeAsync(ptr, 0); }
+    if ( ptr != NULL ) { amgx::memory::cudaFreeAsync(ptr); }
 
     cudaCheckError();
     size_t sz = numEntry * sizeof(DataType);
-    cudaMallocAsync((void **)&ptr, sz, 0);
-    cudaStreamSynchronize(0);
+    if(sz == 0) { return; }
+    amgx::memory::cudaMalloc((void **)&ptr, sz);
     cudaCheckError();
 
     if (initToZero)

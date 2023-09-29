@@ -641,7 +641,7 @@ EM_Interpolator() : EM_InterpolatorBase<TConfig_d>(),
     }
 
     // Define the cudense stream.
-    status = cusolverDnSetStream(m_cuds_handle, thrust::global_thread_handle::get_stream());
+    status = cusolverDnSetStream(m_cuds_handle, amgx::thrust::global_thread_handle::get_stream());
 
     if ( status != CUSOLVER_STATUS_SUCCESS )
     {
@@ -662,31 +662,31 @@ EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
 
     if (m_dense_Aijs)
     {
-        cudaFreeAsync(m_dense_Aijs, 0);
+        amgx::memory::cudaFreeAsync(m_dense_Aijs);
         m_dense_Aijs = 0;
     }
 
     if (m_dense_invAijs)
     {
-        cudaFreeAsync(m_dense_invAijs, 0);
+        amgx::memory::cudaFreeAsync(m_dense_invAijs);
         m_dense_invAijs = 0;
     }
 
     if (m_ipiv)
     {
-        cudaFreeAsync(m_ipiv, 0);
+        amgx::memory::cudaFreeAsync(m_ipiv);
         m_ipiv = 0;
     }
 
     if (m_cuds_wspace)
     {
-        cudaFreeAsync(m_cuds_wspace, 0);
+        amgx::memory::cudaFreeAsync(m_cuds_wspace);
         m_cuds_wspace = 0;
     }
 
     if (m_cuds_info)
     {
-        cudaFreeAsync(m_cuds_info, 0);
+        amgx::memory::cudaFreeAsync(m_cuds_info);
         m_cuds_info = 0;
     }
 }
@@ -712,7 +712,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     const IndexType AnumRows = (IndexType) A.get_num_rows();
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // temporary vectors - diagonal and non-zero offsets
     VVector Adiag(A.get_num_rows(), 0.0);
     ValueType *Adiag_ptr  = Adiag.raw();
@@ -720,8 +720,8 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     // (meaningless if the full index corresponds to a FINE pt)
     IntVector fullToCoarseMap(AnumRows, 0);
     int *fullToCoarseMap_ptr = fullToCoarseMap.raw();
-    thrust::transform_exclusive_scan( cf_map.begin(), cf_map.end(), fullToCoarseMap.begin(),
-                                      is_coarse(), 0, thrust::plus<int>() );
+    amgx::thrust::transform_exclusive_scan( cf_map.begin(), cf_map.end(), fullToCoarseMap.begin(),
+                                      is_coarse(), 0, amgx::thrust::plus<int>() );
     cudaCheckError();
     // Extract the diagonal of A
     find_diag_kernel_indexed_dia <<< numBlocks, blocksize>>>(AnumRows, A.diag.raw(), Avalues_ptr, Adiag_ptr);
@@ -744,7 +744,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     IntVector PnzOffsets(numCoarse + 1);
     PnzOffsets[0] = 0;
     // get the offsets in P with an inclusive scan
-    thrust_wrapper::inclusive_scan(PnnzPerCol.begin(), PnnzPerCol.end(), PnzOffsets.begin() + 1);
+    thrust_wrapper::inclusive_scan<AMGX_device>(PnnzPerCol.begin(), PnnzPerCol.end(), PnzOffsets.begin() + 1);
     cudaCheckError();
     // get total num of non-zeros in P
     const int Pnnz = PnzOffsets[numCoarse];
@@ -754,7 +754,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     //            because we build P by columns (and CSC format is not supported)
     P.resize(numCoarse, AnumRows, Pnnz, 1);
     // set P offsets (P column offsets or P^T row offsets)
-    thrust::copy(PnzOffsets.begin(), PnzOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(PnzOffsets.begin(), PnzOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // treat P as if it were in the CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
@@ -786,7 +786,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Matrix_d::value_type ValueType;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() / blocksize + 1));
     // Assemble all the raw pointers needed
     // Matrix A
     const IndexType *ArowOffsets_ptr = A.row_offsets.raw();
@@ -823,7 +823,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
         }
 
         // Define the cudense stream.
-        status = cusolverDnSetStream(m_cuds_handle, thrust::global_thread_handle::get_stream());
+        status = cusolverDnSetStream(m_cuds_handle, amgx::thrust::global_thread_handle::get_stream());
 
         if ( status != CUSOLVER_STATUS_SUCCESS )
         {
@@ -900,7 +900,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Matrix_d::value_type ValueType;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Treat P as if it were in CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
     const IndexType *ProwInd_ptr     = P.col_indices.raw();
@@ -912,7 +912,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     cudaCheckError();
     // 2. Resize Ma and assign MaRowOffsets by performing a scan on Ma_nnzPerRow.
     // Get the offsets in Ma with an inclusive scan (in-place)
-    thrust_wrapper::inclusive_scan(Ma_nnzPerRow.begin(), Ma_nnzPerRow.end(), Ma_nnzPerRow.begin());
+    thrust_wrapper::inclusive_scan<AMGX_device>(Ma_nnzPerRow.begin(), Ma_nnzPerRow.end(), Ma_nnzPerRow.begin());
     cudaCheckError();
     // Get total num of non-zeros in Ma
     const int Ma_nnz = Ma_nnzPerRow[AnumRows - 1];
@@ -922,7 +922,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     Ma.resize(AnumRows, AnumRows, Ma_nnz, 1);
     Ma.row_offsets[0] = 0;
     // set Ma row offsets
-    thrust::copy(Ma_nnzPerRow.begin(), Ma_nnzPerRow.end(), Ma.row_offsets.begin() + 1);
+    amgx::thrust::copy(Ma_nnzPerRow.begin(), Ma_nnzPerRow.end(), Ma.row_offsets.begin() + 1);
     cudaCheckError();
     const IndexType *MaRowOffsets_ptr = Ma.row_offsets.raw();
     IndexType *MaColInd_ptr           = Ma.col_indices.raw();
@@ -941,7 +941,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
 
         if (MaRowEnd - MaRowBegin > 1)
         {
-            thrust_wrapper::sort( Ma.col_indices.begin() + Ma.row_offsets[MaRow],
+            thrust_wrapper::sort<AMGX_device>( Ma.col_indices.begin() + Ma.row_offsets[MaRow],
                           Ma.col_indices.begin() + Ma.row_offsets[MaRow + 1] );
         }
     }
@@ -1017,7 +1017,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Vector_d::value_type ValueTypeB;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Treat P as if it were in CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
     const IndexType *ProwInd_ptr     = P.col_indices.raw();
@@ -1038,7 +1038,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
         }
 
         // Define the cudense stream.
-        status = cusolverDnSetStream(m_cuds_handle, thrust::global_thread_handle::get_stream());
+        status = cusolverDnSetStream(m_cuds_handle, amgx::thrust::global_thread_handle::get_stream());
 
         if ( status != CUSOLVER_STATUS_SUCCESS )
         {
@@ -1089,7 +1089,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     typedef typename Vector_d::value_type ValueTypeB;
     // choose blocksize. Using 1 thread / row for now
     const int blocksize = 64;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (AnumRows / blocksize + 1));
     // Treat P as if it were in CSC format.
     const IndexType *PcolOffsets_ptr = P.row_offsets.raw();
     const IndexType *ProwInd_ptr     = P.col_indices.raw();
@@ -1120,7 +1120,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
         cudaDeviceSynchronize();
     }
 
-    if (place_holder_ptr) { cudaFreeAsync(place_holder_ptr, 0); place_holder_ptr = 0; }
+    if (place_holder_ptr) { amgx::memory::cudaFreeAsync(place_holder_ptr); place_holder_ptr = 0; }
 }
 
 
@@ -1138,12 +1138,12 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     // Number of rows in Matrix A
     const IndexType AnumRows = (IndexType) A.get_num_rows();
     // Count the number of coarse points
-    const int numCoarse = (int) thrust::count(cf_map.begin(), cf_map.end(), (int)COARSE);
+    const int numCoarse = (int) amgx::thrust::count(cf_map.begin(), cf_map.end(), (int)COARSE);
     cudaCheckError();
     IVector coarse_idx(numCoarse, -1);
-    thrust::counting_iterator<int> zero(0);
-    thrust::counting_iterator<int> zero_plus_nc = zero + numCoarse;
-    thrust::copy_if(zero, zero_plus_nc, cf_map.begin(), coarse_idx.begin(), is_coarse());
+    amgx::thrust::counting_iterator<int> zero(0);
+    amgx::thrust::counting_iterator<int> zero_plus_nc = zero + numCoarse;
+    amgx::thrust::copy_if(zero, zero_plus_nc, cf_map.begin(), coarse_idx.begin(), is_coarse());
     // ..................................................................................
     // ------------------------ Begin Compute P code ------------------------------------
     // Store the number of non-zeros in each column of the interpolation matrix P
@@ -1173,8 +1173,8 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     IntVector AijOffsets(numCoarse + 1);
     AijOffsets[0] = 0;
     // Get the offsets with an inclusive scan (nnz of each column of P is the dimension of each Aij)
-    thrust::transform_inclusive_scan( PnnzPerCol.begin(), PnnzPerCol.end(), AijOffsets.begin() + 1,
-                                      square(), thrust::plus<int>() );
+    amgx::thrust::transform_inclusive_scan( PnnzPerCol.begin(), PnnzPerCol.end(), AijOffsets.begin() + 1,
+                                      square(), amgx::thrust::plus<int>() );
     cudaCheckError();
     PnnzPerCol.clear();
     // Cumulative num of entries in all (dense) Aijs (last entry in the offsets)
@@ -1199,7 +1199,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     // Compute Ma matrix
     computeMa(Ma, AnumRows, numCoarse, P, m_dense_invAijs, AijOffsets, Ma_nzDiagRows);
 
-    if (m_dense_invAijs) { cudaFreeAsync(m_dense_invAijs, 0);  m_dense_invAijs = 0; }
+    if (m_dense_invAijs) { amgx::memory::cudaFreeAsync(m_dense_invAijs);  m_dense_invAijs = 0; }
 
     /* At this point, we are done with the following Matlab code analogue.
     for (int j=1; j<=nc; j++)
@@ -1238,13 +1238,13 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     // Compute the values of P
     computePvalues( AnumRows, numCoarse, P, v_x, m_dense_Aijs, AijOffsets, m_ipiv, m_cuds_handle, m_cuds_info );
 
-    if (m_dense_Aijs) { cudaFreeAsync(m_dense_Aijs, 0);  m_dense_Aijs = 0; }
+    if (m_dense_Aijs) { amgx::memory::cudaFreeAsync(m_dense_Aijs);  m_dense_Aijs = 0; }
 
-    if (m_ipiv)       { cudaFreeAsync(m_ipiv, 0);        m_ipiv = 0; }
+    if (m_ipiv)       { amgx::memory::cudaFreeAsync(m_ipiv);        m_ipiv = 0; }
 
-    if (m_cuds_info)  { cudaFreeAsync(m_cuds_info, 0);   m_cuds_info = 0; }
+    if (m_cuds_info)  { amgx::memory::cudaFreeAsync(m_cuds_info);   m_cuds_info = 0; }
 
-    //if (m_dense_invAijs) { cudaFreeAsync(m_dense_invAijs, 0);  m_dense_invAijs = 0; }
+    //if (m_dense_invAijs) { amgx::memory::cudaFreeAsync(m_dense_invAijs);  m_dense_invAijs = 0; }
     /* Now, we are done building columns of P (stored as rows of P^T in CSR).
      * Here's the equivalent matlab code.
     P = zeros(n,nc);

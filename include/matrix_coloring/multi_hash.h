@@ -29,8 +29,6 @@
 #include <string>
 #include <matrix_coloring/matrix_coloring.h>
 #include <basic_types.h>
-#include <profile.h>
-using namespace std;
 
 namespace amgx
 {

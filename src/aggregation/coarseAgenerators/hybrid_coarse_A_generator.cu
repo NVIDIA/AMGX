@@ -50,7 +50,7 @@ namespace amgx
 namespace aggregation
 {
 
-typedef thrust::tuple<int, int> tuple_t;
+typedef amgx::thrust::tuple<int, int> tuple_t;
 
 struct isDiagonal
 {
@@ -340,13 +340,13 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     typename Matrix_d::IVector J(A.get_num_nz(), -1);
     typedef device_vector_alloc<IndexType> IntVector;
     typedef typename IntVector::iterator IntIterator;
-    typedef thrust::tuple< IntIterator, IntIterator> IntIteratorTuple;
-    typedef thrust::zip_iterator<IntIteratorTuple> ZipIterator;
+    typedef amgx::thrust::tuple< IntIterator, IntIterator> IntIteratorTuple;
+    typedef amgx::thrust::zip_iterator<IntIteratorTuple> ZipIterator;
     ZipIterator new_end;
     const int block_size_I = 128;
     const int block_size_J = 256;
-    const int num_blocks_I = min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() - 1) / block_size_I + 1));
-    const int num_blocks_J = min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_nz() - 1) / block_size_J + 1));
+    const int num_blocks_I = std::min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_rows() - 1) / block_size_I + 1));
+    const int num_blocks_J = std::min( AMGX_GRID_MAX_SIZE, (int) ((A.get_num_nz() - 1) / block_size_J + 1));
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_column_indices_ptr = A.col_indices.raw();
     const IndexType *A_dia_values_ptr = A.diag.raw();
@@ -362,38 +362,38 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     cudaCheckError();
     // Sort (I,J) by rows and columns (I,J)
     IVector permutation(A.get_num_nz());
-    thrust::sequence(permutation.begin(), permutation.end());
+    thrust_wrapper::sequence<AMGX_device>(permutation.begin(), permutation.end());
     cudaCheckError();
     // compute permutation and sort by (I,J)
     {
         IVector temp(J);
-        thrust::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
+        amgx::thrust::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
         cudaCheckError();
         temp = I;
         //I = temp;
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), I.begin());
+        thrust_wrapper::gather<AMGX_device>(permutation.begin(), permutation.end(), temp.begin(), I.begin());
         cudaCheckError();
-        thrust::stable_sort_by_key(I.begin(), I.end(), permutation.begin());
+        amgx::thrust::stable_sort_by_key(I.begin(), I.end(), permutation.begin());
         cudaCheckError();
         temp = J;
         //J = temp;
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), J.begin());
+        thrust_wrapper::gather<AMGX_device>(permutation.begin(), permutation.end(), temp.begin(), J.begin());
         cudaCheckError();
     }
     // Remove duplicate tuples
-    new_end = thrust::unique(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-                             thrust::make_zip_iterator(thrust::make_tuple(I.end(), J.end())), thrust::equal_to < thrust::tuple<IndexType, IndexType> >());
+    new_end = amgx::thrust::unique(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+                             amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end(), J.end())), amgx::thrust::equal_to < amgx::thrust::tuple<IndexType, IndexType> >());
     cudaCheckError();
     IntIteratorTuple endTuple = new_end.get_iterator_tuple();
-    I.erase(thrust::get<0>(endTuple), I.end());
-    J.erase(thrust::get<1>(endTuple), J.end());
+    I.erase(amgx::thrust::get<0>(endTuple), I.end());
+    J.erase(amgx::thrust::get<1>(endTuple), J.end());
     // Remove diagonal terms
-    new_end = thrust::remove_if(thrust::make_zip_iterator(thrust::make_tuple(I.begin(), J.begin())),
-                                thrust::make_zip_iterator(thrust::make_tuple(I.end(), J.end())), isDiagonal() );
+    new_end = amgx::thrust::remove_if(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.begin(), J.begin())),
+                                amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(I.end(), J.end())), isDiagonal() );
     cudaCheckError();
     endTuple = new_end.get_iterator_tuple();
-    I.erase(thrust::get<0>(endTuple), I.end());
-    J.erase(thrust::get<1>(endTuple), J.end());
+    I.erase(amgx::thrust::get<0>(endTuple), I.end());
+    J.erase(amgx::thrust::get<1>(endTuple), J.end());
     int nonzero_blocks = J.size();
     // Resize Ac
     Ac.addProps(CSR);
@@ -411,9 +411,9 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     cudaCheckError();
     I.resize(Ac.row_offsets.size());
     // Compute the maximum number of nonzeros
-    thrust::adjacent_difference(Ac.row_offsets.begin(), Ac.row_offsets.end(), I.begin());
+    amgx::thrust::adjacent_difference(Ac.row_offsets.begin(), Ac.row_offsets.end(), I.begin());
     cudaCheckError();
-    const IndexType max_nonzero_per_row = *thrust::max_element(I.begin() + 1, I.end());
+    const IndexType max_nonzero_per_row = *amgx::thrust::max_element(I.begin() + 1, I.end());
     cudaCheckError();
     //std::cout << "max_nonzero_per_row" << max_nonzero_per_row << std::endl;
     I.clear();
@@ -432,8 +432,8 @@ void HybridCoarseAGenerator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     IndexType *Ac_dia_values_ptr = Ac.diag.raw();
     ValueType *Ac_nonzero_values_ptr = Ac.values.raw();
     // Now create Ac.dia_values and Ac.nonzero_values
-    //thrust::fill(Ac.diag.begin(),Ac.diag.end(),0.);
-    thrust::fill(Ac.values.begin(), Ac.values.end(), 0.);
+    //thrust_wrapper::fill<AMGX_device>(Ac.diag.begin(),Ac.diag.end(),0.);
+    thrust_wrapper::fill<AMGX_device>(Ac.values.begin(), Ac.values.end(), 0.);
     cudaCheckError();
     // Coalesced version of kernel to fill A
     const int num_threads = ( ( num_aggregates + 15) / 16 ) * 16;

@@ -36,7 +36,6 @@
 #include <curand.h>
 #include <solvers/block_common_solver.h>
 
-using namespace std;
 namespace amgx
 {
 namespace idrmsync_solver
@@ -49,7 +48,7 @@ IDRMSYNC_Solver_Base<T_Config>::IDRMSYNC_Solver_Base( AMG_Config &cfg, const std
 {
     std::string solverName, new_scope, tmp_scope;
     cfg.getParameter<std::string>( "preconditioner", solverName, cfg_scope, new_scope );
-    s = cfg.AMG_Config::getParameter<int>("subspace_dim_s", cfg_scope);
+    s = cfg.AMG_Config::template getParameter<int>("subspace_dim_s", cfg_scope);
 
     if (solverName.compare("NOSOLVER") == 0)
     {
@@ -272,10 +271,13 @@ IDRMSYNC_Solver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero
 }
 
 template<class T_Config>
-bool
+AMGX_STATUS
 IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     AMGX_CPU_PROFILER( "IDRMYSNC_Solver::solve_iteration " );
+
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -351,17 +353,18 @@ IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xI
         // Do we converge ?
         this->m_curr_iter = this->m_curr_iter + 1;
 
-        if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+        if ( this->m_monitor_convergence &&
+             isDone( conv_stat = this->compute_norm_and_converged() ) )
         {
             A.setView(oldView);
-            return true;
+            return conv_stat;
         }
 
         //Early exit: last iteration, no need to prepare the next one.
         if ( this->is_last_iter() )
         {
             A.setView(oldView);
-            return !this->m_monitor_convergence;
+            return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
         }
 
         // New f = P'*r (first k  components are zero)
@@ -375,10 +378,11 @@ IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xI
     }/// for ends for smaller space
 
     //check for convergence once again. If converged just leave the function
-    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+    if ( this->m_monitor_convergence &&
+         isDone( conv_stat = this->compute_norm_and_converged() ) )
     {
         A.setView(oldView);
-        return true;
+        return conv_stat;
     }
 
     copy( *this->m_r, m_v, 0, N);
@@ -412,7 +416,7 @@ IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xI
 
     if (this->omega == (ValueTypeB) 0)
     {
-        cout << "Error happened in this->omega==0" << endl;
+        std::cout << "Error happened in this->omega==0" << std::endl;
         exit(1);
     }
 
@@ -421,7 +425,7 @@ IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xI
     axpy( m_v, x, this->omega, 0, N );
     // No convergence so far.
     A.setView(oldView);
-    return !this->m_monitor_convergence;
+    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>
@@ -606,7 +610,7 @@ void IDRMSYNC_Solver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
 
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
-IDRMSYNC_Solver< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::ValueTypeB
+typename IDRMSYNC_Solver< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::ValueTypeB
 IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::dotc_div(VVector &a, VVector &b, int offseta, int offsetb, int size, VVector &denom, int i, int s, ValueTypeB *ratio)
 {
     ValueTypeB dnr;
@@ -627,7 +631,7 @@ IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
 
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
-IDRMSYNC_Solver< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > ::ValueTypeB
+typename IDRMSYNC_Solver< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > ::ValueTypeB
 IDRMSYNC_Solver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::dotc_div(VVector &a, VVector &b, int offseta, int offsetb, int size, VVector &denom, int i, int s, ValueTypeB *ratio)
 {
     ValueTypeB alpha_iter;

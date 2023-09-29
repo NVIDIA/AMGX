@@ -44,9 +44,9 @@ namespace amgx
 // parameter is used as test name
 DECLARE_UNITTEST_BEGIN(SmootherBlockPoissonTest);
 
-void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz, string smoother_string, ValueTypeB final_residual_tolerance, int n_smoothing_steps, bool diag)
+void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz, std::string smoother_string, ValueTypeB final_residual_tolerance, int n_smoothing_steps, bool diag)
 {
-    string error_string;
+    std::string error_string;
     typedef TemplateConfig<AMGX_host, TConfig::vecPrec, TConfig::matPrec, TConfig::indPrec> TConfig_h;
     typedef Matrix<TConfig_h> Matrix_h;
     typedef Matrix<TConfig> Matrix_hd;
@@ -85,7 +85,7 @@ void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz
     // Fill b with ones
     scalarb.resize(scalarA.get_num_rows());
     scalarb.set_block_dimy(scalarA.get_block_dimy());
-    cusp::blas::fill(scalarb, 1);
+    thrust_wrapper::fill<AMGX_host>(scalarb.begin(), scalarb.end(), 1);
     // Initialize x to zeros
     scalarx.resize(scalarA.get_num_rows(), 0.);
     // Copy to device if necessary
@@ -96,7 +96,7 @@ void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz
     x_ini_hd = scalarx;
     // Set parameters
     AMG_Config cfg;
-    string parameter_string = "solver=" + smoother_string + ", determinism_flag=1, coloring_level=1, matrix_coloring_scheme=MIN_MAX, max_uncolored_percentage=0.15";
+    std::string parameter_string = "solver=" + smoother_string + ", determinism_flag=1, coloring_level=1, matrix_coloring_scheme=MIN_MAX, max_uncolored_percentage=0.15";
     cfg.parseParameterString(const_cast<char *>(parameter_string.c_str()));
     const std::string &cfg_scope = "default";
     // Color the matrix
@@ -124,7 +124,7 @@ void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz
     Vector_hd x_fin_hd = blockx;
     Vector_h b;
     b.resize(A.get_num_rows() * A.get_block_dimy());
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<AMGX_host>(b.begin(), b.end(), 1);
     b.set_block_dimy(A.get_block_dimy());
     b_hd = b;
     // smooth block matrix
@@ -134,9 +134,9 @@ void check_block_smoothers_poisson(int bsize, int points, int nx, int ny, int nz
 //  MatrixIO<TConfig>::writeSystemMatrixMarket("A.mtx",A,x_fin_hd);
 //  MatrixIO<TConfig>::writeSystemMatrixMarket("sA.mtx",scalarA,x_ini_hd);
     // assert that result is the same
-    ostringstream os;
+    std::ostringstream os;
     os << bsize;
-    string ssize = os.str();
+    std::string ssize = os.str();
     error_string = "Difference between scalar and block " + ssize + "x" + ssize + " smoother = " + smoother_string;
     UNITTEST_ASSERT_EQUAL_TOL_DESC(error_string.c_str(), x_fin_hd, x_ini_hd, final_residual_tolerance);
     delete scalar_smoother;

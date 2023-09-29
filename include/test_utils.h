@@ -575,7 +575,7 @@ struct generateMatrixRandomStruct<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec
 
     static void generate (Matrix_h &A, int max_rows, bool diag_prop, int bsize, bool symmetric, int max_nnz_per_row = 10)
     {
-        int new_rows = max((int)(((float)rand() / RAND_MAX) * max_rows), 1);
+        int new_rows = std::max((int)(((float)rand() / RAND_MAX) * max_rows), 1);
         generateExact(A, new_rows, diag_prop, bsize, symmetric, max_nnz_per_row);
     }
 
@@ -583,7 +583,7 @@ struct generateMatrixRandomStruct<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec
     {
         Matrix_h newA;
         newA.set_initialized(0);
-        //int new_rows = max((int)(((float)rand() / RAND_MAX)*max_rows), 1);
+        //int new_rows = std::max((int)(((float)rand() / RAND_MAX)*max_rows), 1);
         //printf("generating matrix with %d rows...\n", new_rows);
         int props = CSR | (diag_prop ? DIAG : 0);
         int bsize_sq = bsize * bsize;
@@ -608,7 +608,7 @@ struct generateMatrixRandomStruct<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec
 
                 if (row_col_idx.size() + (diag_prop ? 1 : 0)  < max_nnz_per_row)
                 {
-                    int add_nnz = min (new_rows, max( 1, (int)( ((float)rand() / RAND_MAX) * (max_nnz_per_row - row_col_idx.size()) )) );
+                    int add_nnz = min (new_rows, std::max( 1, (int)( ((float)rand() / RAND_MAX) * (max_nnz_per_row - row_col_idx.size()) )) );
 
                     while (add_nnz > 0)
                     {
@@ -703,7 +703,7 @@ struct generateMatrixRandomStruct<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec
         {
             int new_vals = (newA.get_num_nz() + 1) * bsize_sq;
             newA.values.resize(new_vals);
-            thrust::fill(newA.values.begin() + (newA.diagOffset()*newA.get_block_size()), newA.values.end(), 0.0);
+            thrust_wrapper::fill<AMGX_host>(newA.values.begin() + (newA.diagOffset()*newA.get_block_size()), newA.values.end(), 0.0);
         }
 
         newA.computeDiagonal();
@@ -793,7 +793,7 @@ struct fillRandom < Vector<TConfig> >
     typedef Vector< TemplateConfig<AMGX_host, TConfig::vecPrec, TConfig::matPrec, TConfig::indPrec> > Vector_h;
     static void fill(Vector<TConfig> &b)
     {
-        //thrust::generate(b.begin(), b.end(), rand);
+        //amgx::thrust::generate(b.begin(), b.end(), rand);
         Vector_h tV(b.size());
 
         for (unsigned int i = 0; i < tV.size(); i++)

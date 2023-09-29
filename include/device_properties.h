@@ -32,4 +32,6 @@ namespace amgx
 
 cudaDeviceProp getDeviceProperties();
 
+int getSMCount();
+
 }

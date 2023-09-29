@@ -46,7 +46,7 @@ struct Not_empty_row
     template< typename Tuple >
     inline __device__ __host__ bool operator()( const Tuple &t ) const
     {
-        return thrust::get<0>(t) != thrust::get<1>(t);
+        return amgx::thrust::get<0>(t) != amgx::thrust::get<1>(t);
     }
 };
 
@@ -56,26 +56,26 @@ void build_sort_permutation( const Matrix &M, Vector &permutation )
 {
     int num_nz = M.get_num_nz();
     Vector row_indices( num_nz, 0 );
-    thrust::scatter_if( thrust::counting_iterator<int>(0),
-                        thrust::counting_iterator<int>(M.row_offsets.size() - 1),
+    amgx::thrust::scatter_if( amgx::thrust::counting_iterator<int>(0),
+                        amgx::thrust::counting_iterator<int>(M.row_offsets.size() - 1),
                         M.row_offsets.begin(),
-                        thrust::make_transform_iterator(
-                            thrust::make_zip_iterator( thrust::make_tuple( M.row_offsets.begin(), M.row_offsets.begin() + 1 ) ),
+                        amgx::thrust::make_transform_iterator(
+                            amgx::thrust::make_zip_iterator( amgx::thrust::make_tuple( M.row_offsets.begin(), M.row_offsets.begin() + 1 ) ),
                             Not_empty_row()),
                         row_indices.begin());
     cudaCheckError();
-    thrust::inclusive_scan( row_indices.begin(), row_indices.begin() + M.get_num_nz(), row_indices.begin(), thrust::maximum<int>() );
+    amgx::thrust::inclusive_scan( row_indices.begin(), row_indices.begin() + M.get_num_nz(), row_indices.begin(), amgx::thrust::maximum<int>() );
     cudaCheckError();
     permutation.resize( num_nz );
-    thrust::sequence( permutation.begin(), permutation.end() );
+    thrust_wrapper::sequence<Vector::TConfig::memSpace>( permutation.begin(), permutation.end() );
     cudaCheckError();
     Vector tmp( M.col_indices );
-    thrust::stable_sort_by_key( tmp.begin(), tmp.end(), permutation.begin() );
+    amgx::thrust::stable_sort_by_key( tmp.begin(), tmp.end(), permutation.begin() );
     cudaCheckError();
     tmp = row_indices;
-    thrust::gather( permutation.begin(), permutation.end(), tmp.begin(), row_indices.begin() );
+    amgx::thrust::gather( permutation.begin(), permutation.end(), tmp.begin(), row_indices.begin() );
     cudaCheckError();
-    thrust::stable_sort_by_key( row_indices.begin(), row_indices.end(), permutation.begin() );
+    amgx::thrust::stable_sort_by_key( row_indices.begin(), row_indices.end(), permutation.begin() );
     cudaCheckError();
 }
 

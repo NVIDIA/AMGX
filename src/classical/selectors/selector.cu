@@ -36,7 +36,6 @@
 
 namespace amgx
 {
-using namespace std;
 namespace classical
 {
 
@@ -183,7 +182,7 @@ estimate_c_hat_size_kernel( const int A_num_rows,
 {
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // A shared location where threads propose a row of B to load.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -296,7 +295,7 @@ estimate_c_hat_size_kernel( const int A_num_rows,
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // A shared location where threads propose a row of B to load.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The coordinates of the thread inside the CTA/warp.
     const int warp_id = utils::warp_id( );
     const int lane_id = utils::lane_id( );
@@ -356,6 +355,8 @@ estimate_c_hat_size_kernel( const int A_num_rows,
             {
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
+
+            utils::syncwarp();
 
             // For each warp, we have up to 32 rows of B to proceed.
             for ( int k = 0, num_rows = __popc(vote) ; k < num_rows ; k += NUM_LOADED_ROWS )
@@ -429,7 +430,7 @@ compute_c_hat_kernel( int A_num_rows,
 {
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     // Shared memory to vote.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
@@ -517,6 +518,8 @@ compute_c_hat_kernel( int A_num_rows,
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
 
+            utils::syncwarp();
+
             int num_rows = __popc( vote );
 
             // For each warp, we have up to 32 rows of B to proceed.
@@ -590,7 +593,7 @@ compute_c_hat_kernel( int A_num_rows,
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     const int NUM_LOADED_ROWS = WARP_SIZE / NUM_THREADS_PER_ROW;
     // Shared memory to vote.
-    __shared__ volatile int s_b_row_ids[CTA_SIZE];
+    __shared__ int s_b_row_ids[CTA_SIZE];
     // The hash keys stored in shared memory.
     __shared__ int s_keys[NUM_WARPS * SMEM_SIZE];
     // The coordinates of the thread inside the CTA/warp.
@@ -678,6 +681,8 @@ compute_c_hat_kernel( int A_num_rows,
             {
                 s_b_row_ids[warp_id * WARP_SIZE + dest] = a_col_id;
             }
+
+            utils::syncwarp();
 
             int num_rows = __popc( vote );
 
@@ -842,7 +847,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
 {
     IVector mark(cf_map.size(), 0);
     int blockSize = 128;
-    int num_blocks = min( 4096, (int) (cf_map.size() + blockSize - 1) / blockSize );
+    int num_blocks = std::min( 4096, (int) (cf_map.size() + blockSize - 1) / blockSize );
 
     if (cf_map.size() > 0)
     {
@@ -851,7 +856,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
     }
 
     // get the sequence of values
-    thrust_wrapper::inclusive_scan(mark.begin(), mark.end(), mark.begin());
+    thrust_wrapper::inclusive_scan<AMGX_device>(mark.begin(), mark.end(), mark.begin());
     cudaCheckError();
 
     // assign to cf_map
@@ -862,7 +867,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I> >::renumberAndCountCoarsePoin
     }
 
 
-    num_coarse_points = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_rows, is_non_neg());
+    num_coarse_points = (int) thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.begin() + num_rows, is_non_neg());
     cudaCheckError();
 }
 
@@ -979,7 +984,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     }
 
     // Compute row offsets.
-    thrust_wrapper::exclusive_scan(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
     cudaCheckError();
     //if ( (!A.is_matrix_singleGPU() && A.manager->global_id() == 0) || A.is_matrix_singleGPU())
     //  std::cerr << "pool::allocate; before c_hat resize" << std::endl;
@@ -1061,15 +1066,15 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
-        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         S2_num_rows = num_owned_coarse_pts;
         prep->initialize_manager(A, S2, num_owned_coarse_pts);
     }
     else
     {
-        S2_num_rows = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        S2_num_rows = (int) thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
     }
 
@@ -1083,10 +1088,10 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             nonZerosPerRow_ptr);
     cudaCheckError();
     // get total with a reduction
-    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[S2_num_rows] = nonZeros;
     // resize S2
@@ -1102,7 +1107,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     S2.set_block_dimy(A.get_block_dimy());
     cudaCheckError();
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), S2.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), S2.row_offsets.begin());
     cudaCheckError();
     {
         const int CTA_SIZE  = 256;
@@ -1201,7 +1206,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::de
         const IndexType offset)
 {
     const int blockSize = 256;
-    const int numBlocks = min (AMGX_GRID_MAX_SIZE, (int) (((A.get_num_rows() - offset) + blockSize - 1) / blockSize));
+    const int numBlocks = std::min (AMGX_GRID_MAX_SIZE, (int) (((A.get_num_rows() - offset) + blockSize - 1) / blockSize));
     const int numRows = (int)(A.get_num_rows() - offset);
     resolve_boundary <<< blockSize, numBlocks>>>(A.row_offsets.raw() + offset, A.col_indices.raw(), s_con.raw(), cf_map.raw(), offset, A.get_num_rows() - offset);
     cudaCheckError();
@@ -1218,14 +1223,14 @@ SelectorFactory<TConfig>::getFactories( )
 }
 
 template<class TConfig>
-void SelectorFactory<TConfig>::registerFactory(string name, SelectorFactory<TConfig> *f)
+void SelectorFactory<TConfig>::registerFactory(std::string name, SelectorFactory<TConfig> *f)
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "SelectorFactory '" + name + "' has already been registered\n";
+        std::string error = "SelectorFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -1236,11 +1241,11 @@ template<class TConfig>
 void SelectorFactory<TConfig>::unregisterFactory(std::string name)
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    typename map<string, SelectorFactory<TConfig> *>::iterator it = factories.find(name);
+    typename std::map<std::string, SelectorFactory<TConfig> *>::iterator it = factories.find(name);
 
     if (it == factories.end())
     {
-        string error = "SelectorFactory '" + name + "' has not been registered\n";
+        std::string error = "SelectorFactory '" + name + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -1254,7 +1259,7 @@ template<class TConfig>
 void SelectorFactory<TConfig>::unregisterFactories( )
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    typename map<std::string, SelectorFactory<TConfig> *>::iterator it = factories.begin( );
+    typename std::map<std::string, SelectorFactory<TConfig> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -1271,12 +1276,12 @@ template<class TConfig>
 Selector<TConfig> *SelectorFactory<TConfig>::allocate(AMG_Config &cfg, const std::string &cfg_scope)
 {
     std::map<std::string, SelectorFactory<TConfig>*> &factories = getFactories( );
-    string selector = cfg.getParameter<string>("selector", cfg_scope);
-    typename map<string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(selector);
+    std::string selector = cfg.getParameter<std::string>("selector", cfg_scope);
+    typename std::map<std::string, SelectorFactory<TConfig> *>::const_iterator it = factories.find(selector);
 
     if (it == factories.end())
     {
-        string error = "SelectorFactory '" + selector + "' has not been registered\n";
+        std::string error = "SelectorFactory '" + selector + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

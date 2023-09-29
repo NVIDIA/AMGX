@@ -57,7 +57,7 @@ template< typename T_Config >
 Strength_BaseBase<T_Config>::Strength_BaseBase(AMG_Config &cfg,
         const std::string &cfg_scope)
 {
-    alpha = cfg.AMG_Config::getParameter<double>("strength_threshold", cfg_scope);
+    alpha = cfg.AMG_Config::template getParameter<double>("strength_threshold", cfg_scope);
 }
 
 /*************************************************************************
@@ -120,8 +120,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_h &A,
             }
             else
             {
-                minVal = min(minVal, val);
-                maxVal = max(maxVal, val);
+                minVal = std::min(minVal, val);
+                maxVal = std::max(maxVal, val);
             }
         }
 
@@ -440,7 +440,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
     // choose a blocksize. Use 1 warp per row
     const int blockSize = 256;
     const int numWarps  = blockSize / 32;
-    const int numBlocks = min( 4096, (int) (A.get_num_rows() + numWarps - 1) / numWarps );
+    const int numBlocks = std::min( 4096, (int) (A.get_num_rows() + numWarps - 1) / numWarps );
 
     if (A.get_num_rows() > 0)
     {
@@ -499,7 +499,7 @@ computeWeights_1x1(Matrix_d &S,
     // choose a blocksize. Use 1 thread per row
     const int blockSize = 256;
     const int numWarps  = blockSize / 32;
-    const int numBlocks = min( 4096, (int) (S.get_num_rows() + numWarps - 1) / numWarps );
+    const int numBlocks = std::min( 4096, (int) (S.get_num_rows() + numWarps - 1) / numWarps );
     cudaDeviceSynchronize();
     cudaCheckError();
 

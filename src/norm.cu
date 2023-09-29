@@ -548,7 +548,7 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             A.apply(x, Ax);
 
             // Calculate global average x
-            ValueTypeVec xAvg = thrust::reduce(x.begin(), x.begin() + nRows, amgx::types::util<ValueTypeVec>::get_zero());
+            ValueTypeVec xAvg = amgx::thrust::reduce(x.begin(), x.begin() + nRows, amgx::types::util<ValueTypeVec>::get_zero());
             A.manager->global_reduce_sum(&xAvg);
             amgx::types::util<ValueTypeVec>::divide_by_integer(xAvg, A.manager->num_rows_global);
 

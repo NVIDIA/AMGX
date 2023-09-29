@@ -68,7 +68,7 @@ AMGX_RC getResourcesFromSolverHandle(AMGX_solver_handle slv, Resources **resourc
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -86,7 +86,6 @@ AMGX_RC getResourcesFromSolverHandle(AMGX_solver_handle slv, Resources **resourc
                 AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
         }
     }
-
     AMGX_CATCHES(rc)
     AMGX_CHECK_API_ERROR(rc, NULL)
     return AMGX_RC_OK;
@@ -96,7 +95,7 @@ AMGX_RC getResourcesFromMatrixHandle(AMGX_matrix_handle mtx, Resources **resourc
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -124,7 +123,7 @@ AMGX_RC getResourcesFromVectorHandle(AMGX_vector_handle vec, Resources **resourc
 {
     AMGX_ERROR rc = AMGX_OK;
 
-    try
+    AMGX_TRIES()
     {
         AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -219,10 +218,10 @@ int create_part_offsets(int &root, int &rank, MPI_Comm &mpicm, Matrix<TConfig> *
         }
 
         //perform a prefix sum
-        thrust::inclusive_scan(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets_h.begin());
+        amgx::thrust::inclusive_scan(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets_h.begin());
         //create the corresponding array on device (this is important)
         nv_mtx->manager->part_offsets.resize(nranks + 1);
-        thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets.begin());
+        amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end(), nv_mtx->manager->part_offsets.begin());
     }
 
     return 0;
@@ -236,24 +235,26 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
     int n, nnz, offset, l, k, i;
     int start, end, shift;
     int mpist;
+    int block_dimx, block_dimy;
+
     MPI_Comm mpicm;
     //MPI call parameters
     t_IndPrec *rc_ptr, *di_ptr;
     t_IndPrec *hli_ptr, *hgi_ptr;
     t_MatPrec *hlv_ptr, *hgv_ptr;
-    thrust::host_vector<t_IndPrec> rc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> rc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unpacked local matrix on the device and host
     device_vector_alloc<t_IndPrec> Bp;
     device_vector_alloc<t_IndPrec> Bi;
     device_vector_alloc<t_MatPrec> Bv;
-    thrust::host_vector<t_IndPrec> hBp;
-    thrust::host_vector<t_IndPrec> hBi;
-    thrust::host_vector<t_MatPrec> hBv;
+    amgx::thrust::host_vector<t_IndPrec> hBp;
+    amgx::thrust::host_vector<t_IndPrec> hBi;
+    amgx::thrust::host_vector<t_MatPrec> hBv;
     //constructed global matrix on the host
-    thrust::host_vector<t_IndPrec> hAp;
-    thrust::host_vector<t_IndPrec> hAi;
-    thrust::host_vector<t_MatPrec> hAv;
+    amgx::thrust::host_vector<t_IndPrec> hAp;
+    amgx::thrust::host_vector<t_IndPrec> hAi;
+    amgx::thrust::host_vector<t_MatPrec> hAv;
     //WARNING: this routine currently supports matrix only with block size =1 (it can be generalized in the future, though)
     //initialize the defaults
     root = 0;
@@ -273,6 +274,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
 
         nv_mtx->getOffsetAndSizeForView(OWNED, &offset, &n);
         nv_mtx->getNnzForView(OWNED, &nnz);
+	block_dimx = nv_mtx->get_block_dimx();
+	block_dimy = nv_mtx->get_block_dimy();
+	gA.set_block_dimx(block_dimx);
+	gA.set_block_dimy(block_dimy);
 
         if (nv_mtx->manager->part_offsets_h.size() == 0)   // create part_offsets_h & part_offsets
         {
@@ -284,10 +289,10 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         //some allocations/resizing
         Bp.resize(n + 1);
         Bi.resize(nnz);
-        Bv.resize(nnz);
+        Bv.resize(nnz * block_dimx * block_dimy);
         hBp.resize(n + 1);
         hBi.resize(nnz);
-        hBv.resize(nnz);
+        hBv.resize(nnz * block_dimx * block_dimy);
 
         if (rank == root)
         {
@@ -300,9 +305,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
 
         cudaCheckError();
         //--- unpack the matrix ---
-        nv_mtx->manager->unpack_partition(thrust::raw_pointer_cast(Bp.data()),
-                                          thrust::raw_pointer_cast(Bi.data()),
-                                          thrust::raw_pointer_cast(Bv.data()));
+        nv_mtx->manager->unpack_partition(amgx::thrust::raw_pointer_cast(Bp.data()),
+                                          amgx::thrust::raw_pointer_cast(Bi.data()),
+                                          amgx::thrust::raw_pointer_cast(Bv.data()));
         cudaCheckError();
         //copy to host (should be able to optimize this out later on)
         hBp = Bp;
@@ -315,18 +320,18 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            thrust_wrapper::transform<AMGX_host>(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
-            //thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
+            //amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(),nv_mtx->manager->part_offsets_h.end(),di.begin());
+            thrust_wrapper::transform<AMGX_host>(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin(), add_constant_op<t_IndPrec>(1));
             cudaCheckError();
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hli_ptr = thrust::raw_pointer_cast(hBp.data());
-        hgi_ptr = thrust::raw_pointer_cast(hAp.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hli_ptr = amgx::thrust::raw_pointer_cast(hBp.data());
+        hgi_ptr = amgx::thrust::raw_pointer_cast(hAp.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -354,7 +359,7 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 end  = nv_mtx->manager->part_offsets_h[i + 1];
                 shift = hAp[start];
                 //if (rank == 0) printf("# %d %d %d\n",start,end,shift);
-                thrust::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                thrust_wrapper::transform<AMGX_host>(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];
@@ -363,16 +368,16 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
 
             //some allocations/resizing
             hAi.resize(hAp[k]); //now we know global nnz and can allocate storage
-            hAv.resize(hAp[k]); //now we know global nnz and can allocate storage
+            hAv.resize(hAp[k] * block_dimx * block_dimy); //now we know global nnz and can allocate storage
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hli_ptr = thrust::raw_pointer_cast(hBi.data());
-        hgi_ptr = thrust::raw_pointer_cast(hAi.data());
-        hlv_ptr = thrust::raw_pointer_cast(hBv.data());
-        hgv_ptr = thrust::raw_pointer_cast(hAv.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hli_ptr = amgx::thrust::raw_pointer_cast(hBi.data());
+        hgi_ptr = amgx::thrust::raw_pointer_cast(hAi.data());
+        hlv_ptr = amgx::thrust::raw_pointer_cast(hBv.data());
+        hgv_ptr = amgx::thrust::raw_pointer_cast(hAv.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -392,13 +397,22 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         }
 
         //values
+	if(rank == root) {
+	    for (i = 0; i < l; i++) {
+		rc[i] *= block_dimx * block_dimy;
+		di[i] *= block_dimx * block_dimy;
+	    }
+	}
+        rc_ptr = thrust::raw_pointer_cast(rc.data());
+        di_ptr = thrust::raw_pointer_cast(di.data());
+
         if      (typeid(t_MatPrec) == typeid(float))
         {
-            mpist = MPI_Gatherv(hlv_ptr, nnz, MPI_FLOAT,  hgv_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
+            mpist = MPI_Gatherv(hlv_ptr, nnz * block_dimx * block_dimy, MPI_FLOAT,  hgv_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
         }
         else if (typeid(t_MatPrec) == typeid(double))
         {
-            mpist = MPI_Gatherv(hlv_ptr, nnz, MPI_DOUBLE, hgv_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
+            mpist = MPI_Gatherv(hlv_ptr, nnz * block_dimx * block_dimy, MPI_DOUBLE, hgv_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
         }
         else
         {
@@ -423,9 +437,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 //construct a map (based on partition vector)
                 int i, j, nranks;
                 MPI_Comm_size(mpicm, &nranks);
-                thrust::host_vector<t_IndPrec> c(nranks, 0);
-                thrust::host_vector<t_IndPrec> map(hAp.size() - 1);
-                thrust::host_vector<t_IndPrec> imap(hAp.size() - 1);
+                amgx::thrust::host_vector<t_IndPrec> c(nranks, 0);
+                amgx::thrust::host_vector<t_IndPrec> map(hAp.size() - 1);
+                amgx::thrust::host_vector<t_IndPrec> imap(hAp.size() - 1);
 
                 for (i = 0; i < (hAp.size() - 1); i++)
                 {
@@ -441,19 +455,19 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 hBv.resize(hAv.size());
                 reorder_partition_host<t_IndPrec, t_MatPrec, true, true>
                 (hAp.size() - 1, hAi.size(),
-                 thrust::raw_pointer_cast(hAp.data()),
-                 thrust::raw_pointer_cast(hAi.data()),
-                 thrust::raw_pointer_cast(hAv.data()),
-                 thrust::raw_pointer_cast(hBp.data()),
-                 thrust::raw_pointer_cast(hBi.data()),
-                 thrust::raw_pointer_cast(hBv.data()),
-                 imap.size(), thrust::raw_pointer_cast(imap.data()));
+                 amgx::thrust::raw_pointer_cast(hAp.data()),
+                 amgx::thrust::raw_pointer_cast(hAi.data()),
+                 amgx::thrust::raw_pointer_cast(hAv.data()),
+                 amgx::thrust::raw_pointer_cast(hBp.data()),
+                 amgx::thrust::raw_pointer_cast(hBi.data()),
+                 amgx::thrust::raw_pointer_cast(hBv.data()),
+                 imap.size(), amgx::thrust::raw_pointer_cast(imap.data()), block_dimx, block_dimy);
                 cudaCheckError();
                 gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
                 gA.resize(hBp.size() - 1, hBp.size() - 1, hBi.size());
-                thrust::copy(hBp.begin(), hBp.end(), gA.row_offsets.begin());
-                thrust::copy(hBi.begin(), hBi.end(), gA.col_indices.begin());
-                thrust::copy(hBv.begin(), hBv.end(), gA.values.begin());
+                amgx::thrust::copy(hBp.begin(), hBp.end(), gA.row_offsets.begin());
+                amgx::thrust::copy(hBi.begin(), hBi.end(), gA.col_indices.begin());
+                amgx::thrust::copy(hBv.begin(), hBv.end(), gA.values.begin());
                 cudaCheckError();
             }
             else
@@ -461,9 +475,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
                 //copy (host -> host or device depending on matrix type)
                 gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
                 gA.resize(hAp.size() - 1, hAp.size() - 1, hAi.size());
-                thrust::copy(hAp.begin(), hAp.end(), gA.row_offsets.begin());
-                thrust::copy(hAi.begin(), hAi.end(), gA.col_indices.begin());
-                thrust::copy(hAv.begin(), hAv.end(), gA.values.begin());
+                amgx::thrust::copy(hAp.begin(), hAp.end(), gA.row_offsets.begin());
+                amgx::thrust::copy(hAi.begin(), hAi.end(), gA.col_indices.begin());
+                amgx::thrust::copy(hAv.begin(), hAv.end(), gA.values.begin());
                 cudaCheckError();
             }
         }
@@ -473,9 +487,9 @@ int construct_global_matrix(int &root, int &rank, Matrix<TConfig> *nv_mtx, Matri
         /* ASSUMPTION: when manager has not been allocated you are running on a single rank */
         gA.addProps(CSR); //need to add this property, so that row_offsets, col_indices & values are resized appropriately in the next call
         gA.resize(nv_mtx->row_offsets.size() - 1, nv_mtx->row_offsets.size() - 1, nv_mtx->col_indices.size());
-        thrust::copy(nv_mtx->row_offsets.begin(), nv_mtx->row_offsets.end(), gA.row_offsets.begin());
-        thrust::copy(nv_mtx->col_indices.begin(), nv_mtx->col_indices.end(), gA.col_indices.begin());
-        thrust::copy(nv_mtx->values.begin(),     nv_mtx->values.end(),      gA.values.begin());
+        amgx::thrust::copy(nv_mtx->row_offsets.begin(), nv_mtx->row_offsets.end(), gA.row_offsets.begin());
+        amgx::thrust::copy(nv_mtx->col_indices.begin(), nv_mtx->col_indices.end(), gA.col_indices.begin());
+        amgx::thrust::copy(nv_mtx->values.begin(),     nv_mtx->values.end(),      gA.values.begin());
 
         cudaCheckError();
     }
@@ -488,18 +502,18 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 {
     typedef typename TConfig::IndPrec t_IndPrec;
     typedef typename TConfig::VecPrec t_VecPrec;
-    int n, nnz, offset, l;
+    int n, nnz, offset, l, block_dim;
     int mpist;
     MPI_Comm mpicm;
     //MPI call parameters
     t_IndPrec *rc_ptr, *di_ptr;
     t_VecPrec *hv_ptr, *hg_ptr;
-    thrust::host_vector<t_IndPrec> rc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> rc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unreordered local vector on the host
-    thrust::host_vector<t_VecPrec> hv;
+    amgx::thrust::host_vector<t_VecPrec> hv;
     //constructed global vector on the host
-    thrust::host_vector<t_VecPrec> hg;
+    amgx::thrust::host_vector<t_VecPrec> hg;
     //WARNING: this routine currently supports vectors only with block size =1 (it can be generalized in the future, though)
     //initialize the defaults
     root = 0;
@@ -519,6 +533,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 
         nv_mtx->getOffsetAndSizeForView(OWNED, &offset, &n);
         nv_mtx->getNnzForView(OWNED, &nnz);
+	block_dim = nv_mtx->get_block_dimx(); // assume square blocks
 
         if (nv_mtx->manager->part_offsets_h.size() == 0)   // create part_offsets_h & part_offsets
         {
@@ -527,11 +542,11 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
 
         l = nv_mtx->manager->part_offsets_h.size() - 1;    // number of partitions
         //some allocations/resizing
-        hv.resize(nv_vec->size());                         // host copy of nv_vec
+        hv.resize(nv_vec->size() * block_dim);                         // host copy of nv_vec
 
         if (rank == root)
         {
-            hg.resize(nv_mtx->manager->part_offsets_h[l]); // host copy of gvec
+            hg.resize(nv_mtx->manager->part_offsets_h[l] * block_dim); // host copy of gvec
             rc.resize(l);
             di.resize(l);
         }
@@ -539,10 +554,10 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         cudaCheckError();
         //--- unreorder the vector back (just like you did with the matrix, but only need to undo the interior-boundary reordering, because others do not apply) ---
         //Approach 1: just copy the vector (host or device depending on vector type -> host)
-        //thrust::copy(nv_vec->begin(),nv_vec->end(),hv.begin());
+        //amgx::thrust::copy(nv_vec->begin(),nv_vec->end(),hv.begin());
         //Approach 2: unreorder and copy the vector
-        thrust::copy(thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin()  ),
-                     thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin() + n),
+        amgx::thrust::copy(amgx::thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin()  ),
+                     amgx::thrust::make_permutation_iterator(nv_vec->begin(), nv_vec->getManager()->inverse_renumbering.begin() + n),
                      hv.begin());
         cudaCheckError();
 
@@ -550,27 +565,32 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
         //compute recvcounts and displacements for MPI_Gatherv
         if (rank == root)
         {
-            thrust::transform(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
+            thrust_wrapper::transform<AMGX_host>(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.end() - 1, nv_mtx->manager->part_offsets_h.begin() + 1, rc.begin(), subtract_op<t_IndPrec>());
             cudaCheckError();
-            thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
+            amgx::thrust::copy(nv_mtx->manager->part_offsets_h.begin(), nv_mtx->manager->part_offsets_h.begin() + l, di.begin());
             cudaCheckError();
+
+            for(int i = 0; i<l; ++i) {
+                rc[i] *= block_dim;
+                di[i] *= block_dim;
+            }
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hv_ptr = thrust::raw_pointer_cast(hv.data());
-        hg_ptr = thrust::raw_pointer_cast(hg.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hv_ptr = amgx::thrust::raw_pointer_cast(hv.data());
+        hg_ptr = amgx::thrust::raw_pointer_cast(hg.data());
         cudaCheckError();
 
         //gather (on the host)
         if      (typeid(t_VecPrec) == typeid(float))
         {
-            mpist = MPI_Gatherv(hv_ptr, n, MPI_FLOAT,  hg_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
+            mpist = MPI_Gatherv(hv_ptr, n * block_dim, MPI_FLOAT,  hg_ptr, rc_ptr, di_ptr, MPI_FLOAT,  root, mpicm);
         }
         else if (typeid(t_VecPrec) == typeid(double))
         {
-            mpist = MPI_Gatherv(hv_ptr, n, MPI_DOUBLE, hg_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
+            mpist = MPI_Gatherv(hv_ptr, n * block_dim, MPI_DOUBLE, hg_ptr, rc_ptr, di_ptr, MPI_DOUBLE, root, mpicm);
         }
         else
         {
@@ -587,30 +607,32 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
             if (partition_vector != NULL)
             {
                 //sanity check
-                if (partition_vector_size != hg.size())
+                if (partition_vector_size * block_dim != hg.size())
                 {
                     FatalError("partition_vector_size does not match the global vector size", AMGX_ERR_CORE);
                 }
 
                 //construct a map (based on partition vector)
-                int i, j, nranks;
+                int i, j, k, nranks;
                 MPI_Comm_size(mpicm, &nranks);
-                thrust::host_vector<t_IndPrec> c(nranks, 0);
-                thrust::host_vector<t_IndPrec> map(hg.size());
-                thrust::host_vector<t_IndPrec> imap(hg.size());
+                amgx::thrust::host_vector<t_IndPrec> c(nranks, 0);
+                amgx::thrust::host_vector<t_IndPrec> map(hg.size());
+                amgx::thrust::host_vector<t_IndPrec> imap(hg.size());
 
-                for (i = 0; i < hg.size(); i++)
+                for (i = 0; i < nv_mtx->manager->part_offsets_h[l]; i++)
                 {
                     j = partition_vector[i];
-                    map[i] = nv_mtx->manager->part_offsets_h[j] + c[j];
-                    imap[map[i]] = i;
-                    c[j]++;
+		    for(k = 0 ; k < block_dim; ++k) {
+			map[i * block_dim + k] = nv_mtx->manager->part_offsets_h[j] + c[j];
+			imap[map[i * block_dim + k]] = i * block_dim + k;
+			c[j]++;
+		    }
                 }
 
                 //permute according to map during copy (host -> host or device depending on vector type)
                 gvec.resize(hg.size());
-                thrust::copy(thrust::make_permutation_iterator(hg.begin(), imap.begin()),
-                             thrust::make_permutation_iterator(hg.begin(), imap.end()),
+                amgx::thrust::copy(amgx::thrust::make_permutation_iterator(hg.begin(), imap.begin()),
+                             amgx::thrust::make_permutation_iterator(hg.begin(), imap.end()),
                              gvec.begin());
                 cudaCheckError();
             }
@@ -618,7 +640,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
             {
                 //copy (host -> host or device depending on vector type)
                 gvec.resize(hg.size());
-                thrust::copy(hg.begin(), hg.end(), gvec.begin());
+                amgx::thrust::copy(hg.begin(), hg.end(), gvec.begin());
                 cudaCheckError();
             }
         }
@@ -627,7 +649,7 @@ int construct_global_vector(int &root, int &rank, Matrix<TConfig> *nv_mtx, Vecto
     {
         /* ASSUMPTION: when manager has not been allocated you are running on a single rank */
         gvec.resize(nv_vec->size());
-        thrust::copy(nv_vec->begin(), nv_vec->end(), gvec.begin());
+        amgx::thrust::copy(nv_vec->begin(), nv_vec->end(), gvec.begin());
         cudaCheckError();
     }
 
@@ -1121,7 +1143,7 @@ inline AMGX_RC vector_set_zero(AMGX_vector_handle vec,
 
     v.resize(n * block_dim);
     v.set_block_dimy(block_dim);
-    thrust::fill(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
+    thrust_wrapper::fill<MemorySpaceMap<AMGX_GET_MODE_VAL(AMGX_MemorySpace, CASE)>::id>(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
     cudaCheckError();
     return AMGX_RC_OK;
 }
@@ -1540,7 +1562,7 @@ inline AMGX_RC read_system_distributed(AMGX_matrix_handle mtx,
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
             partitionVec.resize(partition_vector_size);
 
-        thrust::copy(partition_vector, partition_vector + partition_vector_size, partitionVec.begin());
+        amgx::thrust::copy(partition_vector, partition_vector + partition_vector_size, partitionVec.begin());
         cudaCheckError();
 
         if (num_partitions == 0) { num_partitions = num_ranks; }
@@ -1551,13 +1573,13 @@ inline AMGX_RC read_system_distributed(AMGX_matrix_handle mtx,
 
         if (partition_sizes != NULL)
         {
-            thrust::copy(partition_sizes, partition_sizes + num_partitions, partSize.begin());
+            amgx::thrust::copy(partition_sizes, partition_sizes + num_partitions, partSize.begin());
             cudaCheckError();
         }
         else
         {
             int partsPerRank = num_partitions / num_ranks;
-            thrust::fill(partSize.begin(), partSize.end(), 0);
+            thrust_wrapper::fill<AMGX_host>(partSize.begin(), partSize.end(), 0);
             cudaCheckError();
 
             for (int i = 0; i < partitionVec.size(); i++)
@@ -1705,9 +1727,9 @@ inline AMGX_RC generate_distributed_poisson_7pt(AMGX_matrix_handle mtx,
     A_part.set_initialized(1);
     /* Create rhs and solution */
     rhs.resize(A_part.get_num_rows());
-    thrust::fill(rhs.begin(), rhs.end(), types::util<ValueTypeB>::get_one());
+    thrust_wrapper::fill<MemorySpaceMap<AMGX_GET_MODE_VAL(AMGX_MemorySpace, CASE)>::id>(rhs.begin(), rhs.end(), types::util<ValueTypeB>::get_one());
     sol.resize(A_part.get_num_rows());
-    thrust::fill(sol.begin(), sol.end(), types::util<ValueTypeB>::get_one());
+    thrust_wrapper::fill<MemorySpaceMap<AMGX_GET_MODE_VAL(AMGX_MemorySpace, CASE)>::id>(sol.begin(), sol.end(), types::util<ValueTypeB>::get_one());
     cudaCheckError();
     return AMGX_RC_OK;
 }
@@ -2294,7 +2316,7 @@ extern "C" {
         {
             AMGX_ERROR rc = AMGX_OK;
 
-            try
+            AMGX_TRIES()
             {
                 ///amgx::CWrapper<AMGX_resources_handle> *c_resources= (amgx::CWrapper<AMGX_resources_handle>*)rsc;
                 ResourceW c_r(rsc);
@@ -2349,7 +2371,7 @@ extern "C" {
         AMGX_CPU_PROFILER( "AMGX_finalize " );
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             amgx::finalize();
         }
@@ -2379,7 +2401,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR err;
 
-        try
+        AMGX_TRIES()
         {
             auto *cfg0 = create_managed_object<AMG_Configuration, AMGX_config_handle>(cfg_h);
             err = cfg0->wrapped()->parseParameterString(options);
@@ -2405,7 +2427,7 @@ extern "C" {
         AMGX_ERROR err;
         ConfigW *cfg = nullptr;
 
-        try
+        AMGX_TRIES()
         {
             ///cfg = get_mem_manager<ConfigW>().allocate<ConfigW>(AMG_Configuration()).get();
             cfg = create_managed_object<AMG_Configuration, AMGX_config_handle>(cfg_h);
@@ -2437,7 +2459,7 @@ extern "C" {
         AMGX_ERROR err;
         ConfigW *cfg = nullptr;
 
-        try
+        AMGX_TRIES()
         {
             //use create_*()
             //
@@ -2470,7 +2492,7 @@ extern "C" {
         AMGX_ERROR err;
         ///CWrapper<AMGX_config_handle>* cfg;
 
-        try
+        AMGX_TRIES()
         {
             ///cfg = (CWrapper<AMGX_config_handle>*)(*cfg_h);
             //cfg = (ConfigW*)(*cfg_h);
@@ -2502,7 +2524,7 @@ extern "C" {
         AlgorithmType s_algorithm, p_algorithm;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ///CWrapper<AMGX_config_handle>* cfg = (CWrapper<AMGX_config_handle> *)cfg_h;
             ConfigW cfg(cfg_h);
@@ -2582,7 +2604,7 @@ extern "C" {
         AMGX_CPU_PROFILER( "AMGX_config_destroy " );
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             if (!remove_managed_object<AMGX_config_handle, AMG_Configuration>(cfg_h))
                 AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL)
@@ -2603,7 +2625,7 @@ extern "C" {
         AMGX_RC rc_solver;
         Resources *resources = NULL;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
             ConfigW cfg(cfg_h);
@@ -2647,7 +2669,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -2683,7 +2705,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2717,7 +2739,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2751,7 +2773,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2785,7 +2807,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2817,7 +2839,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_solver_handle>(slv);
 
@@ -2849,7 +2871,7 @@ extern "C" {
         AMGX_ERROR rc_mtx = AMGX_OK;
         Resources *resources = NULL;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -2897,7 +2919,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -2929,7 +2951,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -2974,7 +2996,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3017,7 +3039,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3053,7 +3075,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3114,7 +3136,7 @@ extern "C" {
         int dimension = (geoz == NULL ? 2 : 3);
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3150,7 +3172,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3187,7 +3209,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
 
@@ -3224,7 +3246,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_ERROR rc_vec = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -3272,7 +3294,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3315,7 +3337,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3359,7 +3381,7 @@ extern "C" {
         AMGX_RC rc0 = AMGX_RC_OK;
 
 //since resize falls directly into the thrust we can only catch bad_alloc here:
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3402,7 +3424,7 @@ extern "C" {
         AMGX_RC rc0 = AMGX_RC_OK;
 
 //since resize falls directly into the thrust we can only catch bad_alloc here:
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3438,7 +3460,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3482,7 +3504,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
 
@@ -3526,7 +3548,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             write_system_preamble(mtx, rhs, sol, resources, mode);
 
@@ -3571,7 +3593,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             write_system_preamble(mtx, rhs, sol, resources, mode);
 
@@ -3608,7 +3630,7 @@ extern "C" {
         //if (!c_solver || !c_solver->is_valid()) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(slv);
 
@@ -3646,7 +3668,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(slv);
 
@@ -3743,7 +3765,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(slv, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(slv);
 
@@ -3823,7 +3845,7 @@ extern "C" {
         //if (!c_mtx || !c_mtx->is_valid()) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -3863,7 +3885,7 @@ extern "C" {
         //if (!c_mtx || !c_mtx->is_valid()) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -3903,7 +3925,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(matrix, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(matrix);
 
@@ -3957,7 +3979,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             rc0 = read_system_preamble(mtx, rhs, sol, resources, mode, props);
 
@@ -3999,7 +4021,7 @@ extern "C" {
         rc = AMGX_OK;
         rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {
@@ -4041,7 +4063,7 @@ extern "C" {
         //if (!c_mtx) return AMGX_RC_BAD_PARAMETERS;
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4105,7 +4127,7 @@ extern "C" {
         Resources *resources = NULL;
         AMGX_ERROR rc_rs = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -4217,7 +4239,7 @@ extern "C" {
 
         AMGX_ERROR nvrc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {
@@ -4271,7 +4293,7 @@ extern "C" {
         Resources *resources = NULL;
         AMGX_ERROR rc_rs = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ResourceW c_r(rsc);
 
@@ -4347,7 +4369,7 @@ extern "C" {
             partition_offsets[pvi + 1]++;
         }
 
-        thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
+        amgx::thrust::inclusive_scan(partition_offsets, partition_offsets + num_ranks + 1, partition_offsets);
         // compute partition map (which tells you how the global elements are mapped into the partitions)
         int64_t *partition_map = get_c_arr_mem_manager().callocate<int64_t>(num_rows_global);
 
@@ -4469,7 +4491,7 @@ extern "C" {
 
         AMGX_RC rc0;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4545,7 +4567,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4588,7 +4610,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4619,7 +4641,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4660,7 +4682,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4723,7 +4745,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4757,7 +4779,7 @@ extern "C" {
         AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             AMGX_Mode mode = get_mode_from(mtx);
 
@@ -4794,7 +4816,7 @@ extern "C" {
 
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ConfigW cfg(cfg_h);
             auto *resources = create_managed_object<Resources, AMGX_resources_handle>(rsc, cfg.wrapped().get(), comm, device_num, devices);
@@ -4818,7 +4840,7 @@ extern "C" {
         const int devices[1] = { 0 };
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             ConfigW cfg(cfg_h);
             auto *resources = create_managed_object<Resources, AMGX_resources_handle>(rsc, cfg.wrapped().get(), nullptr, num_devices, devices);
@@ -4840,7 +4862,7 @@ extern "C" {
 
         AMGX_ERROR rc = AMGX_OK;
 
-        try
+        AMGX_TRIES()
         {
             bool found = remove_managed_object<AMGX_resources_handle, Resources>(rsc);
         }
@@ -4855,7 +4877,7 @@ extern "C" {
         nvtxRange nvrf(__func__);
 
         AMGX_ERROR rc = AMGX_OK;
-        try 
+        AMGX_TRIES()
         {
             auto *mdist = create_managed_object<MatrixDistribution, AMGX_distribution_handle>(dist);
             if (cfg != NULL)
@@ -4879,7 +4901,7 @@ extern "C" {
         nvtxRange nvrf(__func__);
 
         AMGX_ERROR rc = AMGX_OK;
-        try
+        AMGX_TRIES()
         {
             if (!remove_managed_object<AMGX_distribution_handle, MatrixDistribution>(dist)) 
             {
@@ -4947,7 +4969,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             rc0 = read_system_preamble(mtx, rhs, sol, resources, mode, props, true);
 
@@ -4977,7 +4999,7 @@ extern "C" {
         rc = AMGX_OK;
         rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {
@@ -5155,7 +5177,7 @@ extern "C" {
         AMGX_ERROR rc = AMGX_OK;
         AMGX_RC rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             rc0 = read_system_preamble(mtx, rhs, sol, resources, mode, props, true);
 
@@ -5185,7 +5207,7 @@ extern "C" {
         rc = AMGX_OK;
         rc0 = AMGX_RC_OK;
 
-        try
+        AMGX_TRIES()
         {
             switch (mode)
             {

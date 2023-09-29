@@ -48,7 +48,6 @@
 #include <thrust/count.h>
 #include <thrust/sort.h>
 
-#include <profile.h>
 #include <string>
 #include <algorithm>
 
@@ -73,7 +72,7 @@ Energymin_AMG_Level_Base<T_Config>
     if (selector_val == "PMIS") //or any other classical selector
     {
         strength = StrengthFactory<T_Config>::allocate(*(amg->m_cfg), amg->m_cfg_scope); //using default strength
-        max_row_sum = amg->m_cfg->AMG_Config::getParameter<double>("max_row_sum", amg->m_cfg_scope);
+        max_row_sum = amg->m_cfg->AMG_Config::template getParameter<double>("max_row_sum", amg->m_cfg_scope);
     }
 }
 
@@ -97,7 +96,7 @@ void Energymin_AMG_Level_Base<T_Config>
     int size_all;
     size_all  = A.get_num_rows();
     this->m_cf_map.resize(size_all);
-    thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
+    thrust_wrapper::fill<T_Config::memSpace>(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
     cudaCheckError();
     markCoarseFinePoints();
 }
@@ -111,7 +110,7 @@ void Energymin_AMG_Level_Base<T_Config>
     /* WARNING: exit if D1 interpolator is selected in distributed setting */
     std::string s("");
     s += AMG_Level<T_Config>::amg->m_cfg->AMG_Config
-         ::getParameter<std::string>("energymin_interpolator",
+         ::template getParameter<std::string>("energymin_interpolator",
                                      AMG_Level<T_Config>::amg->m_cfg_scope);
     // Compute Restriction operator
     computeRestrictionOperator();
@@ -180,13 +179,13 @@ void Energymin_AMG_Level_Base<T_Config>
     this->m_cf_map.resize(size_all);
     m_s_con.resize(nnz_full);
     m_scratch.resize(size_full);
-    thrust::fill(weights.begin(), weights.end(), 0.0);
+    thrust_wrapper::fill<T_Config::memSpace>(weights.begin(), weights.end(), 0.0);
     cudaCheckError();
-    thrust::fill(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
+    thrust_wrapper::fill<T_Config::memSpace>(this->m_cf_map.begin(), this->m_cf_map.end(), 0);
     cudaCheckError();
-    thrust::fill(m_s_con.begin(), m_s_con.end(), false);
+    thrust_wrapper::fill<T_Config::memSpace>(m_s_con.begin(), m_s_con.end(), false);
     cudaCheckError();
-    thrust::fill(m_scratch.begin(), m_scratch.end(), 0);
+    thrust_wrapper::fill<T_Config::memSpace>(m_scratch.begin(), m_scratch.end(), 0);
     cudaCheckError();
 
     if (strength != NULL)

@@ -80,10 +80,10 @@ void add(const Matrix1& A,
 
     C.resize(A.num_rows, A.num_cols);
 
-    thrust::transform(A.values.values.begin(), A.values.values.end(),
+    thrust_wrapper::transform(A.values.values.begin(), A.values.values.end(),
                       B.values.values.begin(),
                       C.values.values.begin(),
-                      thrust::plus<ValueType>());
+                      amgx::thrust::plus<ValueType>());
 }
 
 template <typename Matrix1,
@@ -100,10 +100,10 @@ void subtract(const Matrix1& A,
 
     C.resize(A.num_rows, A.num_cols);
 
-    thrust::transform(A.values.values.begin(), A.values.values.end(),
+    thrust_wrapper::transform(A.values.values.begin(), A.values.values.end(),
                       B.values.values.begin(),
                       C.values.values.begin(),
-                      thrust::minus<ValueType>());
+                      amgx::thrust::minus<ValueType>());
 }
 
 /////////////

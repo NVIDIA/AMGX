@@ -39,7 +39,6 @@
 
 #include <amgx_types/util.h>
 
-using namespace std;
 namespace amgx
 {
 namespace block_jacobi_solver
@@ -60,10 +59,10 @@ struct jacobi_postsmooth_functor
     jacobi_postsmooth_functor( double omega ) : omega( omega ) {}
     template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeA d = thrust::get<1>(t);
-        ValueTypeB b = thrust::get<2>(t);
-        ValueTypeB y = thrust::get<3>(t);
+        ValueTypeB x = amgx::thrust::get<0>(t);
+        ValueTypeA d = amgx::thrust::get<1>(t);
+        ValueTypeB b = amgx::thrust::get<2>(t);
+        ValueTypeB y = amgx::thrust::get<3>(t);
         // return x + omega * (b - y) / d.
         d = isNotCloseToZero(d) ? d :  epsilon(d);
         d = types::util<ValueTypeA>::get_one() / d;
@@ -804,7 +803,7 @@ void jacobiSmooth4by4ZeroBlockDiaCsrKernel_NAIVE_tex_readDinv2(const ValueTypeA 
 template<class T_Config>
 BlockJacobiSolver_Base<T_Config>::BlockJacobiSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
 
     if (weight == 0)
     {
@@ -856,7 +855,7 @@ BlockJacobiSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZe
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 BlockJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     //bool done = false;
@@ -895,7 +894,7 @@ BlockJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool 
     {
         if (xIsZero)
         {
-            thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+            thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
             cudaCheckError();
         }
 
@@ -971,7 +970,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     if ( A_as_matrix->hasProps(DIAG) )
     {
         const int num_values = A_as_matrix->diagOffset() * A_as_matrix->get_block_size();
-        thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
+        amgx::thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
         cudaCheckError();
     }
     else
@@ -1044,7 +1043,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
 {
     AMGX_CPU_PROFILER( "JacobiSolver::find_diag " );
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((float)(A.get_num_rows()) / (float)(THREADS_PER_BLOCK)));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((float)(A.get_num_rows()) / (float)(THREADS_PER_BLOCK)));
     find_diag_kernel_indexed_dia <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK>>>(
         A.get_num_rows(),
         A.diag.raw(),
@@ -1068,7 +1067,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
 #if 1
     const int threads_per_block = 512;
     const int halfwarps_per_block = threads_per_block / 16;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
     cudaFuncSetCacheConfig(setupBlockJacobiSmooth4by4BlockDiaCsrKernel_V2<ValueTypeA, ValueTypeB, IndexType, threads_per_block, halfwarps_per_block, 4, 2, 16, 4>, cudaFuncCachePreferL1);
     setupBlockJacobiSmooth4by4BlockDiaCsrKernel_V2<ValueTypeA, ValueTypeB, IndexType, threads_per_block, halfwarps_per_block, 4, 2, 16, 4> <<< num_blocks, threads_per_block>>>
     (A_dia_indices_ptr, A_values, Dinv_ptr, A.get_num_rows());
@@ -1096,7 +1095,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     const int blockrows_per_warp = 32 / (bsize * bsize);
     // blockrows per cta = blockrows_per_warp * number_of_warps_per_cta
     const int blockrows_per_cta = (threads_per_block / 32) * blockrows_per_warp ;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
     cudaFuncSetCacheConfig(setupBlockJacobiSmoothBbyBBlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize *bsize>, cudaFuncCachePreferL1);
     setupBlockJacobiSmoothBbyBBlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize *bsize> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
@@ -1118,7 +1117,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     // MUST BE MULTIPLE OF 16
     const int threads_per_block = 512;
     const int halfwarps_per_block = threads_per_block / 16;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
     cudaFuncSetCacheConfig(setupBlockJacobiSmoothbBigBlockDiaCsrKernel<IndexType, ValueTypeA, threads_per_block, halfwarps_per_block>, cudaFuncCachePreferL1);
     setupBlockJacobiSmoothbBigBlockDiaCsrKernel<IndexType, ValueTypeA, threads_per_block, halfwarps_per_block> <<< num_blocks, threads_per_block, sizeof(ValueTypeA)*bsize *bsize *halfwarps_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows(), bsize, bsize * bsize, temp_ptr);
@@ -1147,7 +1146,7 @@ void BlockJacobiSolver_Base<T_Config>::computeDinv_bxb(const Matrix<T_Config> &A
         const int threads_per_block = 256;
         const int blockrows_per_warp = 32 / (bsize * bsize);
         const int blockrows_per_cta = (threads_per_block / 32) * blockrows_per_warp;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
         cudaFuncSetCacheConfig(setupBlockJacobiSmoothBbyBBlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize *bsize>, cudaFuncCachePreferL1);
         setupBlockJacobiSmoothBbyBBlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize *bsize> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
@@ -1329,9 +1328,14 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     this->y.dirtybit = 0;
+
     multiply( A, x, this->y, separation_flags );
-    thrust::transform( thrust::make_zip_iterator(thrust::make_tuple( x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
-                       thrust::make_zip_iterator(thrust::make_tuple( x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(),   this->y.begin() + A.get_num_rows())),
+
+    thrust_wrapper::transform<AMGX_device>( 
+            amgx::thrust::make_zip_iterator(
+                amgx::thrust::make_tuple(x.begin() + offset, this->Dinv.begin() + offset, b.begin() + offset, this->y.begin() + offset)), 
+            amgx::thrust::make_zip_iterator(
+                amgx::thrust::make_tuple(x.begin() + A.get_num_rows(),   this->Dinv.begin() + A.get_num_rows(),   b.begin() + A.get_num_rows(), this->y.begin() + A.get_num_rows())),
                        x.begin() + offset,
                        jacobi_postsmooth_functor<ValueTypeA, ValueTypeB>( this->weight ));
     cudaCheckError();
@@ -1357,7 +1361,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     int num_rows = A.get_num_rows();
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    thrust::transform( b.begin( ) + offset,
+    thrust_wrapper::transform<AMGX_device>( b.begin( ) + offset,
                        b.begin( ) + A.get_num_rows(),
                        this->Dinv.begin( ) + offset,
                        x.begin( ) + offset,
@@ -1381,7 +1385,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
         this->y.set_block_dimy(b.get_block_dimy());
     }
 
-    thrust::copy(b.begin(), b.end(), this->y.begin()); // copy of vector b
+    amgx::thrust::copy(b.begin(), b.end(), this->y.begin()); // copy of vector b
     cudaCheckError();
     Cusparse::bsrmv(types::util<ValueTypeB>::get_minus_one(), A, x, types::util<ValueTypeB>::get_one(), this->y, separation_flags);         // y= -1.0f*(A.x) + y
     cudaCheckError();
@@ -1411,7 +1415,14 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     const int threads_per_block = 512;
     const int eightwarps_per_block = threads_per_block / 4;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);
+
+    // XXX We need to add latency hiding here
+    if (!A.is_matrix_singleGPU())
+    {
+        A.manager->exchange_halo(x, x.tag);
+    }
+
     cudaFuncSetCacheConfig(jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16>, cudaFuncCachePreferL1);
     jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
@@ -1433,7 +1444,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     const int threads_per_block = 512;
     const int eightwarps_per_block = threads_per_block / 4;
-    const int num_blocks = min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);
+    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);
     cudaFuncSetCacheConfig(jacobiSmooth4by4ZeroBlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2>, cudaFuncCachePreferL1);
     jacobiSmooth4by4ZeroBlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2> <<< num_blocks, threads_per_block>>>
     (Dinv_ptr, b_ptr, this->weight, offset + num_rows, x_ptr, offset);

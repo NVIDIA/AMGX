@@ -67,6 +67,7 @@ enum MatrixProps
 #include <matrix_coloring/matrix_coloring.h>
 #include <distributed/distributed_manager.h>
 #include <resources.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -1094,7 +1095,7 @@ class Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > : pub
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                thrust_wrapper::sequence<AMGX_host>(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1232,7 +1233,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         void colorMatrix(AMG_Config &cfg, const std::string &cfg_scope)
         {
             //locally downwind needs the aggregates to perform the coloring
-            std::string coloring_algorithm = cfg.AMG_Config::getParameter<std::string>("matrix_coloring_scheme", cfg_scope );
+            std::string coloring_algorithm = cfg.AMG_Config::template getParameter<std::string>("matrix_coloring_scheme", cfg_scope );
 
             if ( coloring_algorithm.compare( "LOCALLY_DOWNWIND" ) == 0 )
             {
@@ -1264,7 +1265,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                thrust_wrapper::sequence<AMGX_device>(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1275,7 +1276,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         {
             if ( this->hasProps(COLORING) )
             {
-                if ( cfg.AMG_Config::getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
+                if ( cfg.AMG_Config::template getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
                 {
                     this->m_matrix_coloring->assertColoring( *this, aggregates );
                 }
@@ -1302,7 +1303,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
                 this->m_matrix_coloring->colorMatrixUsingAggregates(*this, R_row_offsets, R_col_indices, aggregates);
             }
 
-            if ( cfg.AMG_Config::getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
+            if ( cfg.AMG_Config::template getParameter<int>( "print_coloring_info", cfg_scope ) == 1 )
             {
                 this->m_matrix_coloring->assertColoring( *this, aggregates );
             }
@@ -1312,7 +1313,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             if (this->m_seq_offsets.raw() == NULL)
             {
                 this->m_seq_offsets.resize(this->row_offsets.size());
-                thrust::sequence(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
+                thrust_wrapper::sequence<AMGX_device>(this->m_seq_offsets.begin(), this->m_seq_offsets.end());
                 cudaCheckError();
             }
 
@@ -1324,7 +1325,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         {
             if (!(this->get_num_rows() > 0)) { return; }
 
-            int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+            int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
             computeColorOffsetsDeviceCSR(num_blocks, this->get_num_rows(), this->row_offsets.raw(), this->col_indices.raw(), this->m_matrix_coloring->getRowColors().raw(), this->m_smaller_color_offsets.raw(), this->m_larger_color_offsets.raw(), this->get_block_size(), this->diag.raw());
         }
 
@@ -1340,7 +1341,7 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
         //assumes row_indices is sorted
         void computeRowOffsets()
         {
-            int num_blocks = min(4096, (this->get_num_nz() + 511) / 512);
+            int num_blocks = std::min(4096, (this->get_num_nz() + 511) / 512);
             computeRowOffsetsDevice(num_blocks, this->get_num_rows(), this->get_num_nz(), this->row_indices.raw(), this->row_offsets.raw(), this->get_block_size());
         }
 
@@ -1355,11 +1356,11 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
                 _metric_arr(metric_arr) {};
 
             __host__ __device__
-            bool operator()(const thrust::tuple<IndexType, IndexType, matrixType> &a)
+            bool operator()(const amgx::thrust::tuple<IndexType, IndexType, matrixType> &a)
             {
-                metricType metric = _metric_arr[thrust::get<0>(a)];
+                metricType metric = _metric_arr[amgx::thrust::get<0>(a)];
 
-                if (fabs(thrust::get<2>(a)) >= _trunc_factor * metric) { return true; }
+                if (fabs(amgx::thrust::get<2>(a)) >= _trunc_factor * metric) { return true; }
 
                 return false;
             }
@@ -1380,17 +1381,17 @@ class Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> > : p
             scale_op(const VectorType *s) : scale_vec(s) {};
 
             __host__ __device__
-            thrust::tuple<IndexType, MatrixType> operator()(const thrust::tuple<IndexType, MatrixType> &a)
+            amgx::thrust::tuple<IndexType, MatrixType> operator()(const amgx::thrust::tuple<IndexType, MatrixType> &a)
             {
-                const IndexType row = thrust::get<0>(a);
-                return thrust::tuple<IndexType, MatrixType>(row, thrust::get<1>(a) / scale_vec[row]);
+                const IndexType row = amgx::thrust::get<0>(a);
+                return amgx::thrust::tuple<IndexType, MatrixType>(row, amgx::thrust::get<1>(a) / scale_vec[row]);
             }
         };
 
     protected:
         void computeRowIndices()
         {
-            int num_blocks = min(4096, (this->get_num_rows() + 511) / 512);
+            int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
             computeRowIndicesDevice(num_blocks, this->get_num_rows(), this->row_offsets.raw(), this->row_indices.raw(), this->get_block_size());
         }
 };

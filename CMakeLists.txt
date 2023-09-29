@@ -31,12 +31,12 @@ project (AMG LANGUAGES C CXX CUDA)
 
 find_package(MPI)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
 #disable in-place builds
-if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   MESSAGE(FATAL_ERROR "Error:  In-place builds are not supported. Please create a separate build directory")
-endif(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+endif(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
 
 # declare the supported configurations
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Profile;RelWithTraces" CACHE STRING "Avaialble Configuration Types" FORCE)
@@ -126,7 +126,7 @@ set(AMGX_INCLUDE_EXTERNAL True CACHE BOOL "Include external 3rd party libraries"
 if (AMGX_INCLUDE_EXTERNAL)
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -DRAPIDJSON_DEFINED)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -DRAPIDJSON_DEFINED)
-  include_directories("${CMAKE_SOURCE_DIR}/external/rapidjson/include")
+  include_directories("${CMAKE_CURRENT_SOURCE_DIR}/external/rapidjson/include")
 endif (AMGX_INCLUDE_EXTERNAL)
 
 set(CMAKE_NO_MPI false CACHE BOOL "Force non-MPI build")
@@ -193,8 +193,18 @@ ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES cla
 # otherwise a workaround for extracting ${obj_all} is necessary below
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
 
-#if compiling against CUDA Toolkit 11.x + 
-IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
+#if compiling against CUDA Toolkit 12.x +
+IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.0.0)
+
+  SET(CUDA_ALLOW_ARCH "60;70;80;90")
+
+  # Use the generic cuSPARSE interfaces available from 10.1 on Linux, cusparseSpGEMM from 11.0
+  SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
+      -DDISABLE_MIXED_PRECISION
+      -DCUSPARSE_GENERIC_INTERFACES
+      -DCUSPARSE_USE_GENERIC_SPGEMM)
+
+ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
 
   SET(CUDA_ALLOW_ARCH "60;70;80")
 
@@ -298,7 +308,7 @@ install(FILES
 install(TARGETS amgx   DESTINATION "lib")
 install(TARGETS amgxsh DESTINATION "lib")
 
-#export(TARGETS amgxsh FILE ${CMAKE_SOURCE_DIR}/amgxsh.cmake)
+#export(TARGETS amgxsh FILE ${CMAKE_CURRENT_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples
 add_subdirectory(examples)

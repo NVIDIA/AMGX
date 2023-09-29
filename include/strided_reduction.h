@@ -434,7 +434,7 @@ void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TR
             }
         }
 
-        warputil<sizeof(V), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, 32, CTA_SIZE, WARP_SIZE>(x, op);
+        warputil<sizeof(V), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, 32, CTA_SIZE, WARP_SIZE>(x, op);
 
         if (lane_id < STRIDE) { x_warp_0 += x; }
 
@@ -460,7 +460,7 @@ void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TR
         {
             V y;
             y = (lane_id < CTA_SIZE / WARP_SIZE) ? warp_results[k][lane_id] : 0;
-            warputil<sizeof(V), strided_reduction_ARCH>::warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
+            warputil<sizeof(V), strided_reduction_ARCH>::template warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
 
             if (lane_id == k) { my_result = y; }
         }
@@ -472,7 +472,7 @@ void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TR
 template<int STRIDE, int CTA_SIZE, int WARP_SIZE, class T, class OP>
 __device__ __forceinline__ void warp_reduce(T &y, const OP &op = OP())
 {
-    warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, WARP_SIZE, CTA_SIZE, WARP_SIZE>(y, op);
+    warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, WARP_SIZE, CTA_SIZE, WARP_SIZE>(y, op);
 }
 
 
@@ -502,7 +502,7 @@ __device__ __forceinline__ void block_reduce(const T x_warp, T *sums, const OP &
         {
             T y;
             y = (lane_id < CTA_SIZE / WARP_SIZE) ? warp_results[k][lane_id] : 0;
-            warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
+            warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
 
             if (lane_id == k) { my_result = y; }
         }
@@ -552,7 +552,7 @@ __device__ __forceinline__ void block_reduce_atomic(const int x_warp, T *sums, c
         {
             T y;
             y = (lane_id < CTA_SIZE / WARP_SIZE) ? warp_results[k][lane_id] : 0;
-            warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
+            warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride < 1, (is_pow2 < CTA_SIZE / WARP_SIZE >::value ? 1 : 2)*CTA_SIZE / WARP_SIZE, CTA_SIZE, WARP_SIZE > (y, op);
 
             if (lane_id == k) { my_result = y; }
         }
@@ -577,7 +577,7 @@ __global__ void strided_reduction_collect_partials(T *out_sums, T *partial_sums,
     while (utils::any(tid < NBlocks * STRIDE))
     {
         T x = (tid < NBlocks * STRIDE) ? partial_sums[tid] : 0;
-        warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, op);
+        warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, op);
 
         if (STRIDE & (STRIDE - 1)) //NPOT, handle the fact that stride messes around
         {
@@ -597,7 +597,7 @@ __global__ void strided_reduction_collect_partials(T *out_sums, T *partial_sums,
 template<int STRIDE, class scalar_t, class OP>
 void count_block_results(scalar_t *out_host, const int n_blocks, scalar_t *out_d, const OP &op = OP())
 {
-    strided_reduction_collect_partials<scalar_t, STRIDE, 32, OP> <<< 1, 32, 0, thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
+    strided_reduction_collect_partials<scalar_t, STRIDE, 32, OP> <<< 1, 32, 0, amgx::thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
     cudaCheckError();
     cudaMemcpy(out_host, out_d, STRIDE * sizeof(scalar_t), cudaMemcpyDeviceToHost);
 }
@@ -647,7 +647,7 @@ struct block_count_gatherer
             while (utils::any(tid < NBlocks * STRIDE))
             {
                 T x = (tid < NBlocks * STRIDE) ? sets_per_block[tid] : 0;
-                warputil<sizeof(T), strided_reduction_ARCH>::warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, OP());
+                warputil<sizeof(T), strided_reduction_ARCH>::template warp_reduce_stride<STRIDE, 32, 32, WARP_SIZE>(x, OP());
 
                 if (threadIdx.x < STRIDE) { X[(STRIDE & (STRIDE - 1)) ? tid % STRIDE : threadIdx.x] += x; }
 
@@ -706,21 +706,20 @@ template< int STRIDE, class scalar_out, class scalar_t, class TRANSFORM>
 void launch_strided_reduction(scalar_out *out_host, const scalar_t *in_d, const long long int N, const TRANSFORM tx = TRANSFORM())
 {
     const int ideal_cta_size = 1024;
-    const int cta_size = (STRIDE & (STRIDE - 1) == 0) ? ideal_cta_size : (ideal_cta_size / (32 * STRIDE) > 0 ? ideal_cta_size / (32 * STRIDE) : 1) * (32 * STRIDE);
+    const int cta_size = ((STRIDE & (STRIDE - 1)) == 0) ? ideal_cta_size : (ideal_cta_size / (32 * STRIDE) > 0 ? ideal_cta_size / (32 * STRIDE) : 1) * (32 * STRIDE);
     const int n_items_per_thread = 16;
-    const int n_blocks = min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
+    const int n_blocks = std::min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
     const int out_size = n_blocks * STRIDE;
     scalar_out *out_d = 0;
-    cudaMallocAsync((void **) &out_d, out_size * sizeof(scalar_out), 0);
-    cudaStreamSynchronize(0);
+    amgx::memory::cudaMalloc((void **) &out_d, out_size * sizeof(scalar_out));
     cudaMemset(out_d, 0, out_size * sizeof(scalar_out));
     cudaFuncSetCacheConfig(strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM>, cudaFuncCachePreferL1);
-    strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);
+    strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, amgx::thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);
     cudaCheckError();
-    strided_reduction_collect_partials<scalar_out, STRIDE, 32, op_sum> <<< 1, 32, 0, thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
+    strided_reduction_collect_partials<scalar_out, STRIDE, 32, op_sum> <<< 1, 32, 0, amgx::thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
     cudaCheckError();
     cudaMemcpy(out_host, out_d, STRIDE * sizeof(scalar_out), cudaMemcpyDeviceToHost);
-    cudaFreeAsync((void *) out_d, 0);
+    amgx::memory::cudaFreeAsync((void *) out_d);
 }
 
 template< class scalar_t, class scalar_out, class TRANSFORM, bool real>

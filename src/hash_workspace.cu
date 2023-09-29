@@ -46,8 +46,8 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::Hash_Workspace(
     m_keys(NULL),
     m_vals(NULL)
 {
-    cudaMallocAsync( (void **) &m_status, sizeof(int), 0 );
-    cudaMallocAsync( (void **) &m_work_queue, sizeof(int), 0 );
+    amgx::memory::cudaMalloc( (void **) &m_status, sizeof(int) );
+    amgx::memory::cudaMalloc( (void **) &m_work_queue, sizeof(int) );
     allocate_workspace();
 }
 
@@ -58,12 +58,12 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::~Hash_Workspace
 {
     if ( m_allocate_vals )
     {
-        cudaFreeAsync( m_vals, 0 );
+        amgx::memory::cudaFreeAsync( m_vals );
     }
 
-    cudaFreeAsync( m_keys, 0 );
-    cudaFreeAsync( m_work_queue, 0 );
-    cudaFreeAsync( m_status, 0 );
+    amgx::memory::cudaFreeAsync( m_keys );
+    amgx::memory::cudaFreeAsync( m_work_queue );
+    amgx::memory::cudaFreeAsync( m_status );
 }
 
 // ====================================================================================================================
@@ -76,11 +76,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     // Allocate memory to store the keys of the device-based hashtable.
     if ( m_keys != NULL )
     {
-        cudaFreeAsync( m_keys, 0 );
+        amgx::memory::cudaFreeAsync( m_keys );
     }
 
     size_t sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(Key_type);
-    cudaMallocAsync( (void **) &m_keys, sz, 0 );
+    amgx::memory::cudaMalloc( (void **) &m_keys, sz );
 
     // Skip value allocation if needed.
     if ( !m_allocate_vals )
@@ -91,11 +91,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     // Allocate memory to store the values of the device-based hashtable.
     if ( m_vals != NULL )
     {
-        cudaFreeAsync( m_vals, 0 );
+        amgx::memory::cudaFreeAsync( m_vals );
     }
 
     sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(double);
-    cudaMallocAsync( (void **) &m_vals, sz, 0 );
+    amgx::memory::cudaMalloc( (void **) &m_vals, sz );
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

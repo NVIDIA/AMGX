@@ -38,7 +38,6 @@
 
 #include <thrust/partition.h>
 
-using namespace std;
 namespace amgx
 {
 namespace cf_jacobi_solver
@@ -87,10 +86,10 @@ struct jacobi_postsmooth_functor
     jacobi_postsmooth_functor( ValueTypeB omega ) : omega( omega ) {}
     template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeA d = thrust::get<1>(t);
-        ValueTypeB b = thrust::get<2>(t);
-        ValueTypeB y = thrust::get<3>(t);
+        ValueTypeB x = amgx::thrust::get<0>(t);
+        ValueTypeA d = amgx::thrust::get<1>(t);
+        ValueTypeB b = amgx::thrust::get<2>(t);
+        ValueTypeB y = amgx::thrust::get<3>(t);
         // return x + omega * (b - y) / d.
         d = isNotCloseToZero(d) ? d :  epsilon(d);
         d  = ValueTypeA( 1 ) / d;
@@ -184,8 +183,8 @@ void agg_write_agg(const int *agg_map, const int nrows, int *dst)
 template<class T_Config>
 CFJacobiSolver_Base<T_Config>::CFJacobiSolver_Base( AMG_Config &cfg, const std::string &cfg_scope) : Solver<T_Config>( cfg, cfg_scope)
 {
-    weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    int param_mode = cfg.AMG_Config::getParameter<int>("cf_smoothing_mode", cfg_scope);
+    weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    int param_mode = cfg.AMG_Config::template getParameter<int>("cf_smoothing_mode", cfg_scope);
 
     switch (param_mode)
     {
@@ -253,13 +252,13 @@ CFJacobiSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
     {
         IVector *cf_map = A_as_matrix->template getParameterPtr< IVector >("cf_map");
         int nrows = A_as_matrix->get_num_rows();
-        this->num_coarse = thrust::count(cf_map->begin(), cf_map->end(), (int)COARSE);
+        this->num_coarse = amgx::thrust::count(cf_map->begin(), cf_map->end(), (int)COARSE);
         this->c_rows.resize(this->num_coarse);
         this->f_rows.resize(nrows - this->num_coarse);
-        thrust::counting_iterator<int> zero(0);
-        thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
-        thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->c_rows.begin(), is_coarse());
-        thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->f_rows.begin(), is_fine());
+        amgx::thrust::counting_iterator<int> zero(0);
+        amgx::thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
+        amgx::thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->c_rows.begin(), is_coarse());
+        amgx::thrust::copy_if(zero, zero_plus_nrows, cf_map->begin(), this->f_rows.begin(), is_fine());
         cudaCheckError();
         // partitioning check
         /*
@@ -285,7 +284,7 @@ CFJacobiSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         int agg_num = A_as_matrix->template getParameter< int >("aggregates_num");
         this->num_coarse = agg_num;
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A_as_matrix->get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A_as_matrix->get_num_rows() + threads_per_block - 1) / threads_per_block);
         int nrows = A_as_matrix->get_num_rows();
         this->c_rows.resize(this->num_coarse);
         this->f_rows.resize(nrows - this->num_coarse);
@@ -295,9 +294,9 @@ CFJacobiSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         cudaCheckError();
         agg_write_agg <<< num_blocks, threads_per_block>>>(this->c_rows.raw(), this->num_coarse, tmap.raw());
         cudaCheckError();
-        thrust::counting_iterator<int> zero(0);
-        thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
-        thrust::copy_if(zero, zero_plus_nrows, tmap.begin(), this->f_rows.begin(), is_eq_minus_one());
+        amgx::thrust::counting_iterator<int> zero(0);
+        amgx::thrust::counting_iterator<int> zero_plus_nrows = zero + nrows;
+        amgx::thrust::copy_if(zero, zero_plus_nrows, tmap.begin(), this->f_rows.begin(), is_eq_minus_one());
         cudaCheckError();
     }
     else
@@ -315,7 +314,7 @@ CFJacobiSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero 
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 CFJacobiSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     //bool done = false;
@@ -400,7 +399,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     if ( A_as_matrix->hasProps(DIAG) )
     {
         const int num_values = A_as_matrix->diagOffset() * A_as_matrix->get_block_size();
-        thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
+        amgx::thrust::copy( A_as_matrix->values.begin() + num_values, A_as_matrix->values.begin() + num_values + A_as_matrix->get_num_rows()*A_as_matrix->get_block_size(), this->Dinv.begin() );
         cudaCheckError();
     }
     else
@@ -449,7 +448,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
 {
     AMGX_CPU_PROFILER( "JacobiSolver::find_diag " );
     const size_t THREADS_PER_BLOCK  = 128;
-    const size_t NUM_BLOCKS = min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
+    const size_t NUM_BLOCKS = std::min(AMGX_GRID_MAX_SIZE, (int)ceil((ValueTypeB)A.get_num_rows() / (ValueTypeB)THREADS_PER_BLOCK));
     find_diag_kernel_indexed_dia <<< (unsigned int)NUM_BLOCKS, (unsigned int)THREADS_PER_BLOCK>>>(
         A.get_num_rows(),
         A.diag.raw(),
@@ -499,14 +498,14 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
 
     if (order == CF_CF || order == CF_FC)
     {
         IVector &rows_first = (order == CF_CF) ? this->c_rows : this->f_rows;
         IVector &rows_second = (order == CF_CF) ? this->f_rows : this->c_rows;
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
         // if use transform + permutation iterator it will yield into two separate permutation reads - for src and dst, so using simple kernel here
         multiply_masked( A, x, this->y, rows_first, separation_flags );
         jacobi_masked_step<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>(
@@ -556,7 +555,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     int offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
     const int threads_per_block = 256;
-    const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
 
     if (this->y.size() != b.size())
     {
@@ -571,7 +570,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
 //   IVector& rows_first = (order == CF_CF) ? this->c_rows : this->f_rows;
         IVector &rows_second = (order == CF_CF) ? this->f_rows : this->c_rows;
         const int threads_per_block = 256;
-        const int num_blocks = min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
+        const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() + threads_per_block - 1) / threads_per_block);
         /*jacobi_zero_ini_masked_step<IndexType, ValueTypeA, ValueTypeB><<<num_blocks,threads_per_block>>>(
           rows_first.raw(),
           rows_first.size(),
@@ -580,7 +579,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
           this->weight,
           x.raw());*/
         // it is not so much harder to initialize whole vector instead of just C or F points
-        thrust::transform(b.begin( ),
+        amgx::thrust::transform(b.begin( ),
                           b.begin( ) + A.get_num_rows(),
                           this->Dinv.begin( ),
                           x.begin( ),

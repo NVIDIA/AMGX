@@ -46,10 +46,10 @@ struct process_mis_nodes
     __host__ __device__
     void operator()(Tuple t)
     {
-        if (thrust::get<1>(t) == 1)                     // undecided node
+        if (amgx::thrust::get<1>(t) == 1)                     // undecided node
         {
-            if (thrust::get<0>(t) == thrust::get<3>(t)) // i == maximal_index
-              thrust::get<1>(t) = 2;                    // mis_node
+            if (amgx::thrust::get<0>(t) == amgx::thrust::get<3>(t)) // i == maximal_index
+              amgx::thrust::get<1>(t) = 2;                    // mis_node
         }
     }
 };
@@ -60,10 +60,10 @@ struct process_non_mis_nodes
     __host__ __device__
     void operator()(Tuple t)
     {
-        if (thrust::get<0>(t) == 1)            // undecided node
+        if (amgx::thrust::get<0>(t) == 1)            // undecided node
         {
-            if (thrust::get<1>(t) == 2)        // maximal_state == mis_node
-              thrust::get<0>(t) = 0;           // non_mis_node
+            if (amgx::thrust::get<1>(t) == 2)        // maximal_state == mis_node
+              amgx::thrust::get<0>(t) = 0;           // non_mis_node
         }
     }
 };
@@ -97,7 +97,7 @@ struct is_subgraph_edge
   __host__ __device__
   bool operator()(const Tuple& t) const
   {
-    return thrust::get<0>(t) && thrust::get<1>(t);
+    return amgx::thrust::get<0>(t) && amgx::thrust::get<1>(t);
   }
 };
 
@@ -127,7 +127,7 @@ void compute_mis_states(const size_t k,
     typedef typename Array4::value_type   NodeStateType;
     typedef typename Array1::memory_space MemorySpace;
 
-    typedef typename thrust::tuple<NodeStateType,RandomType,IndexType> Tuple;
+    typedef typename amgx::thrust::tuple<NodeStateType,RandomType,IndexType> Tuple;
     
     const size_t N = states.size();
 
@@ -157,18 +157,18 @@ void compute_mis_states(const size_t k,
         // find the largest (state,value,index) 1-ring neighbor for each node
         cusp::detail::device::cuda::spmv_csr_scalar
             (num_rows,
-             row_offsets.begin(), column_indices.begin(), thrust::constant_iterator<Tuple>(Tuple(0,0)),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
-             thrust::make_zip_iterator(thrust::make_tuple(states.begin(), random_values.begin(), thrust::counting_iterator<IndexType>(0))),
-             thrust::make_zip_iterator(thrust::make_tuple(states.begin(), random_values.begin(), thrust::counting_iterator<IndexType>(0))),
-             thrust::make_zip_iterator(thrust::make_tuple(maximal_states.begin(), maximal_values.begin(), maximal_indices.begin())),
-             thrust::project2nd<Tuple,Tuple>(), thrust::maximum<Tuple>());
+             row_offsets.begin(), column_indices.begin(), amgx::thrust::constant_iterator<Tuple>(Tuple(0,0)),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
+             amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), random_values.begin(), amgx::thrust::counting_iterator<IndexType>(0))),
+             amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), random_values.begin(), amgx::thrust::counting_iterator<IndexType>(0))),
+             amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(maximal_states.begin(), maximal_values.begin(), maximal_indices.begin())),
+             amgx::thrust::project2nd<Tuple,Tuple>(), amgx::thrust::maximum<Tuple>());
         //cusp::detail::device::cuda::spmv_coo
         //    (num_rows, num_entries,
-        //     row_indices.begin(), column_indices.begin(), thrust::constant_iterator<Tuple>(Tuple(0,0)),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
-        //     thrust::make_zip_iterator(thrust::make_tuple(states.begin(), random_values.begin(), thrust::counting_iterator<IndexType>(0))),
-        //     thrust::make_zip_iterator(thrust::make_tuple(states.begin(), random_values.begin(), thrust::counting_iterator<IndexType>(0))),
-        //     thrust::make_zip_iterator(thrust::make_tuple(maximal_states.begin(), maximal_values.begin(), maximal_indices.begin())),
-        //     thrust::project2nd<Tuple,Tuple>(), thrust::maximum<Tuple>());
+        //     row_indices.begin(), column_indices.begin(), amgx::thrust::constant_iterator<Tuple>(Tuple(0,0)),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
+        //     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), random_values.begin(), amgx::thrust::counting_iterator<IndexType>(0))),
+        //     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), random_values.begin(), amgx::thrust::counting_iterator<IndexType>(0))),
+        //     amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(maximal_states.begin(), maximal_values.begin(), maximal_indices.begin())),
+        //     amgx::thrust::project2nd<Tuple,Tuple>(), amgx::thrust::maximum<Tuple>());
 
         // find the largest (state,value,index) k-ring neighbor for each node (if k > 1)
         for(size_t ring = 1; ring < k; ring++)
@@ -180,24 +180,24 @@ void compute_mis_states(const size_t k,
             // TODO replace with call to generalized method
             cusp::detail::device::cuda::spmv_csr_scalar
                 (num_rows,
-                 row_offsets.begin(), column_indices.begin(), thrust::constant_iterator<Tuple>(Tuple(0,0)),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
-                 thrust::make_zip_iterator(thrust::make_tuple(last_states.begin(), last_values.begin(), last_indices.begin())),
-                 thrust::make_zip_iterator(thrust::make_tuple(last_states.begin(), last_values.begin(), last_indices.begin())),
-                 thrust::make_zip_iterator(thrust::make_tuple(maximal_states.begin(), maximal_values.begin(), maximal_indices.begin())),
-                 thrust::project2nd<Tuple,Tuple>(), thrust::maximum<Tuple>());
+                 row_offsets.begin(), column_indices.begin(), amgx::thrust::constant_iterator<Tuple>(Tuple(0,0)),  // XXX should we mask explicit zeros? (e.g. DIA, array2d)
+                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(last_states.begin(), last_values.begin(), last_indices.begin())),
+                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(last_states.begin(), last_values.begin(), last_indices.begin())),
+                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(maximal_states.begin(), maximal_values.begin(), maximal_indices.begin())),
+                 amgx::thrust::project2nd<Tuple,Tuple>(), amgx::thrust::maximum<Tuple>());
         }
        
         // label local maxima as MIS nodes
-        thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(thrust::counting_iterator<IndexType>(0), states.begin(), maximal_states.begin(), maximal_indices.begin())),
-                         thrust::make_zip_iterator(thrust::make_tuple(thrust::counting_iterator<IndexType>(0), states.begin(), maximal_states.begin(), maximal_indices.begin())) + N,
+        amgx::thrust::for_each(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::counting_iterator<IndexType>(0), states.begin(), maximal_states.begin(), maximal_indices.begin())),
+                         amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::counting_iterator<IndexType>(0), states.begin(), maximal_states.begin(), maximal_indices.begin())) + N,
                          process_mis_nodes());
         
         // label k-ring neighbors of MIS nodes as non-MIS nodes
-        thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(states.begin(), thrust::make_permutation_iterator(states.begin(), maximal_indices.begin()))),
-                         thrust::make_zip_iterator(thrust::make_tuple(states.begin(), thrust::make_permutation_iterator(states.begin(), maximal_indices.begin()))) + N,
+        amgx::thrust::for_each(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), amgx::thrust::make_permutation_iterator(states.begin(), maximal_indices.begin()))),
+                         amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), amgx::thrust::make_permutation_iterator(states.begin(), maximal_indices.begin()))) + N,
                          process_non_mis_nodes());
 
-        active_nodes = thrust::count(states.begin(), states.end(), 1);
+        active_nodes = amgx::thrust::count(states.begin(), states.end(), 1);
         
 //        num_iters++;
 //        std::cout << "(iter " <<  num_iters << "," << (double(active_nodes) / double(N)) << ")" << std::endl;
@@ -210,7 +210,7 @@ void compute_mis_states(const size_t k,
 //            cusp::array1d<bool,MemorySpace> retained_nodes(N);
 //            cusp::array1d<bool,MemorySpace> last_retained_nodes(N);
 //
-//            thrust::transform(maximal_states.begin(), maximal_states.end(), thrust::constant_iterator<NodeStateType>(1), retained_nodes.begin(), thrust::equal_to<NodeStateType>());
+//            thrust_wrapper::transform(maximal_states.begin(), maximal_states.end(), amgx::thrust::constant_iterator<NodeStateType>(1), retained_nodes.begin(), amgx::thrust::equal_to<NodeStateType>());
 //
 //            // propagate retained region outward
 //            for(size_t ring = 1; 2*ring <= k; ring++)
@@ -220,30 +220,30 @@ void compute_mis_states(const size_t k,
 //                // TODO replace with call to generalized method
 //                cusp::detail::device::cuda::spmv_coo
 //                    (num_rows, num_entries,
-//                     row_indices.begin(), column_indices.begin(), thrust::constant_iterator<bool>(false), 
+//                     row_indices.begin(), column_indices.begin(), amgx::thrust::constant_iterator<bool>(false), 
 //                     last_retained_nodes.begin(),
 //                     last_retained_nodes.begin(),
 //                     retained_nodes.begin(),
-//                     thrust::project2nd<bool,bool>(), thrust::logical_or<bool>());
+//                     amgx::thrust::project2nd<bool,bool>(), amgx::thrust::logical_or<bool>());
 //            }
 //        
 //            std::cout << "retained nodes\n";
 //            cusp::print(retained_nodes);
 //
-//            size_t num_subgraph_nodes = thrust::count(retained_nodes.begin(), retained_nodes.end(), true);
-//            size_t num_subgraph_edges = thrust::count
-//                (thrust::make_zip_iterator(thrust::make_tuple(thrust::make_permutation_iterator(retained_nodes.begin(), row_indices.begin()),
-//                                                              thrust::make_permutation_iterator(retained_nodes.begin(), column_indices.begin()))),
-//                 thrust::make_zip_iterator(thrust::make_tuple(thrust::make_permutation_iterator(retained_nodes.begin(), row_indices.end()),
-//                                                              thrust::make_permutation_iterator(retained_nodes.begin(), column_indices.end()))),
-//                 thrust::make_tuple(true,true));
+//            size_t num_subgraph_nodes = amgx::thrust::count(retained_nodes.begin(), retained_nodes.end(), true);
+//            size_t num_subgraph_edges = amgx::thrust::count
+//                (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::make_permutation_iterator(retained_nodes.begin(), row_indices.begin()),
+//                                                              amgx::thrust::make_permutation_iterator(retained_nodes.begin(), column_indices.begin()))),
+//                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::make_permutation_iterator(retained_nodes.begin(), row_indices.end()),
+//                                                              amgx::thrust::make_permutation_iterator(retained_nodes.begin(), column_indices.end()))),
+//                 amgx::thrust::make_tuple(true,true));
 //
 //
 //            std::cout << "subgraph nodes: " << double(100*num_subgraph_nodes)/N << "% edges " << double(100*num_subgraph_edges)/num_entries << "%" << std::endl;
 //
 //            // map old indices into subgraph indices
 //            cusp::array1d<IndexType, MemorySpace> index_map(N);
-//            thrust::transform_exclusive_scan(retained_nodes.begin(), retained_nodes.end(), index_map.begin(), thrust::identity<IndexType>(), IndexType(0), thrust::plus<IndexType>());
+//            amgx::thrust::transform_exclusive_scan(retained_nodes.begin(), retained_nodes.end(), index_map.begin(), amgx::thrust::identity<IndexType>(), IndexType(0), amgx::thrust::plus<IndexType>());
 //            
 //            std::cout << "index map\n";
 //            cusp::print(index_map);
@@ -254,29 +254,29 @@ void compute_mis_states(const size_t k,
 //            cusp::array1d<NodeStateType, MemorySpace> subgraph_states(num_subgraph_nodes);
 //            cusp::array1d<RandomType,    MemorySpace> subgraph_random_values(num_subgraph_nodes);
 //            
-//            thrust::copy_if
-//                (thrust::make_zip_iterator(thrust::make_tuple(thrust::make_permutation_iterator(index_map.begin(), row_indices.begin()),
-//                                                              thrust::make_permutation_iterator(index_map.begin(), column_indices.begin()))),
-//                 thrust::make_zip_iterator(thrust::make_tuple(thrust::make_permutation_iterator(index_map.begin(), row_indices.end()),
-//                                                              thrust::make_permutation_iterator(index_map.begin(), column_indices.end()))),
-//                 thrust::make_zip_iterator(thrust::make_tuple(thrust::make_permutation_iterator(retained_nodes.begin(), row_indices.begin()),
-//                                                              thrust::make_permutation_iterator(retained_nodes.begin(), column_indices.begin()))),
-//                 thrust::make_zip_iterator(thrust::make_tuple(subgraph_row_indices.begin(),
+//            amgx::thrust::copy_if
+//                (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::make_permutation_iterator(index_map.begin(), row_indices.begin()),
+//                                                              amgx::thrust::make_permutation_iterator(index_map.begin(), column_indices.begin()))),
+//                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::make_permutation_iterator(index_map.begin(), row_indices.end()),
+//                                                              amgx::thrust::make_permutation_iterator(index_map.begin(), column_indices.end()))),
+//                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(amgx::thrust::make_permutation_iterator(retained_nodes.begin(), row_indices.begin()),
+//                                                              amgx::thrust::make_permutation_iterator(retained_nodes.begin(), column_indices.begin()))),
+//                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(subgraph_row_indices.begin(),
 //                                                              subgraph_column_indices.begin())),
 //                 is_subgraph_edge());
 //
-//            thrust::scatter_if
-//                (thrust::make_zip_iterator(thrust::make_tuple(states.begin(), random_values.begin())),
-//                 thrust::make_zip_iterator(thrust::make_tuple(states.end(),   random_values.end())),
+//            amgx::thrust::scatter_if
+//                (amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.begin(), random_values.begin())),
+//                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(states.end(),   random_values.end())),
 //                 index_map.begin(),
 //                 retained_nodes.begin(),
-//                 thrust::make_zip_iterator(thrust::make_tuple(subgraph_states.begin(), subgraph_random_values.begin())));
+//                 amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(subgraph_states.begin(), subgraph_random_values.begin())));
 //        
 //    
 //            compute_mis_states(k, subgraph_row_indices, subgraph_column_indices, subgraph_random_values, subgraph_states);
 //
 //            // update active node states from subgraph
-//            thrust::gather_if(index_map.begin(), index_map.end(),
+//            amgx::thrust::gather_if(index_map.begin(), index_map.end(),
 //                              retained_nodes.begin(),
 //                              subgraph_states.begin(),
 //                              states.begin());
@@ -355,10 +355,10 @@ size_t maximal_independent_set(const Matrix& A, Array& stencil, size_t k,
     stencil.resize(N);
 
     // mark all mis nodes
-    thrust::transform(states.begin(), states.end(), thrust::constant_iterator<NodeStateType>(2), stencil.begin(), thrust::equal_to<NodeStateType>());
+    thrust_wrapper::transform(states.begin(), states.end(), amgx::thrust::constant_iterator<NodeStateType>(2), stencil.begin(), amgx::thrust::equal_to<NodeStateType>());
 
     // return the size of the MIS
-    return thrust::count(stencil.begin(), stencil.end(), typename Array::value_type(true));
+    return amgx::thrust::count(stencil.begin(), stencil.end(), typename Array::value_type(true));
 }
 
 
@@ -397,7 +397,7 @@ size_t maximal_independent_set(const Matrix& A, Array& stencil, size_t k)
     if (k == 0)
     {
         stencil.resize(A.num_rows);
-        thrust::fill(stencil.begin(), stencil.end(), typename Array::value_type(1));
+        thrust_wrapper::fill(stencil.begin(), stencil.end(), typename Array::value_type(1));
         return stencil.size();
     }
     else

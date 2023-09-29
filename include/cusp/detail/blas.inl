@@ -27,6 +27,7 @@
 #include <thrust/inner_product.h>
 
 #include <thrust/iterator/transform_iterator.h>
+#include <thrust_wrapper.h>
 
 #include <cmath>
 
@@ -341,7 +342,8 @@ namespace detail
 	    ForwardIterator last,
 	    ScalarType alpha)
   {
-      amgx::thrust::fill(first, last, alpha);
+      typedef typename amgx::thrust::iterator_value<ForwardIterator>::memory_space MemorySpace;
+      thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(first, last, alpha);
   }
   
   template <typename InputIterator>
@@ -356,7 +358,7 @@ namespace detail
     
     ValueType init = 0;
     
-    return abs(amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op));
+    return abs(thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op));
   }
 
   template <typename InputIterator>
@@ -552,7 +554,8 @@ void xmy(InputIterator1 first1,
          OutputIterator output)
 {
     typedef typename amgx::thrust::iterator_value<OutputIterator>::type ScalarType;
-    amgx::thrust::transform(first1, last1, first2, output, detail::XMY<ScalarType>());
+    typedef typename amgx::thrust::iterator_value<InputIterator1>::memory_space MemorySpace;
+    thrust_wrapper::transform<CuspMemMap<MemorySpace>::value>(first1, last1, first2, output, detail::XMY<ScalarType>());
 }
 
 template <typename Array1,
@@ -668,7 +671,7 @@ void fill(ForwardIterator first,
           ForwardIterator last,
           ScalarType alpha)
 {
-    amgx::thrust::fill(first, last, alpha);
+    thrust_wrapper::fill(first, last, alpha);
 }
 
 template <typename Array,
@@ -702,7 +705,7 @@ typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::
 
     ValueType init = 0;
 
-    return amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    return thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
 }
 
 template <typename Array>
@@ -726,7 +729,7 @@ typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::
 
     ValueType init = 0;
 
-    return std::sqrt( amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op) );
+    return std::sqrt( thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op) );
 }
 
 template <typename Array>
@@ -750,7 +753,7 @@ typename amgx::thrust::iterator_value<InputIterator>::type
 
     ValueType init = 0;
 
-    return amgx::thrust::transform_reduce(first, last, unary_op, init, binary_op);
+    return thrust_wrapper::transform_reduce(first, last, unary_op, init, binary_op);
 }
 
 template <typename Array>
@@ -769,7 +772,7 @@ void scal(ForwardIterator first,
           ScalarType alpha)
 {
     typedef typename amgx::thrust::iterator_value<ForwardIterator>::type ValueType;
-    amgx::thrust::transform(first, last, first, detail::SCAL<ValueType>(alpha));
+    thrust_wrapper::transform(first, last, first, detail::SCAL<ValueType>(alpha));
 }
 
 template <typename Array,

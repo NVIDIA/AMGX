@@ -41,7 +41,6 @@
 
 #include <amg_level.h>
 #include <amgx_c.h>
-#include <profile.h>
 
 #include <misc.h>
 #include <string>
@@ -54,6 +53,7 @@
 #include <thrust/unique.h>
 #include <thrust/binary_search.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust_wrapper.h>
 
 #define COARSE_CLA_CONSO 0 // used enable / disable coarse level consolidation (used in cycles files)
 
@@ -120,11 +120,11 @@ void compute_glue_info(Matrix<TConfig> &A)
     // coarse_to_fine_part, fine_to_coarse_part
     Vector<ivec_value_type_h> coarse_to_fine_part, fine_to_coarse_part(num_parts);
     coarse_to_fine_part = dest_partitions;
-    thrust::sort(coarse_to_fine_part.begin(), coarse_to_fine_part.end());
+    amgx::thrust::sort(coarse_to_fine_part.begin(), coarse_to_fine_part.end());
     cudaCheckError();
-    coarse_to_fine_part.erase(thrust::unique(coarse_to_fine_part.begin(), coarse_to_fine_part.end()), coarse_to_fine_part.end());
+    coarse_to_fine_part.erase(amgx::thrust::unique(coarse_to_fine_part.begin(), coarse_to_fine_part.end()), coarse_to_fine_part.end());
     cudaCheckError();
-    thrust::lower_bound(coarse_to_fine_part.begin(), coarse_to_fine_part.end(), dest_partitions.begin(), dest_partitions.end(), fine_to_coarse_part.begin());
+    amgx::thrust::lower_bound(coarse_to_fine_part.begin(), coarse_to_fine_part.end(), dest_partitions.begin(), dest_partitions.end(), fine_to_coarse_part.begin());
     cudaCheckError();
     A.manager->setCoarseToFine(coarse_to_fine_part);
     A.manager->setFineToCoarse(fine_to_coarse_part);
@@ -209,10 +209,10 @@ int create_part_offsets(MPI_Comm &mpicm, Matrix<TConfig> &nv_mtx)
         }
 
         //perform a prefix sum
-        thrust::inclusive_scan(nv_mtx.manager->part_offsets_h.begin(), nv_mtx.manager->part_offsets_h.end(), nv_mtx.manager->part_offsets_h.begin());
+        amgx::thrust::inclusive_scan(nv_mtx.manager->part_offsets_h.begin(), nv_mtx.manager->part_offsets_h.end(), nv_mtx.manager->part_offsets_h.begin());
         //create the corresponding array on device (this is important)
         nv_mtx.manager->part_offsets.resize(nranks + 1);
-        thrust::copy(nv_mtx.manager->part_offsets_h.begin(), nv_mtx.manager->part_offsets_h.end(), nv_mtx.manager->part_offsets.begin());
+        amgx::thrust::copy(nv_mtx.manager->part_offsets_h.begin(), nv_mtx.manager->part_offsets_h.end(), nv_mtx.manager->part_offsets.begin());
     }
 
     return 0;
@@ -230,19 +230,19 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
     t_IndPrec *rc_ptr, *di_ptr;
     t_IndPrec *hli_ptr, *hgi_ptr, *hgr_ptr, *i_ptr, *r_ptr;
     t_MatPrec *hlv_ptr, *hgv_ptr, *v_ptr;
-    thrust::host_vector<t_IndPrec> rc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> rc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unpacked local matrix on the device and host
     device_vector_alloc<t_IndPrec> Bp;
     device_vector_alloc<t_IndPrec> Bi;
     device_vector_alloc<t_MatPrec> Bv;
-    thrust::host_vector<t_IndPrec> hBp;
-    thrust::host_vector<t_IndPrec> hBi;
-    thrust::host_vector<t_MatPrec> hBv;
+    amgx::thrust::host_vector<t_IndPrec> hBp;
+    amgx::thrust::host_vector<t_IndPrec> hBi;
+    amgx::thrust::host_vector<t_MatPrec> hBv;
     //Consolidated matrices on the host
-    thrust::host_vector<t_IndPrec> hAp;
-    thrust::host_vector<t_IndPrec> hAi;
-    thrust::host_vector<t_MatPrec> hAv;
+    amgx::thrust::host_vector<t_IndPrec> hAp;
+    amgx::thrust::host_vector<t_IndPrec> hAi;
+    amgx::thrust::host_vector<t_MatPrec> hAv;
     //Consolidated matrices on the device
     device_vector_alloc<t_IndPrec> Ap;
     device_vector_alloc<t_IndPrec> Ai;
@@ -269,9 +269,9 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
         hBi.resize(nnz);
         hBv.resize(nnz);
         //--- unpack the matrix ---
-        nv_mtx.manager->unpack_partition(thrust::raw_pointer_cast(Bp.data()),
-                                         thrust::raw_pointer_cast(Bi.data()),
-                                         thrust::raw_pointer_cast(Bv.data()));
+        nv_mtx.manager->unpack_partition(amgx::thrust::raw_pointer_cast(Bp.data()),
+                                         amgx::thrust::raw_pointer_cast(Bi.data()),
+                                         amgx::thrust::raw_pointer_cast(Bv.data()));
         cudaCheckError();
         //copy to host (should be able to optimize this out later on)
         hBp = Bp;
@@ -304,10 +304,10 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
 
         cudaCheckError();
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hli_ptr = thrust::raw_pointer_cast(hBp.data());
-        hgr_ptr = thrust::raw_pointer_cast(hAp.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hli_ptr = amgx::thrust::raw_pointer_cast(hBp.data());
+        hgr_ptr = amgx::thrust::raw_pointer_cast(hAp.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -334,7 +334,7 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
                 start = di[i] - 1;
                 end   = di[i] + rc[i] - 1;
                 shift = hAp[start];
-                thrust::transform(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
+                thrust_wrapper::transform<TConfig::memSpace>(hAp.begin() + start + 1, hAp.begin() + end + 1, hAp.begin() + start + 1, add_constant_op<t_IndPrec>(shift));
                 cudaCheckError();
                 di[i] = shift;
                 rc[i] = hAp[end] - hAp[start];
@@ -346,12 +346,12 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hli_ptr = thrust::raw_pointer_cast(hBi.data());
-        hgi_ptr = thrust::raw_pointer_cast(hAi.data());
-        hlv_ptr = thrust::raw_pointer_cast(hBv.data());
-        hgv_ptr = thrust::raw_pointer_cast(hAv.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hli_ptr = amgx::thrust::raw_pointer_cast(hBi.data());
+        hgi_ptr = amgx::thrust::raw_pointer_cast(hAi.data());
+        hlv_ptr = amgx::thrust::raw_pointer_cast(hBv.data());
+        hgv_ptr = amgx::thrust::raw_pointer_cast(hAv.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -397,9 +397,9 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
             Ap.resize(hAp.size());
             Ai.resize(hAi.size());
             Av.resize(hAv.size());
-            thrust::copy(hAp.begin(), hAp.end(), Ap.begin());
-            thrust::copy(hAi.begin(), hAi.end(), Ai.begin());
-            thrust::copy(hAv.begin(), hAv.end(), Av.begin());
+            amgx::thrust::copy(hAp.begin(), hAp.end(), Ap.begin());
+            amgx::thrust::copy(hAi.begin(), hAi.end(), Ai.begin());
+            amgx::thrust::copy(hAv.begin(), hAv.end(), Av.begin());
             cudaCheckError();
         }
         else
@@ -413,9 +413,9 @@ int glue_matrices(Matrix<TConfig> &nv_mtx, MPI_Comm &nv_mtx_com, MPI_Comm &temp_
             cudaCheckError();
         }
 
-        r_ptr = thrust::raw_pointer_cast(Ap.data());
-        i_ptr = thrust::raw_pointer_cast(Ai.data());
-        v_ptr = thrust::raw_pointer_cast(Av.data());
+        r_ptr = amgx::thrust::raw_pointer_cast(Ap.data());
+        i_ptr = amgx::thrust::raw_pointer_cast(Ai.data());
+        v_ptr = amgx::thrust::raw_pointer_cast(Av.data());
         cudaCheckError();
         upload_matrix_after_glue(n, nnz, r_ptr, i_ptr, v_ptr, nv_mtx);
     }
@@ -442,7 +442,7 @@ int upload_matrix_after_glue(int n, int nnz, int *r_ptr, int *i_ptr, void *v_ptr
     // some parameters
     int block_dimx, block_dimy, num_ranks, n_global, start, end, val;
     t_IndPrec *part_vec_ptr;
-    thrust::host_vector<t_IndPrec> pv;
+    amgx::thrust::host_vector<t_IndPrec> pv;
     // set parameters
     nv_mtx.setView(ALL); // not sure about this
     n_global = nv_mtx.manager->part_offsets_h.back();
@@ -468,7 +468,7 @@ int upload_matrix_after_glue(int n, int nnz, int *r_ptr, int *i_ptr, void *v_ptr
         }
     }
 
-    part_vec_ptr = thrust::raw_pointer_cast(pv.data());
+    part_vec_ptr = amgx::thrust::raw_pointer_cast(pv.data());
     cudaCheckError();
     // Save some glue info
     bool is_root_partition = nv_mtx.manager->isRootPartition();
@@ -553,12 +553,12 @@ int glue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv_v
     //MPI call parameters
     t_IndPrec *rc_ptr, *di_ptr;
     t_VecPrec *hv_ptr, *hg_ptr, *v_ptr;
-    thrust::host_vector<t_IndPrec> rc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> rc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unreordered local vector on the host
-    thrust::host_vector<t_VecPrec> hv;
+    amgx::thrust::host_vector<t_VecPrec> hv;
     //constructed global vector on the host
-    thrust::host_vector<t_VecPrec> hg;
+    amgx::thrust::host_vector<t_VecPrec> hg;
     //constructed global vector on the device
     device_vector_alloc<t_VecPrec> v;
     //WARNING: this routine currently supports vectors only with block size =1 (it can be generalized in the future, though)
@@ -600,8 +600,8 @@ int glue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv_v
         // WARNING
         // renumbering contains the inverse permutation to unreorder an amgx vector
         // inverse_renumbering contains the permutaion to reorder an amgx vector
-        thrust::copy(thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering_before_glue.begin()  ),
-                     thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering_before_glue.begin() +  nv_mtx.manager->renumbering_before_glue.size()),
+        amgx::thrust::copy(amgx::thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering_before_glue.begin()  ),
+                     amgx::thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering_before_glue.begin() +  nv_mtx.manager->renumbering_before_glue.size()),
                      hv.begin());
         cudaCheckError();
         hv.resize(n);
@@ -624,10 +624,10 @@ int glue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv_v
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        rc_ptr = thrust::raw_pointer_cast(rc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hv_ptr = thrust::raw_pointer_cast(hv.data());
-        hg_ptr = thrust::raw_pointer_cast(hg.data());
+        rc_ptr = amgx::thrust::raw_pointer_cast(rc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hv_ptr = amgx::thrust::raw_pointer_cast(hv.data());
+        hg_ptr = amgx::thrust::raw_pointer_cast(hg.data());
         cudaCheckError();
 
         //gather (on the host)
@@ -679,7 +679,7 @@ int glue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv_v
         {
             n = hg.size();
             v.resize(hg.size());
-            thrust::copy(hg.begin(), hg.end(), v.begin());
+            amgx::thrust::copy(hg.begin(), hg.end(), v.begin());
             cudaCheckError();
         }
         else
@@ -690,7 +690,7 @@ int glue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv_v
         }
 
         // upload
-        v_ptr = thrust::raw_pointer_cast(v.data());
+        v_ptr = amgx::thrust::raw_pointer_cast(v.data());
         cudaCheckError();
         upload_vector_after_glue(n, v_ptr, nv_vec, nv_mtx);
     }
@@ -748,12 +748,12 @@ int unglue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv
     //MPI call parameters
     t_IndPrec *sc_ptr, *di_ptr;
     t_VecPrec *hv_ptr, *hg_ptr;
-    thrust::host_vector<t_IndPrec> sc;
-    thrust::host_vector<t_IndPrec> di;
+    amgx::thrust::host_vector<t_IndPrec> sc;
+    amgx::thrust::host_vector<t_IndPrec> di;
     //unreordered local vector on the host
-    thrust::host_vector<t_VecPrec> hv;
+    amgx::thrust::host_vector<t_VecPrec> hv;
     //constructed global vector on the host
-    thrust::host_vector<t_VecPrec> hg;
+    amgx::thrust::host_vector<t_VecPrec> hg;
     //constructed global vector on the device
     device_vector_alloc<t_VecPrec> v;
     //WARNING: this routine currently supports vectors only with block size =1 (it can be generalized in the future, though)
@@ -799,8 +799,8 @@ int unglue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv
             // WARNING
             // renumbering contains the inverse permutation to unreorder an amgx vector
             // inverse_renumbering contains the permutaion to reorder an amgx vector
-            thrust::copy(thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering.begin()  ),
-                         thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering.begin() + nv_mtx.manager->renumbering.size()),
+            amgx::thrust::copy(amgx::thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering.begin()  ),
+                         amgx::thrust::make_permutation_iterator(nv_vec.begin(), nv_mtx.manager->renumbering.begin() + nv_mtx.manager->renumbering.size()),
                          hg.begin());
             cudaCheckError();
             hg.resize(nv_mtx.manager->getConsolidationArrayOffsets()[rank + l] - nv_mtx.manager->getConsolidationArrayOffsets()[rank]);
@@ -818,10 +818,10 @@ int unglue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv
         }
 
         //alias raw pointers to thrust vector data (see thrust example unwrap_pointer for details)
-        sc_ptr = thrust::raw_pointer_cast(sc.data());
-        di_ptr = thrust::raw_pointer_cast(di.data());
-        hv_ptr = thrust::raw_pointer_cast(hv.data());
-        hg_ptr = thrust::raw_pointer_cast(hg.data());
+        sc_ptr = amgx::thrust::raw_pointer_cast(sc.data());
+        di_ptr = amgx::thrust::raw_pointer_cast(di.data());
+        hv_ptr = amgx::thrust::raw_pointer_cast(hv.data());
+        hg_ptr = amgx::thrust::raw_pointer_cast(hg.data());
         cudaCheckError();
 
         // Scatter (on the host)
@@ -870,18 +870,18 @@ int unglue_vector(Matrix<TConfig> &nv_mtx, MPI_Comm &A_comm, Vector<TConfig> &nv
 
         // We should avoid copies between nv_vec and hv here
         nv_vec_unglued.resize( nv_mtx.manager->inverse_renumbering_before_glue.size());
-        thrust::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
-        thrust::copy(hv.begin(), hv.end(), nv_vec_unglued.begin());
+        thrust_wrapper::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
+        amgx::thrust::copy(hv.begin(), hv.end(), nv_vec_unglued.begin());
         hv.resize( nv_mtx.manager->inverse_renumbering_before_glue.size());
         cudaCheckError();
         //  Manual reordering
         //  Upload_vector_after_glue is not going to work because matrix managers has been modified during glued matrices, and don't match the new, glued, topology.
-        thrust::copy(thrust::make_permutation_iterator(nv_vec_unglued.begin(), nv_mtx.manager->inverse_renumbering_before_glue.begin()  ),
-                     thrust::make_permutation_iterator(nv_vec_unglued.begin(), nv_mtx.manager->inverse_renumbering_before_glue.begin() + nv_mtx.manager->inverse_renumbering_before_glue.size()),
+        amgx::thrust::copy(amgx::thrust::make_permutation_iterator(nv_vec_unglued.begin(), nv_mtx.manager->inverse_renumbering_before_glue.begin()  ),
+                     amgx::thrust::make_permutation_iterator(nv_vec_unglued.begin(), nv_mtx.manager->inverse_renumbering_before_glue.begin() + nv_mtx.manager->inverse_renumbering_before_glue.size()),
                      hv.begin());
         cudaCheckError();
-        thrust::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
-        thrust::copy(hv.begin(), hv.end(), nv_vec_unglued.begin());
+        thrust_wrapper::fill( nv_vec_unglued.begin(), nv_vec_unglued.end(), 0.0 );
+        amgx::thrust::copy(hv.begin(), hv.end(), nv_vec_unglued.begin());
     }
     else
     {
@@ -920,16 +920,16 @@ template <class TConfig>
 void setup_after_unglue(Vector<TConfig> &b, const Matrix<TConfig> &m, int num_rings)
 {
     /*
-    thrust::copy( m.manager->neighbors_before_glue.begin(),  m.manager->neighbors_before_glue.end(), std::ostream_iterator<int64_t>(std::cout, " "));
-    thrust::copy( m.manager->halo_offsets_before_glue.begin(),  m.manager->halo_offsets_before_glue.end(), std::ostream_iterator<int64_t>(std::cout, " "));
+       amgx::thrust::copy( m.manager->neighbors_before_glue.begin(),  m.manager->neighbors_before_glue.end(), std::ostream_iterator<int64_t>(std::cout, " "));
+       amgx::thrust::copy( m.manager->halo_offsets_before_glue.begin(),  m.manager->halo_offsets_before_glue.end(), std::ostream_iterator<int64_t>(std::cout, " "));
     for (int i = 0; i < m.manager->B2L_rings_before_glue.size(); ++i)
     {
-      thrust::copy( m.manager->B2L_rings_before_glue[i].begin(),  m.manager->B2L_rings_before_glue[i].end(), std::ostream_iterator<int64_t>(std::cout, " "));
+    amgx::thrust::copy( m.manager->B2L_rings_before_glue[i].begin(),  m.manager->B2L_rings_before_glue[i].end(), std::ostream_iterator<int64_t>(std::cout, " "));
     }
 
     for (int i = 0; i < m.manager->B2L_maps_before_glue.size(); ++i)
     {
-      thrust::copy( m.manager->B2L_maps_before_glue[i].begin(),  m.manager->B2L_maps_before_glue[i].end(), std::ostream_iterator<int64_t>(std::cout, " "));
+    amgx::thrust::copy( m.manager->B2L_maps_before_glue[i].begin(),  m.manager->B2L_maps_before_glue[i].end(), std::ostream_iterator<int64_t>(std::cout, " "));
     }
     */
     if (TConfig::memSpace == AMGX_host)
@@ -1013,8 +1013,8 @@ void setup_after_unglue(Vector<TConfig> &b, const Matrix<TConfig> &m, int num_ri
         if (linear_buffers_changed)
         {
             b.linear_buffers_ptrs.resize(neighbors);
-            //thrust::copy(b.linear_buffers.begin(),b.linear_buffers.end(),b.linear_buffers_ptrs.begin());
-            cudaMemcpyAsync(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(value_type *), cudaMemcpyHostToDevice);
+            //amgx::thrust::copy(b.linear_buffers.begin(),b.linear_buffers.end(),b.linear_buffers_ptrs.begin());
+            cudaMemcpyAsync(amgx::thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(value_type *), cudaMemcpyHostToDevice);
             cudaCheckError();
         }
 
@@ -1063,7 +1063,7 @@ void gather_B2L_after_unglue(const Matrix<TConfig> &m, Vector<TConfig> &b, int n
         for (int i = 0; i < m.manager->neighbors_before_glue.size(); i++)
         {
             int size = m.manager->B2L_rings_before_glue[i][num_rings];
-            int num_blocks = min(4096, (size + 127) / 128);
+            int num_blocks = std::min(4096, (size + 127) / 128);
 
             if ( size != 0)
             {

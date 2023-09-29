@@ -38,7 +38,6 @@
 #include <ld_functions.h>
 #include <matrix_io.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 
 #include <amgx_types/util.h>
@@ -47,7 +46,6 @@
 
 #define AMGX_ILU_COLORING
 
-using namespace std;
 namespace amgx
 {
 namespace multicolor_dilu_solver
@@ -695,13 +693,13 @@ void DILU_setup_1x1_kernel( const int *__restrict A_rows,
     const int lane_id_div_NTPR = lane_id / NUM_THREADS_PER_ROW;
     const int lane_id_mod_NTPR = lane_id % NUM_THREADS_PER_ROW;
     // Shared memory to broadcast column IDs.
-    __shared__ volatile int s_a_col_ids[CTA_SIZE];
+    __shared__ int s_a_col_ids[CTA_SIZE];
     // Each thread keeps its own pointer.
-    volatile int *my_s_a_col_ids = &s_a_col_ids[warp_id * WARP_SIZE];
+    int *my_s_a_col_ids = &s_a_col_ids[warp_id * WARP_SIZE];
     // Shared memory to store the matrices.
-    __shared__ volatile int s_A_ji[CTA_SIZE];
+    __shared__ int s_A_ji[CTA_SIZE];
     // Each thread keeps its own pointer to shared memory to avoid some extra computations.
-    volatile int *my_s_A_ji = &s_A_ji[warp_id * WARP_SIZE];
+    int *my_s_A_ji = &s_A_ji[warp_id * WARP_SIZE];
     // Determine which NxN block the threads work with.
     int a_row_it = blockIdx.x * NUM_WARPS_PER_CTA + warp_id;
 
@@ -759,6 +757,8 @@ void DILU_setup_1x1_kernel( const int *__restrict A_rows,
                 // Reset A_jis.
                 my_s_A_ji[lane_id] = -1;
 
+                __syncwarp();
+
                 // Threads collaborate to load the rows.
                 for ( int k = 0 ; k < ones ; k += WARP_SIZE / NUM_THREADS_PER_ROW )
                 {
@@ -798,6 +798,8 @@ void DILU_setup_1x1_kernel( const int *__restrict A_rows,
                     }
                     while ( __popc( shared_found ) < WARP_SIZE / NUM_THREADS_PER_ROW && utils::any( b_col_it < b_col_end ) );
                 }
+
+                __syncwarp();
 
                 // Where to get my A_ji from (if any).
                 int a_ji_it = my_s_A_ji[dest];
@@ -3752,10 +3754,10 @@ MulticolorDILUSolver_Base<T_Config>::MulticolorDILUSolver_Base( AMG_Config &cfg,
         ThreadManager *tmng ) :
     Solver<T_Config>( cfg, cfg_scope, tmng )
 {
-    this->weight = cfg.AMG_Config::getParameter<double>("relaxation_factor", cfg_scope);
-    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
-    this->m_insert_diagonal_desired = (cfg.AMG_Config::getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
-    this->m_boundary_coloring = cfg.AMG_Config::getParameter<ColoringType>("boundary_coloring", cfg_scope);
+    this->weight = cfg.AMG_Config::template getParameter<double>("relaxation_factor", cfg_scope);
+    this->m_reorder_cols_by_color_desired = (cfg.AMG_Config::template getParameter<int>("reorder_cols_by_color", cfg_scope) != 0);
+    this->m_insert_diagonal_desired = (cfg.AMG_Config::template getParameter<int>("insert_diag_while_reordering", cfg_scope) != 0);
+    this->m_boundary_coloring = cfg.AMG_Config::template getParameter<ColoringType>("boundary_coloring", cfg_scope);
     this->always_obey_coloring = 0;
 
     if (weight == 0)
@@ -3831,7 +3833,6 @@ MulticolorDILUSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
         FatalError("Multicolor DILU solver only supports row major format for the blocks", AMGX_ERR_CONFIGURATION);
     }
 
-    profileSubphaseSmootherSetup();
     computeEinv( *this->m_explicit_A );
 }
 
@@ -3844,11 +3845,9 @@ MulticolorDILUSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xI
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
-    AMGX_CPU_PROFILER( "MulticolorDILUSolver::solve_iteration " );
-
     if ( this->m_explicit_A->get_block_dimx() != this->m_explicit_A->get_block_dimy() )
     {
         FatalError("DILU implemented only for squared blocks", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE);
@@ -3897,7 +3896,7 @@ MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bo
 
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
     }
 
@@ -3988,7 +3987,7 @@ void MulticolorDILUSolver<TemplateConfig<AMGX_device, V, M, I> >::computeEinv_Nx
 
         const int ROWS_PER_CTA = ROWS_PER_WARP * NUM_WARPS_PER_CTA;
         const int GRID_SIZE = std::min( 4096, (num_rows_per_color + ROWS_PER_CTA - 1) / ROWS_PER_CTA );
-        cudaStream_t stream = thrust::global_thread_handle::get_stream();
+        cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
 
         switch ( bsize )
         {

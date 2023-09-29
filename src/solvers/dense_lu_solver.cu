@@ -34,7 +34,6 @@
 #include <util.h>
 #include <ld_functions.h>
 #include <thrust/logical.h>
-#include <profile.h>
 #include <sm_utils.inl>
 #include <texture.h>
 #include <typeinfo>
@@ -517,7 +516,7 @@ csr_to_dense(
     const int block_size = 256;
     const int num_warps  = block_size / WARP_SIZE;
     const int grid_size = std::min(4096, (A->get_num_rows() + num_warps - 1) / num_warps);
-    cudaStream_t stream = thrust::global_thread_handle::get_stream();
+    cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     csr_to_dense_kernel<Matrix_data, Vector_data, WARP_SIZE> <<< grid_size, block_size, 0, stream>>>(
         A->get_num_rows(),
         A->get_num_cols(),
@@ -588,7 +587,7 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
 
     if (m_trf_wspace)
     {
-        cudaFreeAsync(m_trf_wspace, 0);
+        amgx::memory::cudaFreeAsync(m_trf_wspace);
         m_trf_wspace = 0;
     }
 }
@@ -626,11 +625,11 @@ allocMem(DataType *&ptr,
          IndexType numEntry,
          bool initToZero)
 {
-    if ( ptr != NULL ) { cudaFreeAsync(ptr, 0); }
+    if ( ptr != NULL ) { amgx::memory::cudaFreeAsync(ptr); }
 
     cudaCheckError();
     size_t sz = numEntry * sizeof(DataType);
-    cudaMallocAsync((void **)&ptr, sz, 0);
+    amgx::memory::cudaMalloc((void **)&ptr, sz);
     cudaCheckError();
 
     if (initToZero)
@@ -675,7 +674,7 @@ DenseLUSolver(AMG_Config &cfg,
     }
 
     // Define the cudense stream.
-    status = cusolverDnSetStream(m_cuds_handle, thrust::global_thread_handle::get_stream());
+    status = cusolverDnSetStream(m_cuds_handle, amgx::thrust::global_thread_handle::get_stream());
 
     if ( status != CUSOLVER_STATUS_SUCCESS )
     {
@@ -702,22 +701,22 @@ DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::~DenseLUSolver()
 
     if (m_dense_A)
     {
-        cudaFreeAsync(m_dense_A, 0);
+        amgx::memory::cudaFreeAsync(m_dense_A);
     }
 
     if (m_ipiv)
     {
-        cudaFreeAsync(m_ipiv, 0);
+        amgx::memory::cudaFreeAsync(m_ipiv);
     }
 
     if (m_trf_wspace)
     {
-        cudaFreeAsync(m_trf_wspace, 0);
+        amgx::memory::cudaFreeAsync(m_trf_wspace);
     }
 
     if (m_cuds_info)
     {
-        cudaFreeAsync(m_cuds_info, 0);
+        amgx::memory::cudaFreeAsync(m_cuds_info);
     }
 
     cudaCheckError();
@@ -809,21 +808,21 @@ solver_setup(bool reuse_matrix_structure)
             A->manager->getComms()->all_gather(num_rows, row_all, nranks);
 
             // Get the number of non zeros on all ranks
-            m_nnz_global = thrust::reduce(nz_all.begin(), nz_all.end());
+            m_nnz_global = thrust_wrapper::reduce<AMGX_host>(nz_all.begin(), nz_all.end());
 
             // Turn the non-zero counts into displacements
             nz_displs.resize(nranks);
-            thrust::exclusive_scan(nz_all.begin(), nz_all.end(), nz_displs.begin());
+            thrust_wrapper::exclusive_scan<AMGX_host>(nz_all.begin(), nz_all.end(), nz_displs.begin());
 
             // Turn the number of rows into displacements
             row_displs.resize(nranks);
-            thrust::exclusive_scan(row_all.begin(), row_all.end(), row_displs.begin());
+            thrust_wrapper::exclusive_scan<AMGX_host>(row_all.begin(), row_all.end(), row_displs.begin());
 
             IVector_d local_Acols_d(nnz);
             IVector_d local_Arows_d(num_rows);
 
-            thrust::copy(A->col_indices.begin(), A->col_indices.begin() + nnz, local_Acols_d.begin());
-            thrust::copy(A->row_offsets.begin(), A->row_offsets.begin() + num_rows, local_Arows_d.begin());
+            amgx::thrust::copy(A->col_indices.begin(), A->col_indices.begin() + nnz, local_Acols_d.begin());
+            amgx::thrust::copy(A->row_offsets.begin(), A->row_offsets.begin() + num_rows, local_Arows_d.begin());
 
             // XXX Local to global map is the current limiting factor to enabling this
             // code for the aggregation based path. It's not clear whether there is
@@ -842,8 +841,8 @@ solver_setup(bool reuse_matrix_structure)
             // Copy the transformed indices to the host
             IVector_h local_Acols_h(nnz);
             IVector_h local_Arows_h(num_rows);
-            thrust::copy(local_Acols_d.begin(), local_Acols_d.end(), local_Acols_h.begin());
-            thrust::copy(local_Arows_d.begin(), local_Arows_d.end(), local_Arows_h.begin());
+            amgx::thrust::copy(local_Acols_d.begin(), local_Acols_d.end(), local_Acols_h.begin());
+            amgx::thrust::copy(local_Arows_d.begin(), local_Arows_d.end(), local_Arows_h.begin());
 
             // Gather the local matrix structure redundantly to every rank
             IVector_h Acols_global_h(m_nnz_global);
@@ -857,13 +856,13 @@ solver_setup(bool reuse_matrix_structure)
             Arows_global_h[m_num_rows] = m_nnz_global;
             Acols_global.resize(m_nnz_global);
             Arows_global.resize(m_num_rows + 1);
-            thrust::copy(Acols_global_h.begin(), Acols_global_h.end(), Acols_global.begin());
-            thrust::copy(Arows_global_h.begin(), Arows_global_h.end(), Arows_global.begin());
+            amgx::thrust::copy(Acols_global_h.begin(), Acols_global_h.end(), Acols_global.begin());
+            amgx::thrust::copy(Arows_global_h.begin(), Arows_global_h.end(), Arows_global.begin());
         }
 
         // Fetch to the host a copy of the local sparse matrix
         MVector_h local_Avals_h(nnz);
-        thrust::copy(A->values.begin(), A->values.begin() + nnz, local_Avals_h.begin());
+        amgx::thrust::copy(A->values.begin(), A->values.begin() + nnz, local_Avals_h.begin());
 
         // Gather the matrix values to all ranks
         MVector_h Avals_global_h(m_nnz_global);
@@ -872,12 +871,12 @@ solver_setup(bool reuse_matrix_structure)
         allocMem(m_dense_A, m_num_cols * m_lda, true);
 
         MVector_d Avals_global(m_nnz_global);
-        thrust::copy(Avals_global_h.begin(), Avals_global_h.end(), Avals_global.begin());
+        amgx::thrust::copy(Avals_global_h.begin(), Avals_global_h.end(), Avals_global.begin());
 
         const int block_size = 256;
         const int num_warps = block_size / WARP_SIZE;
         const int grid_size = std::min(4096, (A->get_num_rows() + num_warps - 1) / num_warps);
-        cudaStream_t stream = thrust::global_thread_handle::get_stream();
+        cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
         csr_to_dense_kernel<Matrix_data, Vector_data, WARP_SIZE><<<grid_size, block_size, 0, stream>>>(
             m_num_rows,
             m_num_cols,
@@ -920,7 +919,8 @@ solver_setup(bool reuse_matrix_structure)
 // For multi GPU cases, this is essentially block Jacobi. Since the block size
 // is the size of each partition, this is OK trade-off between accuracy and runtime.
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
-bool DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::
+AMGX_STATUS
+DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::
 solve_iteration(Vector_d &rhs,
                 Vector_d &x,
                 bool xIsZero)
@@ -941,7 +941,7 @@ solve_iteration(Vector_d &rhs,
 
         // Make host copy of the RHS
         MVector_h rhs_local_h(num_rows);
-        thrust::copy(rhs.begin(), rhs.begin() + num_rows, rhs_local_h.begin());
+        amgx::thrust::copy(rhs.begin(), rhs.begin() + num_rows, rhs_local_h.begin());
 
         // Gather the local RHS from all ranks to global vectors on all ranks
         MVector_h rhs_global_h(m_num_rows);
@@ -949,7 +949,7 @@ solve_iteration(Vector_d &rhs,
 
         //Solve L*X = RHS
         MVector_d x_global(m_num_rows);
-        thrust::copy(rhs_global_h.begin(), rhs_global_h.end(), x_global.begin());
+        amgx::thrust::copy(rhs_global_h.begin(), rhs_global_h.end(), x_global.begin());
         cusolverStatus_t status = 
             cusolverDnXgetrs(m_cuds_handle,
                              CUBLAS_OP_N,
@@ -963,7 +963,7 @@ solve_iteration(Vector_d &rhs,
                              m_cuds_info);
 
         // Copy the local portion of the solution back into x
-        thrust::copy(x_global.begin() + row_displs[rank], x_global.begin() + row_displs[rank] + num_rows, x.begin());
+        amgx::thrust::copy(x_global.begin() + row_displs[rank], x_global.begin() + row_displs[rank] + num_rows, x.begin());
 
         if (status != CUSOLVER_STATUS_SUCCESS)
         {
@@ -986,7 +986,7 @@ solve_iteration(Vector_d &rhs,
             A->manager->exchange_halo_wait(x, x.tag);
             Vector_d new_rhs(rhs.size());
             distributed_rhs_mod(x, rhs, new_rhs);
-            thrust::copy(new_rhs.begin(), new_rhs.begin() + m_num_rows, x.begin());
+            amgx::thrust::copy(new_rhs.begin(), new_rhs.begin() + m_num_rows, x.begin());
             cudaCheckError();
         }
         else
@@ -1000,7 +1000,7 @@ solve_iteration(Vector_d &rhs,
     //Speculative send of x vector
     x.dirtybit = 1;
     A->setView(oldView);
-    return true; // direct solver always converges
+    return AMGX_ST_CONVERGED; // direct solver always converges
 }
 
 

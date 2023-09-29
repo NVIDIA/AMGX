@@ -36,7 +36,6 @@
 namespace amgx
 {
 
-using namespace std;
 namespace aggregation
 {
 
@@ -50,17 +49,17 @@ void Selector<T_Config>::renumberAndCountAggregates(IVector &aggregates, IVector
     {
         // we are in a distributed environment
         aggregates_global.resize(aggregates.size());
-        thrust::copy(aggregates.begin(), aggregates.begin() + num_block_rows, aggregates_global.begin());
+        amgx::thrust::copy(aggregates.begin(), aggregates.begin() + num_block_rows, aggregates_global.begin());
     }
 
     // set scratch[aggregates[i]] = 1
-    thrust::fill(thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
-                 thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows), 1);
+    thrust::fill(amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
+                 amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows), 1);
     // do prefix sum on scratch
-    thrust::exclusive_scan(scratch.begin(), scratch.end(), scratch.begin());
+    thrust_wrapper::exclusive_scan<T_Config::memSpace>(scratch.begin(), scratch.end(), scratch.begin());
     // aggregates[i] = scratch[aggregates[i]]
-    thrust::copy(thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
-                 thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows),
+    amgx::thrust::copy(amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin()),
+                 amgx::thrust::make_permutation_iterator(scratch.begin(), aggregates.begin() + num_block_rows),
                  aggregates.begin());
     // update number of aggregates
     num_aggregates = scratch[scratch.size() - 1];
@@ -108,9 +107,9 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     P.values.resize( num_rows, types::util<typename MVector::value_type>::get_one());
     P.col_indices.resize( num_rows );
     //setup offset array.
-    thrust::sequence( P.row_offsets.begin(), P.row_offsets.end() );
+    thrust_wrapper::sequence<TConfig::memSpace>( P.row_offsets.begin(), P.row_offsets.end() );
     //swap in aggregates
-    thrust::copy( aggregates.begin(), aggregates.end(), P.col_indices.begin() );
+    amgx::thrust::copy( aggregates.begin(), aggregates.end(), P.col_indices.begin() );
     cudaCheckError();
     //inform P about its size
     P.resize( num_rows, num_aggregates, num_rows, 1, 1, false ); //declare scalar, otherwise transpose won't work
@@ -124,15 +123,15 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     IVector size_array;
     size_array.resize(num_rows + 1, 0 );
     const int threads_per_block = 256;
-    const int num_blocks = min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
+    const int num_blocks = std::min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
     //count
     countRowSizes <<< num_blocks, threads_per_block, 0, 0>>>( R.row_offsets.raw(), size_array.raw(), num_aggregates );
     cudaDeviceSynchronize();
     cudaCheckError();
     //copy to host and print
-    thrust::host_vector<int> size_array_host;
+    amgx::thrust::host_vector<int> size_array_host;
     size_array_host.resize(size_array.size() );
-    thrust::copy( size_array.begin(), size_array.end(), size_array_host.begin() );
+    amgx::thrust::copy( size_array.begin(), size_array.end(), size_array_host.begin() );
     std::cout << "number of nodes " << num_rows << std::endl;
     std::cout << "number of aggregates by size" << std::endl;
 
@@ -239,14 +238,14 @@ SelectorFactory<T_Config>::getFactories( )
 }
 
 template<class T_Config>
-void SelectorFactory<T_Config>::registerFactory(string name, SelectorFactory<T_Config> *f)
+void SelectorFactory<T_Config>::registerFactory(std::string name, SelectorFactory<T_Config> *f)
 {
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
-    typename map<string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(name);
+    typename std::map<std::string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(name);
 
     if (it != factories.end())
     {
-        string error = "SelectorFactory '" + name + "' has already been registered\n";
+        std::string error = "SelectorFactory '" + name + "' has already been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
@@ -275,7 +274,7 @@ template<class T_Config>
 void SelectorFactory<T_Config>::unregisterFactories( )
 {
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
-    typename map<std::string, SelectorFactory<T_Config> *>::iterator it = factories.begin( );
+    typename std::map<std::string, SelectorFactory<T_Config> *>::iterator it = factories.begin( );
 
     for ( ; it != factories.end( ) ; )
     {
@@ -292,14 +291,14 @@ template<class T_Config>
 Selector<T_Config> *SelectorFactory<T_Config>::allocate(AMG_Config &cfg, const std::string &current_scope)
 {
     std::map<std::string, SelectorFactory<T_Config>*> &factories = getFactories( );
-    int agg_lvl_change = cfg.AMG_Config::getParameter<int>("fine_levels", current_scope);
+    int agg_lvl_change = cfg.AMG_Config::template getParameter<int>("fine_levels", current_scope);
     std::string selector;
-    selector = cfg.getParameter<string>("selector", current_scope);
-    typename map<string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(selector);
+    selector = cfg.getParameter<std::string>("selector", current_scope);
+    typename std::map<std::string, SelectorFactory<T_Config> *>::const_iterator it = factories.find(selector);
 
     if (it == factories.end())
     {
-        string error = "SelectorFactory '" + selector + "' has not been registered\n";
+        std::string error = "SelectorFactory '" + selector + "' has not been registered\n";
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 

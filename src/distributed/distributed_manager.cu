@@ -2862,7 +2862,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         }
     }
 
-    thrust_wrapper::exclusive_scan<AMGX_device>(this->halo_offsets.begin(), this->halo_offsets.end(), this->halo_offsets.begin(), size);
+    thrust_wrapper::exclusive_scan<AMGX_host>(this->halo_offsets.begin(), this->halo_offsets.end(), this->halo_offsets.begin(), size);
     cudaCheckError();
     this->set_num_halo_rows(this->halo_offsets[this->halo_offsets.size() - 1] - size);
     int total_rows = size + this->num_halo_rows();

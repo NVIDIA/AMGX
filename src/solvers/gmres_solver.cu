@@ -411,7 +411,7 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     }
 
     this->m_A->setView(oldView);
-    return Base::m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : conv_stat;
+    return Base::m_monitor_convergence ? conv_stat : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>

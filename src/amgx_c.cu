@@ -3997,10 +3997,15 @@ extern "C" {
         //  AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
 
         if (partition_vector == NULL && partition_vector_size != 0 || partition_vector != NULL && partition_vector_size == 0)
+        {
             AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
-            if (partition_vector == NULL && partition_sizes != NULL)
-                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
-                int num_ranks = 1, part = 0;
+        }
+        if (partition_vector == NULL && partition_sizes != NULL)
+        {
+            AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
+        }
+
+        int num_ranks = 1, part = 0;
 
         if (partition_sizes == NULL && partition_vector != NULL)
         {

@@ -875,7 +875,7 @@ solver_setup(bool reuse_matrix_structure)
 
         const int block_size = 256;
         const int num_warps = block_size / WARP_SIZE;
-        const int grid_size = std::min(4096, (A->get_num_rows() + num_warps - 1) / num_warps);
+        const int grid_size = (m_nnz_global + num_warps - 1) / num_warps;
         cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
         csr_to_dense_kernel<Matrix_data, Vector_data, WARP_SIZE><<<grid_size, block_size, 0, stream>>>(
             m_num_rows,

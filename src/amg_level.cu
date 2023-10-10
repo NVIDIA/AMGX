@@ -127,7 +127,7 @@ void AMG_Level<T_Config>::setup_smoother()
         this->getA().getOffsetAndSizeForView(FULL, &offset, &n);
 
         //if ( this->getA().manager->isGlued() && !this->getA().manager->isRootPartition() )  {
-        if (!n &&  this->isClassicalAMGLevel())
+        if (this->m_is_consolidation_level && !n && this->isClassicalAMGLevel())
         {
             // Skip the solve in gluing path by looking at this flag
             // XXXX: actually setup is skipped. Check if solve can/need to be skipped too

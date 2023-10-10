@@ -301,7 +301,7 @@ __global__ void block_seeded_bfs_expand(
 
         for (int i = row_begin; i < row_end; ++i)
         {
-            int col = __load_nc(col_indices + i);
+            int col = __ldg(col_indices + i);
             int old_visited_by = atomicCAS(visited_by + col, -1, blockIdx.x); //marks atomically the node
 
             if (old_visited_by == -1) //I am the winner!
@@ -327,7 +327,7 @@ __global__ void block_seeded_bfs_expand(
 
         for (int i = row_begin; i < row_end; ++i)
         {
-            int col = __load_nc(col_indices + i);
+            int col = __ldg(col_indices + i);
             int old_visited_by = atomicCAS(visited_by + col, -1, blockIdx.x | row_tag); //marks atomically the node
 
             if (old_visited_by == -1) //I am the winner!
@@ -351,7 +351,7 @@ __global__ void block_seeded_bfs_expand(
 
         for (int i = row_begin; i < row_end; ++i)
         {
-            int col = __load_nc(col_indices + i);
+            int col = __ldg(col_indices + i);
             int vb = atomicCAS(visited_by + col, blockIdx.x | row_tag, blockIdx.x); //visited_by[col] & block_mask;
 
             if (vb == (blockIdx.x | row_tag))

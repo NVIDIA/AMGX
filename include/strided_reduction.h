@@ -28,58 +28,12 @@
 #pragma once
 
 #include <cstdio>
-#include "memory_intrinsics.h"
 #include "sm_utils.inl"
 #include <cutil.h>
 
 #include <global_thread_handle.h>
 
 #include <amgx_types/util.h>
-
-namespace utils
-{
-/**
- * Bitfield-extract.
- */
-template <typename UnsignedBits>
-__device__ __forceinline__ unsigned int BFE(
-    UnsignedBits source,
-    unsigned int bit_start,
-    unsigned int num_bits)
-{
-    unsigned int bits;
-    asm("bfe.u32 %0, %1, %2, %3;" : "=r"(bits) : "r"((unsigned int) source), "r"(bit_start), "r"(num_bits));
-    return bits;
-}
-
-
-/**
- * Bitfield-extract for 64-bit types.
- */
-__device__ __forceinline__ unsigned int BFE(
-    unsigned long long source,
-    unsigned int bit_start,
-    unsigned int num_bits)
-{
-    const unsigned long long MASK = (1ull << num_bits) - 1;
-    return (source >> bit_start) & MASK;
-}
-
-
-/**
- * Bitfield insert.  Inserts the first num_bits of y into x starting at bit_start
- */
-__device__ __forceinline__ void BFI(
-    unsigned int &ret,
-    unsigned int x,
-    unsigned int y,
-    unsigned int bit_start,
-    unsigned int num_bits)
-{
-    asm volatile("bfi.b32 %0, %1, %2, %3, %4;" : "=r"(ret) : "r"(y), "r"(x), "r"(bit_start), "r"(num_bits));
-}
-
-}
 
 namespace amgx
 {
@@ -216,7 +170,7 @@ template<> struct warp_loader<int, 4> : public  loader_base< warp_loader<int, 4>
     {
         int4 i;
         {
-            i = __load_global ((int4 *  ) (in + i0));
+            i = __ldcg((int4 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
             out[2] = i.z;
@@ -235,7 +189,7 @@ template<> struct warp_loader<float, 4> : public  loader_base< warp_loader<float
     {
         float4 i;
         {
-            i = __load_global ((float4 *  ) (in + i0));
+            i = __ldcg((float4 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
             out[2] = i.z;
@@ -254,7 +208,7 @@ template<> struct warp_loader<int, 2> : public  loader_base< warp_loader<int, 2>
     {
         int2 i;
         {
-            i = __load_global ((int2 *  ) (in + i0));
+            i = __ldcg((int2 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
         }
@@ -271,7 +225,7 @@ template<> struct warp_loader<float, 2> : public  loader_base< warp_loader<float
     {
         float2 i;
         {
-            i = __load_global ((float2 *  ) (in + i0));
+            i = __ldcg((float2 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
         }

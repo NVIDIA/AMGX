@@ -29,7 +29,6 @@
 
 #include <basic_types.h>
 #include <error.h>
-#include <ld_functions.h>
 /**********************************************************
  * Checks for a cuda error and if one exists prints it,
  * the stack trace, and exits

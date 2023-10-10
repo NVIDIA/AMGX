@@ -35,7 +35,6 @@
 #include <basic_types.h>
 #include <util.h>
 #include <texture.h>
-#include <ld_functions.h>
 #include <matrix_io.h>
 #include <thrust/logical.h>
 #include <sm_utils.inl>

@@ -378,8 +378,6 @@ void mem_test_main(TestCase &test_case, size_t &mem_before)
     check_memory_usage("before finalize", mem_before, test_case);
     UNITTEST_ASSERT_EQUAL(AMGX_finalize(), AMGX_OK);
     check_memory_usage("after finalize", mem_before, test_case);
-    //cudaDeviceReset();
-    //}
 }
 
 

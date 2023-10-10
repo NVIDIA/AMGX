@@ -246,7 +246,6 @@ int main(int argc, char* argv[])
     // free resources before MPI_Finalize()
     delete res;
     MPI_Finalize();
-    cudaDeviceReset();    
     return 0;
 }
 

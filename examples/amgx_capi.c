@@ -465,6 +465,5 @@ int main(int argc, const char **argv)
 #ifdef AMGX_DYNAMIC_LOADING
     amgx_libclose(lib_handle);
 #endif
-    //CUDA_SAFE_CALL(cudaDeviceReset());
     return status;
 }

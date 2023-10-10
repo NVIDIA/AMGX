@@ -367,6 +367,5 @@ int main(int argc, char **argv)
     amgx_libclose(lib_handle);
 #endif
     MPI_Finalize();
-    CUDA_SAFE_CALL(cudaDeviceReset());
     return status;
 }

@@ -27,6 +27,9 @@ Changes:
 - Fixed partition reordering for block_sizes > 1
 - Fixed build issue that arose when AmgX is built as a subproject
 - Fixed issue with OpenMP and NO_MPI linking
+- Replaced some inline asm with intrinsics
+- Fixed issue with exact_coarse_solve grid sizing
+- Fixed issue with use_sum_stopping_criteria
 
 ===============================================================
 

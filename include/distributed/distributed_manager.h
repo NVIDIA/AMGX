@@ -58,7 +58,6 @@ template <class TConfig> class Energymin_AMG_Level_Base;
 #include <thrust/sequence.h>
 #include <vector.h>
 #include <error.h>
-#include <ld_functions.h>
 #include <distributed/distributed_comms.h>
 #include <distributed/distributed_arranger.h>
 #include <matrix_distribution.h>
@@ -109,12 +108,12 @@ __global__ void gatherToBuffer_v3(const T *source, const INDEX_TYPE *map_offsets
         // Figure out which neighbor I'm responsible for
         int neighbor = 0;
 
-        while (neighbor < num_neighbors && (nz < ldg(&map_offsets[neighbor]) || nz >= ldg(&map_offsets[neighbor + 1])))
+        while (neighbor < num_neighbors && (nz < __ldg(&map_offsets[neighbor]) || nz >= __ldg(&map_offsets[neighbor + 1])))
         {
             neighbor++;
         }
 
-        if (neighbor < num_neighbors && (nz >= ldg(&map_offsets[neighbor]) && nz < ldg(&map_offsets[neighbor + 1])))
+        if (neighbor < num_neighbors && (nz >= __ldg(&map_offsets[neighbor]) && nz < __ldg(&map_offsets[neighbor + 1])))
         {
             INDEX_TYPE offset = map_offsets[neighbor];
             T *dest = dest_ptrs[neighbor];
@@ -177,12 +176,12 @@ __global__ void scatterFromBuffer_v3(T *source, const INDEX_TYPE *map_offsets, I
     {
         int neighbor = 0;
 
-        while (neighbor < num_neighbors && (nz < ldg(&map_offsets[neighbor]) || nz >= ldg(&map_offsets[neighbor + 1])))
+        while (neighbor < num_neighbors && (nz < __ldg(&map_offsets[neighbor]) || nz >= __ldg(&map_offsets[neighbor + 1])))
         {
             neighbor++;
         }
 
-        if (neighbor < num_neighbors && (nz >= ldg(&map_offsets[neighbor]) && nz < ldg(&map_offsets[neighbor + 1])))
+        if (neighbor < num_neighbors && (nz >= __ldg(&map_offsets[neighbor]) && nz < __ldg(&map_offsets[neighbor + 1])))
         {
             INDEX_TYPE offset = map_offsets[neighbor];
             T *dest = dest_ptrs[neighbor];

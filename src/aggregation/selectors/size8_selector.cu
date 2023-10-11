@@ -430,8 +430,8 @@ void computeEdgeWeightsBlockDiaCsr_V2_1(
 
             i  = row_indices[tid];
             j  = column_indices[tid];
-            d1 = types::util<ValueType>::abs(__cachingLoad(&nonzero_values[__load_nc(dia_values + i) * bsize_sq + matrix_weight_entry]));
-            d2 = types::util<ValueType>::abs(__cachingLoad(&nonzero_values[__load_nc(dia_values + j) * bsize_sq + matrix_weight_entry]));
+            d1 = types::util<ValueType>::abs(__cachingLoad(&nonzero_values[__ldg(dia_values + i) * bsize_sq + matrix_weight_entry]));
+            d2 = types::util<ValueType>::abs(__cachingLoad(&nonzero_values[__ldg(dia_values + j) * bsize_sq + matrix_weight_entry]));
         }
 
         const bool valid_j = valid_tid && i != j && j < num_owned;
@@ -453,7 +453,7 @@ void computeEdgeWeightsBlockDiaCsr_V2_1(
 
         for ( int k = kmin ; k < kmax ; ++k )
         {
-            const int idx = __load_nc(column_indices + k);
+            const int idx = __ldg(column_indices + k);
 
             if (idx == i)
             {

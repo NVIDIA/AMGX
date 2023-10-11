@@ -37,7 +37,6 @@
 #include <basic_types.h>
 #include <util.h>
 #include <texture.h>
-#include <ld_functions.h>
 #include <matrix_io.h>
 #include <permute.h>
 #include <thrust/logical.h>
@@ -386,7 +385,7 @@ void LU_forward_4x4_kernel(const IndexType *LU_row_offsets, const IndexType *LU_
             {
                 IndexType jcol = LU_column_indices[jind];
                 offset = jcol * bsize + vec_entry_index;
-                s_delta_temp[tid] = ld_cg(delta + offset);
+                s_delta_temp[tid] = __ldcg(delta + offset);
 
                 // Load nonzero_values
                 if (ROW_MAJOR)
@@ -703,11 +702,11 @@ void LU_backward_4x4_kernel(const IndexType *row_offsets, const IndexType *large
 
                 if (xIsZero)
                 {
-                    s_x_temp[tid] = ld_cg(x + offset);
+                    s_x_temp[tid] = __ldcg(x + offset);
                 }
                 else
                 {
-                    s_x_temp[tid] = ld_cg(Delta + offset);
+                    s_x_temp[tid] = __ldcg(Delta + offset);
                 }
 
                 // Load nonzero_values
@@ -1104,8 +1103,8 @@ compute_LU_factors_4x4_kernel_warp( int A_nRows,
                     A_nonzero_values[16 * aColIt + laneId] = tmp;
                 }
 
-                int waColIt  = ld_cg(A_larger_color_offsets + waRowId);
-                int waColEnd = ld_cg(A_row_offsets + waRowId + 1);
+                int waColIt  = __ldcg(A_larger_color_offsets + waRowId);
+                int waColEnd = __ldcg(A_row_offsets + waRowId + 1);
 
                 // Load the first 32 columns of waRowId
                 for (waColIt += laneId ; utils::any(waColIt < waColEnd, active_mask ); waColIt += 32 )

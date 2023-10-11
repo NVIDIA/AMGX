@@ -32,7 +32,6 @@
 #include <thrust/copy.h>
 #include <basic_types.h>
 #include <util.h>
-#include <ld_functions.h>
 #include <thrust/logical.h>
 #include <sm_utils.inl>
 #include <texture.h>

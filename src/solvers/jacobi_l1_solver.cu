@@ -32,6 +32,7 @@
 #include <blas.h>
 #include <string.h>
 #include <cutil.h>
+#include <sm_utils.inl>
 #include <util.h>
 #include <multiply.h>
 #include <miscmath.h>
@@ -45,23 +46,6 @@ namespace amgx
 // -----------
 // Kernels
 // -----------
-
-namespace util
-{
-
-__device__ __forceinline__ int warpId( )
-{
-    return threadIdx.x >> 5;
-}
-
-__device__ __forceinline__ int laneId( )
-{
-    int id;
-    asm( "mov.u32 %0, %%laneid;" : "=r"( id ) );
-    return id;
-}
-
-} // namespace util
 
 template <typename ValueTypeA, typename ValueTypeB>
 __global__ void jacobi_l1_postsmooth(
@@ -138,8 +122,8 @@ __global__ void compute_d_4x4_kernel(const IndexType num_rows,
                                      ValueTypeA *d)
 {
     const int nWarps = CtaSize / 32; // Number of warps per block
-    const int warpId = util::warpId();
-    const int laneId = util::laneId();
+    const int warpId = utils::warp_id();
+    const int laneId = utils::lane_id();
     // Lane ID in the 2 16-wide segments.
     const int lane_id_div_16 = laneId / 16;
     const int lane_id_mod_16 = laneId % 16;

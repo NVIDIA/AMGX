@@ -30,7 +30,6 @@
 #include <error.h>
 #include <types.h>
 #include <matrix_coloring/greedy_recolor.h>
-//#include <sm_utils.inl>
 #include <strided_reduction.h>
 #include <math.h> //std::pow
 #include <matrix_coloring/coloring_utils.h>
@@ -40,7 +39,6 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/binary_search.h>
-#include <memory_intrinsics.h>
 #include <thrust/replace.h>
 #include <thrust_wrapper.h>
 
@@ -133,7 +131,7 @@ struct neigbor_visitor
 
             if (DISCARD_COLORED_T)
             {
-                int col_color = __load_nc(A_colors_in + col_id);
+                int col_color = __ldg(A_colors_in + col_id);
 
                 if (col_color != 0) { do_compute_hashes = false; }
             }
@@ -224,7 +222,7 @@ void fast_multihash_kernel(
 
                 if (DISCARD_COLORED_T)
                 {
-                    int col_color = __load_nc(A_colors_in + col_id);
+                    int col_color = __ldg(A_colors_in + col_id);
 
                     if (col_color != 0) { continue; }
                 }

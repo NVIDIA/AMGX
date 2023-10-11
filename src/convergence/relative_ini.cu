@@ -48,11 +48,13 @@ AMGX_STATUS RelativeIniConvergence<TConfig>::convergence_update_and_check(const 
     bool res_converged = true;
     bool res_converged_abs = true;
 
+    PODValueTypeB eps = (PODValueTypeB)(1e-20);
+
     for (int i = 0; i < nrm.size(); i++)
     {
-        bool conv = (nrm[i] / nrm_ini[i] <= this->m_tolerance);
+        bool conv = (nrm_ini[i] <= eps ? true : (nrm[i] / nrm_ini[i] <= this->m_tolerance));
         res_converged = res_converged && conv ;
-        bool conv_abs = (nrm[i] <= std::max(nrm_ini[i] * Epsilon_conv<ValueTypeB>::value(), (PODValueTypeB)(1e-20)));
+        bool conv_abs = (nrm[i] <= std::max(nrm_ini[i] * Epsilon_conv<ValueTypeB>::value(), eps));
         res_converged_abs = res_converged_abs && conv_abs ;
     }
 

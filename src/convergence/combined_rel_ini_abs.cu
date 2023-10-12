@@ -51,13 +51,15 @@ AMGX_STATUS RelativeAbsoluteCombinedConvergence<TConfig>::convergence_update_and
     bool res_converged_abs = true;
     bool res_converged_abs_precision = true;
 
+    PODValueTypeB eps = (PODValueTypeB)(1e-20);
+
     for (int i = 0; i < nrm.size(); i++)
     {
         bool conv_abs = nrm[i] < this->m_tolerance;
         res_converged_abs = res_converged_abs && conv_abs;
-        bool conv = (nrm[i] / nrm_ini[i] <= this->m_alt_rel_tolerance);
+        bool conv = (nrm_ini[i] <= eps ? true : (nrm[i] / nrm_ini[i] <= this->m_alt_rel_tolerance));
         res_converged = res_converged && conv;
-        bool conv_abs_precision = (nrm[i] <= std::max(nrm_ini[i] * Epsilon_conv<ValueTypeB>::value(), (PODValueTypeB)(1e-20)));
+        bool conv_abs_precision = (nrm[i] <= std::max(nrm_ini[i] * Epsilon_conv<ValueTypeB>::value(), eps));
         res_converged_abs_precision = res_converged_abs_precision && conv_abs_precision;
     }
 

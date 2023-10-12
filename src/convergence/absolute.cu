@@ -46,7 +46,6 @@ void AbsoluteConvergence<TConfig>::convergence_init()
 template<class TConfig>
 AMGX_STATUS AbsoluteConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
 {
-    //printf("Check tolerance: %f\n", this->m_tolerance);
     bool res_converged = true;
     bool res_converged_rel = true;
 

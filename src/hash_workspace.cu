@@ -27,6 +27,7 @@
 
 #include <hash_workspace.h>
 #include <global_thread_handle.h>
+#include <error.h>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,9 +47,13 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::Hash_Workspace(
     m_keys(NULL),
     m_vals(NULL)
 {
-    amgx::memory::cudaMalloc( (void **) &m_status, sizeof(int) );
-    amgx::memory::cudaMalloc( (void **) &m_work_queue, sizeof(int) );
+    amgx::memory::cudaMallocAsync( (void **) &m_status, sizeof(int) );
+    cudaCheckError();
+    amgx::memory::cudaMallocAsync( (void **) &m_work_queue, sizeof(int) );
+    cudaCheckError();
     allocate_workspace();
+    cudaStreamSynchronize(0);
+    cudaCheckError();
 }
 
 // ====================================================================================================================
@@ -80,7 +85,7 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     }
 
     size_t sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(Key_type);
-    amgx::memory::cudaMalloc( (void **) &m_keys, sz );
+    amgx::memory::cudaMallocAsync( (void **) &m_keys, sz );
 
     // Skip value allocation if needed.
     if ( !m_allocate_vals )
@@ -95,7 +100,7 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     }
 
     sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(double);
-    amgx::memory::cudaMalloc( (void **) &m_vals, sz );
+    amgx::memory::cudaMallocAsync( (void **) &m_vals, sz );
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -124,7 +124,7 @@ class thrust_amgx_allocator<T, AMGX_device>
                                 const_pointer = const_pointer(static_cast<T *>(0)))
         {
             void *ptr;
-            amgx::memory::cudaMalloc(&ptr, sizeof(T)*cnt);
+            amgx::memory::cudaMallocAsync(&ptr, sizeof(T)*cnt);
             return pointer((T *)ptr);
         } // end allocate()
 

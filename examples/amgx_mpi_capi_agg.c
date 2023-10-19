@@ -556,7 +556,7 @@ int main(int argc, char **argv)
 
     /* example of how to get (the local part of) the solution */
     //if ((pidx = findParamIndex(argv, argc, "-gpu")) != -1) {
-    //    CUDA_SAFE_CALL(cudaMalloc(&d_result, n*block_dimx*sizeof_v_val));
+    //    CUDA_SAFE_CALL(cudaMallocAsync(&d_result, n*block_dimx*sizeof_v_val));
     //    AMGX_vector_download(x, d_result);
     //    CUDA_SAFE_CALL(cudaFree(d_result));
     //}

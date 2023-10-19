@@ -1106,7 +1106,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         void* dBuffer = NULL;
         if(bufferSize > 0)
         {
-            amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+            amgx::memory::cudaMallocAsync(&dBuffer, bufferSize, stream);
         }
 
         cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG1, dBuffer) );
@@ -1644,7 +1644,7 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
     void* dBuffer = NULL;
     if(bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+        amgx::memory::cudaMallocAsync(&dBuffer, bufferSize);
     }
 
     // Compute the sparse matrix - dense matrix product
@@ -1798,7 +1798,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
     void *buffer = nullptr;
     if (bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&buffer, bufferSize);
+        amgx::memory::cudaMallocAsync(&buffer, bufferSize);
     }
 
     cusparseCheckError(cusparseCsr2cscEx2(

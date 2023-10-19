@@ -625,10 +625,10 @@ allocMem(DataType *&ptr,
          bool initToZero)
 {
     if ( ptr != NULL ) { amgx::memory::cudaFreeAsync(ptr); }
-
     cudaCheckError();
+
     size_t sz = numEntry * sizeof(DataType);
-    amgx::memory::cudaMalloc((void **)&ptr, sz);
+    amgx::memory::cudaMallocAsync((void **)&ptr, sz);
     cudaCheckError();
 
     if (initToZero)

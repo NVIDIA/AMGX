@@ -141,7 +141,7 @@ class MemoryPool
         //Mutex added to fix ICE threadsafe issue
         std::mutex m_mutex2;
 
-#ifndef USE_LEGACY_MEMPOOL
+#ifndef USE_CUDAMALLOCASYNC
         cudaMemPool_t m_mem_pool;
 #endif
 
@@ -231,8 +231,8 @@ void cudaHostRegister(void *ptr, int size);
 cudaError_t cudaMallocHost(void **ptr, size_t size);
 cudaError_t cudaFreeHost(void *ptr);
 
-cudaError_t cudaMalloc(void **ptr, size_t size);
-cudaError_t cudaFreeAsync(void *ptr);
+cudaError_t cudaMallocAsync(void **ptr, size_t size, cudaStream_t stream = 0);
+cudaError_t cudaFreeAsync(void *ptr, cudaStream_t stream = 0);
 
 // Wait for the asynchronous frees to complete.
 void cudaFreeWait();

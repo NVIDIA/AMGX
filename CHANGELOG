@@ -11,7 +11,7 @@ Changes:
 - Increased maximum CUDA version to 12.2, and now supporting HPC SDK 23.7
 - Fixed issue preventing parameters from being updated after config initialisation
 - Restructured all source files and removed plugin feature
-- Replaced custom memory pool with cudaMallocAsync
+- Replaced custom memory pool with cudaMallocAsync when defining USE_CUDAMALLOCASYNC
 - Changed the cuSPARSE SpMV algorithm choice to CUSPARSE_CSRMV_ALG1, which should improve solve performance for recent versions of cuSPARSE
 - Added single-kernel csrmv that is invoked when total number of rows in the local matrix falls below 3 times the number of SMs on the target GPUs
 - Changes to thrust
@@ -30,6 +30,7 @@ Changes:
 - Replaced some inline asm with intrinsics
 - Fixed issue with exact_coarse_solve grid sizing
 - Fixed issue with use_sum_stopping_criteria
+- Fixed SIGFPE that could occur when the initial norm is 0
 
 ===============================================================
 

@@ -665,7 +665,8 @@ void launch_strided_reduction(scalar_out *out_host, const scalar_t *in_d, const 
     const int n_blocks = std::min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
     const int out_size = n_blocks * STRIDE;
     scalar_out *out_d = 0;
-    amgx::memory::cudaMalloc((void **) &out_d, out_size * sizeof(scalar_out));
+    amgx::memory::cudaMallocAsync((void **) &out_d, out_size * sizeof(scalar_out));
+    cudaCheckError();
     cudaMemset(out_d, 0, out_size * sizeof(scalar_out));
     cudaFuncSetCacheConfig(strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM>, cudaFuncCachePreferL1);
     strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, amgx::thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);

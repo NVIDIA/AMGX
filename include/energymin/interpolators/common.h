@@ -69,7 +69,7 @@ void allocMem(DataType *&ptr,
     cudaCheckError();
     size_t sz = numEntry * sizeof(DataType);
     if(sz == 0) { return; }
-    amgx::memory::cudaMalloc((void **)&ptr, sz);
+    amgx::memory::cudaMallocAsync((void **)&ptr, sz);
     cudaCheckError();
 
     if (initToZero)

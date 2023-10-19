@@ -2079,7 +2079,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
     else
     {
         // Received unregistered or host allocated data (malloc)
-        rc = amgx::memory::cudaMalloc(&ptr_d, size);
+        rc = amgx::memory::cudaMallocAsync(&ptr_d, size);
 
         if (rc != cudaSuccess)
         {
@@ -2110,7 +2110,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
         if (rc != cudaSuccess)
         {
             //you are in case 1
-            rc = amgx::memory::cudaMalloc(&ptr_d, size);
+            rc = amgx::memory::cudaMallocAsync(&ptr_d, size);
 
             if (rc != cudaSuccess)
             {
@@ -2200,7 +2200,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
     else
     {
         // Received unregistered or host allocated data (malloc)
-        rc = amgx::memory::cudaMalloc(&ptr_d, size);
+        rc = amgx::memory::cudaMallocAsync(&ptr_d, size);
 
         if (rc != cudaSuccess)
         {
@@ -2231,7 +2231,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
         if (rc != cudaSuccess)
         {
             //you are in case 1
-            rc = amgx::memory::cudaMalloc(&ptr_d, size);
+            rc = amgx::memory::cudaMallocAsync(&ptr_d, size);
 
             if (rc != cudaSuccess)
             {

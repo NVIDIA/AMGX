@@ -83,7 +83,7 @@ MemoryPool::MemoryPool(size_t max_block_size, size_t page_size, size_t max_size)
 {
     //initializeCriticalSection(&m_mutex2);
 
-#ifndef USE_LEGACY_MEMPOOL
+#ifndef USE_CUDAMALLOCASYNC
     int device;
     cudaGetDevice(&device);
     cudaDeviceGetMemPool(&m_mem_pool, device);
@@ -844,14 +844,11 @@ cudaError_t cudaFreeHost(void *ptr)
     return error;
 }
 
-cudaError_t cudaMalloc(void **ptr, size_t size)
+cudaError_t cudaMallocAsync(void **ptr, size_t size, cudaStream_t stream)
 {
-#ifndef USE_LEGACY_MEMPOOL
+#ifndef USE_CUDAMALLOCASYNC
 
-    cudaError_t e = ::cudaMallocAsync(ptr, size, getStream());
-    if(e != cudaSuccess) { return e; }
-
-    return cudaStreamSynchronize(0);
+    return ::cudaMallocAsync(ptr, size, stream);
 
 #else
 
@@ -962,11 +959,11 @@ cudaError_t cudaMalloc(void **ptr, size_t size)
 #endif
 }
 
-cudaError_t cudaFreeAsync(void *ptr)
+cudaError_t cudaFreeAsync(void *ptr, cudaStream_t stream)
 {
-#ifndef USE_LEGACY_MEMPOOL
+#ifndef USE_CUDAMALLOCASYNC
 
-    return ::cudaFreeAsync(ptr, getStream());
+    return ::cudaFreeAsync(ptr, stream);
 
 #else
 

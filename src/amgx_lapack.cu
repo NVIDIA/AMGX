@@ -1014,7 +1014,7 @@ void gpu_geqrf(int m, int n, T *a, int lda,
 {
     int k = std::min(m, n);
     T *aii;
-    amgx::memory::cudaMalloc((void**)&aii, sizeof(T));
+    amgx::memory::cudaMallocAsync((void**)&aii, sizeof(T));
 
     for (int i = 0; i < k; ++i)
     {

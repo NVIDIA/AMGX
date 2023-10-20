@@ -327,6 +327,25 @@ int main(int argc, char **argv)
         errAndExit("ERROR: no linear system was specified");
     }
 
+    pidx = findParamIndex(argv, argc, "-cs");
+    if(pidx != -1) 
+    {
+        int structurally_symmetric = 0;
+        int symmetric = 0;
+
+        printf("Checking matrix symmetry\n");
+        AMGX_matrix_check_symmetry(A, &structurally_symmetric, &symmetric);
+        if(symmetric) {
+            printf("A is symmetric\n");
+        }
+        else if(structurally_symmetric) {
+            printf("A is structurally_symmetric\n");
+        }
+        else {
+            printf("A is assymetric\n");
+        }
+    }
+
     //free temporary storage
     if (partition_vector != NULL) { free(partition_vector); }
 

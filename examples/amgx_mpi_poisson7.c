@@ -129,10 +129,6 @@ int main(int argc, char **argv)
     //versions
     int major, minor;
     char *ver, *date, *time;
-    //input matrix and rhs/solution
-    int *partition_sizes = NULL;
-    int *partition_vector = NULL;
-    int partition_vector_size = 0;
     //library handles
     AMGX_Mode mode;
     AMGX_config_handle cfg;

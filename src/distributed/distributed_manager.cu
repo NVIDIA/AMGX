@@ -1901,7 +1901,6 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
         //you are in case 1 or 3 from the above comment
         ptr_h = ptr;
     }
-#endif
 
     cudaGetLastError(); //to reset last error
 
@@ -1912,6 +1911,7 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
     }
 
     return ptr_h;
+#endif
 }
 
 // if pointer is host pointer - returns data. If it is device pointer - copies it to the m_pinned_buffer and returns pointer to m_pinned_buffer

@@ -1209,18 +1209,18 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              double *y,
                              const cudaStream_t& stream)
 {
-    // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
-
     #ifndef DISABLE_MIXED_PRECISION
+        // Run cuSparse on selected stream
+        cusparseSetStream(handle, stream);
+
         const double *d_bsrVal = reinterpret_cast<const double *>(const_cast<float *>(bsrVal)); // this works due to private API call in the matrix initialization which sets cusparse matrix description in the half precision mode
         cusparseCheckError(cusparseDbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
+
+        // Reset cuSparse to default stream
+        cusparseSetStream(handle, 0);
     #else
         FatalError("Mixed precision modes not currently supported for CUDA 10.1 or later.", AMGX_ERR_NOT_IMPLEMENTED);
     #endif
-
-    // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
 }
 
 // Custom implementation of matrix-vector product to replace the original bsrxmv,
@@ -1491,18 +1491,18 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              cuDoubleComplex *y,
                              const cudaStream_t& stream)
 {
-    // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
-
     #ifndef DISABLE_MIXED_PRECISION
+        // Run cuSparse on selected stream
+        cusparseSetStream(handle, stream);
+
         const cuDoubleComplex *d_bsrVal = reinterpret_cast<cuDoubleComplex *>(const_cast<cuComplex *>(bsrVal));
         cusparseCheckError(cusparseZbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
+
+        // Reset cuSparse to default stream
+        cusparseSetStream(handle, 0);
     #else
         FatalError("Mixed precision modes not currently supported for CUDA 10.1 or later.", AMGX_ERR_NOT_IMPLEMENTED);
     #endif
-
-    // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
 }
 
 

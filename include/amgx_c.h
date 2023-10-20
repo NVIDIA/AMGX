@@ -608,6 +608,11 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
  const void *diag_data,
  AMGX_distribution_handle distribution);
 
+AMGX_RC AMGX_API AMGX_check_matrix_symmetry
+(AMGX_matrix_handle mtx,
+ int* structurally_symmetric,
+ int* symmetric);
+
 /*********************************************************
  * C-API deprecated
  *********************************************************/

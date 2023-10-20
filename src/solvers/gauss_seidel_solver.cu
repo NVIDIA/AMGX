@@ -158,7 +158,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec
         {
             if (A.col_indices[j] == i)
             {
-                this->diag[i] = /*static_cast<ValueTypeB>(1) /*/ A.values[j];
+                this->diag[i] = A.values[j];
                 break;
             }
 

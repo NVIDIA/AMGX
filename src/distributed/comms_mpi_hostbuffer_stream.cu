@@ -1427,25 +1427,25 @@ void CommsMPIHostBufferStream<T_Config>::recv_vector_wait_all(HZVector &a) { rec
 template <class T_Config>
 int CommsMPIHostBufferStream<T_Config>::get_num_partitions()
 {
-    int total = 0;
 #ifdef AMGX_WITH_MPI
+    int total = 0;
     MPI_Comm_size( mpi_comm, &total );
+    return total;
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
 #endif
-    return total;
 }
 
 template <class T_Config>
 int CommsMPIHostBufferStream<T_Config>::get_global_id()
 {
-    int rank = 0;
 #ifdef AMGX_WITH_MPI
+    int rank = 0;
     MPI_Comm_rank( mpi_comm, &rank);
+    return rank;
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
 #endif
-    return rank;
 }
 
 

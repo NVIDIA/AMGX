@@ -166,8 +166,8 @@ int main(int argc, char **argv)
     int major, minor;
     char *ver, *date, *time;
     //input matrix and rhs/solution
-    int n, nnz, block_dimx, block_dimy, block_size, num_neighbors;
-    int *row_ptrs = NULL, *neighbors = NULL;
+    int n, nnz, block_dimx, block_dimy, block_size;
+    int *row_ptrs = NULL;
     void *col_indices = NULL;
     void *values = NULL, *diag = NULL, *dh_x = NULL, *dh_b = NULL;
     int *h_row_ptrs = NULL;

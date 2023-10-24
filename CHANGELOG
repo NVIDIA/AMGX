@@ -36,10 +36,10 @@ Changes:
 Tested configurations:
 
 Linux x86-64:
--- Ubuntu 20.04, Ubuntu 18.04
--- NVHPC 23.7, GCC 12.1
+-- Ubuntu 20.04, Ubuntu 22.04
+-- NVHPC 23.7, GCC 9.4.0, GCC 12.1
 -- OpenMPI 4.0.x
--- CUDA 11.3, 11.8, 12.2
+-- CUDA 11.2, 11.8, 12.2
 -- A100, H100
 
 Note that while AMGX has support for building in Windows, testing on Windows is very limited.

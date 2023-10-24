@@ -415,7 +415,6 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
         fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
 
         auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };
-        auto trafJ = [&](auto const &J, auto const &j) { return J *  this->get_block_dimx() + j + 1; };
 
         for (i = printRowsStart; i < printRowsEnd; i++)
         {

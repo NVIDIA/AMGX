@@ -2386,11 +2386,7 @@ void Aggregation_AMG_Level_Base<T_Config>::consolidateCoarseGridMatrix()
     Matrix<TConfig> &A = this->getA();
     Matrix<TConfig> &Ac = this->getNextLevel( MemorySpace( ) )->getA();
 
-    int num_parts, num_fine_neighbors, my_id;
-
-    num_parts = A.manager->getComms()->get_num_partitions();
-    num_fine_neighbors = A.manager->neighbors.size();
-    my_id = A.manager->global_id();
+    int my_id = A.manager->global_id();
         
     IVector_h &destination_part = A.manager->getDestinationPartitions();
     int my_destination_part = A.manager->getMyDestinationPartition();

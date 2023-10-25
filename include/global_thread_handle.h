@@ -141,7 +141,7 @@ class MemoryPool
         //Mutex added to fix ICE threadsafe issue
         std::mutex m_mutex2;
 
-#ifndef USE_CUDAMALLOCASYNC
+#ifdef USE_CUDAMALLOCASYNC
         cudaMemPool_t m_mem_pool;
 #endif
 

@@ -64,7 +64,7 @@ class Dummy_Solver : public Solver<T_Config>
         bool getInsertDiagonalDesired() const { return false; }
 
         // Run a single iteration. Compute the residual and its norm and decide convergence.
-        bool solve_iteration( VVector &b, VVector &x, bool xIsZero );
+        AMGX_STATUS solve_iteration( VVector &b, VVector &x, bool xIsZero );
 
 };
 

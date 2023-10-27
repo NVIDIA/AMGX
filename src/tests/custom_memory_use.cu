@@ -437,7 +437,7 @@ void run()
     size_t free_mem, total_mem;
     cudaMemGetInfo(&free_mem, &total_mem);
     size_t context_buffer = 10000000;
-    thrust::device_vector<double> test_vector;
+    amgx::thrust::device_vector<double> test_vector;
     int vec_size = (free_mem - context_buffer) / 8;
     test_vector.resize(vec_size);
     test_vector.clear();

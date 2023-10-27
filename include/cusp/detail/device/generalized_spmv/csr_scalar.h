@@ -53,12 +53,12 @@ void spmv_csr_scalar_kernel(SizeType        num_rows,
                             BinaryFunction1 combine,
                             BinaryFunction2 reduce)
 {
-  typedef typename thrust::iterator_value<IndexIterator1>::type IndexType1;
-  typedef typename thrust::iterator_value<IndexIterator2>::type IndexType2;
-  typedef typename thrust::iterator_value<ValueIterator1>::type ValueType1;
-  typedef typename thrust::iterator_value<ValueIterator2>::type ValueType2;
-  typedef typename thrust::iterator_value<ValueIterator3>::type ValueType3;
-  typedef typename thrust::iterator_value<ValueIterator4>::type ValueType4;
+  typedef typename amgx::thrust::iterator_value<IndexIterator1>::type IndexType1;
+  typedef typename amgx::thrust::iterator_value<IndexIterator2>::type IndexType2;
+  typedef typename amgx::thrust::iterator_value<ValueIterator1>::type ValueType1;
+  typedef typename amgx::thrust::iterator_value<ValueIterator2>::type ValueType2;
+  typedef typename amgx::thrust::iterator_value<ValueIterator3>::type ValueType3;
+  typedef typename amgx::thrust::iterator_value<ValueIterator4>::type ValueType4;
 
   const SizeType thread_id = BLOCK_SIZE * blockIdx.x + threadIdx.x;
   const SizeType grid_size = BLOCK_SIZE * gridDim.x;

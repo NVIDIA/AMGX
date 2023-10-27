@@ -681,7 +681,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         aggregates.resize(A.get_num_rows());
     }
 
-    thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
     //typedef typename csr_matrix_d::index_type IndexType;
     //typedef typename csr_matrix_d::value_type ValueType;
@@ -713,7 +713,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         matchEdges <<< num_blocks, threads_per_block>>>(num_rows, aggregates_ptr, strongest_neighbour_ptr);
         cudaCheckError();
         numUnassigned_previous = numUnassigned;
-        numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_rows, -1);
+        numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_rows, -1);
         cudaCheckError();
         icount++;
     }
@@ -727,7 +727,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             mergeWithExistingAggregatesCsr <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_values_ptr,
                     diag_ptr, num_rows, aggregates_ptr, this->deterministic, (IndexType *) NULL);
             cudaCheckError();
-            numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_rows, -1);
+            numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_rows, -1);
             cudaCheckError();
         };
     }
@@ -742,7 +742,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             // Sync here
             joinExistingAggregates <<< num_blocks, threads_per_block>>>(num_rows, aggregates_ptr, aggregates_candidate.raw());
             cudaCheckError();
-            numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_rows, -1);
+            numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_rows, -1);
             cudaCheckError();
         };
 
@@ -766,7 +766,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     cusp::detail::offsets_to_indices(A.row_offsets, row_indices);
     IndexType total_rows = (A.is_matrix_singleGPU()) ? A.get_num_rows() : A.manager->num_rows_all();
     aggregates.resize(total_rows);
-    thrust::fill(aggregates.begin(), aggregates.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(aggregates.begin(), aggregates.end(), -1);
     cudaCheckError();
     const IndexType *A_row_offsets_ptr = A.row_offsets.raw();
     const IndexType *A_row_indices_ptr = row_indices.raw();
@@ -789,9 +789,9 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     float *rand_edge_weights_ptr = NULL;//(this->two_phase ? rand_edge_weights.raw() : NULL);
     // Compute the edge weights
     cudaFuncSetCacheConfig(computeEdgeWeightsBlockDiaCsr_V2<IndexType, ValueType, float>, cudaFuncCachePreferL1);
-    computeEdgeWeightsBlockDiaCsr_V2 <<< num_blocks_V2, threads_per_block, 0, thrust::global_thread_handle::get_stream()>>>(A_row_offsets_ptr, A_row_indices_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, num_nonzero_blocks, edge_weights_ptr, rand_edge_weights_ptr, num_block_rows, A.get_block_dimy(), this->m_aggregation_edge_weight_component, this->weight_formula);
+    computeEdgeWeightsBlockDiaCsr_V2 <<< num_blocks_V2, threads_per_block, 0, amgx::thrust::global_thread_handle::get_stream()>>>(A_row_offsets_ptr, A_row_indices_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, num_nonzero_blocks, edge_weights_ptr, rand_edge_weights_ptr, num_block_rows, A.get_block_dimy(), this->m_aggregation_edge_weight_component, this->weight_formula);
     cudaCheckError();
-    cudaStream_t str = thrust::global_thread_handle::get_stream();
+    cudaStream_t str = amgx::thrust::global_thread_handle::get_stream();
 #ifdef EXPERIMENTAL_ITERATIVE_MATCHING
     AsyncEvent *throttle_event = new AsyncEvent;
     throttle_event->create();
@@ -849,7 +849,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
 #else
             cudaStreamSynchronize(str);
             numUnassigned_previous = numUnassigned;
-            numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
+            numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
             cudaCheckError();
 #endif
             icount++;
@@ -869,7 +869,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             {
                 mergeWithExistingAggregatesBlockDiaCsr_V2 <<< num_blocks, threads_per_block, 0, str>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, aggregates_ptr, A.get_block_dimy(), this->deterministic, (IndexType *) NULL);
                 cudaCheckError();
-                numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
+                numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
                 cudaCheckError();
             }
         }
@@ -883,7 +883,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
                 cudaCheckError();
                 joinExistingAggregates <<< num_blocks, threads_per_block, 0, str>>>(num_block_rows, aggregates_ptr, aggregates_candidate.raw());
                 cudaCheckError();
-                numUnassigned = (int)thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
+                numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
                 cudaCheckError();
             }
 

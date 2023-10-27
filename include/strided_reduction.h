@@ -28,58 +28,12 @@
 #pragma once
 
 #include <cstdio>
-#include "memory_intrinsics.h"
 #include "sm_utils.inl"
 #include <cutil.h>
 
 #include <global_thread_handle.h>
 
 #include <amgx_types/util.h>
-
-namespace utils
-{
-/**
- * Bitfield-extract.
- */
-template <typename UnsignedBits>
-__device__ __forceinline__ unsigned int BFE(
-    UnsignedBits source,
-    unsigned int bit_start,
-    unsigned int num_bits)
-{
-    unsigned int bits;
-    asm("bfe.u32 %0, %1, %2, %3;" : "=r"(bits) : "r"((unsigned int) source), "r"(bit_start), "r"(num_bits));
-    return bits;
-}
-
-
-/**
- * Bitfield-extract for 64-bit types.
- */
-__device__ __forceinline__ unsigned int BFE(
-    unsigned long long source,
-    unsigned int bit_start,
-    unsigned int num_bits)
-{
-    const unsigned long long MASK = (1ull << num_bits) - 1;
-    return (source >> bit_start) & MASK;
-}
-
-
-/**
- * Bitfield insert.  Inserts the first num_bits of y into x starting at bit_start
- */
-__device__ __forceinline__ void BFI(
-    unsigned int &ret,
-    unsigned int x,
-    unsigned int y,
-    unsigned int bit_start,
-    unsigned int num_bits)
-{
-    asm volatile("bfi.b32 %0, %1, %2, %3, %4;" : "=r"(ret) : "r"(y), "r"(x), "r"(bit_start), "r"(num_bits));
-}
-
-}
 
 namespace amgx
 {
@@ -216,7 +170,7 @@ template<> struct warp_loader<int, 4> : public  loader_base< warp_loader<int, 4>
     {
         int4 i;
         {
-            i = __load_global ((int4 *  ) (in + i0));
+            i = __ldcg((int4 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
             out[2] = i.z;
@@ -235,7 +189,7 @@ template<> struct warp_loader<float, 4> : public  loader_base< warp_loader<float
     {
         float4 i;
         {
-            i = __load_global ((float4 *  ) (in + i0));
+            i = __ldcg((float4 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
             out[2] = i.z;
@@ -254,7 +208,7 @@ template<> struct warp_loader<int, 2> : public  loader_base< warp_loader<int, 2>
     {
         int2 i;
         {
-            i = __load_global ((int2 *  ) (in + i0));
+            i = __ldcg((int2 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
         }
@@ -271,7 +225,7 @@ template<> struct warp_loader<float, 2> : public  loader_base< warp_loader<float
     {
         float2 i;
         {
-            i = __load_global ((float2 *  ) (in + i0));
+            i = __ldcg((float2 *  ) (in + i0));
             out[0] = i.x;
             out[1] = i.y;
         }
@@ -597,7 +551,7 @@ __global__ void strided_reduction_collect_partials(T *out_sums, T *partial_sums,
 template<int STRIDE, class scalar_t, class OP>
 void count_block_results(scalar_t *out_host, const int n_blocks, scalar_t *out_d, const OP &op = OP())
 {
-    strided_reduction_collect_partials<scalar_t, STRIDE, 32, OP> <<< 1, 32, 0, thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
+    strided_reduction_collect_partials<scalar_t, STRIDE, 32, OP> <<< 1, 32, 0, amgx::thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
     cudaCheckError();
     cudaMemcpy(out_host, out_d, STRIDE * sizeof(scalar_t), cudaMemcpyDeviceToHost);
 }
@@ -711,15 +665,16 @@ void launch_strided_reduction(scalar_out *out_host, const scalar_t *in_d, const 
     const int n_blocks = std::min(  (long long int) 13 * 2, (N - 1) / (n_items_per_thread * cta_size) + 1   ); //just one wave of blocks
     const int out_size = n_blocks * STRIDE;
     scalar_out *out_d = 0;
-    thrust::global_thread_handle::cudaMalloc((void **) &out_d, out_size * sizeof(scalar_out));
+    amgx::memory::cudaMallocAsync((void **) &out_d, out_size * sizeof(scalar_out));
+    cudaCheckError();
     cudaMemset(out_d, 0, out_size * sizeof(scalar_out));
     cudaFuncSetCacheConfig(strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM>, cudaFuncCachePreferL1);
-    strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);
+    strided_reduction<STRIDE, cta_size, 32, 16, op_sum, scalar_t, scalar_out, TRANSFORM> <<< n_blocks, cta_size, 0, amgx::thrust::global_thread_handle::get_stream()>>>(in_d, N, out_d, tx);
     cudaCheckError();
-    strided_reduction_collect_partials<scalar_out, STRIDE, 32, op_sum> <<< 1, 32, 0, thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
+    strided_reduction_collect_partials<scalar_out, STRIDE, 32, op_sum> <<< 1, 32, 0, amgx::thrust::global_thread_handle::get_stream()>>>(out_d, out_d, n_blocks);
     cudaCheckError();
     cudaMemcpy(out_host, out_d, STRIDE * sizeof(scalar_out), cudaMemcpyDeviceToHost);
-    thrust::global_thread_handle::cudaFreeAsync((void *) out_d);
+    amgx::memory::cudaFreeAsync((void *) out_d);
 }
 
 template< class scalar_t, class scalar_out, class TRANSFORM, bool real>

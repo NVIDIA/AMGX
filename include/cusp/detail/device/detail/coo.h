@@ -61,37 +61,37 @@ void coo_elementwise_transform_simple(const Matrix1& A,
     cusp::array1d<IndexType,MemorySpace> cols(A_nnz + B_nnz);
     cusp::array1d<ValueType,MemorySpace> vals(A_nnz + B_nnz);
 
-    thrust::copy(A.row_indices.begin(),    A.row_indices.end(),    rows.begin());
-    thrust::copy(B.row_indices.begin(),    B.row_indices.end(),    rows.begin() + A_nnz);
-    thrust::copy(A.column_indices.begin(), A.column_indices.end(), cols.begin());
-    thrust::copy(B.column_indices.begin(), B.column_indices.end(), cols.begin() + A_nnz);
-    thrust::copy(A.values.begin(),         A.values.end(),         vals.begin());
+    amgx::thrust::copy(A.row_indices.begin(),    A.row_indices.end(),    rows.begin());
+    amgx::thrust::copy(B.row_indices.begin(),    B.row_indices.end(),    rows.begin() + A_nnz);
+    amgx::thrust::copy(A.column_indices.begin(), A.column_indices.end(), cols.begin());
+    amgx::thrust::copy(B.column_indices.begin(), B.column_indices.end(), cols.begin() + A_nnz);
+    amgx::thrust::copy(A.values.begin(),         A.values.end(),         vals.begin());
 
     // apply transformation to B's values 
-    thrust::transform(B.values.begin(), B.values.end(), vals.begin() + A_nnz, op);
+    thrust_wrapper::transform(B.values.begin(), B.values.end(), vals.begin() + A_nnz, op);
 
     // sort by (I,J)
     cusp::detail::sort_by_row_and_column(rows, cols, vals);
 
     // compute unique number of nonzeros in the output
-    IndexType C_nnz = thrust::inner_product(thrust::make_zip_iterator(thrust::make_tuple(rows.begin(), cols.begin())),
-                                            thrust::make_zip_iterator(thrust::make_tuple(rows.end (),  cols.end()))   - 1,
-                                            thrust::make_zip_iterator(thrust::make_tuple(rows.begin(), cols.begin())) + 1,
+    IndexType C_nnz = amgx::thrust::inner_product(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(rows.begin(), cols.begin())),
+                                            amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(rows.end (),  cols.end()))   - 1,
+                                            amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(rows.begin(), cols.begin())) + 1,
                                             IndexType(1),
-                                            thrust::plus<IndexType>(),
-                                            thrust::not_equal_to< thrust::tuple<IndexType,IndexType> >());
+                                            amgx::thrust::plus<IndexType>(),
+                                            amgx::thrust::not_equal_to< amgx::thrust::tuple<IndexType,IndexType> >());
 
     // allocate space for output
     C.resize(A.num_rows, A.num_cols, C_nnz);
 
     // sum values with the same (i,j)
-    thrust::reduce_by_key(thrust::make_zip_iterator(thrust::make_tuple(rows.begin(), cols.begin())),
-                          thrust::make_zip_iterator(thrust::make_tuple(rows.end(),   cols.end())),
+    amgx::thrust::reduce_by_key(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(rows.begin(), cols.begin())),
+                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(rows.end(),   cols.end())),
                           vals.begin(),
-                          thrust::make_zip_iterator(thrust::make_tuple(C.row_indices.begin(), C.column_indices.begin())),
+                          amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(C.row_indices.begin(), C.column_indices.begin())),
                           C.values.begin(),
-                          thrust::equal_to< thrust::tuple<IndexType,IndexType> >(),
-                          thrust::plus<ValueType>());
+                          amgx::thrust::equal_to< amgx::thrust::tuple<IndexType,IndexType> >(),
+                          amgx::thrust::plus<ValueType>());
 }
 
 template <typename Matrix1,
@@ -103,7 +103,7 @@ void coo_add(const Matrix1& A,
 {
     typedef typename Matrix2::value_type ValueType;
 
-    coo_elementwise_transform_simple(A, B, C, thrust::identity<ValueType>());
+    coo_elementwise_transform_simple(A, B, C, amgx::thrust::identity<ValueType>());
 }
 
 template <typename Matrix1,
@@ -115,7 +115,7 @@ void coo_subtract(const Matrix1& A,
 {
     typedef typename Matrix2::value_type ValueType;
 
-    coo_elementwise_transform_simple(A, B, C, thrust::negate<ValueType>());
+    coo_elementwise_transform_simple(A, B, C, amgx::thrust::negate<ValueType>());
 }
 
 

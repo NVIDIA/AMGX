@@ -173,6 +173,9 @@ endif()
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPP_BUILD_NAME)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${CUDA_NVCC_FLAGS_${UPP_BUILD_NAME}})
 
+# Enable device lambdas
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --extended-lambda)
+
 # Add errors for execution space warnings and enable NVTX ranges
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --Werror cross-execution-space-call ${NVTXRANGE_FLAG})
 

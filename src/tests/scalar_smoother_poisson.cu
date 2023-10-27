@@ -84,7 +84,7 @@ void check_scalar_smoothers_poisson(int points, int nx, int ny, int nz, std::str
     int n_rows = A.get_num_rows() * bsize;
     // Fill b with ones
     b.resize(n_rows);
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<AMGX_host>(b.begin(), b.end(), 1);
     b.set_block_dimx(1);
     b.set_block_dimy(A.get_block_dimy());
     x.set_block_dimx(1);

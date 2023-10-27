@@ -115,7 +115,7 @@ void __spmv_dia(const cusp::dia_matrix<IndexType,ValueType,cusp::device_memory>&
 {
     const unsigned int BLOCK_SIZE = 256;
     const unsigned int MAX_BLOCKS = MAX_THREADS / BLOCK_SIZE;
-//    const unsigned int MAX_BLOCKS = thrust::experimental::arch::max_active_blocks(spmv_dia_kernel<IndexType, ValueType, BLOCK_SIZE, UseCache>, BLOCK_SIZE, (size_t) 0);
+//    const unsigned int MAX_BLOCKS = amgx::thrust::experimental::arch::max_active_blocks(spmv_dia_kernel<IndexType, ValueType, BLOCK_SIZE, UseCache>, BLOCK_SIZE, (size_t) 0);
     const unsigned int NUM_BLOCKS = std::min(MAX_BLOCKS, DIVIDE_INTO(dia.num_rows, BLOCK_SIZE));
    
     const IndexType stride = dia.values.num_rows;
@@ -131,10 +131,10 @@ void __spmv_dia(const cusp::dia_matrix<IndexType,ValueType,cusp::device_memory>&
 
         spmv_dia_kernel<BLOCK_SIZE, UseCache> <<<NUM_BLOCKS, BLOCK_SIZE>>>
             (dia.num_rows, dia.num_cols, num_diagonals, stride,
-             thrust::raw_pointer_cast(&dia.diagonal_offsets[0]) + base,
-             thrust::raw_pointer_cast(&dia.values.values[0]) + base * stride,
+             amgx::thrust::raw_pointer_cast(&dia.diagonal_offsets[0]) + base,
+             amgx::thrust::raw_pointer_cast(&dia.values.values[0]) + base * stride,
              x, y,
-             thrust::identity<ValueType>(), thrust::multiplies<ValueType>(), thrust::plus<ValueType>());
+             amgx::thrust::identity<ValueType>(), amgx::thrust::multiplies<ValueType>(), amgx::thrust::plus<ValueType>());
     }
 
     if (UseCache)

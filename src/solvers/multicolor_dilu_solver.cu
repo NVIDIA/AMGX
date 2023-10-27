@@ -35,7 +35,6 @@
 #include <basic_types.h>
 #include <util.h>
 #include <texture.h>
-#include <ld_functions.h>
 #include <matrix_io.h>
 #include <thrust/logical.h>
 #include <sm_utils.inl>
@@ -3845,7 +3844,7 @@ MulticolorDILUSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xI
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if ( this->m_explicit_A->get_block_dimx() != this->m_explicit_A->get_block_dimy() )
@@ -3896,7 +3895,7 @@ MulticolorDILUSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bo
 
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), types::util<ValueTypeB>::get_zero());
         cudaCheckError();
     }
 
@@ -3987,7 +3986,7 @@ void MulticolorDILUSolver<TemplateConfig<AMGX_device, V, M, I> >::computeEinv_Nx
 
         const int ROWS_PER_CTA = ROWS_PER_WARP * NUM_WARPS_PER_CTA;
         const int GRID_SIZE = std::min( 4096, (num_rows_per_color + ROWS_PER_CTA - 1) / ROWS_PER_CTA );
-        cudaStream_t stream = thrust::global_thread_handle::get_stream();
+        cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
 
         switch ( bsize )
         {

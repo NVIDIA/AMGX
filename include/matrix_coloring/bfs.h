@@ -103,7 +103,7 @@ template<int CTA_SIZE, int WARP_SIZE, class T> __device__ __forceinline__ T bloc
 
 
 //util
-template<class T> T *to_ptr(device_vector_alloc<T> &v) { return thrust::raw_pointer_cast( &v.front() ); };
+template<class T> T *to_ptr(device_vector_alloc<T> &v) { return amgx::thrust::raw_pointer_cast( &v.front() ); };
 
 //expand the list of neighbors
 template<int CTA_SIZE, int WARP_SIZE>
@@ -188,12 +188,12 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
     device_vector_alloc<int> task_queue_in(num_nonzero);//num_edges
     device_vector_alloc<int> task_queue_out(num_nonzero);//num_edges
     device_vector_alloc<int> task_queue_out_tail(1);//num_edges
-    thrust::fill(distances.begin(), distances.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(distances.begin(), distances.end(), -1);
     cudaCheckError();
-    int *distances_ptr = thrust::raw_pointer_cast( &distances.front() );
-    int *task_queue_in_ptr = thrust::raw_pointer_cast( &task_queue_in.front() );;
-    int *task_queue_out_ptr = thrust::raw_pointer_cast( &task_queue_out.front() );;
-    int *task_queue_out_tail_ptr = thrust::raw_pointer_cast( &task_queue_out_tail.front() );;
+    int *distances_ptr = amgx::thrust::raw_pointer_cast( &distances.front() );
+    int *task_queue_in_ptr = amgx::thrust::raw_pointer_cast( &task_queue_in.front() );;
+    int *task_queue_out_ptr = amgx::thrust::raw_pointer_cast( &task_queue_out.front() );;
+    int *task_queue_out_tail_ptr = amgx::thrust::raw_pointer_cast( &task_queue_out_tail.front() );;
     int task_queue_n = 1;
     task_queue_n = 1;
     task_queue_in[0] = start;
@@ -202,7 +202,7 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
 
     for (int iteration = 0; ; ++iteration)
     {
-        int check = thrust::count(distances.begin(), distances.end(), -1);
+        int check = amgx::thrust::count(distances.begin(), distances.end(), -1);
         cudaCheckError();
         //update remaining
 
@@ -217,15 +217,15 @@ void bfs(const int start, const int num_rows, const int num_nonzero, const int *
                                            task_queue_in_ptr, task_queue_n, task_queue_out_ptr, task_queue_out_tail_ptr);
         task_queue_n = task_queue_out_tail[0];
         cudaCheckError();
-        //contract duplicates using thrust
-        thrust_wrapper::sort(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
+        //contract duplicates using amgx::thrust::
+        thrust_wrapper::sort<AMGX_device>(task_queue_out.begin(), task_queue_out.begin() + task_queue_n);
         cudaCheckError();
-        task_queue_n = thrust::unique(task_queue_out.begin(), task_queue_out.begin() + task_queue_n) - task_queue_out.begin();
+        task_queue_n = amgx::thrust::unique(task_queue_out.begin(), task_queue_out.begin() + task_queue_n) - task_queue_out.begin();
         cudaCheckError();
-        //remove visited: thrust remove_if with counting_iterator
-        task_queue_n = thrust::remove_if(task_queue_out.begin(), task_queue_out.begin() + task_queue_n, filter_visited_closure(distances_ptr)) - task_queue_out.begin();
+        //remove visited: amgx::thrust:: remove_if with counting_iterator
+        task_queue_n = amgx::thrust::remove_if(task_queue_out.begin(), task_queue_out.begin() + task_queue_n, filter_visited_closure(distances_ptr)) - task_queue_out.begin();
         cudaCheckError();
-        thrust::copy(task_queue_out.begin(), task_queue_out.begin() + task_queue_n, task_queue_in.begin());
+        amgx::thrust::copy(task_queue_out.begin(), task_queue_out.begin() + task_queue_n, task_queue_in.begin());
     }
 }
 
@@ -301,7 +301,7 @@ __global__ void block_seeded_bfs_expand(
 
         for (int i = row_begin; i < row_end; ++i)
         {
-            int col = __load_nc(col_indices + i);
+            int col = __ldg(col_indices + i);
             int old_visited_by = atomicCAS(visited_by + col, -1, blockIdx.x); //marks atomically the node
 
             if (old_visited_by == -1) //I am the winner!
@@ -327,7 +327,7 @@ __global__ void block_seeded_bfs_expand(
 
         for (int i = row_begin; i < row_end; ++i)
         {
-            int col = __load_nc(col_indices + i);
+            int col = __ldg(col_indices + i);
             int old_visited_by = atomicCAS(visited_by + col, -1, blockIdx.x | row_tag); //marks atomically the node
 
             if (old_visited_by == -1) //I am the winner!
@@ -351,7 +351,7 @@ __global__ void block_seeded_bfs_expand(
 
         for (int i = row_begin; i < row_end; ++i)
         {
-            int col = __load_nc(col_indices + i);
+            int col = __ldg(col_indices + i);
             int vb = atomicCAS(visited_by + col, blockIdx.x | row_tag, blockIdx.x); //visited_by[col] & block_mask;
 
             if (vb == (blockIdx.x | row_tag))
@@ -382,12 +382,12 @@ void block_seeded_bfs(const int num_rows, const int num_nonzero, const int *row_
     device_vector_alloc<int> task_queue_out(num_nonzero);//num_edges
     device_vector_alloc<int> task_queue_out_tail(1);//num_edges
     device_vector_alloc<int> task_queue_visited_by(num_nonzero);//num_edges
-    thrust::fill(distances.begin(), distances.end(), -1);
-    thrust::fill(visited_by.begin(), visited_by.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(distances.begin(), distances.end(), -1);
+    thrust_wrapper::fill<AMGX_device>(visited_by.begin(), visited_by.end(), -1);
     cudaCheckError();
     int num_blocks = 1;
     device_vector_alloc<int> task_queue_block_counts(num_blocks);
-    thrust::host_vector<int> task_queue_block_counts_h(num_blocks);
+    amgx::thrust::host_vector<int> task_queue_block_counts_h(num_blocks);
     //device_vector_alloc<int> task_queue_block_tails(num_blocks);
     device_vector_alloc<int> visited_by_heads(num_blocks + 1);
     int task_queue_n = num_blocks;
@@ -407,7 +407,7 @@ void block_seeded_bfs(const int num_rows, const int num_nonzero, const int *row_
 
     for (int iteration = 0; ; ++iteration)
     {
-        int check = thrust::count(distances.begin(), distances.end(), -1);
+        int check = amgx::thrust::count(distances.begin(), distances.end(), -1);
         cudaCheckError();
         //update remaining
 #if AMGX_SEEDEDBFS_DBG

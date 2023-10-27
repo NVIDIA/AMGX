@@ -59,9 +59,9 @@ void random(size_t num_rows, size_t num_cols, size_t num_samples, MatrixType& ou
     // sort indices by (row,column)
     coo.sort_by_row_and_column();
 
-    size_t num_entries = thrust::unique(thrust::make_zip_iterator(thrust::make_tuple(coo.row_indices.begin(), coo.column_indices.begin())),
-                                        thrust::make_zip_iterator(thrust::make_tuple(coo.row_indices.end(),   coo.column_indices.end())))
-                         - thrust::make_zip_iterator(thrust::make_tuple(coo.row_indices.begin(), coo.column_indices.begin()));
+    size_t num_entries = amgx::thrust::unique(amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(coo.row_indices.begin(), coo.column_indices.begin())),
+                                        amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(coo.row_indices.end(),   coo.column_indices.end())))
+                         - amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(coo.row_indices.begin(), coo.column_indices.begin()));
 
     coo.resize(num_rows, num_cols, num_entries);
     

@@ -25,7 +25,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <memory_intrinsics.h>
 #include <strided_reduction.h>
 #include <cstdio>
 
@@ -64,13 +63,13 @@ void my_findStrongestNeighbourBlockDiaCsr_NoMergeClean(
 
         if (valid_tid)
         {
-            is_unassigned = (__load_streaming(partner_index + tid) == -1);
+            is_unassigned = (__ldcs(partner_index + tid) == -1);
         }
 
         if (is_unassigned) // Unaggregated row
         {
-            jmin = __load_all(row_offsets + tid);
-            jmax = __load_all(row_offsets + tid + 1);
+            jmin = __ldca(row_offsets + tid);
+            jmax = __ldca(row_offsets + tid + 1);
         }
 
         if (utils::any(is_unassigned))
@@ -92,7 +91,7 @@ void my_findStrongestNeighbourBlockDiaCsr_NoMergeClean(
 
                     if (j >= jmin && j < jmax)
                     {
-                        P[i] = __load_nc(partner_index + jcol); //make this load ASAP
+                        P[i] = __ldg(partner_index + jcol); //make this load ASAP
                     }
                 }
 
@@ -179,13 +178,13 @@ void my_findStrongestNeighbourBlockDiaCsr_NoMerge(
             if (valid_tid)
             {
                 rowi  = unassigned_per_block[tid];//unassigned_per_block+bid*256+threadIdx.x);
-                is_unassigned = (__load_nc(partner_index + rowi) == -1);
+                is_unassigned = (__ldg(partner_index + rowi) == -1);
             }
 
             if (is_unassigned)
             {
-                jmin = __load_nc(row_offsets + rowi);
-                jmax = __load_nc(row_offsets + rowi + 1);
+                jmin = __ldg(row_offsets + rowi);
+                jmax = __ldg(row_offsets + rowi + 1);
             }
         }
         else
@@ -194,17 +193,17 @@ void my_findStrongestNeighbourBlockDiaCsr_NoMerge(
 
             if (ALGORITHM == ALGORITHM_NOMERGE)
             {
-                if (valid_tid) { is_unassigned = (__load_streaming(partner_index + tid) == -1); }
+                if (valid_tid) { is_unassigned = (__ldcs(partner_index + tid) == -1); }
             }
             else //ALGORITHM_STOREWEIGHTS or ALGORITHM_STOREWEIGHTS_2
             {
-                if (valid_tid) { is_unassigned = (__load_streaming(aggregated + tid) == -1); }
+                if (valid_tid) { is_unassigned = (__ldcs(aggregated + tid) == -1); }
             }
 
             if (is_unassigned) // mind the else above
             {
-                jmin = __load_global(row_offsets + rowi);
-                jmax = __load_lastuse(row_offsets + rowi + 1);
+                jmin = __ldg(row_offsets + rowi);
+                jmax = __ldlu(row_offsets + rowi + 1);
             }
         }
 
@@ -245,11 +244,11 @@ void my_findStrongestNeighbourBlockDiaCsr_NoMerge(
                     {
                         if (ALGORITHM == ALGORITHM_NOMERGE)
                         {
-                            P[i] = __load_nc(partner_index + jcol);    //make this load ASAP
+                            P[i] = __ldg(partner_index + jcol);    //make this load ASAP
                         }
                         else
                         {
-                            P[i] = __load_nc(aggregated + jcol);
+                            P[i] = __ldg(aggregated + jcol);
                         }
                     }
                 }
@@ -419,8 +418,6 @@ INSTmy_findStrongestNeighbourBlockDiaCsr_NoMergeClean(1)
 INSTmy_findStrongestNeighbourBlockDiaCsr_NoMergeClean(2)
 INSTmy_findStrongestNeighbourBlockDiaCsr_NoMergeClean(4)
 
-#define __load_ __load_streaming
-
 template<int ALREADY_COMPACT>
 __global__ void my_blockCompact(
     int *partner_index, const int num_rows,
@@ -487,7 +484,7 @@ __global__ void my_MatchEdgesWithCompaction(const int num_rows, int *partner_ind
 
                 if (potential_match != -1)
                 {
-                    potential_match_neighbour = __load_(strongest_neighbour + potential_match);
+                    potential_match_neighbour = __ldcs(strongest_neighbour + potential_match);
 
                     if ( potential_match_neighbour == row ) // we have a match
                     {
@@ -527,7 +524,7 @@ __global__ void my_MatchEdges(const int num_rows, int *partner_index, int *aggre
 
                 if (potential_match != -1)
                 {
-                    potential_match_neighbour = __load_(strongest_neighbour + potential_match);
+                    potential_match_neighbour = __ldcs(strongest_neighbour + potential_match);
 
                     if ( potential_match_neighbour == tid ) // we have a match
                     {
@@ -591,7 +588,7 @@ __global__ void my_matchAggregates(int *aggregates, int *aggregated, int *strong
 
                 if (potential_match != -1)
                 {
-                    potential_match_neighbour = __load_(strongest_neighbour + potential_match); //or global
+                    potential_match_neighbour = __ldcs(strongest_neighbour + potential_match); //or global
                     my_aggregate = aggregates[tid];
 
                     if (potential_match_neighbour == my_aggregate) // we have a match
@@ -627,7 +624,7 @@ __global__ void my_matchAggregatesSize4(int *aggregates, int *aggregated, int *s
 
                 if (potential_match != -1)
                 {
-                    potential_match_neighbour = __load_(strongest_neighbour + potential_match);
+                    potential_match_neighbour = __ldcs(strongest_neighbour + potential_match);
                     my_aggregate = aggregates[tid];
 
                     if (potential_match_neighbour == my_aggregate) // we have a match

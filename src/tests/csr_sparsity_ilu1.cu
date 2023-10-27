@@ -146,7 +146,7 @@ check_csr_sparsity_ilu1( const Matrix<TemplateConfig<AMGX_host, VecPrecision, Ma
     std::ostringstream buffer;
     {
         count_non_zeroes( A_h.row_offsets, A_h.col_indices, A_h.getMatrixColoring().getRowColors(), B_h.row_offsets, B_h.col_indices, true );
-        thrust::exclusive_scan( B_h.row_offsets.begin( ), B_h.row_offsets.end( ), B_h.row_offsets.begin( ) );
+        thrust_wrapper::exclusive_scan<AMGX_host>( B_h.row_offsets.begin( ), B_h.row_offsets.end( ), B_h.row_offsets.begin( ) );
         cudaCheckError();
         int nVals = B_h.row_offsets[A_h.get_num_rows()];
         B_h.col_indices.resize( nVals );

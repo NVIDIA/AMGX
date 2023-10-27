@@ -125,7 +125,7 @@ void __spmv_csr_vector(const csr_matrix<IndexType,ValueType,cusp::device_memory>
     const unsigned int VECTORS_PER_BLOCK  = THREADS_PER_BLOCK / THREADS_PER_VECTOR;
 
     //const unsigned int MAX_BLOCKS = MAX_THREADS / THREADS_PER_BLOCK;
-    const unsigned int MAX_BLOCKS = thrust::experimental::arch::max_active_blocks(spmv_csr_vector_kernel<IndexType, ValueType, VECTORS_PER_BLOCK, THREADS_PER_VECTOR, UseCache>, THREADS_PER_BLOCK, (size_t) 0);
+    const unsigned int MAX_BLOCKS = amgx::thrust::experimental::arch::max_active_blocks(spmv_csr_vector_kernel<IndexType, ValueType, VECTORS_PER_BLOCK, THREADS_PER_VECTOR, UseCache>, THREADS_PER_BLOCK, (size_t) 0);
     const unsigned int NUM_BLOCKS = std::min(MAX_BLOCKS, DIVIDE_INTO(csr.num_rows, VECTORS_PER_BLOCK));
     
     if (UseCache)
@@ -133,9 +133,9 @@ void __spmv_csr_vector(const csr_matrix<IndexType,ValueType,cusp::device_memory>
 
     spmv_csr_vector_kernel<IndexType, ValueType, VECTORS_PER_BLOCK, THREADS_PER_VECTOR, UseCache> <<<NUM_BLOCKS, THREADS_PER_BLOCK>>> 
         (csr.num_rows,
-         thrust::raw_pointer_cast(&csr.row_offsets[0]),
-         thrust::raw_pointer_cast(&csr.column_indices[0]),
-         thrust::raw_pointer_cast(&csr.values[0]),
+         amgx::thrust::raw_pointer_cast(&csr.row_offsets[0]),
+         amgx::thrust::raw_pointer_cast(&csr.column_indices[0]),
+         amgx::thrust::raw_pointer_cast(&csr.values[0]),
          x, y);
 
     if (UseCache)

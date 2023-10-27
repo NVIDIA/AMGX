@@ -267,7 +267,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
 
     if (m_halo_coloring == LAST)
     {
-        thrust::fill(m_row_colors.begin() + num_rows, m_row_colors.end(), m_num_colors);
+        thrust_wrapper::fill<TConfig::memSpace>(m_row_colors.begin() + num_rows, m_row_colors.end(), m_num_colors);
         cudaCheckError();
     }
 
@@ -279,8 +279,8 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
         m_sorted_rows_by_color.resize(num_rows);
         // Copy row colors
         IVector row_colors(m_row_colors);
-        thrust::sequence(m_sorted_rows_by_color.begin(), m_sorted_rows_by_color.end());
-        thrust::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, m_sorted_rows_by_color.begin());
+        thrust_wrapper::sequence<TConfig::memSpace>(m_sorted_rows_by_color.begin(), m_sorted_rows_by_color.end());
+        amgx::thrust::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, m_sorted_rows_by_color.begin());
         cudaCheckError();
         // Compute the offset for each color
         offsets_rows_per_color.resize(m_num_colors + 1);
@@ -288,10 +288,10 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
         // Compute interior-exterior separation for every color
         m_offsets_rows_per_color_separation.resize(m_num_colors);
         //m_offsets_rows_per_color_separation_halo.resize(m_num_colors);
-        thrust::lower_bound(row_colors.begin(),
+        amgx::thrust::lower_bound(row_colors.begin(),
                             row_colors.begin() + num_rows,
-                            thrust::counting_iterator<IndexType>(0),
-                            thrust::counting_iterator<IndexType>(offsets_rows_per_color.size()),
+                            amgx::thrust::counting_iterator<IndexType>(0),
+                            amgx::thrust::counting_iterator<IndexType>(offsets_rows_per_color.size()),
                             offsets_rows_per_color.begin());
         // Copy from device to host
         m_offsets_rows_per_color = offsets_rows_per_color;
@@ -314,7 +314,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
             for (int i = 0; i < m_num_colors; i++)
             {
                 m_offsets_rows_per_color_separation[i] =  m_offsets_rows_per_color[i]
-                        + (thrust::lower_bound(m_sorted_rows_by_color.begin() + m_offsets_rows_per_color[i],
+                        + (amgx::thrust::lower_bound(m_sorted_rows_by_color.begin() + m_offsets_rows_per_color[i],
                                                m_sorted_rows_by_color.begin() + m_offsets_rows_per_color[i + 1],
                                                separation)
                            - (m_sorted_rows_by_color.begin() + m_offsets_rows_per_color[i]));
@@ -329,7 +329,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
             int size = num_rows;
             int num_blocks = std::min(4096, (size + 123) / 124);
             findSeparation <<< num_blocks, 128>>>(m_sorted_rows_by_color.raw(), offsets_rows_per_color.raw(), separation_offsets_rows_per_color.raw(), separation, m_num_colors, num_rows);
-            thrust::copy(separation_offsets_rows_per_color.begin(), separation_offsets_rows_per_color.end(), m_offsets_rows_per_color_separation.begin());
+            amgx::thrust::copy(separation_offsets_rows_per_color.begin(), separation_offsets_rows_per_color.end(), m_offsets_rows_per_color_separation.begin());
             cudaCheckError();
 
             for (int i = 0; i < m_num_colors; i++)
@@ -343,7 +343,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
     }
     else
     {
-        thrust::copy(m_offsets_rows_per_color.begin() + 1, m_offsets_rows_per_color.end(), m_offsets_rows_per_color_separation.begin());
+        amgx::thrust::copy(m_offsets_rows_per_color.begin() + 1, m_offsets_rows_per_color.end(), m_offsets_rows_per_color_separation.begin());
         cudaCheckError();
     }
 

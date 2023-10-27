@@ -102,7 +102,7 @@ void launch_test_case(TestCase &test_case)
     size_t free_mem, total_mem;
     cudaMemGetInfo(&free_mem, &total_mem);
     size_t context_buffer = 10000000;
-    thrust::device_vector<double> test_vector;
+    amgx::thrust::device_vector<double> test_vector;
     int vec_size = (free_mem - context_buffer) / 8;
     test_vector.resize(vec_size);
     test_vector.clear();
@@ -378,8 +378,6 @@ void mem_test_main(TestCase &test_case, size_t &mem_before)
     check_memory_usage("before finalize", mem_before, test_case);
     UNITTEST_ASSERT_EQUAL(AMGX_finalize(), AMGX_OK);
     check_memory_usage("after finalize", mem_before, test_case);
-    //cudaDeviceReset();
-    //}
 }
 
 

@@ -64,7 +64,7 @@ void run()
         // get strength & weights
         strength->computeStrongConnectionsAndWeights(A, s_con, weights, -1.);
         // check some connections marked as strong
-        bool someStrong = thrust::reduce(s_con.begin(), s_con.end());
+        bool someStrong = amgx::thrust::reduce(s_con.begin(), s_con.end());
         this->PrintOnFail("Deterministic strength: No strong connections made");
         UNITTEST_ASSERT_TRUE(someStrong == true);
         // use of hash should make result deterministic -- check this

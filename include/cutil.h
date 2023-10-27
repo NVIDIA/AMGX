@@ -29,7 +29,6 @@
 
 #include <basic_types.h>
 #include <error.h>
-#include <ld_functions.h>
 /**********************************************************
  * Checks for a cuda error and if one exists prints it,
  * the stack trace, and exits
@@ -316,12 +315,12 @@ template <class ScalarType> bool containsNan( ScalarType *mem, int num )
 
     if (num > 0)
     {
-        cudaMalloc(&d_retval, sizeof(bool));
+        amgx::memory::cudaMallocAsync((void**)&d_retval, sizeof(bool));
         cudaMemcpy(d_retval, &retval, sizeof(bool), cudaMemcpyHostToDevice);
         containsNan_kernel <<< blocks, threads>>>(mem, num, d_retval);
         cudaCheckError();
         cudaMemcpy(&retval, d_retval, sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(d_retval);
+        amgx::memory::cudaFreeAsync(d_retval);
     }
 
     return retval;

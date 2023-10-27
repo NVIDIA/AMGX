@@ -66,11 +66,11 @@ struct copy_pred
         _metric_arr(metric_arr) {};
 
     __host__ __device__
-    bool operator()(const thrust::tuple<IndexType, IndexType, matrixType> &a)
+    bool operator()(const amgx::thrust::tuple<IndexType, IndexType, matrixType> &a)
     {
-        metricType metric = _metric_arr[thrust::get<0>(a)];
+        metricType metric = _metric_arr[amgx::thrust::get<0>(a)];
 
-        if (  types::util<matrixType>::abs(thrust::get<2>(a)) >= _trunc_factor * metric) { return true; }
+        if (  types::util<matrixType>::abs(amgx::thrust::get<2>(a)) >= _trunc_factor * metric) { return true; }
 
         return false;
     }
@@ -91,10 +91,10 @@ struct scale_op
     scale_op(const VectorType *s) : scale_vec(s) {};
 
     __host__ __device__
-    thrust::tuple<IndexType, MatrixType> operator()(const thrust::tuple<IndexType, MatrixType> &a)
+    amgx::thrust::tuple<IndexType, MatrixType> operator()(const amgx::thrust::tuple<IndexType, MatrixType> &a)
     {
-        const IndexType row = thrust::get<0>(a);
-        return thrust::tuple<IndexType, MatrixType>(row, thrust::get<1>(a) * scale_vec[row]);
+        const IndexType row = amgx::thrust::get<0>(a);
+        return amgx::thrust::tuple<IndexType, MatrixType>(row, amgx::thrust::get<1>(a) * scale_vec[row]);
     }
 };
 
@@ -712,7 +712,7 @@ void Truncate<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::tr
     A_trunc.resize(A.get_num_rows(), A.get_num_cols(), 0);
     cudaCheckError();
 
-    thrust_wrapper::exclusive_scan(row_counts.begin(), row_counts.end(), A_trunc.row_offsets.begin());
+    thrust_wrapper::exclusive_scan<IVector::TConfig::memSpace>(row_counts.begin(), row_counts.end(), A_trunc.row_offsets.begin());
     cudaCheckError();
     
     const int nnz = A_trunc.row_offsets[A.get_num_rows() - 1] + row_counts[A.get_num_rows() - 1];
@@ -740,9 +740,9 @@ void Truncate<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::tr
         pred = copy_pred<index_type, vec_value_type, value_type>(trunc_factor, max_coef.raw());
     }
 
-    using thrust::make_zip_iterator;
-    using thrust::make_tuple;
-    thrust::copy_if(
+    using amgx::thrust::make_zip_iterator;
+    using amgx::thrust::make_tuple;
+    amgx::thrust::copy_if(
         make_zip_iterator(make_tuple(A.row_indices.begin(), A.col_indices.begin(), A.values.begin())),
         make_zip_iterator(make_tuple(A.row_indices.end(), A.col_indices.end(), A.values.end())),
         make_zip_iterator(make_tuple(A_trunc.row_indices.begin(), A_trunc.col_indices.begin(),
@@ -750,10 +750,10 @@ void Truncate<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::tr
         pred
     );
     // scale each row of the truncated matrix - per-row scale in new_row_sum
-    thrust::transform(row_sum.begin(), row_sum.end(), new_row_sum.begin(), new_row_sum.begin(),
-                      thrust::divides<vec_value_type>());
+    amgx::thrust::transform(row_sum.begin(), row_sum.end(), new_row_sum.begin(), new_row_sum.begin(),
+                      amgx::thrust::divides<vec_value_type>());
     scale_op<index_type, vec_value_type, value_type> op(new_row_sum.raw());
-    thrust::for_each(
+    amgx::thrust::for_each(
         make_zip_iterator(make_tuple(A_trunc.row_indices.begin(), A_trunc.values.begin())),
         make_zip_iterator(make_tuple(A_trunc.row_indices.end(), A_trunc.values.end())),
         op
@@ -839,7 +839,7 @@ void Truncate<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::tr
     // initial definition
     Matrix_d A_trunc(A.get_num_rows(), A.get_num_cols(), 0, CSR); // add CSR prop
     // exclusive scan to get new row structure
-    thrust_wrapper::exclusive_scan(row_lengths.begin(), row_lengths.end(), A_trunc.row_offsets.begin());
+    thrust_wrapper::exclusive_scan<IVector::TConfig::memSpace>(row_lengths.begin(), row_lengths.end(), A_trunc.row_offsets.begin());
     int nnz = A_trunc.row_offsets[A.get_num_rows() - 1] + row_lengths[A.get_num_rows() - 1];
     A_trunc.row_offsets[A.get_num_rows()] = nnz;
     // set final size of truncated matrix

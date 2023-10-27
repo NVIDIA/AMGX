@@ -89,9 +89,9 @@ void __spmv_csr_scalar(const Matrix&    A,
 
     spmv_csr_scalar_kernel<UseCache,IndexType,ValueType> <<<NUM_BLOCKS, BLOCK_SIZE>>> 
         (A.num_rows,
-         thrust::raw_pointer_cast(&A.row_offsets[0]),
-         thrust::raw_pointer_cast(&A.column_indices[0]),
-         thrust::raw_pointer_cast(&A.values[0]),
+         amgx::thrust::raw_pointer_cast(&A.row_offsets[0]),
+         amgx::thrust::raw_pointer_cast(&A.column_indices[0]),
+         amgx::thrust::raw_pointer_cast(&A.values[0]),
          x, y);
 
     if (UseCache)

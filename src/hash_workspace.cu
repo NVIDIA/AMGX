@@ -27,6 +27,7 @@
 
 #include <hash_workspace.h>
 #include <global_thread_handle.h>
+#include <error.h>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,9 +47,13 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::Hash_Workspace(
     m_keys(NULL),
     m_vals(NULL)
 {
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_status, sizeof(int) );
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_work_queue, sizeof(int) );
+    amgx::memory::cudaMallocAsync( (void **) &m_status, sizeof(int) );
+    cudaCheckError();
+    amgx::memory::cudaMallocAsync( (void **) &m_work_queue, sizeof(int) );
+    cudaCheckError();
     allocate_workspace();
+    cudaStreamSynchronize(0);
+    cudaCheckError();
 }
 
 // ====================================================================================================================
@@ -58,12 +63,12 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::~Hash_Workspace
 {
     if ( m_allocate_vals )
     {
-        thrust::global_thread_handle::cudaFreeAsync( m_vals );
+        amgx::memory::cudaFreeAsync( m_vals );
     }
 
-    thrust::global_thread_handle::cudaFreeAsync( m_keys );
-    thrust::global_thread_handle::cudaFreeAsync( m_work_queue );
-    thrust::global_thread_handle::cudaFreeAsync( m_status );
+    amgx::memory::cudaFreeAsync( m_keys );
+    amgx::memory::cudaFreeAsync( m_work_queue );
+    amgx::memory::cudaFreeAsync( m_status );
 }
 
 // ====================================================================================================================
@@ -76,11 +81,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     // Allocate memory to store the keys of the device-based hashtable.
     if ( m_keys != NULL )
     {
-        thrust::global_thread_handle::cudaFreeAsync( m_keys );
+        amgx::memory::cudaFreeAsync( m_keys );
     }
 
     size_t sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(Key_type);
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_keys, sz );
+    amgx::memory::cudaMallocAsync( (void **) &m_keys, sz );
 
     // Skip value allocation if needed.
     if ( !m_allocate_vals )
@@ -91,11 +96,11 @@ void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_w
     // Allocate memory to store the values of the device-based hashtable.
     if ( m_vals != NULL )
     {
-        thrust::global_thread_handle::cudaFreeAsync( m_vals );
+        amgx::memory::cudaFreeAsync( m_vals );
     }
 
     sz = NUM_WARPS_IN_GRID * m_gmem_size * sizeof(double);
-    thrust::global_thread_handle::cudaMalloc( (void **) &m_vals, sz );
+    amgx::memory::cudaMallocAsync( (void **) &m_vals, sz );
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

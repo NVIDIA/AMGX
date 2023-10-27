@@ -31,6 +31,7 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/count.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/extrema.h>
 
@@ -51,14 +52,14 @@ void CoarseAGenerator<T_Config>::printNonzeroStats(const typename Matrix<T_Confi
 {
     // Printing the number of nonzeros per row
     Vector<typename TConfig::template setVecPrec<AMGX_vecBool>::Type> temporary(num_aggregates, 0);
-    int max_nonzero = *thrust::max_element(Ac_row_offsets.begin(), Ac_row_offsets.end()) + 1;
+    int max_nonzero = *amgx::thrust::max_element(Ac_row_offsets.begin(), Ac_row_offsets.end()) + 1;
     amgx_printf("\nnew level, max number of nonzeros per row = %d\n", max_nonzero);
     double *breakdown = new double[max_nonzero];
 
     for (int i = 0; i < max_nonzero; i++)
     {
-        thrust::transform(Ac_row_offsets.begin(), Ac_row_offsets.end(), thrust::make_constant_iterator(i + 1), temporary.begin(), thrust::less<int>());
-        breakdown[i] = 1.0 * (thrust::count(temporary.begin(), temporary.end(), true)) / num_aggregates;
+        thrust_wrapper::transform<T_Config::memSpace>(Ac_row_offsets.begin(), Ac_row_offsets.end(), amgx::thrust::make_constant_iterator(i + 1), temporary.begin(), amgx::thrust::less<int>());
+        breakdown[i] = 1.0 * (amgx::thrust::count(temporary.begin(), temporary.end(), true)) / num_aggregates;
         amgx_printf("Percentage of rows with less than %d nonzeros is %d\n", (i + 1), breakdown[i]);
     }
 

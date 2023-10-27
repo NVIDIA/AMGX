@@ -51,7 +51,7 @@ class AbsoluteConvergence : public Convergence<TConfig>
 
         void convergence_init();
 
-        bool convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini);
+        AMGX_STATUS convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini);
 };
 
 template<class TConfig>

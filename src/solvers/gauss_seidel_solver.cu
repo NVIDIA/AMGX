@@ -81,7 +81,7 @@ GaussSeidelSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
 
     if (A_as_matrix->hasProps(DIAG))
     {
-        thrust::copy( A_as_matrix->values.begin() + A_as_matrix->diagOffset()*A_as_matrix->get_block_size()/*block_size == 1*/, A_as_matrix->values.end(), this->diag.begin());
+        amgx::thrust::copy( A_as_matrix->values.begin() + A_as_matrix->diagOffset()*A_as_matrix->get_block_size()/*block_size == 1*/, A_as_matrix->values.end(), this->diag.begin());
         cudaCheckError();
     }
     else
@@ -100,7 +100,7 @@ GaussSeidelSolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZe
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 GaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     Matrix<T_Config> *A_as_matrix = (Matrix<T_Config> *) this->m_A;
@@ -158,7 +158,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec
         {
             if (A.col_indices[j] == i)
             {
-                this->diag[i] = /*static_cast<ValueTypeB>(1) /*/ A.values[j];
+                this->diag[i] = A.values[j];
                 break;
             }
 
@@ -273,7 +273,7 @@ void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void GaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::smooth_with_0_initial_guess_1x1(const Matrix_d &A, const VVector &b, VVector &x)
 {
-    thrust::fill(x.begin(), x.end(), ValueTypeB(0));
+    thrust_wrapper::fill<AMGX_device>(x.begin(), x.end(), ValueTypeB(0));
     cudaCheckError();
     smooth_1x1(A, b, x);
 }

@@ -60,10 +60,10 @@ struct jacobi_postsmooth_functor
     jacobi_postsmooth_functor( ValueTypeB omega ) : omega( omega ) {}
     template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeA d = thrust::get<1>(t);
-        ValueTypeB b = thrust::get<2>(t);
-        ValueTypeB y = thrust::get<3>(t);
+        ValueTypeB x = amgx::thrust::get<0>(t);
+        ValueTypeA d = amgx::thrust::get<1>(t);
+        ValueTypeB b = amgx::thrust::get<2>(t);
+        ValueTypeB y = amgx::thrust::get<3>(t);
         // return x + omega * (b - y) / d.
         d = isNotCloseToZero(d) ? d :  epsilon(d);
         d  = ValueTypeA( 1 ) / d;
@@ -179,9 +179,9 @@ void ChebyshevPolySolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, A.get_num_rows(), tsum.raw());
     }
 
-    lambda = *(thrust::max_element(tsum.begin(), tsum.end()));
+    lambda = *(amgx::thrust::max_element(tsum.begin(), tsum.end()));
 #ifdef DEBUG_CHEBYSHEV_OUTPUT
-    printf("Lambda for A on row %lu is: %f\n", thrust::max_element(tsum.begin(), tsum.end()) - tsum.begin(), lambda);
+    printf("Lambda for A on row %lu is: %f\n", amgx::thrust::max_element(tsum.begin(), tsum.end()) - tsum.begin(), lambda);
 #endif
 }
 
@@ -231,7 +231,7 @@ ChebyshevPolySolver_Base<T_Config>::solve_init( VVector &b, VVector &x, bool xIs
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 ChebyshevPolySolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     Matrix<T_Config> *A_as_matrix = (Matrix<T_Config> *) this->m_A;
@@ -316,9 +316,9 @@ struct chebyshev_poly_functor
     chebyshev_poly_functor( ValueTypeB tau ) : tau( tau ) {}
     template<typename Tuple> __host__ __device__  ValueTypeB operator( )( const Tuple &t ) const
     {
-        ValueTypeB x = thrust::get<0>(t);
-        ValueTypeB b = thrust::get<1>(t);
-        ValueTypeB y = thrust::get<2>(t);
+        ValueTypeB x = amgx::thrust::get<0>(t);
+        ValueTypeB b = amgx::thrust::get<1>(t);
+        ValueTypeB y = amgx::thrust::get<2>(t);
         return x + tau * (b - y);
     }
 };
@@ -345,8 +345,8 @@ void ChebyshevPolySolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         //y = A*x
         multiply( A, x, this->y, separation_flags );
         //x += tau_i * (b - y)
-        thrust::transform( thrust::make_zip_iterator(thrust::make_tuple( x.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
-                           thrust::make_zip_iterator(thrust::make_tuple( x.begin() + num_rows, b.begin() + num_rows, this->y.begin() + num_rows)),
+        amgx::thrust::transform( amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple( x.begin() + offset, b.begin() + offset, this->y.begin() + offset)),
+                           amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple( x.begin() + num_rows, b.begin() + num_rows, this->y.begin() + num_rows)),
                            x.begin() + offset,
                            chebyshev_poly_functor<ValueTypeB>( this->tau[i] ));
         //Cublas::axpy(num_rows, (ValueTypeB)(this->tau[i]),      b.raw(),       1, x.raw(), 1);

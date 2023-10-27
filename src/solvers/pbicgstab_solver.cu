@@ -159,9 +159,11 @@ PBiCGStab_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
 
 //launches a single standard cycle
 template<class T_Config>
-bool
+AMGX_STATUS
 PBiCGStab_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
+    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -202,13 +204,14 @@ PBiCGStab_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZer
     axpby( *this->m_r, m_v, m_s, ValueTypeB(1), -alpha, offset, size );
 
     // Early exit if norm(s) is small enough...
-    if ( this->m_monitor_convergence && this->compute_norm_and_converged( m_s, m_s_norm ) )
+    if ( this->m_monitor_convergence &&
+         isDone( ( conv_stat = this->compute_norm_and_converged( m_s, m_s_norm ) ) ) )
     {
         axpby( x, m_Mp, x, ValueTypeB(1), alpha, offset, size );
         this->compute_residual( b, x );
         this->compute_norm();
         A.setView(oldView);
-        return true;
+        return conv_stat;
     }
 
     //  A.setView(oldView);
@@ -249,17 +252,18 @@ PBiCGStab_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZer
     axpby( m_s, m_t, *this->m_r, ValueTypeB(1), -omega, offset, size );
 
     // Do we converge ?
-    if ( this->m_monitor_convergence && this->compute_norm_and_converged() )
+    if ( this->m_monitor_convergence &&
+         isDone( ( conv_stat = this->compute_norm_and_converged() ) ) )
     {
         A.setView(oldView);
-        return true;
+        return conv_stat;
     }
 
     // Early exit: last iteration, no need to prepare the next one.
     if ( this->is_last_iter() )
     {
         A.setView(oldView);
-        return !this->m_monitor_convergence;
+        return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
     }
 
     // Prepare next iteration: Update beta and rho.
@@ -278,7 +282,7 @@ PBiCGStab_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZer
     axpbypcz( *this->m_r, m_p, m_v, m_p, ValueTypeB(1), beta, -beta * omega, offset, size );
     // Return.
     A.setView(oldView);
-    return !this->m_monitor_convergence;
+    return this->m_monitor_convergence ? AMGX_ST_NOT_CONVERGED : AMGX_ST_CONVERGED;
 }
 
 template<class T_Config>

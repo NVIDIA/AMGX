@@ -60,7 +60,7 @@ class Serial_Greedy_BFS_MatrixColoring_Base : public MatrixColoring<T_Config>
         int m_coloring_try_remove_last_color_;
         ColoringType m_halo_coloring;
 
-        thrust::host_vector<int> aggregates; //for experimental aggregator
+        amgx::thrust::host_vector<int> aggregates; //for experimental aggregator
         bool dummy_coloring;
         bool ready_for_coloring_arrays;
 };

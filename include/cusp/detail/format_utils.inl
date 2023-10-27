@@ -57,9 +57,10 @@ void offsets_to_indices(const OffsetArray& offsets, IndexArray& indices)
     CUSP_PROFILE_SCOPED();
 
     typedef typename OffsetArray::value_type OffsetType;
+    typedef typename OffsetArray::memory_space MemorySpace;
 
     // convert compressed row offsets into uncompressed row indices
-    amgx::thrust::fill(indices.begin(), indices.end(), OffsetType(0));
+    thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(indices.begin(), indices.end(), OffsetType(0));
     amgx::thrust::scatter_if( amgx::thrust::counting_iterator<OffsetType>(0),
 			amgx::thrust::counting_iterator<OffsetType>(offsets.size()-1),
 			offsets.begin(),
@@ -68,7 +69,7 @@ void offsets_to_indices(const OffsetArray& offsets, IndexArray& indices)
                                 empty_row_functor<OffsetType>()),
                     	indices.begin());
 
-    thrust_wrapper::inclusive_scan(indices.begin(), indices.end(), indices.begin(), amgx::thrust::maximum<OffsetType>());
+    thrust_wrapper::inclusive_scan<CuspMemMap<MemorySpace>::value>(indices.begin(), indices.end(), indices.begin(), amgx::thrust::maximum<OffsetType>());
 }
 
 template <typename IndexArray, typename OffsetArray>
@@ -119,9 +120,10 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::coo_format)
 
     typedef typename Matrix::index_type  IndexType;
     typedef typename Array::value_type   ValueType;
+    typedef typename Array::memory_space   MemorySpace;
     
     // initialize output to zero
-    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
+    thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(output.begin(), output.end(), ValueType(0));
 
     // scatter the diagonal values to output
     amgx::thrust::scatter_if(A.values.begin(), A.values.end(),
@@ -143,7 +145,7 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::csr_format)
     offsets_to_indices(A.row_offsets, row_indices);
 
     // initialize output to zero
-    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
+    thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(output.begin(), output.end(), ValueType(0));
 
     // scatter the diagonal values to output
     amgx::thrust::scatter_if(A.values.begin(), A.values.end(),
@@ -158,6 +160,7 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::dia_format)
 {
     typedef typename Matrix::index_type  IndexType;
     typedef typename Array::value_type   ValueType;
+    typedef typename Array::memory_space   MemorySpace;
     
     // copy diagonal_offsets to host (sometimes unnecessary)
     cusp::array1d<IndexType,cusp::host_memory> diagonal_offsets(A.diagonal_offsets);
@@ -175,7 +178,7 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::dia_format)
     }
 
     // no diagonal found
-    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
+    thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(output.begin(), output.end(), ValueType(0));
 }
 
 
@@ -184,9 +187,10 @@ void extract_diagonal(const Matrix& A, Array& output, cusp::ell_format)
 {
     typedef typename Matrix::index_type  IndexType;
     typedef typename Array::value_type   ValueType;
+    typedef typename Array::memory_space   MemorySpace;
     
     // initialize output to zero
-    amgx::thrust::fill(output.begin(), output.end(), ValueType(0));
+    thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(output.begin(), output.end(), ValueType(0));
 
     amgx::thrust::scatter_if
         (A.values.values.begin(), A.values.values.end(),
@@ -246,17 +250,17 @@ void sort_by_row(Array1& rows, Array2& columns, Array3& values)
     size_t N = rows.size();
 
     cusp::array1d<IndexType,MemorySpace> permutation(N);
-    amgx::thrust::sequence(permutation.begin(), permutation.end());
+    thrust_wrapper::sequence<CuspMemMap<MemorySpace>::value>(permutation.begin(), permutation.end());
   
     // compute permutation that sorts the rows
-    thrust_wrapper::sort_by_key(rows.begin(), rows.end(), permutation.begin());
+    thrust_wrapper::sort_by_key<CuspMemMap<MemorySpace>::value>(rows.begin(), rows.end(), permutation.begin());
 
     // copy columns and values to temporary buffers
     cusp::array1d<IndexType,MemorySpace> temp1(columns);
     cusp::array1d<ValueType,MemorySpace> temp2(values);
         
     // use permutation to reorder the values
-    thrust_wrapper::gather(permutation.begin(), permutation.end(),
+    thrust_wrapper::gather<CuspMemMap<MemorySpace>::value>(permutation.begin(), permutation.end(),
                    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(temp1.begin(),   temp2.begin())),
                    amgx::thrust::make_zip_iterator(amgx::thrust::make_tuple(columns.begin(), values.begin())));
 }
@@ -273,25 +277,25 @@ void sort_by_row_and_column(Array1& rows, Array2& columns, Array3& values)
     size_t N = rows.size();
 
     cusp::array1d<IndexType,MemorySpace> permutation(N);
-    amgx::thrust::sequence(permutation.begin(), permutation.end());
+    thrust_wrapper::sequence<CuspMemMap<MemorySpace>::value>(permutation.begin(), permutation.end());
   
     // compute permutation and sort by (I,J)
     {
         cusp::array1d<IndexType,MemorySpace> temp(columns);
-        thrust_wrapper::stable_sort_by_key(temp.begin(), temp.end(), permutation.begin());
+        thrust_wrapper::stable_sort_by_key<CuspMemMap<MemorySpace>::value>(temp.begin(), temp.end(), permutation.begin());
 
         cusp::copy(rows, temp);
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), rows.begin());
-        thrust_wrapper::stable_sort_by_key(rows.begin(), rows.end(), permutation.begin());
+        thrust_wrapper::gather<CuspMemMap<MemorySpace>::value>(permutation.begin(), permutation.end(), temp.begin(), rows.begin());
+        thrust_wrapper::stable_sort_by_key<CuspMemMap<MemorySpace>::value>(rows.begin(), rows.end(), permutation.begin());
 
         cusp::copy(columns, temp);
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), columns.begin());
+        thrust_wrapper::gather<CuspMemMap<MemorySpace>::value>(permutation.begin(), permutation.end(), temp.begin(), columns.begin());
     }
 
     // use permutation to reorder the values
     {
         cusp::array1d<ValueType,MemorySpace> temp(values);
-        thrust_wrapper::gather(permutation.begin(), permutation.end(), temp.begin(), values.begin());
+        thrust_wrapper::gather<CuspMemMap<MemorySpace>::value>(permutation.begin(), permutation.end(), temp.begin(), values.begin());
     }
 }
 

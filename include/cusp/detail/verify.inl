@@ -34,17 +34,17 @@ namespace detail
 ///////////////////////////////////
 
 template <typename IndexVector>
-thrust::pair<typename IndexVector::value_type, typename IndexVector::value_type>
+amgx::thrust::pair<typename IndexVector::value_type, typename IndexVector::value_type>
 index_range(const IndexVector& indices)
 {
 //    // return a pair<> containing the min and max value in a range
-//    thrust::pair<typename IndexVector::const_iterator, typename IndexVector::const_iterator> iter = thrust::minmax_element(indices.begin(), indices.end());
-//    return thrust::make_pair(*iter.first, *iter.second);
+//    amgx::thrust::pair<typename IndexVector::const_iterator, typename IndexVector::const_iterator> iter = amgx::thrust::minmax_element(indices.begin(), indices.end());
+//    return amgx::thrust::make_pair(*iter.first, *iter.second);
    
     // WAR lack of const_iterator in array1d_view
-    return thrust::make_pair
-      (*thrust::min_element(indices.begin(), indices.end()),
-       *thrust::max_element(indices.begin(), indices.end()));
+    return amgx::thrust::make_pair
+      (*amgx::thrust::min_element(indices.begin(), indices.end()),
+       *amgx::thrust::max_element(indices.begin(), indices.end()));
 }
 
 template <typename IndexType>
@@ -61,8 +61,8 @@ struct is_ell_entry
     __host__ __device__
     bool operator()(const Tuple& t) const
     {
-        IndexType n = thrust::get<0>(t);
-        IndexType j = thrust::get<1>(t);
+        IndexType n = amgx::thrust::get<0>(t);
+        IndexType j = amgx::thrust::get<1>(t);
         return (n % pitch < num_rows) && (j != invalid_index);
     }
 };
@@ -82,8 +82,8 @@ struct is_ell_entry_in_bounds
     __host__ __device__
     bool operator()(const Tuple& t) const
     {
-        IndexType n = thrust::get<0>(t);
-        IndexType j = thrust::get<1>(t);
+        IndexType n = amgx::thrust::get<0>(t);
+        IndexType j = amgx::thrust::get<1>(t);
         return (n % pitch < num_rows) && (j != invalid_index) && (j >= 0) && (j < num_cols);
     }
 };
@@ -125,7 +125,7 @@ bool is_valid_matrix(const MatrixType& A,
     if (A.num_entries > 0)
     {
         // check that row indices are within [0, num_rows)
-        thrust::pair<IndexType,IndexType> min_max_row = index_range(A.row_indices);
+        amgx::thrust::pair<IndexType,IndexType> min_max_row = index_range(A.row_indices);
         if (min_max_row.first < 0)
         {
             ostream << "row indices should be non-negative";
@@ -138,14 +138,14 @@ bool is_valid_matrix(const MatrixType& A,
         }
         
         // check that row_indices is a non-decreasing sequence
-        if (!thrust::is_sorted(A.row_indices.begin(), A.row_indices.end()))
+        if (!amgx::thrust::is_sorted(A.row_indices.begin(), A.row_indices.end()))
         {
             ostream << "row indices should form a non-decreasing sequence";
             return false;
         }
 
         // check that column indices are within [0, num_cols)
-        thrust::pair<IndexType,IndexType> min_max_col = index_range(A.column_indices);
+        amgx::thrust::pair<IndexType,IndexType> min_max_col = index_range(A.column_indices);
         if (min_max_col.first < 0)
         {
             ostream << "column indices should be non-negative";
@@ -208,7 +208,7 @@ bool is_valid_matrix(const MatrixType& A,
     }
 
     // check that row_offsets is a non-decreasing sequence
-    if (!thrust::is_sorted(A.row_offsets.begin(), A.row_offsets.end()))
+    if (!amgx::thrust::is_sorted(A.row_offsets.begin(), A.row_offsets.end()))
     {
         ostream << "row offsets should form a non-decreasing sequence";
         return false;
@@ -217,7 +217,7 @@ bool is_valid_matrix(const MatrixType& A,
     if (A.num_entries > 0)
     {
         // check that column indices are within [0, num_cols)
-        thrust::pair<IndexType,IndexType> min_max = index_range(A.column_indices);
+        amgx::thrust::pair<IndexType,IndexType> min_max = index_range(A.column_indices);
 
         if (min_max.first < 0)
         {
@@ -283,14 +283,14 @@ bool is_valid_matrix(const MatrixType& A,
 
     // count true number of entries in ell structure
     size_t true_num_entries = 
-      thrust::count_if(thrust::make_zip_iterator
+      amgx::thrust::count_if(amgx::thrust::make_zip_iterator
                        (
-                           thrust::make_tuple(thrust::counting_iterator<IndexType>(0), 
+                           amgx::thrust::make_tuple(amgx::thrust::counting_iterator<IndexType>(0), 
                                               A.column_indices.values.begin())
                        ),
-                       thrust::make_zip_iterator
+                       amgx::thrust::make_zip_iterator
                        (
-                           thrust::make_tuple(thrust::counting_iterator<IndexType>(0), 
+                           amgx::thrust::make_tuple(amgx::thrust::counting_iterator<IndexType>(0), 
                                               A.column_indices.values.begin())
                        ) + A.column_indices.values.size(),
                        is_ell_entry<IndexType>(A.num_rows, A.column_indices.pitch, invalid_index));
@@ -306,14 +306,14 @@ bool is_valid_matrix(const MatrixType& A,
     {
         // check that column indices are in [0, num_cols)
         size_t num_entries_in_bounds =
-          thrust::count_if(thrust::make_zip_iterator
+          amgx::thrust::count_if(amgx::thrust::make_zip_iterator
                            (
-                               thrust::make_tuple(thrust::counting_iterator<IndexType>(0), 
+                               amgx::thrust::make_tuple(amgx::thrust::counting_iterator<IndexType>(0), 
                                                   A.column_indices.values.begin())
                            ),
-                           thrust::make_zip_iterator
+                           amgx::thrust::make_zip_iterator
                            (
-                               thrust::make_tuple(thrust::counting_iterator<IndexType>(0), 
+                               amgx::thrust::make_tuple(amgx::thrust::counting_iterator<IndexType>(0), 
                                                   A.column_indices.values.begin())
                            ) + A.column_indices.values.size(),
                            is_ell_entry_in_bounds<IndexType>(A.num_rows, A.num_cols, A.column_indices.pitch, invalid_index));

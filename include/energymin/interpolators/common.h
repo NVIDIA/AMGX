@@ -64,13 +64,12 @@ void allocMem(DataType *&ptr,
               IndexType numEntry,
               bool initToZero)
 {
-    if ( ptr != NULL ) { thrust::global_thread_handle::cudaFreeAsync(ptr); }
+    if ( ptr != NULL ) { amgx::memory::cudaFreeAsync(ptr); }
 
     cudaCheckError();
     size_t sz = numEntry * sizeof(DataType);
     if(sz == 0) { return; }
-
-    thrust::global_thread_handle::cudaMalloc((void **)&ptr, sz);
+    amgx::memory::cudaMallocAsync((void **)&ptr, sz);
     cudaCheckError();
 
     if (initToZero)

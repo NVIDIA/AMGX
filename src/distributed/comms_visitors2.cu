@@ -70,7 +70,7 @@ void SynchSendVecVisitor<TConfig, Tb>::VisitCommsHostbuffer(CommsMPIHostBufferSt
     int tag = get_tag();
     int destination = get_rank();
 #ifdef AMGX_WITH_MPI
-    thrust::copy(b.begin() + offset, b.begin() + offset + size, b.host_send_recv_buffer->begin() + offset);
+    amgx::thrust::copy(b.begin() + offset, b.begin() + offset + size, b.host_send_recv_buffer->begin() + offset);
     cudaCheckError();
     MPI_Send(b.host_send_recv_buffer->raw() + offset, size * (b.host_send_recv_buffer->bytes() / b.host_send_recv_buffer->size()), MPI_BYTE, destination, tag, comm.mpi_comm);
 #else
@@ -115,7 +115,7 @@ void AsynchSendVecVisitor<TConfig, Tb>::VisitCommsHostbuffer(CommsMPIHostBufferS
     int tag = get_tag();
     int destination = get_rank();
 #ifdef AMGX_WITH_MPI
-    thrust::copy(b.begin() + offset, b.begin() + offset + size, b.host_send_recv_buffer->begin() + offset);
+    amgx::thrust::copy(b.begin() + offset, b.begin() + offset + size, b.host_send_recv_buffer->begin() + offset);
     cudaCheckError();
     MPI_Isend(b.host_send_recv_buffer->raw() + offset, size * (b.host_send_recv_buffer->bytes() / b.host_send_recv_buffer->size()), MPI_BYTE, destination, tag, comm.mpi_comm, &b.send_requests[b.send_requests.size() - 1]);
 #else
@@ -161,7 +161,7 @@ void SynchRecvVecVisitor<TConfig, Tb>::VisitCommsHostbuffer(CommsMPIHostBufferSt
     int source = get_rank();
 #ifdef AMGX_WITH_MPI
     MPI_Recv(b.host_send_recv_buffer->raw() + offset, size * (b.host_send_recv_buffer->bytes() / b.host_send_recv_buffer->size()), MPI_BYTE, source, tag, comm.mpi_comm, /*&recv_status*/MPI_STATUSES_IGNORE);
-    thrust::copy(b.host_send_recv_buffer->begin() + offset, b.host_send_recv_buffer->begin() + offset + size, b.begin() + offset);
+    amgx::thrust::copy(b.host_send_recv_buffer->begin() + offset, b.host_send_recv_buffer->begin() + offset + size, b.begin() + offset);
     cudaCheckError();
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);

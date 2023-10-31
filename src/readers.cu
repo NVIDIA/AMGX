@@ -381,8 +381,8 @@ struct ReadAndConvert<TReal, TComplex, PartVec, false>
             int nnz = Ac.get_num_nz();
             A.addProps(Ac.hasProps(DIAG) ? CSR | DIAG : CSR);
             A.resize(nrows, nrows, nnz, 2 * Ac.get_block_dimx(), 2 * Ac.get_block_dimy(), 1);
-            thrust::copy(Ac.row_offsets.begin(), Ac.row_offsets.end(), A.row_offsets.begin());
-            thrust::copy(Ac.col_indices.begin(), Ac.col_indices.end(), A.col_indices.begin());
+            amgx::thrust::copy(Ac.row_offsets.begin(), Ac.row_offsets.end(), A.row_offsets.begin());
+            amgx::thrust::copy(Ac.col_indices.begin(), Ac.col_indices.end(), A.col_indices.begin());
 
             for (int i = 0; i < nnz; i++)
             {
@@ -484,9 +484,9 @@ struct ReadAndConvert<TReal, TComplex, PartVec, false>
             int bdimx = 2 * Ac.get_block_dimx();
             int bdimy = 2 * Ac.get_block_dimy();
             A.resize(nrows, nrows, nnz, bdimx, bdimy, 1);
-            thrust::copy(Ac.row_offsets.begin(), Ac.row_offsets.end(), A.row_offsets.begin());
-            thrust::copy(Ac.col_indices.begin(), Ac.col_indices.end(), A.col_indices.begin());
-            thrust::fill(A.values.begin(), A.values.end(), amgx::types::util<RValueTypeA>::get_zero());
+            amgx::thrust::copy(Ac.row_offsets.begin(), Ac.row_offsets.end(), A.row_offsets.begin());
+            amgx::thrust::copy(Ac.col_indices.begin(), Ac.col_indices.end(), A.col_indices.begin());
+            thrust_wrapper::fill<TReal::memSpace>(A.values.begin(), A.values.end(), amgx::types::util<RValueTypeA>::get_zero());
             std::cout << "Input block system " << Ac.get_block_dimx() << "x" << Ac.get_block_dimy() << " will be converted to system with blocks " << bdimx << "x" << bdimy << std::endl;
             std::cout << "Converting values...\n";
 
@@ -1303,7 +1303,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
         }
 
         A.resize(n_rows_part, cols, n_nonzeros_part, block_dimx, block_dimy);
-        ValueTypeA *dia_values_ptr = thrust::raw_pointer_cast(&(A.values[block_dimx * block_dimy * n_nonzeros_part]));
+        ValueTypeA *dia_values_ptr = amgx::thrust::raw_pointer_cast(&(A.values[block_dimx * block_dimy * n_nonzeros_part]));
 
         if (A.hasProps(CSR))
         {
@@ -1581,7 +1581,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
     }
 
     A.resize(n_rows_part, cols, n_nonzeros_part, block_dimx, block_dimy);
-    ValueTypeA *dia_values_ptr = thrust::raw_pointer_cast(&(A.values[block_dimx * block_dimy * n_nonzeros_part]));
+    ValueTypeA *dia_values_ptr = amgx::thrust::raw_pointer_cast(&(A.values[block_dimx * block_dimy * n_nonzeros_part]));
 
     if (A.hasProps(CSR))
     {
@@ -1743,7 +1743,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     if (rank_rows.size() == 0)
     {
         partRowVec_p = new IVector_h(num_rows);
-        thrust::sequence(partRowVec_p->begin(), partRowVec_p->end());
+        thrust_wrapper::sequence<AMGX_host>(partRowVec_p->begin(), partRowVec_p->end());
         cudaCheckError();
     }
     else
@@ -1809,9 +1809,9 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     IndexType *row_offsets_ptr = A.row_offsets.raw();
     IndexType *column_indices_ptr = A.col_indices.raw();
     ValueTypeA *nonzero_values_ptr = A.values.raw();
-    ValueTypeA *dia_values_ptr = thrust::raw_pointer_cast(&(A.values[block_dimy * block_dimx * n_nonzeros_part]));
+    ValueTypeA *dia_values_ptr = amgx::thrust::raw_pointer_cast(&(A.values[block_dimy * block_dimx * n_nonzeros_part]));
     //Transfer row_offsets to matrix
-    thrust::copy(row_offsets_part.begin(), row_offsets_part.end(), A.row_offsets.begin());
+    amgx::thrust::copy(row_offsets_part.begin(), row_offsets_part.end(), A.row_offsets.begin());
     cudaCheckError();
     data_pos += (num_rows + 1) * sizeof(int);
     n_nonzeros_part = 0;
@@ -1891,7 +1891,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     }
     else // fill last values item with zeros
     {
-        thrust::fill(A.values.begin() + A.get_num_nz() * block_dimy * block_dimx, A.values.end(), types::util<ValueTypeA>::get_zero());
+        thrust_wrapper::fill<AMGX_host>(A.values.begin() + A.get_num_nz() * block_dimy * block_dimx, A.values.end(), types::util<ValueTypeA>::get_zero());
         cudaCheckError();
     }
 
@@ -1927,7 +1927,7 @@ bool ReadNVAMGBinary<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
     }
     else
     {
-        thrust::fill(b.begin(), b.end(), types::util<ValueTypeB>::get_one());
+        thrust_wrapper::fill<AMGX_host>(b.begin(), b.end(), types::util<ValueTypeB>::get_one());
         cudaCheckError();
     }
 

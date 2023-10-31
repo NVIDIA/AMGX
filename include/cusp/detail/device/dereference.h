@@ -20,10 +20,10 @@
 
 #if THRUST_VERSION >= 100600
 #include <thrust/detail/raw_reference_cast.h>
-#define CUSP_DEREFERENCE(x)  thrust::raw_reference_cast(*x)
+#define CUSP_DEREFERENCE(x)  amgx::thrust::raw_reference_cast(*x)
 #else
 #include <thrust/detail/backend/dereference.h>
-#define CUSP_DEREFERENCE(x)  thrust::detail::backend::dereference(x)
+#define CUSP_DEREFERENCE(x)  amgx::thrust::detail::backend::dereference(x)
 #endif
 
 

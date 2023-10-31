@@ -501,14 +501,14 @@ void Distance2_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     }
 
     // get the offsets with an exclusive scan
-    thrust::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan<AMGX_host>(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[A.get_num_rows()] = nonZeros;
     // resize P
     P.addProps(CSR);
     P.resize(A.get_num_rows(), coarsePoints, nonZeros, 1);
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // main loop
     int outerOffset = 0, innerOffset;
@@ -2048,7 +2048,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         cudaCheckError();
     }
     // Compute row offsets.
-    thrust_wrapper::exclusive_scan( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
+    thrust_wrapper::exclusive_scan<AMGX_device>( C_hat_start.begin( ), C_hat_start.end( ), C_hat_start.begin( ) );
     cudaCheckError();
     // Allocate memory to store columns/values.
     int nVals = C_hat_start[C_hat_start.size() - 1];
@@ -2129,9 +2129,9 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     {
         prep = new DistributedArranger<TConfig_d>;
         int num_owned_fine_pts = A.get_num_rows();
-        int num_owned_coarse_pts = thrust_wrapper::count_if(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
+        int num_owned_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.begin() + num_owned_fine_pts, is_non_neg());
         cudaCheckError();
-        int num_halo_coarse_pts = thrust_wrapper::count_if(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
+        int num_halo_coarse_pts = thrust_wrapper::count_if<AMGX_device>(cf_map.begin() + num_owned_fine_pts, cf_map.end(), is_non_neg());
         cudaCheckError();
         coarsePoints = num_owned_coarse_pts + num_halo_coarse_pts;
         // Using the number of owned_coarse_pts (number of rows of Ac), initialize P manager
@@ -2140,7 +2140,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
     else
     {
-        coarsePoints = (int) thrust_wrapper::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+        coarsePoints = (int) thrust_wrapper::count_if<AMGX_device>(cf_map.begin(), cf_map.end(), is_non_neg());
         cudaCheckError();
     }
 
@@ -2172,10 +2172,10 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
 
     // get total with a reduction
-    int nonZeros = thrust_wrapper::reduce(nonZerosPerRow.begin(), nonZerosPerRow.end());
+    int nonZeros = thrust_wrapper::reduce<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end());
     cudaCheckError();
     // get the offsets with an exclusive scan
-    thrust_wrapper::exclusive_scan(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(nonZerosPerRow.begin(), nonZerosPerRow.end(), nonZeroOffsets.begin());
     cudaCheckError();
     nonZeroOffsets[A.get_num_rows()] = nonZeros;
     // resize P
@@ -2186,7 +2186,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     IndexType *Pcolumn_indices = P.col_indices.raw();
     ValueType *Pvalues = P.values.raw();
     // copy nonzero offsets to the P matrix
-    thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZeroOffsets.begin(), nonZeroOffsets.end(), P.row_offsets.begin());
     cudaCheckError();
     // grab the diagonal terms
     VVector diag(size_one_ring);
@@ -2220,7 +2220,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     }
 
     // get the offsets
-    thrust_wrapper::exclusive_scan( innerSumOffset.begin(), innerSumOffset.end(), innerSumOffset.begin() );
+    thrust_wrapper::exclusive_scan<AMGX_device>( innerSumOffset.begin(), innerSumOffset.end(), innerSumOffset.begin() );
     cudaCheckError();
     // assign memory & get pointer
     int numInnerSum = innerSumOffset[A.get_num_rows()];

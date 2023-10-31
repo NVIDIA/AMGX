@@ -97,8 +97,8 @@ void spmv_coo_kernel_postprocess(SizeType        num_outputs,
                                  OutputIterator1 row_carries,
                                  OutputIterator2 val_carries)
 {
-  typedef typename thrust::iterator_value<OutputIterator1>::type IndexType;
-  typedef typename thrust::iterator_value<OutputIterator2>::type ValueType;
+  typedef typename amgx::thrust::iterator_value<OutputIterator1>::type IndexType;
+  typedef typename amgx::thrust::iterator_value<OutputIterator2>::type ValueType;
 
   __shared__ IndexType rows[BLOCK_SIZE + 1];
   __shared__ ValueType vals[BLOCK_SIZE + 1];
@@ -226,11 +226,11 @@ void spmv_coo_kernel(SizeType        num_entries,
                      OutputIterator1 row_carries,
                      OutputIterator2 val_carries)
 {
-  typedef typename thrust::iterator_value<IndexIterator1>::type IndexType1;
-  typedef typename thrust::iterator_value<IndexIterator2>::type IndexType2;
-  typedef typename thrust::iterator_value<ValueIterator1>::type ValueType1;
-  typedef typename thrust::iterator_value<ValueIterator2>::type ValueType2;
-  typedef typename thrust::iterator_value<ValueIterator4>::type ValueType4;
+  typedef typename amgx::thrust::iterator_value<IndexIterator1>::type IndexType1;
+  typedef typename amgx::thrust::iterator_value<IndexIterator2>::type IndexType2;
+  typedef typename amgx::thrust::iterator_value<ValueIterator1>::type ValueType1;
+  typedef typename amgx::thrust::iterator_value<ValueIterator2>::type ValueType2;
+  typedef typename amgx::thrust::iterator_value<ValueIterator4>::type ValueType4;
 
   __shared__ IndexType1 rows[K][BLOCK_SIZE + 1];
   __shared__ ValueType4 vals[K][BLOCK_SIZE + 1];
@@ -241,7 +241,7 @@ void spmv_coo_kernel(SizeType        num_entries,
   __syncthreads(); // is this really necessary?
 
   SizeType interval_begin = interval_size * blockIdx.x;
-  SizeType interval_end   = thrust::min(interval_begin + interval_size, num_entries);
+  SizeType interval_end   = amgx::thrust::min(interval_begin + interval_size, num_entries);
 
   SizeType unit_size = K * BLOCK_SIZE;
  
@@ -484,12 +484,12 @@ void spmv_coo(SizeType        num_rows,
               BinaryFunction1 combine,
               BinaryFunction2 reduce)
 {
-  typedef typename thrust::iterator_value<IndexIterator2>::type IndexType2;
-  typedef typename thrust::iterator_value<ValueIterator4>::type ValueType4;
+  typedef typename amgx::thrust::iterator_value<IndexIterator2>::type IndexType2;
+  typedef typename amgx::thrust::iterator_value<ValueIterator4>::type ValueType4;
   typedef typename cusp::array1d<IndexType2, cusp::device_memory>::iterator OutputIterator1;
   typedef typename cusp::array1d<ValueType4, cusp::device_memory>::iterator OutputIterator2;
 
-  thrust::copy(y, y + num_rows, z);
+  amgx::thrust::copy(y, y + num_rows, z);
 
   if (num_entries == 0) return;
 
@@ -499,7 +499,7 @@ void spmv_coo(SizeType        num_rows,
   const SizeType unit_size  = K * block_size;
   const SizeType max_blocks = cusp::detail::device::arch::max_active_blocks(spmv_coo_kernel<block_size, K, SizeType, IndexIterator1, IndexIterator2, ValueIterator1, ValueIterator2, ValueIterator4, BinaryFunction1, BinaryFunction2, OutputIterator1, OutputIterator2>, block_size, (size_t) 0);
 
-  thrust::pair<SizeType, SizeType> splitting = cusp::detail::device::uniform_splitting<SizeType>(num_entries, unit_size, max_blocks);
+  amgx::thrust::pair<SizeType, SizeType> splitting = cusp::detail::device::uniform_splitting<SizeType>(num_entries, unit_size, max_blocks);
   const SizeType interval_size = splitting.first;
   const SizeType num_blocks    = splitting.second;
 

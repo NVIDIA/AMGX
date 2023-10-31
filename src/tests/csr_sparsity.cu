@@ -153,7 +153,7 @@ check_csr_sparsity( const Matrix<TemplateConfig<AMGX_host, VecPrecision, MatPrec
     std::ostringstream buffer;
     {
         count_non_zeroes( A_h.row_offsets, A_h.col_indices, B_h.row_offsets, B_h.col_indices, C_h.row_offsets );
-        thrust::exclusive_scan( C_h.row_offsets.begin( ), C_h.row_offsets.end( ), C_h.row_offsets.begin( ) );
+        thrust_wrapper::exclusive_scan<AMGX_host>( C_h.row_offsets.begin( ), C_h.row_offsets.end( ), C_h.row_offsets.begin( ) );
         cudaCheckError();
         int nVals = C_h.row_offsets[A_h.get_num_rows()];
         C_h.col_indices.resize( nVals );
@@ -187,7 +187,7 @@ check_csr_sparsity_square( const Matrix<TemplateConfig<AMGX_host, VecPrecision, 
     std::ostringstream buffer;
     {
         count_non_zeroes( A_h.row_offsets, A_h.col_indices, A_h.row_offsets, A_h.col_indices, C_h.row_offsets );
-        thrust::exclusive_scan( C_h.row_offsets.begin( ), C_h.row_offsets.end( ), C_h.row_offsets.begin( ) );
+        thrust_wrapper::exclusive_scan<AMGX_host>( C_h.row_offsets.begin( ), C_h.row_offsets.end( ), C_h.row_offsets.begin( ) );
         cudaCheckError();
         int nVals = C_h.row_offsets[A_h.get_num_rows()];
         C_h.col_indices.resize( nVals );

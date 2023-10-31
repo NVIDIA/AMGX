@@ -30,7 +30,6 @@
 #include <error.h>
 #include <types.h>
 #include <matrix_coloring/greedy_recolor.h>
-//#include <sm_utils.inl>
 #include <strided_reduction.h>
 #include <math.h> //std::pow
 #include <matrix_coloring/coloring_utils.h>
@@ -40,7 +39,6 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/binary_search.h>
-#include <memory_intrinsics.h>
 #include <thrust/replace.h>
 #include <thrust_wrapper.h>
 
@@ -133,7 +131,7 @@ struct neigbor_visitor
 
             if (DISCARD_COLORED_T)
             {
-                int col_color = __load_nc(A_colors_in + col_id);
+                int col_color = __ldg(A_colors_in + col_id);
 
                 if (col_color != 0) { do_compute_hashes = false; }
             }
@@ -224,7 +222,7 @@ void fast_multihash_kernel(
 
                 if (DISCARD_COLORED_T)
                 {
-                    int col_color = __load_nc(A_colors_in + col_id);
+                    int col_color = __ldg(A_colors_in + col_id);
 
                     if (col_color != 0) { continue; }
                 }
@@ -1014,8 +1012,8 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
             IVector row_colors(this->m_row_colors); //useless copy
             sorted_rows_by_color.resize(num_rows);
             //this->m_sorted_rows_by_color.resize(num_rows);
-            amgx::thrust::sequence(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
-            thrust_wrapper::sort_by_key(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
+            thrust_wrapper::sequence<AMGX_device>(sorted_rows_by_color.begin(), sorted_rows_by_color.end()); //useless sequence
+            thrust_wrapper::sort_by_key<AMGX_device>(row_colors.begin(), row_colors.begin() + num_rows, sorted_rows_by_color.begin()); //useless read from sequence
             cudaCheckError();
             IVector offsets_rows_per_color_d(this->m_num_colors + 1);
             amgx::thrust::lower_bound(row_colors.begin(),
@@ -1170,7 +1168,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     printf("MAXCOLOR ref=%d %d\n",max_colorg,max_color);
     if(max_colorg!=max_color)exit(1);*/
 #else
-    int max_color = thrust_wrapper::reduce( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() );
+    int max_color = thrust_wrapper::reduce<AMGX_device>( this->m_row_colors.begin(), this->m_row_colors.begin() + num_rows, 0, amgx::thrust::maximum<int>() );
 #endif
     //printf("MAXCOLOR %d %d\n",max_color_gold,max_color);
     cudaCheckError();

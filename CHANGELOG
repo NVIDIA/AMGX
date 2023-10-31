@@ -2,6 +2,80 @@ CHANGELOG
 
 ===============================================================
 
+v2.4.0 - 2023-10-06
+
+---------------------------------------------------------------
+
+Changes:
+
+- Increased maximum CUDA version to 12.2, and now supporting HPC SDK 23.7
+- Fixed issue preventing parameters from being updated after config initialisation
+- Restructured all source files and removed plugin feature
+- Replaced custom memory pool with cudaMallocAsync when defining USE_CUDAMALLOCASYNC
+- Changed the cuSPARSE SpMV algorithm choice to CUSPARSE_CSRMV_ALG1, which should improve solve performance for recent versions of cuSPARSE
+- Added single-kernel csrmv that is invoked when total number of rows in the local matrix falls below 3 times the number of SMs on the target GPUs
+- Changes to thrust
+-- Increased thrust version to 2.1.0
+-- Added specific tested version of thrust as a submodule, please use git clone --recursive to pull AmgX from v2.4.0 onwards
+-- Wrapped thrust in namespace to avoid shared library sharing issues referenced here https://github.com/NVIDIA/thrust/releases/tag/1.14.0
+-- Removed many superfluous points of synchronisation introduced by thrust
+- Improved performance of writing matrices to file
+- Improved Clang compatibility
+- Added a divergence check, providing new config parameter rel_div_tolerance
+- Added compile-time definition to avoid exception handling, in order to improve experience when debugging (DISABLE_EXCEPTION_HANDLING)
+- Fixed multiple synchronisation issues that can show up on newer GPU architectures (sm_70+)
+- Fixed partition reordering for block_sizes > 1
+- Fixed build issue that arose when AmgX is built as a subproject
+- Fixed issue with OpenMP and NO_MPI linking
+- Replaced some inline asm with intrinsics
+- Fixed issue with exact_coarse_solve grid sizing
+- Fixed issue with use_sum_stopping_criteria
+- Fixed SIGFPE that could occur when the initial norm is 0
+- Added a new API call AMGX_matrix_check_symmetry, that tests if a matrix is structurally or completely symmetric
+
+Tested configurations:
+
+Linux x86-64:
+-- Ubuntu 20.04, Ubuntu 22.04
+-- NVHPC 23.7, GCC 9.4.0, GCC 12.1
+-- OpenMPI 4.0.x
+-- CUDA 11.2, 11.8, 12.2
+-- A100, H100
+
+Note that while AMGX has support for building in Windows, testing on Windows is very limited.
+
+===============================================================
+
+v2.3.0 - 2022-06-30
+
+---------------------------------------------------------------
+
+Changes:
+
+- Increased minimum CMake version to 3.18 and adapted to use CUDA as a language, making it possible to compile with HPC SDK
+- Improved performance of compute_values_kernel by ~1.3x
+- Optimised block tuning for aggressive coarsening
+- Added an exact coarse solve, accessible via the default scope flag "exact_coarse_solve"
+- Fixed issue where latency hiding could be enabled/disabled asymmetrically across available ranks
+- Fixed bug with SpGEMM fallback that deleted cuSPARSE handle incorrectly
+- Fixed bug with use of shared memory in estimate_c_hat_kernel
+
+Tested configurations:
+
+- Linux x86-64:
+-- Ubuntu 20.04, Ubuntu 18.04
+-- gcc 7.4.0, gcc 9.3.0
+-- OpenMPI 4.0.x
+-- CUDA 11.0, 11.2
+- Windows 10 x86-64:
+-- MS Visual Studio 2019 (msvc 19.28)
+-- MS MPI v10.1.2
+-- CUDA 11.0
+
+Note that while AMGX has support for building in Windows, testing on Windows is very limited.
+
+===============================================================
+
 v2.2.0 - 2021-04-06
 
 ---------------------------------------------------------------

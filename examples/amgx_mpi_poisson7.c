@@ -129,10 +129,6 @@ int main(int argc, char **argv)
     //versions
     int major, minor;
     char *ver, *date, *time;
-    //input matrix and rhs/solution
-    int *partition_sizes = NULL;
-    int *partition_vector = NULL;
-    int partition_vector_size = 0;
     //library handles
     AMGX_Mode mode;
     AMGX_config_handle cfg;
@@ -321,7 +317,7 @@ int main(int argc, char **argv)
     if(tidx != -1)
     {
       nrepeats = atoi(argv[tidx+1]);
-      printf("Running for %d repeats\n", nrepeats);
+      print_callback("Running for %d repeats\n", nrepeats);
     }
 
 

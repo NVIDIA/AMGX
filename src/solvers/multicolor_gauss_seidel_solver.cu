@@ -1388,7 +1388,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     y.set_block_dimx(b.get_block_dimx());
     y.set_block_dimy(b.get_block_dimy());
     y.tag = this->tag * 100 + 3;
-    thrust::copy(b.begin(), b.end(), y.begin());
+    amgx::thrust::copy(b.begin(), b.end(), y.begin());
     cudaCheckError();
     y.dirtybit = 0;
     y.delayed_send = 1;
@@ -1408,7 +1408,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
     if (this->symFlag)
     {
-        thrust::copy(b.begin(), b.end(), y.begin());
+        amgx::thrust::copy(b.begin(), b.end(), y.begin());
 
         for (int color = num_colors - 1; color >= 0; color--)
         {
@@ -1431,7 +1431,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
 
 // Solve one iteration
 template<class T_Config>
-bool
+AMGX_STATUS
 MulticolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     if (xIsZero) { x.dirtybit = 0; }
@@ -1469,7 +1469,7 @@ MulticolorGaussSeidelSolver_Base<T_Config>::solve_iteration( VVector &b, VVector
 
     if (xIsZero)
     {
-        thrust::fill(x.begin(), x.end(), 0.);
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 0.);
         cudaCheckError();
     }
 

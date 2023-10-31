@@ -32,12 +32,6 @@
 /////////////   Device-level generalized utils, should be included only in files compiled by nvcc  ////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if (defined(_MSC_VER) && defined(_WIN64)) || defined(__LP64__)
-#define __PTR   "l"
-#else
-#define __PTR   "r"
-#endif
-
 namespace utils
 {
 
@@ -125,9 +119,7 @@ static __device__ __forceinline__ int bfind( unsigned long long src )
 
 static __device__ __forceinline__ unsigned long long brev( unsigned long long src )
 {
-    unsigned long long rev;
-    asm( "brev.b64 %0, %1;" : "=l"(rev) : "l"(src) );
-    return rev;
+    return __brevll(src);
 }
 
 // ====================================================================================================================
@@ -174,37 +166,31 @@ struct Ld<LD_CG>
 {
     static __device__ __forceinline__ int load( const int *ptr )
     {
-        int ret;
-        asm volatile ( "ld.global.cg.s32 %0, [%1];"  : "=r"(ret) : __PTR(ptr) );
-        return ret;
+        return __ldcg(ptr);
     }
 
     static __device__ __forceinline__ float load( const float *ptr )
     {
-        float ret;
-        asm volatile ( "ld.global.cg.f32 %0, [%1];"  : "=f"(ret) : __PTR(ptr) );
-        return ret;
+        return __ldcg(ptr);
     }
 
     static __device__ __forceinline__ double load( const double *ptr )
     {
-        double ret;
-        asm volatile ( "ld.global.cg.f64 %0, [%1];"  : "=d"(ret) : __PTR(ptr) );
-        return ret;
+        return __ldcg(ptr);
     }
 
     static __device__ __forceinline__ cuComplex load( const cuComplex *ptr )
     {
-        float ret[2];
-        asm volatile ( "ld.global.cg.v2.f32 {%0, %1}, [%2];"  : "=f"(ret[0]), "=f"(ret[1]) : __PTR( (float *)(ptr) ) );
-        return make_cuComplex(ret[0], ret[1]);
+        float2* vptr = (float2*) ptr;
+        float2 ret = __ldcg(vptr);
+        return make_cuComplex(ret.x, ret.y);
     }
 
     static __device__ __forceinline__ cuDoubleComplex load( const cuDoubleComplex *ptr )
     {
-        double ret[2];
-        asm volatile ( "ld.global.cg.v2.f64 {%0, %1}, [%2];"  : "=d"(ret[0]), "=d"(ret[1]) : __PTR( (double *)(ptr) ) );
-        return make_cuDoubleComplex(ret[0], ret[1]);
+        double2* vptr = (double2*) ptr;
+        double2 ret = __ldcg(vptr);
+        return make_cuDoubleComplex(ret.x, ret.y);
     }
 
 };
@@ -214,37 +200,31 @@ struct Ld<LD_CA>
 {
     static __device__ __forceinline__ int load( const int *ptr )
     {
-        int ret;
-        asm volatile ( "ld.global.ca.s32 %0, [%1];"  : "=r"(ret) : __PTR(ptr) );
-        return ret;
+        return __ldca(ptr);
     }
 
     static __device__ __forceinline__ float load( const float *ptr )
     {
-        float ret;
-        asm volatile ( "ld.global.ca.f32 %0, [%1];"  : "=f"(ret) : __PTR(ptr) );
-        return ret;
+        return __ldca(ptr);
     }
 
     static __device__ __forceinline__ double load( const double *ptr )
     {
-        double ret;
-        asm volatile ( "ld.global.ca.f64 %0, [%1];"  : "=d"(ret) : __PTR(ptr) );
-        return ret;
+        return __ldca(ptr);
     }
 
     static __device__ __forceinline__ cuComplex load( const cuComplex *ptr )
     {
-        float ret[2];
-        asm volatile ( "ld.global.ca.v2.f32 {%0, %1}, [%2];"  : "=f"(ret[0]), "=f"(ret[1]) : __PTR( (float *)(ptr) ) );
-        return make_cuComplex(ret[0], ret[1]);
+        float2* vptr = (float2*) ptr;
+        float2 ret = __ldca(vptr);
+        return make_cuComplex(ret.x, ret.y);
     }
 
     static __device__ __forceinline__ cuDoubleComplex load( const cuDoubleComplex *ptr )
     {
-        double ret[2];
-        asm volatile ( "ld.global.ca.v2.f64 {%0, %1}, [%2];"  : "=d"(ret[0]), "=d"(ret[1]) : __PTR( (double *)(ptr) ) );
-        return make_cuDoubleComplex(ret[0], ret[1]);
+        double2* vptr = (double2*) ptr;
+        double2 ret = __ldca(vptr);
+        return make_cuDoubleComplex(ret.x, ret.y);
     }
 };
 
@@ -262,23 +242,40 @@ struct Ld<LD_NC>
 
 static __device__ __forceinline__ void load_vec2( float (&u)[2], const float *ptr )
 {
-    asm( "ld.global.cg.v2.f32 {%0, %1}, [%2];" : "=f"(u[0]), "=f"(u[1]) : __PTR(ptr) );
+    float2* vptr = (float2*) ptr;
+    float2 ret = __ldcg(vptr);
+    u[0] = ret.x;
+    u[1] = ret.y;
 }
 
 static __device__ __forceinline__ void load_vec2( double (&u)[2], const double *ptr )
 {
-    asm( "ld.global.cg.v2.f64 {%0, %1}, [%2];" : "=d"(u[0]), "=d"(u[1]) : __PTR(ptr) );
+    double2* vptr = (double2*) ptr;
+    double2 ret = __ldcg(vptr);
+    u[0] = ret.x;
+    u[1] = ret.y;
 }
 
 static __device__ __forceinline__ void load_vec4( float (&u)[4], const float *ptr )
 {
-    asm( "ld.global.cg.v4.f32 {%0, %1, %2, %3}, [%4];" : "=f"(u[0]), "=f"(u[1]), "=f"(u[2]), "=f"(u[3]) : __PTR(ptr) );
+    float4 * vptr = (float4 *) ptr;
+    float4 ret = __ldcg(vptr);
+    u[0] = ret.x;
+    u[1] = ret.y;
+    u[2] = ret.z;
+    u[3] = ret.w;
 }
 
 static __device__ __forceinline__ void load_vec4( double (&u)[4], const double *ptr )
 {
-    asm( "ld.global.cg.v2.f64 {%0, %1}, [%2];" : "=d"(u[0]), "=d"(u[1]) : __PTR(ptr + 0) );
-    asm( "ld.global.cg.v2.f64 {%0, %1}, [%2];" : "=d"(u[2]), "=d"(u[3]) : __PTR(ptr + 2) );
+    double2 * vptr = (double2 *) ptr;
+    double2 ret = __ldcg(vptr);
+    u[0] = ret.x;
+    u[1] = ret.y;
+    vptr = (double2 *) (ptr+2);
+    ret = __ldcg(vptr);
+    u[2] = ret.x;
+    u[3] = ret.y;
 }
 
 // ====================================================================================================================

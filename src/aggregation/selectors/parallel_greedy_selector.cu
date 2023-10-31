@@ -488,7 +488,7 @@ ParallelGreedySelector<TemplateConfig<AMGX_device, V, M, I> >::setAggregates_com
         A.col_indices.raw(),
         A.diag.raw(),
         A.values.raw(),
-        thrust::raw_pointer_cast( &edge_weights.front() ) );
+        amgx::thrust::raw_pointer_cast( &edge_weights.front() ) );
     cudaCheckError();
     // Make sure there's enough room to store aggregates.
     aggregates.resize(num_rows);
@@ -507,10 +507,10 @@ ParallelGreedySelector<TemplateConfig<AMGX_device, V, M, I> >::setAggregates_com
     // Iterate until all vertices are aggregated.
     while ( num_unaggregated > 0 )
     {
-        int *ring_leader_id0 = thrust::raw_pointer_cast(&ring_leader_id0_array.front());
-        int *ring_leader_id1 = thrust::raw_pointer_cast(&ring_leader_id1_array.front());
-        int *ring_leader_hash0 = thrust::raw_pointer_cast(&ring_leader_hash0_array.front());
-        int *ring_leader_hash1 = thrust::raw_pointer_cast(&ring_leader_hash1_array.front());
+        int *ring_leader_id0 = amgx::thrust::raw_pointer_cast(&ring_leader_id0_array.front());
+        int *ring_leader_id1 = amgx::thrust::raw_pointer_cast(&ring_leader_id1_array.front());
+        int *ring_leader_hash0 = amgx::thrust::raw_pointer_cast(&ring_leader_hash0_array.front());
+        int *ring_leader_hash1 = amgx::thrust::raw_pointer_cast(&ring_leader_hash1_array.front());
 
         // Count N-ring of vertices.
         for ( int i = 0 ; i < 2 * num_rings ; ++i )
@@ -520,7 +520,7 @@ ParallelGreedySelector<TemplateConfig<AMGX_device, V, M, I> >::setAggregates_com
                 num_rows, // It should be num_owned!!!
                 A.row_offsets.raw(),
                 A.col_indices.raw(),
-                thrust::raw_pointer_cast(&is_aggregated.front()),
+                amgx::thrust::raw_pointer_cast(&is_aggregated.front()),
                 i == 0 ? NULL : ring_leader_id0,
                 i == 0 ? NULL : ring_leader_hash0,
                 ring_leader_id1,
@@ -537,13 +537,13 @@ ParallelGreedySelector<TemplateConfig<AMGX_device, V, M, I> >::setAggregates_com
             num_rows, // It should be num_owned!!!
             A.row_offsets.raw(),
             A.col_indices.raw(),
-            thrust::raw_pointer_cast(&is_aggregated.front()),
+            amgx::thrust::raw_pointer_cast(&is_aggregated.front()),
             ring_leader_id0,
             ring_leader_hash0,
-            thrust::raw_pointer_cast(&edge_weights.front()),
-            thrust::raw_pointer_cast(&dev_num_aggregates.front()),
+            amgx::thrust::raw_pointer_cast(&edge_weights.front()),
+            amgx::thrust::raw_pointer_cast(&dev_num_aggregates.front()),
             aggregates.raw(),
-            thrust::raw_pointer_cast(&dev_num_unaggregated.front()));
+            amgx::thrust::raw_pointer_cast(&dev_num_unaggregated.front()));
         cudaCheckError();
         // Number of aggregated vertices.
         num_unaggregated = dev_num_unaggregated[0];

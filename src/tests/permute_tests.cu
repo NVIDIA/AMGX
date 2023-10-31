@@ -56,36 +56,36 @@ void run()
     IVector p(SIZE);
     IVector_h h_p;
     //initial permutation set to identity
-    thrust::sequence(p.begin(), p.end());
-    thrust::sequence(v1.begin(), v1.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(p.begin(), p.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(v1.begin(), v1.end());
     permuteVector(v1, v2, p, SIZE);
     UNITTEST_ASSERT_EQUAL(v1, v2);
     unpermuteVector(v2, v3, p, SIZE);
     UNITTEST_ASSERT_EQUAL(v1, v3);
     //reverse permutation
-    thrust::sequence(p.rbegin(), p.rend());
-    thrust::sequence(v1.begin(), v1.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(p.rbegin(), p.rend());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(v1.begin(), v1.end());
     permuteVector(v1, v2, p, SIZE);
-    thrust::sequence(v1.rbegin(), v1.rend());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(v1.rbegin(), v1.rend());
     UNITTEST_ASSERT_EQUAL(v1, v2);
-    thrust::sequence(v1.begin(), v1.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(v1.begin(), v1.end());
     unpermuteVector(v2, v3, p, SIZE);
     UNITTEST_ASSERT_EQUAL(v1, v3);
     p.resize(SIZE / 16);
-    thrust::sequence(p.begin(), p.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(p.begin(), p.end());
     v1.set_block_dimx(4);
     v1.set_block_dimy(4);
     v2.set_block_dimx(4);
     v2.set_block_dimy(4);
     v3.set_block_dimx(4);
     v3.set_block_dimy(4);
-    thrust::sequence(v1.begin(), v1.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(v1.begin(), v1.end());
     permuteVector(v1, v2, p, SIZE);
     UNITTEST_ASSERT_EQUAL(v1, v2);
     unpermuteVector(v2, v3, p, SIZE);
     UNITTEST_ASSERT_EQUAL(v1, v3);
-    thrust::sequence(p.rbegin(), p.rend());
-    thrust::sequence(v1.begin(), v1.end());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(p.rbegin(), p.rend());
+    thrust_wrapper::sequence<IVector::TConfig::memSpace>(v1.begin(), v1.end());
     permuteVector(v1, v2, p, SIZE);
     UNITTEST_ASSERT_NEQUAL(v1, v2);
     //applying permutation twice will invert itself
@@ -94,7 +94,7 @@ void run()
     unpermuteVector(v2, v3, p, SIZE);
     UNITTEST_ASSERT_EQUAL(v1, v3);
     h_p = p;
-    thrust::sequence(h_p.begin(), h_p.end());
+    thrust_wrapper::sequence<AMGX_host>(h_p.begin(), h_p.end());
 
     //create random permuatation
     for (int j = 0; j < 10; j++)

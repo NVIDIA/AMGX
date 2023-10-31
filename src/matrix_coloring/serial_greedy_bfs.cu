@@ -572,12 +572,12 @@ Serial_Greedy_BFS_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::run_cre
 void copy_using_buffer_d2h(void *dst, void *src, size_t size)
 {
     static cudaEvent_t event = 0;
-    cudaStream_t stream = thrust::global_thread_handle::get_stream();
+    cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     cudaEventCreateWithFlags(&event, cudaEventDisableTiming); //TODO it never gets destroyed, allocate somewhere safer
 
     void *buffer = 0;
     size_t buffer_size = std::min((size_t)(1024 * 1024 * 1), size);
-    thrust::global_thread_handle::cudaMallocHost((void **)&buffer, buffer_size);
+    amgx::memory::cudaMallocHost((void **)&buffer, buffer_size);
     size_t offset = 0;
 
     while (offset < size)
@@ -593,7 +593,7 @@ void copy_using_buffer_d2h(void *dst, void *src, size_t size)
         offset = end;
     }
 
-    thrust::global_thread_handle::cudaFreeHost(buffer);
+    amgx::memory::cudaFreeHost(buffer);
 }
 
 void copy_using_buffer_h2d(void *dst, void *src, size_t size)
@@ -605,10 +605,10 @@ void copy_using_buffer_h2d(void *dst, void *src, size_t size)
         cudaEventCreateWithFlags(&event, cudaEventDisableTiming); //TODO it never gets destroyed, allocate somewhere safer
     }
 
-    cudaStream_t stream = thrust::global_thread_handle::get_stream();
+    cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     void *buffer = 0;
     size_t buffer_size = std::min((size_t)(1024 * 1024 * 1), size);
-    thrust::global_thread_handle::cudaMallocHost((void **)&buffer, buffer_size);
+    amgx::memory::cudaMallocHost((void **)&buffer, buffer_size);
     size_t offset = 0;
 
     while (offset < size)
@@ -624,7 +624,7 @@ void copy_using_buffer_h2d(void *dst, void *src, size_t size)
         offset = end;
     }
 
-    thrust::global_thread_handle::cudaFreeHost(buffer);
+    amgx::memory::cudaFreeHost(buffer);
 }
 
 // Block version
@@ -646,8 +646,8 @@ Serial_Greedy_BFS_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::colorMa
     int *sorted_rows_by_color = new int[num_rows];
     int *queue = new int[num_rows * 2];
     //Perforn D2H copies
-    copy_using_buffer_d2h(A_row_offsets, thrust::raw_pointer_cast(A.row_offsets.data()), A.row_offsets.size()*sizeof(int));
-    copy_using_buffer_d2h(A_col_indices, thrust::raw_pointer_cast(A.col_indices.data()), A.col_indices.size()*sizeof(int));
+    copy_using_buffer_d2h(A_row_offsets, amgx::thrust::raw_pointer_cast(A.row_offsets.data()), A.row_offsets.size()*sizeof(int));
+    copy_using_buffer_d2h(A_col_indices, amgx::thrust::raw_pointer_cast(A.col_indices.data()), A.col_indices.size()*sizeof(int));
     //Dispatching various cases
     int amg_level = A.template getParameter<int>("level");
     float sparsity = ((float)A.get_num_nz()) / float(A.get_num_rows() * A.get_num_rows());
@@ -742,16 +742,16 @@ Serial_Greedy_BFS_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::colorMa
     {
         this->m_sorted_rows_by_color.resize(A.get_num_rows());
         this->run_createColorArrays_on_cpu(A.get_num_rows(), color, sorted_rows_by_color);
-        copy_using_buffer_h2d(thrust::raw_pointer_cast(this->m_sorted_rows_by_color.data()), sorted_rows_by_color, A.get_num_rows()*sizeof(int));
+        copy_using_buffer_h2d(amgx::thrust::raw_pointer_cast(this->m_sorted_rows_by_color.data()), sorted_rows_by_color, A.get_num_rows()*sizeof(int));
     }
 
     //copies color -> m_row_colors, using a pinned memory buffer
-    copy_using_buffer_h2d(thrust::raw_pointer_cast(this->m_row_colors.data()), color, A.get_num_rows()*sizeof(int));
-    delete[] color;
-    delete[] A_row_offsets;
-    delete[] A_col_indices;
-    delete[] sorted_rows_by_color;
-    delete[] queue;
+    copy_using_buffer_h2d(amgx::thrust::raw_pointer_cast(this->m_row_colors.data()), color, A.get_num_rows()*sizeof(int));
+    delete color;
+    delete A_row_offsets;
+    delete A_col_indices;
+    delete sorted_rows_by_color;
+    delete queue;
     A.setView(oldView);
 }
 

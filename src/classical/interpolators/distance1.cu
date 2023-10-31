@@ -70,7 +70,7 @@ struct find_row_diagonal
 };
 
 template< class CsrMatrixType >
-struct count_nnz_per_row : public thrust::unary_function<int, int>
+struct count_nnz_per_row : public amgx::thrust::unary_function<int, int>
 {
     const CsrMatrixType &my_A;
     static const AMGX_VecPrecision vecPrec = CsrMatrixType::TConfig::vecPrec;
@@ -150,7 +150,7 @@ struct compute_weights
     inline
     int get_thread_id( ) const
     {
-#if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
+#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
         return omp_get_thread_num( );
 #else
         return 0;
@@ -301,8 +301,8 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 {
     // The diagonal of A.
     VVector diag( A.get_num_rows() );
-    thrust::transform( thrust::make_counting_iterator<int>( 0 ),
-                       thrust::make_counting_iterator<int>( A.get_num_rows() ),
+    thrust_wrapper::transform<AMGX_host>( amgx::thrust::make_counting_iterator<int>( 0 ),
+                       amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                        diag.begin( ),
                        detail::find_row_diagonal<Matrix_h>( A ) );
     cudaCheckError();
@@ -314,26 +314,26 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 
     // Count the number of non-zero elements per row of P.
     IntVector nnz_per_row( A.get_num_rows() + 1 );
-    thrust::transform( thrust::make_counting_iterator<int>( 0 ),
-                       thrust::make_counting_iterator<int>( A.get_num_rows() ),
+    amgx::thrust::transform( amgx::thrust::make_counting_iterator<int>( 0 ),
+                       amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                        nnz_per_row.begin( ),
                        detail::count_nnz_per_row<Matrix_h>( A, are_sc, cf_map ) );
     cudaCheckError();
     nnz_per_row[A.get_num_rows()] = 0;
     // Find the total number of non-zeroes. 
     // TODO: merge with the exclusive scan.
-    int nnz = thrust::reduce( nnz_per_row.begin( ), nnz_per_row.end( ) );
+    int nnz = amgx::thrust::reduce( nnz_per_row.begin( ), nnz_per_row.end( ) );
     cudaCheckError();
     // Resize P so that there is enough space to store the non-zero elements.
     P.addProps(CSR);
     P.resize( A.get_num_rows(), n_coarse, nnz );
     // Compute row offsets of P.
-    thrust::exclusive_scan( nnz_per_row.begin( ),
+    thrust_wrapper::exclusive_scan<AMGX_host>( nnz_per_row.begin( ),
                             nnz_per_row.end( ),
                             P.row_offsets.begin( ) );
     cudaCheckError();
     // For each row we compute the weights.
-#if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
+#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
     typedef IntVector IntArray1d;
     int nthreads = omp_get_max_threads( );
     size_t sz = nthreads * sizeof( IntArray1d );
@@ -350,12 +350,12 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
 #endif
     detail::compute_weights<Matrix_h> compute_fct( A, diag, are_sc, cf_map, edges_markers, P );
 
-    thrust::for_each( thrust::host,
-                      thrust::make_counting_iterator<int>( 0 ),
-                      thrust::make_counting_iterator<int>( A.get_num_rows() ),
+    amgx::thrust::for_each( amgx::thrust::host,
+                      amgx::thrust::make_counting_iterator<int>( 0 ),
+                      amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                       compute_fct );
     cudaCheckError();
-#if( THRUST_DEVICE_BACKEND == THRUST_DEVICE_BACKEND_OMP )
+#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
 
     for ( int i = 0 ; i < nthreads ; ++i )
     {
@@ -870,9 +870,9 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // now I have the non-zeros per row for matrix P, count the non-zeros on each row
     // to get total NNZ
     // sum non-zeros per row
-    int NNZidx = thrust_wrapper::reduce(nonZerosVec.begin(), nonZerosVec.end());
+    int NNZidx = thrust_wrapper::reduce<AMGX_device>(nonZerosVec.begin(), nonZerosVec.end());
     cudaCheckError();
-    thrust_wrapper::exclusive_scan(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
+    thrust_wrapper::exclusive_scan<AMGX_device>(nonZerosVec.begin(), nonZerosVec.end(), nonZerosVec.begin());
     cudaCheckError();
     nonZerosVec[A.get_num_rows()] = NNZidx;
     // generate sets on the device
@@ -881,7 +881,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     int *set_field_ptr = set_fields.raw();
     // count the coarse points first
     // (no need to worry about >4B coarse points)
-    int coarsePoints = (int) thrust::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
+    int coarsePoints = (int) amgx::thrust::count_if(cf_map.begin(), cf_map.end(), is_non_neg());
     cudaCheckError();
     // I have all the information needed - create P and get the pointers to its data
     P.addProps(CSR);
@@ -890,7 +890,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     ValueType *Pvalues_ptr = P.values.raw();
     // now P is initialised, get row offsets from nonZerosVec with an exclusive prefix sum
     // set final value
-    thrust::copy(nonZerosVec.begin(), nonZerosVec.end(), P.row_offsets.begin());
+    amgx::thrust::copy(nonZerosVec.begin(), nonZerosVec.end(), P.row_offsets.begin());
     cudaCheckError();
     IndexType *Poffsets_ptr = P.row_offsets.raw();
     // assign temp memory

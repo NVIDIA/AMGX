@@ -86,11 +86,11 @@ void check_fgmres_convergence_poisson(int points, int nx, int ny, int nz, ValueT
         // Fill b with random values
         b.resize(n_rows);
         //fillRandom<Vector_h>::fill(b);
-        cusp::blas::fill(b, 1);
+        thrust_wrapper::fill<AMGX_host>(b.begin(), b.end(), 1);
         // Initialize x to random values
         x.resize(n_rows);
         //fillRandom<Vector_h>::fill(x);
-        cusp::blas::fill(x, 0.);
+        thrust_wrapper::fill<AMGX_host>(x.begin(), x.end(), 0.);
         // Copy to device if necessary
         MatrixA A_hd;
         VVector x_ini_hd, x_fin_outside_hd, b_hd, r_hd, x_fin_inside_hd;

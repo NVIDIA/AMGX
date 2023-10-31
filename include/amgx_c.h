@@ -99,7 +99,7 @@ typedef enum
     AMGX_SOLVE_SUCCESS = 0,
     AMGX_SOLVE_FAILED = 1,
     AMGX_SOLVE_DIVERGED = 2,
-    AMGX_SOLVE_NOT_CONVERGED = 2,
+    AMGX_SOLVE_NOT_CONVERGED = 3,
 } AMGX_SOLVE_STATUS;
 
 /*********************************************************
@@ -615,6 +615,11 @@ AMGX_RC AMGX_API AMGX_matrix_upload_all_global_32
  const void *data,
  const void *diag_data,
  AMGX_distribution_handle distribution);
+
+AMGX_RC AMGX_API AMGX_matrix_check_symmetry
+(AMGX_matrix_handle mtx,
+ int* structurally_symmetric,
+ int* symmetric);
 
 /*********************************************************
  * C-API deprecated

@@ -44,9 +44,8 @@ void AbsoluteConvergence<TConfig>::convergence_init()
 
 
 template<class TConfig>
-bool AbsoluteConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
+AMGX_STATUS AbsoluteConvergence<TConfig>::convergence_update_and_check(const PODVec_h &nrm, const PODVec_h &nrm_ini)
 {
-    //printf("Check tolerance: %f\n", this->m_tolerance);
     bool res_converged = true;
     bool res_converged_rel = true;
 
@@ -63,10 +62,10 @@ bool AbsoluteConvergence<TConfig>::convergence_update_and_check(const PODVec_h &
         std::stringstream ss;
         ss << "Relative residual has reached machine precision" << std::endl;
         amgx_output(ss.str().c_str(), static_cast<int>(ss.str().length()));
-        return true;
+        return AMGX_ST_CONVERGED;
     }
 
-    return res_converged;
+    return res_converged ? AMGX_ST_CONVERGED : AMGX_ST_NOT_CONVERGED;
 }
 
 /****************************************

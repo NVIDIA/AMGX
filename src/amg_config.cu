@@ -591,15 +591,10 @@ void AMG_Config::import_json_object(rapidjson::Value &obj, bool outer)
         {
             if (!iter->value.HasMember("scope"))
             {
-                char tmp[32];
-#ifdef _WIN32
-                _snprintf(
-#else
-                snprintf(
-#endif
-                    tmp, 31, "unnamed_solver_%d", unnamed_scope_counter++);
+                std::string sub_scope = current_scope + "_sub_" + iter->name.GetString();
+
                 rapidjson::Value new_val;
-                new_val.SetString(tmp, strlen(tmp));
+                new_val.SetString(sub_scope.c_str(), sub_scope.size(), json_parser.GetAllocator());
                 iter->value.AddMember("scope", new_val, json_parser.GetAllocator());
             }
 

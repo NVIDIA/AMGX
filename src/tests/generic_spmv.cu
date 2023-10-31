@@ -45,7 +45,7 @@ struct CheckGenericSpMV
         _A_offsets(A_offsets), _A_col_indices(A_col_indices), _A_values(A_values) {};
 
     __host__ __device__
-    thrust::tuple<ValueType, ValueType> operator()(IndexType i)
+    amgx::thrust::tuple<ValueType, ValueType> operator()(IndexType i)
     {
         IndexType row = i;
         ValueType sum = 0., coef = 0.;
@@ -56,7 +56,7 @@ struct CheckGenericSpMV
             coef = max(coef, fabs(_A_values[jj]));
         }
 
-        return thrust::tuple<ValueType, ValueType>(coef, sum);
+        return amgx::thrust::tuple<ValueType, ValueType>(coef, sum);
     }
 };
 
@@ -64,9 +64,9 @@ template <typename ValueType>
 struct getCoef
 {
     __host__ __device__
-    ValueType operator()(const thrust::tuple<ValueType, ValueType> &a) const
+    ValueType operator()(const amgx::thrust::tuple<ValueType, ValueType> &a) const
     {
-        return thrust::get<0>(a);
+        return amgx::thrust::get<0>(a);
     }
 };
 
@@ -74,9 +74,9 @@ template <typename ValueType>
 struct getSum
 {
     __host__ __device__
-    ValueType operator()(const thrust::tuple<ValueType, ValueType> &a) const
+    ValueType operator()(const amgx::thrust::tuple<ValueType, ValueType> &a) const
     {
-        return thrust::get<1>(a);
+        return amgx::thrust::get<1>(a);
     }
 };
 
@@ -86,17 +86,17 @@ void checkRowSumCoef(const Matrix &A, Vector &max_coef, Vector &row_sums)
     typedef typename Matrix::memory_space MemorySpace;
     typedef typename Matrix::index_type IndexType;
     typedef typename Matrix::value_type ValueType;
-    cusp::array1d<thrust::tuple<ValueType, ValueType>, MemorySpace> out(A.get_num_rows());
+    cusp::array1d<amgx::thrust::tuple<ValueType, ValueType>, MemorySpace> out(A.get_num_rows());
     CheckGenericSpMV<IndexType, ValueType> checker(A.row_offsets.raw(), A.col_indices.raw(), A.values.raw());
     // perform transform on each row
-    typedef thrust::counting_iterator<IndexType> c_iter;
-    thrust::transform(c_iter(0), c_iter(A.get_num_rows()), out.begin(), checker);
+    typedef amgx::thrust::counting_iterator<IndexType> c_iter;
+    amgx::thrust::transform(c_iter(0), c_iter(A.get_num_rows()), out.begin(), checker);
     cudaCheckError();
     // retrieve results
     getCoef<ValueType> getC;
     getSum<ValueType> getS;
-    thrust::transform(out.begin(), out.end(), max_coef.begin(), getC);
-    thrust::transform(out.begin(), out.end(), row_sums.begin(), getS);
+    amgx::thrust::transform(out.begin(), out.end(), max_coef.begin(), getC);
+    amgx::thrust::transform(out.begin(), out.end(), row_sums.begin(), getS);
     cudaCheckError();
 }
 
@@ -170,7 +170,7 @@ void run()
     random_fill(x);
     Vector<TConfig> y(A.get_num_rows(), 0), y_cusp(A.get_num_rows(), 0);
     // setup and perform generic spmv operation on device
-    thrust::device_vector<spmv<typename TConfig::VecPrec> > y_spmv(A.get_num_rows());
+    amgx::thrust::device_vector<spmv<typename TConfig::VecPrec> > y_spmv(A.get_num_rows());
     default_state st;
     genericSpmvCSR(A, x, y_spmv, st);
     retrieveOneArgument(y_spmv, y);

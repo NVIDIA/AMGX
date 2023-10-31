@@ -39,7 +39,7 @@ void spmv_example(amgx::Resources& res)
     A.resize(nrows, nrows, nnz, 1);
     x.resize(nrows);
     y.resize(nrows);
-    thrust::fill(y.begin(), y.end(), 0.);
+    amgx::thrust::fill(y.begin(), y.end(), 0.);
     
     // matrix row offsets
     std::vector<int> row_offsets_h = {0, 2, 5, 7, 10, 13};

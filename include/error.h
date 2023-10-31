@@ -165,12 +165,12 @@ int AMGX_GetErrorString( AMGX_ERROR error, char *buffer, int buf_len);
         + std::string(e.where()) + "\nStack trace:\n" + std::string(e.trace()) + "\n";               \
     error_output(err.c_str(), static_cast<int>(err.length()));                                       \
     rc = e.reason();                                                                                 \
-  } catch (thrust::system_error &e) {                                                                \
+  } catch (amgx::thrust::system_error &e) {                                                                \
     std::string err = "Thrust failure: " + std::string(e.what())                                     \
         + "\nFile and line number are not available for this exception.\n";                          \
     error_output(err.c_str(), static_cast<int>(err.length()));                                       \
     rc = AMGX_ERR_THRUST_FAILURE;                                                                   \
-  } catch (thrust::system::detail::bad_alloc e) {                                                    \
+  } catch (amgx::thrust::system::detail::bad_alloc e) {                                                    \
     std::string err = "Thrust failure: " + std::string(e.what())                                     \
         + "\nFile and line number are not available for this exception.\n";                          \
     error_output(err.c_str(), static_cast<int>(err.length()));                                       \

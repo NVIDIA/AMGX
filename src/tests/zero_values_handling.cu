@@ -238,7 +238,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
 
 #endif
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
     b.set_block_dimx(1);
     b.set_block_dimy(A.get_block_dimy());
     x.set_block_dimx(1);
@@ -251,7 +251,7 @@ void test_solvers(Matrix<T_Config> &A, AMG_Config &cfg, const std::string &cfg_s
     {
         //std::cout << "solver=" << iter->first << std::endl;
         solver = NULL;
-        thrust::fill(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
+        thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), static_cast<ValueTypeB>(1.0));
         //printf("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));fflush(stdout);
         UNITTEST_ASSERT_EXCEPTION_START;
         PrintOnFail("%s : Matrix properties: blocksize = %d, diag_prop = %d\n", iter->first.c_str(), A.get_block_dimy(), (A.hasProps(DIAG) ? 1 : 0));
@@ -324,8 +324,8 @@ void generatePoissonForTest(Matrix<TConfig > &Aout, int block_size, bool diag_pr
 void test_levels(Resources *res, Matrix<T_Config> &A)
 {
     Vector<T_Config> b (A.get_num_rows()*A.get_block_dimy()), x (A.get_num_rows()*A.get_block_dimy());
-    cusp::blas::fill(b, 1);
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(b.begin(), b.end(), 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     int bsize = A.get_block_dimy();
     b.set_block_dimx(1);
     b.set_block_dimy(bsize);
@@ -361,7 +361,7 @@ void test_levels(Resources *res, Matrix<T_Config> &A)
         }
     }
 
-    cusp::blas::fill(x, 1);
+    thrust_wrapper::fill<T_Config::memSpace>(x.begin(), x.end(), 1);
     {
         AMG_Configuration cfg;
         AMGX_ERROR err = AMGX_OK;
@@ -536,7 +536,7 @@ void random_add_zeros(Matrix<TConfig> &A, int max_zeros)
         if (rowidx == A.col_indices[A.row_offsets[rowidx]]) { continue; }
 
         int validx = A.row_offsets[rowidx];
-        thrust::fill(A.values.begin() + validx, A.values.begin() + validx + A.get_block_size(), static_cast<ValueTypeA>(0.0));
+        thrust_wrapper::fill<TConfig::memSpace>(A.values.begin() + validx, A.values.begin() + validx + A.get_block_size(), static_cast<ValueTypeA>(0.0));
         --zero_num;
     }
 }

@@ -1101,15 +1101,15 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
                               const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
 
         size_t bufferSize = 0;
-        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, &bufferSize));
+        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG1, &bufferSize));
 
         void* dBuffer = NULL;
         if(bufferSize > 0)
         {
-            amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+            amgx::memory::cudaMallocAsync(&dBuffer, bufferSize, stream);
         }
 
-        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG2, dBuffer) );
+        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG1, dBuffer) );
 
         cusparseCheckError(cusparseDestroySpMat(matA_descr));
         cusparseCheckError(cusparseDestroyDnVec(vecX_descr));
@@ -1209,18 +1209,18 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              double *y,
                              const cudaStream_t& stream)
 {
-    // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
-
     #ifndef DISABLE_MIXED_PRECISION
+        // Run cuSparse on selected stream
+        cusparseSetStream(handle, stream);
+
         const double *d_bsrVal = reinterpret_cast<const double *>(const_cast<float *>(bsrVal)); // this works due to private API call in the matrix initialization which sets cusparse matrix description in the half precision mode
         cusparseCheckError(cusparseDbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
+
+        // Reset cuSparse to default stream
+        cusparseSetStream(handle, 0);
     #else
         FatalError("Mixed precision modes not currently supported for CUDA 10.1 or later.", AMGX_ERR_NOT_IMPLEMENTED);
     #endif
-
-    // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
 }
 
 // Custom implementation of matrix-vector product to replace the original bsrxmv,
@@ -1491,18 +1491,18 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              cuDoubleComplex *y,
                              const cudaStream_t& stream)
 {
-    // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
-
     #ifndef DISABLE_MIXED_PRECISION
+        // Run cuSparse on selected stream
+        cusparseSetStream(handle, stream);
+
         const cuDoubleComplex *d_bsrVal = reinterpret_cast<cuDoubleComplex *>(const_cast<cuComplex *>(bsrVal));
         cusparseCheckError(cusparseZbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
+
+        // Reset cuSparse to default stream
+        cusparseSetStream(handle, 0);
     #else
         FatalError("Mixed precision modes not currently supported for CUDA 10.1 or later.", AMGX_ERR_NOT_IMPLEMENTED);
     #endif
-
-    // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
 }
 
 
@@ -1644,7 +1644,7 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
     void* dBuffer = NULL;
     if(bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&dBuffer, bufferSize);
+        amgx::memory::cudaMallocAsync(&dBuffer, bufferSize);
     }
 
     // Compute the sparse matrix - dense matrix product
@@ -1798,7 +1798,7 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
     void *buffer = nullptr;
     if (bufferSize > 0)
     {
-        amgx::memory::cudaMalloc(&buffer, bufferSize);
+        amgx::memory::cudaMallocAsync(&buffer, bufferSize);
     }
 
     cusparseCheckError(cusparseCsr2cscEx2(

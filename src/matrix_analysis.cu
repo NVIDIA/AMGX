@@ -134,7 +134,74 @@ void MatrixAnalysis<T_Config>::checkSymmetry(bool &structuralSymmetric, bool &sy
 
     if (TConfig::memSpace == AMGX_device)
     {
-        FatalError("Device version not implemented", AMGX_ERR_NOT_IMPLEMENTED);
+        // choose epsilon
+        double eps = 1e-12;
+
+        if (types::PODTypes<ValueTypeA>::vec_prec == AMGX_vecFloat)
+        {
+            eps = 1e-7;
+        }
+
+        const int bx = A->get_block_dimx();
+        const int by = A->get_block_dimy();
+        const int nnz = A->get_num_nz();
+
+        amgx::thrust::device_vector<bool> symm_d(1, true);
+        amgx::thrust::device_vector<bool> struct_symm_d(1, true);
+        auto* symmetric_d = amgx::thrust::raw_pointer_cast(symm_d.data());
+        auto* structurally_symmetric_d = amgx::thrust::raw_pointer_cast(struct_symm_d.data());
+        auto* col_indices = A->col_indices.raw();
+        auto* row_offsets = A->row_offsets.raw();
+        auto* values = A->values.raw();
+
+        amgx::thrust::for_each_n(thrust::device, amgx::thrust::counting_iterator<int>(0), A->get_num_rows(), [=] __device__ (int i)
+        {
+            for (int jj = row_offsets[i]; jj < row_offsets[i + 1]; jj++)
+            {
+                // check structure exists
+                int j = col_indices[jj];
+
+                // ignore diagonal
+                if (i == j) { continue; }
+
+                // loop over row j, search for column i
+                bool found_on_row = false;
+
+                for (int kk = row_offsets[j]; kk < row_offsets[j + 1]; kk++)
+                {
+                    int k = col_indices[kk];
+
+                    if (k == i)
+                    {
+                        found_on_row = true;
+
+                        // check values
+                        // check all elements
+                        const int blocksize = bx * by;
+
+                        for (int m = 0; m < bx * by; m++)
+                        {
+                            if (types::util<ValueTypeA>::abs(values[jj * blocksize + m] - values[kk * blocksize + m]) > eps)
+                            {
+                                symmetric_d[0] = false;
+                            }
+                        }
+
+                        break;
+                    }
+                }
+
+                // if we didn't find the element, non-symmetric
+                if (!found_on_row)
+                {
+                    structurally_symmetric_d[0] = false;
+                    symmetric_d[0] = false;
+                }
+            }
+        });
+
+        symmetric = symm_d[0];
+        structuralSymmetric = struct_symm_d[0];
     }
     else if (TConfig::memSpace == AMGX_host)
     {
@@ -697,7 +764,7 @@ void MatrixAnalysis<T_Config>::aggregatesQuality2(const typename Matrix<T_Config
         if (agg_list[agg].size() > 0)
         {
             std::vector<int> clusters(agg_list[agg].size());
-            thrust::sequence(clusters.begin(), clusters.end());
+            thrust_wrapper::sequence<AMGX_host>(clusters.begin(), clusters.end());
 
             for (int iter = 0; iter < clusters.size(); iter++)
             {

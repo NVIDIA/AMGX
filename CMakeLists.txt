@@ -30,6 +30,7 @@ cmake_minimum_required (VERSION 3.18)
 project (AMG LANGUAGES C CXX CUDA)
 
 find_package(MPI)
+find_package(OpenMP)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 

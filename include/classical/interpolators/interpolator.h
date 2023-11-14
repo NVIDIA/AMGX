@@ -50,8 +50,7 @@ class Interpolator
                 IVector &cf_map,
                 BVector &s_con,
                 IVector &scratch,
-                Matrix<TConfig> &P,
-                void *amg) = 0;
+                Matrix<TConfig> &P) = 0;
         virtual ~Interpolator() {}
 };
 

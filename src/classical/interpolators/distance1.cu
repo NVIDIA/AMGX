@@ -296,8 +296,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
     IntVector &cf_map,
     BVector &are_sc,
     IntVector &wk,
-    Matrix_h &P,
-    void *amg )
+    Matrix_h &P)
 {
     // The diagonal of A.
     VVector diag( A.get_num_rows() );
@@ -831,8 +830,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         IntVector &cf_map,
         BVector &s_con,
         IntVector &scratch,
-        Matrix_d &P,
-        void *amg)
+        Matrix_d &P)
 {
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueType;
@@ -921,14 +919,13 @@ void Distance1_InterpolatorBase<T_Config>::generateInterpolationMatrix(Matrix<T_
         IntVector &cf_map,
         BVector &s_con,
         IntVector &scratch,
-        Matrix<T_Config> &P,
-        void *amg)
+        Matrix<T_Config> &P)
 {
     P.set_initialized(0);
 
     if (A.get_block_size() == 1)
     {
-        generateInterpolationMatrix_1x1(A, cf_map, s_con, scratch, P, amg);
+        generateInterpolationMatrix_1x1(A, cf_map, s_con, scratch, P);
     }
     else
     {

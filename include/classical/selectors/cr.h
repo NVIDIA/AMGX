@@ -57,7 +57,9 @@ class CR_SelectorBase : public Selector<T_Config>
                                   IVector &scratch,
                                   int cf_map_init = 0);
 
-        CR_SelectorBase() {};
+        CR_SelectorBase(AMG_Config &cfg, const std::string &cfg_scope) : 
+          Selector<T_Config>(cfg, cfg_scope) {}
+
         virtual ~CR_SelectorBase() {};
 
     protected:
@@ -80,6 +82,9 @@ class CR_Selector< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> > 
         typedef Matrix<TConfig_h> Matrix_h;
         typedef typename Matrix_h::IVector IVector;
 
+    public:
+        CR_Selector(AMG_Config &cfg, const std::string &cfg_scope) : 
+          CR_SelectorBase<TConfig_h>(cfg, cfg_scope) {}
     private:
         void markCoarseFinePoints_1x1(Matrix_h &A,
                                       IVector &cf_map)
@@ -105,7 +110,7 @@ class CR_Selector< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
 
 
     public:
-        CR_Selector();
+        CR_Selector(AMG_Config &cfg, const std::string &cfg_scope);
         virtual ~CR_Selector();
 
     private:
@@ -127,7 +132,10 @@ template<class T_Config>
 class CR_SelectorFactory : public SelectorFactory<T_Config>
 {
     public:
-        Selector<T_Config> *create() { return new CR_Selector<T_Config>; }
+        Selector<T_Config> *create(AMG_Config &cfg, const std::string &cfg_scope) 
+        { 
+          return new CR_Selector<T_Config>(cfg, cfg_scope); 
+        }
 
 };
 

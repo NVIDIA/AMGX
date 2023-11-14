@@ -61,6 +61,8 @@ class PMIS_SelectorBase : public Selector<T_Config>
                                   IVector &scratch,
                                   int cf_map_init = 0);
 
+        PMIS_SelectorBase(AMG_Config &cfg, const std::string &cfg_scope) : 
+          Selector<T_Config>(cfg, cfg_scope) {}
     protected:
         virtual void markCoarseFinePoints_1x1(Matrix<T_Config> &A,
                                               FVector &weights,
@@ -84,6 +86,9 @@ class PMIS_Selector< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> 
         typedef Matrix<TConfig_h> Matrix_h;
         typedef typename Matrix_h::IVector IVector;
         typedef Vector<typename TConfig_h::template setVecPrec<AMGX_vecInt>::Type> IntVector;
+    public:
+        PMIS_Selector(AMG_Config &cfg, const std::string &cfg_scope) : 
+          PMIS_SelectorBase<TConfig_h>(cfg, cfg_scope) {}
     private:
         void markCoarseFinePoints_1x1(Matrix_h &A,
                                       FVector &weights,
@@ -106,6 +111,9 @@ class PMIS_Selector< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
         typedef Matrix<TConfig_d> Matrix_d;
         typedef typename Matrix_d::IVector IVector;
         typedef Vector<typename TConfig_d::template setVecPrec<AMGX_vecInt>::Type> IntVector;
+    public:
+        PMIS_Selector(AMG_Config &cfg, const std::string &cfg_scope) : 
+          PMIS_SelectorBase<TConfig_d>(cfg, cfg_scope) {}
     private:
         void markCoarseFinePoints_1x1(Matrix_d &A,
                                       FVector &weights,
@@ -119,7 +127,10 @@ template<class T_Config>
 class PMIS_SelectorFactory : public SelectorFactory<T_Config>
 {
     public:
-        Selector<T_Config> *create() { return new PMIS_Selector<T_Config>; }
+        Selector<T_Config> *create(AMG_Config &cfg, const std::string &cfg_scope) 
+        { 
+          return new PMIS_Selector<T_Config>(cfg, cfg_scope); 
+        }
 };
 
 } // namespace classical

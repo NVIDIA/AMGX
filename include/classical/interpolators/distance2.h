@@ -117,15 +117,13 @@ class Distance2_InterpolatorBase : public Interpolator<T_Config>
                                           IntVector &cf_map,
                                           BVector &s_con,
                                           IntVector &scratch,
-                                          Matrix<T_Config> &P,
-                                          void *amg );
+                                          Matrix<T_Config> &P);
     protected:
         virtual void generateInterpolationMatrix_1x1( Matrix<T_Config> &A,
                 IntVector &cf_map,
                 BVector &s_con,
                 IntVector &scratch,
-                Matrix<T_Config> &P,
-                void *amg ) = 0;
+                Matrix<T_Config> &P) = 0;
 
 };
 
@@ -157,8 +155,7 @@ class Distance2_Interpolator< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_
                                               IntVector &cf_map,
                                               BVector &s_con,
                                               IntVector &scratch,
-                                              Matrix_h &P,
-                                              void *amg);
+                                              Matrix_h &P);
 
         void calculateD( const Matrix_h &A, IVector &cf_map, BVector &s_con,
                          std::vector<int> *C_hat, VVector &diag, VVector &D,
@@ -199,8 +196,7 @@ class Distance2_Interpolator< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, 
                                               IntVector &cf_map,
                                               BVector &s_con,
                                               IntVector &scratch,
-                                              Matrix_d &P,
-                                              void *amg);
+                                              Matrix_d &P);
 
 };
 

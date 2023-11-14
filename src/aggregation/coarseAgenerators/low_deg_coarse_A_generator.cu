@@ -39,7 +39,6 @@
 #include <hash_workspace.h>
 #include <matrix_io.h>
 #include <device_properties.h>
-
 #include <amgx_types/util.h>
 
 namespace amgx
@@ -50,10 +49,7 @@ namespace aggregation
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <sm_utils.inl>
-
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
-
-#include <hash_containers_sm70.inl> // Included inside the namespace to solve name collisions.
+#include <hash_containers_detail.inl>
 
 static __device__ __forceinline__ int get_work( int *queue, int warp_id, int count = 1 )
 {
@@ -67,23 +63,6 @@ static __device__ __forceinline__ int get_work( int *queue, int warp_id, int cou
     return utils::shfl( offset, 0 );
 }
 
-#else
-
-#include <hash_containers_sm35.inl> // Included inside the namespace to solve name collisions.
-
-static __device__ __forceinline__ int get_work( int *queue, int warp_id, int count = 1 )
-{
-    int offset = -1;
-
-    if ( utils::lane_id() == 0 )
-    {
-        offset = atomicAdd( queue, count );
-    }
-
-    return utils::shfl( offset, 0 );
-}
-
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

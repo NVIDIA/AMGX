@@ -530,6 +530,10 @@ inline void registerParameters()
     AMG_Config::registerParameter<int>( "spmm_no_sort", "Deprecated. DO NOT USE IN NEW CONFIG", 1 );
     AMG_Config::registerParameter<int>( "spmm_verbose", "AMGX will print a lot of information about SPMM. It's time consuming so don't use it in production code.", 0 );
     AMG_Config::registerParameter<int>( "spmm_max_attempts", "the number of SPMM attempts before we switch to Cusparse.", 6 );
+
+    AMG_Config::registerParameter<int>( "use_opt_kernels", "Whether to use the new kernel optimised fast path.", 0);
+    AMG_Config::registerParameter<int>( "use_cusparse_kernels", "Whether to use the cuSPARSE kernels over custom kernels.", 0);
+
     //Register Stopping Criteria Parameters
     AMG_Config::registerParameter<int>("max_iters", "the maximum solve iterations", 100);
     AMG_Config::registerParameter<int>("monitor_residual", "flag that turns on calculation of the residual at every iteration <0|1>", 0);

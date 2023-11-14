@@ -34,11 +34,12 @@
 #include <algorithm>
 #include <assert.h>
 
+#include <device_properties.h>
+
 namespace amgx
 {
 namespace classical
 {
-
 struct is_non_neg
 {
     __host__ __device__
@@ -119,56 +120,22 @@ void resolve_boundary(const IndexType *offsets, const IndexType *column_indices,
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-namespace selector_sm35
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm35.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( int *queue, int warp_id )
-{
-    int offset = -1;
-
-    if ( utils::lane_id() == 0 )
-    {
-        offset = atomicAdd( queue, 1 );
-    }
-
-    return utils::shfl( offset, 0 );
-}
-
-}
-
-namespace selector_sm70
-{
-
-#include <sm_utils.inl>
-#include <hash_containers_sm70.inl> // Included inside the namespace to solve name colisions.
-
-__device__ __forceinline__ int get_work( int *queue, int warp_id )
-{
-    int offset = -1;
-
-    if ( utils::lane_id() == 0 )
-    {
-        offset = atomicAdd( queue, 1 );
-    }
-
-    return utils::shfl( offset, 0 );
-}
-
-}
-
 namespace selector
 {
-
 #include <sm_utils.inl>
+#include <hash_containers_detail.inl> // Included inside the namespace to solve name colisions.
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__device__ __forceinline__ int get_work( int *queue, int warp_id )
+{
+    int offset = -1;
 
-#if 1
+    if ( utils::lane_id() == 0 )
+    {
+        offset = atomicAdd( queue, 1 );
+    }
+
+    return utils::shfl( offset, 0 );
+}
 
 template< int CTA_SIZE, int WARP_SIZE >
 __global__ __launch_bounds__( CTA_SIZE )
@@ -411,6 +378,74 @@ estimate_c_hat_size_kernel( const int A_num_rows,
 }
 
 
+template< int CTA_SIZE >
+__global__ __launch_bounds__( CTA_SIZE )
+void
+estimate_c_hat_size_kernel_opt( const int nunfine,
+                            const int *A_rows,
+                            const int *A_cols,
+                            const int *cf_map,
+                            const bool *s_con,
+                            int *C_hat_offsets,
+                            int* unfine_set )
+{
+    // First threads load the row IDs of A needed by the CTA...
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Loop over rows of A.
+    if (gid >= nunfine) return;
+
+    int a_row_id = unfine_set[gid];
+
+    int count = 0;
+    // Iterate over the columns of A to build C_hat.
+    for ( int a_col_it = A_rows[a_row_id  ]; a_col_it < A_rows[a_row_id + 1]; ++a_col_it )
+    {
+        // Columns of A maps to rows of B. Each thread of the warp loads its A-col/B-row ID.
+        int a_col_id = A_cols[a_col_it];
+        // Is it an off-diagonal element.
+        bool is_off_diagonal = a_col_id != a_row_id;
+        // Is it strongly connected ?
+        bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
+        // Is it fine.
+        bool is_fine = is_off_diagonal && cf_map[a_col_id] == FINE;
+        // Is it isolated.
+        bool is_strong_fine = is_off_diagonal && cf_map[a_col_id] == STRONG_FINE;
+        // Is it a coarse and strongly-connected column.
+        bool is_coarse_strongly_connected = is_strongly_connected && !is_fine && !is_strong_fine;
+
+        if(is_coarse_strongly_connected) 
+        {
+            count++;
+        }
+
+        // Is it a fine and strongly-connected column.
+        bool is_fine_strongly_connected = is_strongly_connected && is_fine;
+
+        if (!is_fine_strongly_connected ) continue;
+
+        int b_col_beg = A_rows[a_col_id];
+
+        // _iterate over the range of columns of B.
+        for (int b_col_it = b_col_beg; b_col_it < A_rows[a_col_id+1]; ++b_col_it)
+        {
+            // The ID of the column.
+            int b_col_id = A_cols[b_col_it];
+
+            // Is it an off-diagonal element.
+            is_off_diagonal = b_col_id != a_col_id;
+            // Is it a coarse and strongly-connected column.
+            is_coarse_strongly_connected = is_off_diagonal && s_con[b_col_it] && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
+            // Push coarse and strongly connected nodes in the set.
+            if(is_coarse_strongly_connected)
+            {
+                count++;
+            }
+        }
+    }
+
+    C_hat_offsets[a_row_id] = count;
+}
 
 template< int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE >
 __global__ __launch_bounds__( CTA_SIZE )
@@ -439,17 +474,9 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 700
-    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#else
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#endif
+    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 700
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
-#endif
+    for ( ; a_row_id < A_num_rows ; a_row_id = get_work( wk_work_queue, warp_id ) )
     {
         // Skip fine rows.
         int coarse_fine_id = cf_map[a_row_id];
@@ -605,17 +632,9 @@ compute_c_hat_kernel( int A_num_rows,
     // First threads load the row IDs of A needed by the CTA...
     int a_row_id = blockIdx.x * NUM_WARPS + warp_id;
     // Create local storage for the set.
-#if __CUDA_ARCH__ >= 700
-    amgx::classical::selector_sm70::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#else
-    amgx::classical::selector_sm35::Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
-#endif
+    Hash_set<int, SMEM_SIZE, 4, WARP_SIZE> set( &s_keys[warp_id * SMEM_SIZE], &g_keys[a_row_id * gmem_size], gmem_size );
     // Loop over rows of A.
-#if __CUDA_ARCH__ >= 700
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm70::get_work( wk_work_queue, warp_id ) )
-#else
-    for ( ; a_row_id < A_num_rows ; a_row_id = amgx::classical::selector_sm35::get_work( wk_work_queue, warp_id ) )
-#endif
+    for ( ; a_row_id < A_num_rows ; a_row_id = get_work( wk_work_queue, warp_id ) )
     {
         // Skip fine rows.
         int coarse_fine_id = cf_map[a_row_id];
@@ -749,8 +768,176 @@ compute_c_hat_kernel( int A_num_rows,
         }
     }
 }
-#endif
 
+template <int GROUP_SIZE, int CTA_SIZE, int HASH_SIZE>
+__global__ __launch_bounds__( CTA_SIZE )
+void
+compute_c_hat_kernel_opt( int unfine_set_size,
+                      const int *__restrict A_rows,
+                      const int *__restrict A_cols,
+                      const bool *__restrict s_con,
+                      const int *__restrict C_hat_start,
+                      int *__restrict C_hat,
+                      int *__restrict C_hat_end,
+                      int *__restrict cf_map,
+                      int *__restrict unfine_set)
+{
+    constexpr int SLOT_VACANT = -1;
+
+    // Group indices
+    constexpr int ngroups = CTA_SIZE / GROUP_SIZE;
+    const int group_id = threadIdx.x / GROUP_SIZE;
+    const int lane_id = threadIdx.x % GROUP_SIZE;
+
+    const int gid = blockIdx.x * ngroups + group_id;
+
+    // Dynamic sized shared memory
+    extern __shared__ int s[];
+
+    // Hash container storage
+    int* key_s = (int*)s;
+    int* key_group_s = &key_s[group_id*HASH_SIZE];
+
+    // Initialise the keys and values.
+#pragma unroll
+    for(int i = threadIdx.x; i < ngroups*HASH_SIZE; i += CTA_SIZE)
+    {
+        key_s[i] = SLOT_VACANT; // Inserted keys will be in range [0,N]
+    }
+
+    int* count_s = (int*)&key_s[ngroups*HASH_SIZE];
+    if(lane_id == 0)
+    {
+        count_s[group_id] = 0;
+    }
+
+    __syncthreads();
+
+    int a_row_id = -1;
+
+    if(gid < unfine_set_size)
+    {
+        // One row of A per group
+        a_row_id = unfine_set[gid];
+
+        // Iterate over the columns of A to build C_hat.
+        for ( int a_col_it = A_rows[a_row_id] + lane_id ; a_col_it < A_rows[a_row_id + 1]; a_col_it += GROUP_SIZE )
+        {
+            int a_col_id = A_cols[a_col_it];
+
+            // Is it an off-diagonal element.
+            bool is_off_diagonal = a_col_id != a_row_id;
+
+            // Check if we have a strong connection to the point
+            bool is_strongly_connected = is_off_diagonal && s_con[a_col_it];
+
+            // Is it fine.
+            bool is_fine = is_off_diagonal && cf_map[a_col_id] == FINE;
+
+            // Is it isolated.
+            bool is_strong_fine = is_off_diagonal && cf_map[a_col_id] == STRONG_FINE;
+
+            // Is it a coarse and strongly-connected column.
+            bool is_coarse_strongly_connected = is_strongly_connected && !is_fine && !is_strong_fine;
+
+            if(is_coarse_strongly_connected) 
+            {
+                int hash = a_col_id % HASH_SIZE;
+
+                while(true)
+                {
+                    // XXX You can just avoid this and directly atomicCAS, which is faster?
+                    int curr_key = key_group_s[hash];
+                    if(curr_key == a_col_id) break;
+
+                    if(curr_key == SLOT_VACANT)
+                    {
+                        int old_key = atomicCAS(&key_group_s[hash], SLOT_VACANT, a_col_id);
+                        if(old_key == SLOT_VACANT || old_key == a_col_id)
+                        {
+                            break;
+                        }
+                    }
+
+                    // We did not secure a slot, so linear probe to next slot
+                    hash = (hash + 1) % HASH_SIZE;
+                }
+            }
+
+            bool is_fine_strongly_connected = is_strongly_connected && is_fine;
+
+            if(!is_fine_strongly_connected) continue;
+
+            // Threads in the warp proceeds columns of B in the range [bColIt, bColEnd).
+            int b_col_beg = A_rows[a_col_id];
+
+            // Iterate over the range of columns of B.
+            for (int b_col_it = b_col_beg; b_col_it < A_rows[a_col_id+1]; ++b_col_it)
+            {
+                int b_col_id = A_cols[b_col_it];
+
+                // Is it an off-diagonal element.
+                is_off_diagonal = b_col_id != a_col_id && b_col_id != a_row_id;
+                // Is it a strongly connected node.
+                is_strongly_connected = is_off_diagonal && s_con[b_col_it];
+                // Is it a coarse and strongly-connected column.
+                is_coarse_strongly_connected = is_strongly_connected && (cf_map[b_col_id] != FINE && cf_map[b_col_id] != STRONG_FINE);
+
+                if(!is_coarse_strongly_connected) continue;
+
+                int hash = b_col_id % HASH_SIZE;
+
+                while(true)
+                {
+                    // XXX You can just avoid this and directly atomicCAS, which is faster?
+                    int curr_key = key_group_s[hash];
+                    if(curr_key == b_col_id) break;
+                    
+                    if(curr_key == SLOT_VACANT)
+                    {
+                        int old_key = atomicCAS(&key_group_s[hash], SLOT_VACANT, b_col_id);
+                        if(old_key == SLOT_VACANT || old_key == b_col_id)
+                        {
+                            break;
+                        }
+                    }
+
+                    // We did not secure a slot, so linear probe to next slot
+                    hash = (hash + 1) % HASH_SIZE;
+                }
+            }
+        }
+    }
+
+    __syncthreads();
+
+    // XXX Could change to poll by ballot style compress
+    if(gid < unfine_set_size)
+    {
+        // Store the results.
+#pragma unroll
+        for(int i = lane_id; i < HASH_SIZE; i += GROUP_SIZE)
+        {
+            int key = key_group_s[i];
+            if(key != SLOT_VACANT)
+            {
+                int ind = atomicAdd(&count_s[group_id], 1);
+                C_hat[C_hat_start[a_row_id] + ind] = key;
+            }
+        }
+    }
+
+    __syncthreads();
+
+    if(gid < unfine_set_size)
+    {
+        // Store the results.
+        if(lane_id == 0)
+        {
+            C_hat_end[a_row_id] = C_hat_start[a_row_id] + count_s[group_id];
+        }
+    }
+}
 } // namespace selector
 
 template <typename IndexType>
@@ -935,6 +1122,81 @@ void Selector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >
     FatalError("Aggressive PMIS selector not implemented on host", AMGX_ERR_NOT_IMPLEMENTED);
 }
 
+template <AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I>
+template <int hash_size, int group_size>
+void Selector<TemplateConfig<AMGX_device, V, M, I>>::compute_c_hat_opt_dispatch(
+        const Matrix_d &A,
+        const bool *s_con,
+        const int *C_hat_start,
+        int *C_hat,
+        int *C_hat_end,
+        int *cf_map,
+        IntVector &unfine_set)
+{
+    typedef typename IndPrecisionMap<I>::Type Index_type;
+
+    constexpr int cta_size = 128;
+    constexpr int ngroups = cta_size / group_size;
+
+    const int grid_size = unfine_set.size() / ngroups + 1;
+
+    cudaDeviceProp deviceProps = getDeviceProperties();
+    size_t max_shmem_size = deviceProps.sharedMemPerMultiprocessor;
+
+    constexpr int shmem_size =
+        (sizeof(int)+sizeof(Index_type))*ngroups*hash_size + group_size; 
+
+    if(shmem_size > max_shmem_size) 
+    { 
+        FatalError("In compute_values_opt the requested hash size is larger than max.\n", 
+                AMGX_ERR_NOT_IMPLEMENTED); 
+    } 
+
+    cudaFuncSetAttribute(amgx::classical::selector::compute_c_hat_kernel_opt 
+            <group_size, cta_size, hash_size>, 
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size); 
+
+    amgx::classical::selector::compute_c_hat_kernel_opt
+        <group_size, cta_size, hash_size> 
+        <<<grid_size, cta_size, shmem_size>>>(
+            unfine_set.size(),
+            A.row_offsets.raw(),
+            A.col_indices.raw(),
+            s_con,
+            C_hat_start,
+            C_hat,
+            C_hat_end,
+            cf_map,
+            unfine_set.raw());
+}
+
+// Determines which nodes are not fine, hence excluded
+__global__ void set_unfine(int n, int* cf_map, int* unfine, int* unfine_offs)
+{
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if(i >= n) return;
+
+    unfine[i] = (cf_map[i] >= 0) ? 1 : 0;
+
+    if(i == 0) 
+    {
+        unfine_offs[0] = 0;
+    }
+}
+
+// Compresses indirection
+__global__ void unfine_set_fill(int n, int* unfine, int* unfine_offs, int* unfine_set)
+{
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if(i >= n) return;
+
+    if(unfine[i]) 
+    { 
+        unfine_set[unfine_offs[i]] = i; 
+    } 
+}
+
+
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::createS2(Matrix_d &A,
         Matrix_d &S2,
@@ -953,6 +1215,43 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     int *cf_map_ptr = cf_map.raw();
     Hash_Workspace<TConfig_d, int> exp_wk(true, GRID_SIZE);
     IntVector C_hat_start( A.get_num_rows() + 1, 0 ), C_hat_end( A.get_num_rows() + 1, 0 );
+
+    int max_c_hat_size = 0;
+    int nunfine = 0;
+    IntVector unfine_set;
+
+    if(this->m_use_opt_kernels)
+    {
+        IntVector unfine(A.get_num_rows());
+        IntVector unfine_offs(A.get_num_rows()+1);
+        constexpr int nthreads = 128;
+        const int nblocks = A.get_num_rows() / nthreads + 1;
+        set_unfine<<<nblocks, nthreads>>>(A.get_num_rows(), cf_map.raw(), unfine.raw(), unfine_offs.raw());
+        thrust_wrapper::inclusive_scan<AMGX_device>(unfine.begin(), unfine.end(), unfine_offs.begin()+1);
+
+        nunfine = unfine_offs[unfine_offs.size()-1];
+        if(nunfine > 0)
+        {
+            unfine_set.resize(nunfine);
+            unfine_set_fill<<<nblocks, nthreads>>>(A.get_num_rows(), unfine.raw(), unfine_offs.raw(), unfine_set.raw());
+        }
+
+        const int CTA_SIZE  = 128;
+        int grid_size = nunfine/CTA_SIZE + 1;
+
+        amgx::classical::selector::estimate_c_hat_size_kernel_opt< CTA_SIZE > <<< grid_size, CTA_SIZE>>>(
+                nunfine,
+                A.row_offsets.raw(),
+                A.col_indices.raw(),
+                cf_map.raw(),
+                s_con.raw(),
+                C_hat_start.raw(),
+                unfine_set.raw());
+        cudaCheckError();
+
+        max_c_hat_size = thrust::reduce(C_hat_start.begin(), C_hat_start.end(), -1, thrust::maximum<int>());
+    }
+    else
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -986,11 +1285,43 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     // Compute row offsets.
     thrust_wrapper::exclusive_scan<AMGX_device>(C_hat_start.begin(), C_hat_start.end(), C_hat_start.begin());
     cudaCheckError();
-    //if ( (!A.is_matrix_singleGPU() && A.manager->global_id() == 0) || A.is_matrix_singleGPU())
-    //  std::cerr << "pool::allocate; before c_hat resize" << std::endl;
-    // Allocate memory to store columns/values.
     int nVals = C_hat_start[C_hat_start.size() - 1];
     IntVector C_hat( nVals );
+
+    if(this->m_use_opt_kernels)
+    {
+        int hash_size = pow(2, ceil(log2(max_c_hat_size)));
+
+        if(nunfine > 0)
+        {
+            switch(hash_size)
+            {
+                case 1:
+                case 2:
+                case 4:
+                case 8:
+                case 16:
+                case 32:
+                    compute_c_hat_opt_dispatch<32, 8>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 64:
+                    compute_c_hat_opt_dispatch<64, 8>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 128:
+                    compute_c_hat_opt_dispatch<128, 8>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 256:
+                    compute_c_hat_opt_dispatch<256, 16>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                case 512:
+                    compute_c_hat_opt_dispatch<512, 32>(A, s_con.raw(), C_hat_start.raw(), C_hat.raw(), C_hat_end.raw(), cf_map.raw(), unfine_set);
+                    break;
+                default:
+                    FatalError("Size of C_hat in a single row too large, solve with original solvers.", AMGX_ERR_INTERNAL);
+            }
+        }
+    }
+    else
     {
         const int CTA_SIZE  = 256;
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
@@ -1057,8 +1388,6 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
     int *C_hat_ptr = C_hat.raw();
     int *C_hat_start_ptr = C_hat_start.raw();
     int *C_hat_end_ptr = C_hat_end.raw();
-    //if ( (!A.is_matrix_singleGPU() && A.manager->global_id() == 0) || A.is_matrix_singleGPU())
-    //  std::cerr << "pool::allocate; after compute c_hat" << std::endl;
     int S2_num_rows;;
     DistributedArranger<TConfig_d> *prep = NULL;
 
@@ -1285,7 +1614,7 @@ Selector<TConfig> *SelectorFactory<TConfig>::allocate(AMG_Config &cfg, const std
         FatalError(error.c_str(), AMGX_ERR_CORE);
     }
 
-    return it->second->create();
+    return it->second->create(cfg, cfg_scope);
 };
 
 /****************************************

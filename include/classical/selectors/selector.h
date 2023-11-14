@@ -54,6 +54,9 @@ class Selector_Base
         typedef typename TConfig::template setVecPrec<AMGX_vecInt64>::Type i64vec_value_type;
         typedef Vector<i64vec_value_type> I64Vector;
 
+    protected:
+        int m_use_opt_kernels = 0;
+
     public:
         virtual void markCoarseFinePoints(Matrix<TConfig> &A,
                                           FVector &weights,
@@ -133,6 +136,10 @@ class Selector<TemplateConfig<AMGX_host, V, M, I> > : public Selector_Base< Temp
                       const BVector &s_con,
                       IVector &cf_map);
 
+        Selector(AMG_Config &cfg, const std::string &cfg_scope)
+        {
+          this->m_use_opt_kernels = cfg.getParameter<int>("use_opt_kernels", "default");
+        }
 };
 
 // ----------------------------
@@ -179,6 +186,21 @@ class Selector<TemplateConfig<AMGX_device, V, M, I> > : public Selector_Base< Te
                       Matrix_d &S2,
                       const BVector &s_con,
                       IVector &cf_map);
+
+        template <int hash_size, int group_size>
+            void compute_c_hat_opt_dispatch(
+                    const Matrix_d &A,
+                    const bool *s_con,
+                    const int *C_hat_start,
+                    int *C_hat,
+                    int *C_hat_end,
+                    int *cf_map,
+                    IntVector &unfine_set);
+
+        Selector(AMG_Config &cfg, const std::string &cfg_scope)
+        {
+          this->m_use_opt_kernels = cfg.getParameter<int>("use_opt_kernels", "default");
+        }
 };
 
 
@@ -186,7 +208,7 @@ template<class TConfig>
 class SelectorFactory
 {
     public:
-        virtual Selector<TConfig> *create() = 0;
+        virtual Selector<TConfig> *create(AMG_Config &cfg, const std::string &cfg_scope) = 0;
         virtual ~SelectorFactory() {};
 
         /********************************************

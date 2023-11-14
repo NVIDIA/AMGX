@@ -73,6 +73,7 @@ class Strength_BaseBase : public Strength<T_Config>
         virtual void computeWeights_1x1(Matrix<T_Config> &S,
                                         FVector &weights) = 0;
         ValueType alpha;
+        int m_use_opt_kernels = 0;
 };
 
 // specialization for host

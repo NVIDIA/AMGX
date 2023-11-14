@@ -26,11 +26,11 @@
  */
 
 #include <csr_multiply.h>
-#include <csr_multiply_sm35.h>
-#include <csr_multiply_sm70.h>
+#include <csr_multiply_detail.h>
 #include <util.h>
 #include <device_properties.h>
 #include <amgx_cusparse.h>
+#include <thrust_wrapper.h>
 
 namespace amgx
 {
@@ -45,14 +45,10 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
 
     if ( arch >= 70 )
     {
-        return new CSR_Multiply_Sm70<TConfig_d>();
-    }
-    if ( arch >= 35 )
-    {
-        return new CSR_Multiply_Sm35<TConfig_d>();
+        return new CSR_Multiply_Detail<TConfig_d>();
     }
 
-    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Kepler GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
+    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Volta GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
 }
 
 // ====================================================================================================================
@@ -61,23 +57,22 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create( AMG_Config &cfg, const std::string &cfg_scope )
 {
     int max_attempts = cfg.getParameter<int>("spmm_max_attempts", cfg_scope);
+    int use_opt_kernels = cfg.getParameter<int>("use_opt_kernels", "default");
+    int use_cusparse_kernels = cfg.getParameter<int>("use_cusparse_kernels", "default");
+
     cudaDeviceProp props = getDeviceProperties();
     int arch = 10 * props.major + props.minor;
 
     if ( arch >= 70 )
     {
-        CSR_Multiply_Sm70<TConfig_d> *wk = new CSR_Multiply_Sm70<TConfig_d>();
+        CSR_Multiply_Detail<TConfig_d> *wk = new CSR_Multiply_Detail<TConfig_d>();
         wk->set_max_attempts(max_attempts);
-        return wk;
-    }
-    if ( arch >= 35 )
-    {
-        CSR_Multiply_Sm35<TConfig_d> *wk = new CSR_Multiply_Sm35<TConfig_d>();
-        wk->set_max_attempts(max_attempts);
+        wk->set_opt_multiply(use_opt_kernels);
+        wk->set_use_cusparse_kernels(use_cusparse_kernels);
         return wk;
     }
 
-    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Kepler GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
+    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Volta GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
 }
 
 // ====================================================================================================================
@@ -311,14 +306,14 @@ CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_RAP_sparse_add( Matrix_
     delete impl;
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Impl( bool allocate_vals, int grid_size, int max_warp_count, int gmem_size )
     : Base( allocate_vals, grid_size, max_warp_count, gmem_size )
     , m_max_attempts(10)
-{}
+{
+}
 
 // ====================================================================================================================
 #ifndef CUSPARSE_USE_GENERIC_SPGEMM
@@ -604,6 +599,66 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
 }
 #endif
 
+
+
+template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
+void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt( 
+    const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
+{
+#if 0
+        this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
+        return;
+#endif
+
+    // Make C "mutable".
+    C.set_initialized(0);
+    // Compute row offsets C.
+    C.set_num_rows( A.get_num_rows() );
+    C.set_num_cols( B.get_num_cols() );
+    C.row_offsets.resize( A.get_num_rows() + 1 );
+    C.m_seq_offsets.resize( A.get_num_rows() + 1 );
+    thrust_wrapper::sequence<AMGX_device>(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
+    cudaCheckError();
+
+    bool cnz_success = this->count_non_zeroes_opt(A, B, C, 32);
+
+    int max_nnz = thrust_wrapper::reduce<AMGX_device>(
+        C.row_offsets.raw(), 
+        C.row_offsets.raw() + C.row_offsets.size()-1, 
+        0, amgx::thrust::maximum<int>());
+
+    printf("finished capturing max_nnz\n");
+
+    // Don't attempt this algorithm if the max row is large
+    if(!cnz_success || max_nnz > 512) 
+    {
+        //this->multiply(A, B, C, NULL, NULL, NULL, NULL);
+
+        this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
+    }
+    else 
+    {
+        // Compute row offsets.
+        this->compute_offsets( C );
+
+        // Allocate memory to store columns/values.
+        int num_vals = C.row_offsets[C.get_num_rows()];
+
+        C.col_indices.resize(num_vals);
+        C.values.resize(num_vals);
+        C.set_num_nz(num_vals);
+        C.diag.resize( C.get_num_rows() );
+        C.set_block_dimx(A.get_block_dimx());
+        C.set_block_dimy(B.get_block_dimy());
+        C.setColsReorderedByColor(false);
+
+        this->compute_values_opt(A, B, C, 32, max_nnz);
+
+        // Finalize the initialization of the matrix.
+        C.set_initialized(1);
+    }
+}
+
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 )
 {
@@ -764,6 +819,8 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product( const Matrix_d &R, const Matrix_d &A, const Matrix_d &P, Matrix_d &RAP, IVector *Rq1, IVector *Aq1, IVector *Pq1, IVector *Rq2, IVector *Aq2, IVector *Pq2)
 {
+    nvtxRangePush("galerkin");
+
     Matrix_d AP;
     AP.set_initialized(0);
     int avg_nz_per_row = P.get_num_nz() / P.get_num_rows();
@@ -779,15 +836,45 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         this->set_num_threads_per_row_compute(4);
     }
 
-    this->multiply( A, P, AP, Aq1, Pq1, Aq2, Pq2 );
+    nvtxRangePush("AP");
+    if(this->m_use_opt_kernels)
+    {
+        this->multiply_opt( A, P, AP );
+    }
+    else if(this->m_use_cusparse_kernels)
+    {
+        this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
+    }
+    else
+    {
+        this->multiply( A, P, AP, NULL, NULL, NULL, NULL );
+    }
+    nvtxRangePop();
+
     AP.set_initialized(1);
     avg_nz_per_row = AP.get_num_nz() / AP.get_num_rows();
     this->set_num_threads_per_row_count(avg_nz_per_row <= 16.0 ? 8 : 32);
     this->set_num_threads_per_row_compute(32);
     RAP.set_initialized(0);
-    this->multiply( R, AP, RAP, Rq1, NULL, Rq2, NULL );
+
+    nvtxRangePush("RAP");
+    if(this->m_use_opt_kernels)
+    {
+        this->multiply_opt( R, AP, RAP );
+    }
+    else if(this->m_use_cusparse_kernels)
+    {
+        this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
+    }
+    else
+    {
+        this->multiply( R, AP, RAP, NULL, NULL, NULL, NULL );
+    }
+    nvtxRangePop();
+
     RAP.computeDiagonal();
     RAP.set_initialized(1);
+    nvtxRangePop();
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >

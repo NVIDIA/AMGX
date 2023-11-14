@@ -56,7 +56,10 @@ void Aggressive_PMIS_SelectorBase< T_Config>::markCoarseFinePoints(Matrix< T_Con
     // Implementation based on paper "On long range interpolation operators for aggressive coarsening" by Ulrike Meier Yang, section 3
     // Step 1:
     // In the first pass, use PMIS to flag coarse and fine points
-    PMIS_Selector<T_Config> *pmis_selector = new PMIS_Selector<T_Config>;
+    AMG_Config cfg;
+    cfg.parseParameterString("use_opt_kernels=0");
+    cfg.setParameter("use_opt_kernels", this->m_use_opt_kernels, "default");
+    PMIS_Selector<T_Config> *pmis_selector = new PMIS_Selector<T_Config>(cfg, "default");
     pmis_selector->markCoarseFinePoints(A, weights, s_con, cf_map, scratch, 0);
     // On output, cf_map contains the type of each fine point owned by current rank
     // i.e. COARSE, FINE,...

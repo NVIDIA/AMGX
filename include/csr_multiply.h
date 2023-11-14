@@ -150,12 +150,17 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
         // The number of attempts before the fallback to CUSPARSE.
         int m_max_attempts;
 
+        int m_use_opt_kernels = 0;
+        int m_use_cusparse_kernels = 0;
+
     public:
         // Create a workspace to run the product.
         CSR_Multiply_Impl( bool allocate_vals = true, int grid_size = 128, int max_warp_count = 8, int gmem_size = 2048 );
 
         // Compute the product between two CSR matrices.
         void multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 );
+
+        void multiply_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C );
 
         void sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids);
 
@@ -173,10 +178,13 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
         inline int get_max_attempts() const { return m_max_attempts; }
         // Set the max number of attempts before the fallback to CUSPARSE.
         inline void set_max_attempts(int max_attempts) { m_max_attempts = max_attempts; }
+        inline void set_opt_multiply(bool use_opt_kernels) { m_use_opt_kernels = use_opt_kernels; }
+        inline void set_use_cusparse_kernels(bool use_cusparse_kernels) { m_use_cusparse_kernels = use_cusparse_kernels; }
 
     protected:
         // Count the number of non-zero elements. The callee is responsible for setting the work queue value.
         virtual void count_non_zeroes( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) = 0;
+        virtual bool count_non_zeroes_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads ) = 0;
 
         // Compute the sparsity of RAP_int + RAP_ext
         virtual void count_non_zeroes_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids) = 0;
@@ -191,6 +199,7 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
         virtual void compute_sparsity_ilu1( const Matrix_d &A, Matrix_d &B ) = 0;
         // Compute values.
         virtual void compute_values( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) = 0;
+        virtual void compute_values_opt( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, int num_threads, int max_nnz) = 0;
         virtual void compute_values_RAP_sparse_add( Matrix_d &RAP, const Matrix_d &RAP_int, std::vector<IVector> &RAP_ext_row_offsets, std::vector<IVector> &RAP_ext_col_indices, std::vector<MVector> &RAP_ext_values, std::vector<IVector> &RAP_ext_row_ids, int num_threads) = 0;
 
     private:

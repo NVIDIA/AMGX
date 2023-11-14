@@ -65,6 +65,9 @@ class Aggressive_HMIS_SelectorBase : public Selector<T_Config>
                                   IVector &cf_map,
                                   IVector &scratch,
                                   int cf_map_init = 0);
+
+        Aggressive_HMIS_SelectorBase(AMG_Config &cfg, const std::string &cfg_scope) : 
+          Selector<T_Config>(cfg, cfg_scope) {}
 };
 
 
@@ -86,6 +89,10 @@ class Aggressive_HMIS_Selector< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, 
 
         typedef Vector<i64vec_value_type_h> I64Vector_h;
 
+    public:
+        Aggressive_HMIS_Selector(AMG_Config &cfg, const std::string &cfg_scope) : 
+          Aggressive_HMIS_SelectorBase<TConfig_h>(cfg, cfg_scope) {}
+
 };
 
 // specialization for device
@@ -105,13 +112,20 @@ class Aggressive_HMIS_Selector< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec
         typedef typename TConfig_d::template setVecPrec<AMGX_vecInt64>::Type i64vec_value_type_d;
 
         typedef Vector<i64vec_value_type_d> I64Vector_d;
+
+    public:
+        Aggressive_HMIS_Selector(AMG_Config &cfg, const std::string &cfg_scope) : 
+          Aggressive_HMIS_SelectorBase<TConfig_d>(cfg, cfg_scope) {}
 };
 
 template<class T_Config>
 class Aggressive_HMIS_SelectorFactory : public SelectorFactory<T_Config>
 {
     public:
-        Selector<T_Config> *create() { return new Aggressive_HMIS_Selector<T_Config>; }
+        Selector<T_Config> *create(AMG_Config &cfg, const std::string &cfg_scope) 
+        { 
+          return new Aggressive_HMIS_Selector<T_Config>(cfg, cfg_scope); 
+        }
 };
 
 } // namespace classical

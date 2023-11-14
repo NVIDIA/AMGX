@@ -57,7 +57,10 @@ void Aggressive_HMIS_SelectorBase< T_Config>::markCoarseFinePoints(Matrix< T_Con
     // Implementation based on paper "On long range interpolation operators for aggressive coarsening" by Ulrike Meier Yang, section 3
     // Step 1:
     // In the first pass, use HMIS to flag coarse and fine points
-    HMIS_Selector<T_Config> *hmis_selector = new HMIS_Selector<T_Config>;
+    AMG_Config cfg;
+    cfg.parseParameterString("use_opt_kernels=0");
+    cfg.setParameter("use_opt_kernels", this->m_use_opt_kernels, "default");
+    HMIS_Selector<T_Config> *hmis_selector = new HMIS_Selector<T_Config>(cfg, "default");
     hmis_selector->markCoarseFinePoints(A, weights, s_con, cf_map, scratch);
     // Step 2:
     // Do a two ring exchange to know if nodes in two-ring halos are coarse or fine

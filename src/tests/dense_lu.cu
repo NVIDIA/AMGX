@@ -111,10 +111,10 @@ template< typename Matrix_data >
 void l_times_u(int n, Matrix_data *lu_d, int lda)
 {
     Matrix_data *l_d, *u_d;
-    cudaMallocAsync((void **) &l_d, n * lda * sizeof(Matrix_data), 0);
+    amgx::memory::cudaMallocAsync((void **) &l_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
-    cudaMallocAsync((void **) &u_d, n * lda * sizeof(Matrix_data), 0);
+    amgx::memory::cudaMallocAsync((void **) &u_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
     // Split LU.

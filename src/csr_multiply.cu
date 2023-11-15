@@ -315,91 +315,6 @@ CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::CSR_Multiply_Impl( boo
 {
 }
 
-// ====================================================================================================================
-#ifndef CUSPARSE_USE_GENERIC_SPGEMM
-#define CUSPARSE_CSRGEMM(type, func) \
-cusparseStatus_t cusparseCsrgemm2(cusparseHandle_t handle,             \
-                                 int m,                               \
-                                 int n,                               \
-                                 int k,                               \
-                                 const type* alpha,                   \
-                                 const cusparseMatDescr_t descrA,     \
-                                 int nnzA,                            \
-                                 const type *csrValA,                 \
-                                 const int *csrRowPtrA,               \
-                                 const int *csrColIndA,               \
-                                 const cusparseMatDescr_t descrB,     \
-                                 int nnzB,                            \
-                                 const type *csrValB,                 \
-                                 const int *csrRowPtrB,               \
-                                 const int *csrColIndB,               \
-                                 const type* beta,                    \
-                                 const cusparseMatDescr_t descrD,     \
-                                 int nnzD,                            \
-                                 const type *csrValD,                 \
-                                 const int *csrRowPtrD,               \
-                                 const int *csrColIndD,               \
-                                 const cusparseMatDescr_t descrC,     \
-                                 type *csrValC,                       \
-                                 const int *csrRowPtrC,               \
-                                 int *csrColIndC,                     \
-                                 const csrgemm2Info_t info,           \
-                                 void* pBuffer                        \
-                                 )                                    \
-{                                                                     \
-  return func(handle, m, n, k, alpha, \
-              descrA, nnzA, csrValA, csrRowPtrA, csrColIndA, \
-              descrB, nnzB, csrValB, csrRowPtrB, csrColIndB, \
-              beta, \
-              descrD, nnzD, csrValD, csrRowPtrD, csrColIndD, \
-              descrC, csrValC, csrRowPtrC, csrColIndC, info, pBuffer);  \
-}
-
-CUSPARSE_CSRGEMM(float,           cusparseScsrgemm2)
-CUSPARSE_CSRGEMM(double,          cusparseDcsrgemm2)
-CUSPARSE_CSRGEMM(cuComplex,       cusparseCcsrgemm2)
-CUSPARSE_CSRGEMM(cuDoubleComplex, cusparseZcsrgemm2)
-#endif
-
-#ifndef CUSPARSE_USE_GENERIC_SPGEMM
-#define CUSPARSE_CSRGEMMBUFSZ(type, func) \
-cusparseStatus_t cusparseCsrgemmBufferSize(cusparseHandle_t handle,             \
-                                 int m,                               \
-                                 int n,                               \
-                                 int k,                               \
-                                 const type* alpha,                   \
-                                 const cusparseMatDescr_t descrA,     \
-                                 int nnzA,                            \
-                                 const int *csrRowPtrA,               \
-                                 const int *csrColIndA,               \
-                                 const cusparseMatDescr_t descrB,     \
-                                 int nnzB,                            \
-                                 const int *csrRowPtrB,               \
-                                 const int *csrColIndB,               \
-                                 const type* beta,                    \
-                                 const cusparseMatDescr_t descrD,     \
-                                 int nnzD,                            \
-                                 const int *csrRowPtrD,               \
-                                 const int *csrColIndD,               \
-                                 const csrgemm2Info_t info,           \
-                                 size_t* pBufferSizeInBytes           \
-                                 )                                    \
-{                                                                     \
-  return func(handle, m, n, k, alpha, descrA, nnzA,         \
-              csrRowPtrA, csrColIndA, descrB, nnzB,         \
-              csrRowPtrB, csrColIndB, beta, descrD, nnzD,   \
-              csrRowPtrD, csrColIndD, info, pBufferSizeInBytes);       \
-}
-
-CUSPARSE_CSRGEMMBUFSZ(float,           cusparseScsrgemm2_bufferSizeExt)
-CUSPARSE_CSRGEMMBUFSZ(double,          cusparseDcsrgemm2_bufferSizeExt)
-CUSPARSE_CSRGEMMBUFSZ(cuComplex,       cusparseCcsrgemm2_bufferSizeExt)
-CUSPARSE_CSRGEMMBUFSZ(cuDoubleComplex, cusparseZcsrgemm2_bufferSizeExt)
-#endif
-
-// ====================================================================================================================
-
-#ifdef CUSPARSE_USE_GENERIC_SPGEMM
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
    // CUSPARSE APIs
     cusparseHandle_t handle = Cusparse::get_instance().get_handle();
@@ -505,111 +420,11 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     amgx::memory::cudaFreeAsync(dBuffer1);
     amgx::memory::cudaFreeAsync(dBuffer2);
 }
-#endif
-
-#ifndef CUSPARSE_USE_GENERIC_SPGEMM
-template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::cusparse_multiply( const Matrix_d &A, const Matrix_d &B, Matrix_d &C, IVector *Aq1, IVector *Bq1, IVector *Aq2, IVector *Bq2 ) {
-    size_t pBufferSizeInBytes = 0;
-    void *pBuffer = NULL;
-
-    cusparseHandle_t handle = Cusparse::get_instance().get_handle();
-    cusparsePointerMode_t old_pointer_mode;
-    cusparseCheckError(cusparseGetPointerMode(handle, &old_pointer_mode));
-    cusparseSetPointerMode(Cusparse::get_instance().get_handle(), CUSPARSE_POINTER_MODE_HOST);
-
-    // CUSPARSE does not work if the matrix is not sorted. The column indices are not necessarily in order...
-    const_cast<Matrix_d &>(A).sortByRowAndColumn();
-    const_cast<Matrix_d &>(B).sortByRowAndColumn();
-
-    // Note: If we are re-setup this step then most of this could have been cached...
-
-    // Setup the info structure
-    csrgemm2Info_t info = NULL;
-    cusparseCheckError(
-        cusparseCreateCsrgemm2Info(&info));
-
-    typename Matrix_d::value_type alpha = types::util<typename Matrix_d::value_type>::get_one();
-
-    // Determine the buffer size
-    cusparseCheckError(
-        cusparseCsrgemmBufferSize(
-            handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(), &alpha,
-            A.cuMatDescr, A.get_num_nz(), A.row_offsets.raw(), A.col_indices.raw(),
-            B.cuMatDescr, B.get_num_nz(), B.row_offsets.raw(), B.col_indices.raw(),
-            NULL, A.cuMatDescr, 0, A.row_offsets.raw(), A.col_indices.raw(),
-            info, &pBufferSizeInBytes));
-
-    // Allocate the intermediary buffer
-    amgx::memory::cudaMallocAsync(&pBuffer, pBufferSizeInBytes);
-
-    int nnzC;
-    int *nnzTotalDevHostPtr = &nnzC;
-
-    // Setup C metadata
-    C.set_initialized(0);
-    C.row_offsets.resize( A.get_num_rows() + 1 );
-    C.m_seq_offsets.resize( A.get_num_rows() + 1 );
-    thrust_wrapper::sequence<AMGX_device>(C.m_seq_offsets.begin(), C.m_seq_offsets.end());
-    C.set_num_rows( A.get_num_rows() );
-    C.set_num_cols( B.get_num_cols() );
-    C.diag.resize(C.get_num_rows());
-    C.set_block_dimx(A.get_block_dimx());
-    C.set_block_dimy(B.get_block_dimy());
-    C.setColsReorderedByColor(false);
-
-    // Compute the row offsets for C
-    cusparseCheckError(
-        cusparseXcsrgemm2Nnz(
-            handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(),
-            A.cuMatDescr, A.get_num_nz(), A.row_offsets.raw(), A.col_indices.raw(),
-            B.cuMatDescr, B.get_num_nz(), B.row_offsets.raw(), B.col_indices.raw(),
-            A.cuMatDescr, 0, A.row_offsets.raw(), A.col_indices.raw(),
-            C.cuMatDescr, C.row_offsets.raw(), nnzTotalDevHostPtr,
-            info, pBuffer));
-
-    // Note the number of non-zeros in C
-    int baseC;
-    cudaMemcpy(&baseC, C.row_offsets.raw(), sizeof(int), cudaMemcpyDefault);
-    cudaMemcpy(&nnzC, C.row_offsets.raw()+A.get_num_rows(), sizeof(int), cudaMemcpyDefault);
-    nnzC -= baseC;
-
-    C.col_indices.resize(nnzC);
-    C.values.resize(nnzC);
-    C.set_num_nz(nnzC);
-
-    // Call the generic cuSPARSE CSR GEMM routine
-    cusparseCheckError(
-        cusparseCsrgemm2(
-            handle, A.get_num_rows(), B.get_num_cols(), A.get_num_cols(),
-            &alpha,
-            A.cuMatDescr, A.get_num_nz(), A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
-            B.cuMatDescr, B.get_num_nz(), B.values.raw(), B.row_offsets.raw(), B.col_indices.raw(),
-            NULL,
-            A.cuMatDescr, 0, A.values.raw(), A.row_offsets.raw(), A.col_indices.raw(),
-            C.cuMatDescr, C.values.raw(), C.row_offsets.raw(), C.col_indices.raw(),
-            info, pBuffer));
-
-    // Finalise
-    C.set_initialized(1);
-    cusparseCheckError(
-        cusparseSetPointerMode(handle, old_pointer_mode));
-    cusparseCheckError(
-        cusparseDestroyCsrgemm2Info(info));
-    amgx::memory::cudaFreeAsync(pBuffer);
-}
-#endif
-
-
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt( 
     const Matrix_d &A, const Matrix_d &B, Matrix_d &C )
 {
-#if 0
-        this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
-        return;
-#endif
-
     // Make C "mutable".
     C.set_initialized(0);
     // Compute row offsets C.
@@ -627,13 +442,9 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply_opt(
         C.row_offsets.raw() + C.row_offsets.size()-1, 
         0, amgx::thrust::maximum<int>());
 
-    printf("finished capturing max_nnz\n");
-
     // Don't attempt this algorithm if the max row is large
     if(!cnz_success || max_nnz > 512) 
     {
-        //this->multiply(A, B, C, NULL, NULL, NULL, NULL);
-
         this->cusparse_multiply(A, B, C, NULL, NULL, NULL, NULL);
     }
     else 

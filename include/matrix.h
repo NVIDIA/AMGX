@@ -72,10 +72,6 @@ enum MatrixProps
 namespace amgx
 {
 
-#ifndef DISABLE_MIXED_PRECISION
-template <class T_Config> struct CusparseMatPrec;
-#endif
-
 template <class TConfig> class Solver;
 template <class TConfig> class Matrix;
 template <class TConfig> class Operator;
@@ -219,10 +215,6 @@ class MatrixBase : public AuxData, public Operator<T_Config>
             setDefaultParameters();
             resize(0, 0, 0, 1);
             cusparseCheckError(cusparseCreateMatDescr(&cuMatDescr));
-
-            #ifndef DISABLE_MIXED_PRECISION
-                cusparseCheckError(CusparseMatPrec<T_Config>::set(cuMatDescr));
-            #endif
         }
 
         inline MatrixBase(index_type num_rows, index_type num_cols, index_type num_nz, unsigned int props ) : m_is_read_partitioned(false), manager(NULL), amg_level_index(0), manager_internal(true), block_dimy(1), block_dimx(1), block_size(1), m_initialized(0), row_offsets(0), col_indices(0), values(0), row_indices(0), diag(0), m_matrix_coloring(NULL), m_cols_reordered_by_color(0), m_is_matrix_setup(false), m_is_permutation_inplace(false), m_separation_interior(INTERIOR), m_separation_exterior(OWNED), m_larger_color_offsets(0), m_smaller_color_offsets(0), m_seq_offsets(0), m_diag_end_offsets(0), allow_recompute_diag(true), current_view(ALL), block_format(ROW_MAJOR), m_resources(NULL), allow_boundary_separation(true)
@@ -231,10 +223,6 @@ class MatrixBase : public AuxData, public Operator<T_Config>
             this->props = props;
             resize(num_rows, num_cols, num_nz, 1);
             cusparseCheckError(cusparseCreateMatDescr(&cuMatDescr));
-
-            #ifndef DISABLE_MIXED_PRECISION
-                cusparseCheckError(CusparseMatPrec<T_Config>::set(cuMatDescr));
-            #endif
         }
         inline MatrixBase(index_type num_rows, index_type num_cols, index_type num_nz, index_type block_dimy, index_type block_dimx, unsigned int props): m_is_read_partitioned(false), manager(NULL), amg_level_index(0), manager_internal(true), m_initialized(0), row_offsets(0), col_indices(0), values(0), row_indices(0), diag(0), m_matrix_coloring(NULL), m_cols_reordered_by_color(0), m_is_matrix_setup(false), m_is_permutation_inplace(false), m_separation_interior(INTERIOR), m_separation_exterior(OWNED), m_larger_color_offsets(0), m_smaller_color_offsets(0), m_seq_offsets(0), m_diag_end_offsets(0), allow_recompute_diag(true), current_view(ALL), block_format(ROW_MAJOR), m_resources(NULL), allow_boundary_separation(true)
         {
@@ -242,10 +230,6 @@ class MatrixBase : public AuxData, public Operator<T_Config>
             this->props = props;
             resize(num_rows, num_cols, num_nz, block_dimy, block_dimx, 1);
             cusparseCheckError(cusparseCreateMatDescr(&cuMatDescr));
-
-            #ifndef DISABLE_MIXED_PRECISION
-                cusparseCheckError(CusparseMatPrec<T_Config>::set(cuMatDescr));
-            #endif
         }
 
         virtual ~MatrixBase()

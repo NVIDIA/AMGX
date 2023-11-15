@@ -68,25 +68,6 @@ class Cusparse;
 
 #include "amgx_types/util.h"
 
-#ifndef DISABLE_MIXED_PRECISION
-
-// Support of mixed precision
-#ifndef CUSPARSEAPI
-#ifdef _WIN32
-#define CUSPARSEAPI __stdcall
-#else
-#define CUSPARSEAPI
-#endif
-#endif
-
-#if defined(__cplusplus)
-extern "C" {
-cusparseStatus_t CUSPARSEAPI cusparseSetMatFullPrecision(cusparseMatDescr_t descrA, bool fullprec);
-}
-#endif
-
-#endif
-
 namespace amgx
 {
 
@@ -94,29 +75,7 @@ namespace amgx
 // C++ CUSPARSE API for NVAMG
 //-------------------------------------------------------
 
-// The internal function cusparseSetMatFullPrecision is no longer exposed since CUDA 10.1.
 // The generic cuSPARSE routines must be used to achieve the same functionality
-#ifndef DISABLE_MIXED_PRECISION
-template <class T_Config>
-struct CusparseMatPrec
-{
-    static cusparseStatus_t set(cusparseMatDescr_t &cuMatDescr);
-};
-
-// For mixed precision
-template <AMGX_MemorySpace t_memSpace, AMGX_IndPrecision t_indPrec>
-struct CusparseMatPrec< TemplateConfig<t_memSpace, AMGX_vecDouble, AMGX_matFloat, t_indPrec> >
-{
-    static cusparseStatus_t set(cusparseMatDescr_t &cuMatDescr);
-};
-
-template <AMGX_MemorySpace t_memSpace, AMGX_IndPrecision t_indPrec>
-struct CusparseMatPrec< TemplateConfig<t_memSpace, AMGX_vecDoubleComplex, AMGX_matComplex, t_indPrec> >
-{
-    static cusparseStatus_t set(cusparseMatDescr_t &cuMatDescr);
-};
-#endif
-
 class Cusparse
 {
     private:

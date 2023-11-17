@@ -648,11 +648,11 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
     }
 
     nvtxRangePush("AP");
-    if(this->m_use_opt_kernels)
+    if(false && this->m_use_opt_kernels)
     {
         this->multiply_opt( A, P, AP );
     }
-    else if(this->m_use_cusparse_kernels)
+    else if(true && this->m_use_cusparse_kernels)
     {
         this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
     }
@@ -669,11 +669,11 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
     RAP.set_initialized(0);
 
     nvtxRangePush("RAP");
-    if(this->m_use_opt_kernels)
+    if(false && this->m_use_opt_kernels)
     {
         this->multiply_opt( R, AP, RAP );
     }
-    else if(this->m_use_cusparse_kernels)
+    else if(true && this->m_use_cusparse_kernels)
     {
         this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
     }

@@ -2174,7 +2174,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         for (int i = 2; i < num_passes; i++)
         {
-            if(this->m_use_opt_kernels)
+            if(false && this->m_use_opt_kernels)
             {
                 I64Vector_d C_hat_(C_hat);
                 IntVector C_hat_pos_(C_hat_pos);
@@ -2258,6 +2258,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             else
             {
             }
+
             // In case the hash table is not big enough, run multiple attemps
             int attempt = 0;
 

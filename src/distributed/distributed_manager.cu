@@ -24,7 +24,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#undef NDEBUG
 #include <distributed/distributed_manager.h>
 #include <distributed/comms_mpi_gpudirect.h>
 #include <distributed/comms_mpi_hostbuffer_stream.h>
@@ -1234,30 +1234,42 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     const t_colIndex *h_col_indices_global = (const t_colIndex *)this->getHostPointerForData(col_indices, (row_map ? 2 : 1) * num_nonzeros * sizeof(t_colIndex), &h_cidx_allocated);
     // gather all off-diag columns
     I64Vector_h off_diag_cols;
+    std::vector<int> row_map_off_proc;
     if(row_map) {
         int num_off_diag_cols = 0;
         std::set<int> off_diag_set;
+        std::set<int> off_diag_idx_set;
         for(int i = 0; i < num_nonzeros; i++) {
             if (partitionVec[h_col_indices_global[i]] != my_id)
             {
                 auto val = h_col_indices_global[i];
                 if(off_diag_set.count(val) == 0) {
                     off_diag_set.insert(val);
+                    int idx = h_col_indices_global[i + num_nonzeros] - num_rows;
+                    assert(idx >= 0);
+                    off_diag_idx_set.insert(idx);
                     num_off_diag_cols++;
                 }
             }
+            // printf("LOCAL  %i %i %i %i %i\n", i, h_col_indices_global[i],
+            //             h_col_indices_global[i + num_nonzeros], my_id, partitionVec[h_col_indices_global[i]]);
         }
+        row_map_off_proc.insert(row_map_off_proc.begin(), off_diag_idx_set.begin(), off_diag_idx_set.end());
         off_diag_cols.resize(num_off_diag_cols, -1);
         for (int i = 0; i < num_nonzeros; i++)
         {
             if (partitionVec[h_col_indices_global[i]] != my_id)
             {
                 int idx = h_col_indices_global[i + num_nonzeros] - num_rows;
-                off_diag_cols[idx] = ipartition_map[h_col_indices_global[i]];
+                if(off_diag_idx_set.count(idx)) {
+                    idx = std::find(row_map_off_proc.begin(), row_map_off_proc.end(), idx) - row_map_off_proc.begin();
+                    assert(idx >= 0);
+                    assert(idx < num_off_diag_cols);
+                    off_diag_cols[idx] = ipartition_map[h_col_indices_global[i]];
+                }
             }
         }
-    }
-    else {
+    } else {
         for(int i = 0; i < num_nonzeros; i++) {
             if(partitionVec[h_col_indices_global[i]] != my_id) {
                 off_diag_cols.push_back(ipartition_map[h_col_indices_global[i]]);
@@ -1296,9 +1308,20 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             local_col_indices[i] = my_indices[ipartition_map[h_col_indices_global[i]]];
         }
         if(row_map) {
-            if(local_col_indices[i] != h_col_indices_global[i + num_nonzeros]) {
-                printf("LOCAL COL INDEX MISMATCH %i %i %i %i\n", local_col_indices[i],
-                       h_col_indices_global[i + num_nonzeros], my_id, partitionVec[h_col_indices_global[i]]);
+            int idx = h_col_indices_global[i + num_nonzeros] - num_rows;
+            if(idx < 0) {
+                if(local_col_indices[i] != h_col_indices_global[i + num_nonzeros]) {
+                    printf("LOCAL COL INDEX MISMATCH %i %i %i %i\n", local_col_indices[i],
+                        h_col_indices_global[i + num_nonzeros], my_id, partitionVec[h_col_indices_global[i]]);
+                }
+            } else {
+                idx = std::find(row_map_off_proc.begin(), row_map_off_proc.end(), idx) - row_map_off_proc.begin();
+                if (partitionVec[h_col_indices_global[i]] != my_id) {
+                    if(idx >= 0 && local_col_indices[i] != idx + num_rows) {
+                        printf("LOCAL COL INDEX MISMATCH HALO %i %i %i %i\n", local_col_indices[i],
+                            h_col_indices_global[i + num_nonzeros], my_id, partitionVec[h_col_indices_global[i]]);
+                    }
+                }
             }
         }
     }

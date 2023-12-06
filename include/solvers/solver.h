@@ -71,7 +71,7 @@ class Solver : public AuxData
 
         // Constructor.
         Solver( AMG_Config &cfg, const std::string &cfg_scope, ThreadManager *tmng = NULL );
-        virtual ~Solver();
+        virtual ~Solver() noexcept(false);
 
         inline Operator<TConfig> &get_A()
         {

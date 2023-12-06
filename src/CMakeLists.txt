@@ -28,6 +28,8 @@ cmake_minimum_required (VERSION 3.18)
 
 #select all sources
 FILE(GLOB_RECURSE SRCS "*.cu")
+list(FILTER SRCS EXCLUDE REGEX "/src/tests/")
+list(FILTER SRCS EXCLUDE REGEX "/utest.cu")
 
 target_sources(amgx_libs PRIVATE ${SRCS})
 

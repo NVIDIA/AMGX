@@ -653,6 +653,7 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
 
                 my_s_A_mtx[N * lane_id_mod_NxN_mod_N + row] = tmp;
             }
+            utils::syncwarp();
         }
 
         // Store the results to Einv.

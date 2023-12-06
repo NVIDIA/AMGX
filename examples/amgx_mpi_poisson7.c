@@ -226,7 +226,7 @@ int main(int argc, char **argv)
     }
 
     //int sizeof_m_val = ((AMGX_GET_MODE_VAL(AMGX_MatPrecision, mode) == AMGX_matDouble))? sizeof(double): sizeof(float);
-    int sizeof_v_val = ((AMGX_GET_MODE_VAL(AMGX_VecPrecision, mode) == AMGX_vecDouble)) ? sizeof(double) : sizeof(float);
+    size_t sizeof_v_val = ((AMGX_GET_MODE_VAL(AMGX_VecPrecision, mode) == AMGX_vecDouble)) ? sizeof(double) : sizeof(float);
     /* create config */
     pidx = findParamIndex(argv, argc, "-amg");
     pidy = findParamIndex(argv, argc, "-c");
@@ -295,20 +295,23 @@ int main(int argc, char **argv)
        to be handled on a separate ranks/processor. Finally, the rhs and solution will
        be set to a vector of ones and zeros, respectively. */
     AMGX_generate_distributed_poisson_7pt(A, b, x, nrings, nrings, nx, ny, nz, px, py, pz);
+
     /* generate the rhs and solution */
-    void *h_x = malloc(n * sizeof_v_val);
-    void *h_b = malloc(n * sizeof_v_val);
-    memset(h_x, 0, n * sizeof_v_val);
+    int block_dimx = 1;
+    int block_dimy = 1;
+    void *x_h = malloc(n * block_dimx * sizeof_v_val);
+    void *b_h = malloc(n * block_dimy * sizeof_v_val);
+    memset(x_h, 0, n * block_dimx * sizeof_v_val);
 
     for (int i = 0; i < n; i++)
     {
         if ((AMGX_GET_MODE_VAL(AMGX_VecPrecision, mode) == AMGX_vecFloat))
         {
-            ((float *)h_b)[i] = 1.0f;
+            ((float *)b_h)[i] = 1.0f;
         }
         else
         {
-            ((double *)h_b)[i] = 1.0;
+            ((double *)b_h)[i] = 1.0;
         }
     }
 
@@ -317,22 +320,19 @@ int main(int argc, char **argv)
     if(tidx != -1)
     {
       nrepeats = atoi(argv[tidx+1]);
-      print_callback("Running for %d repeats\n", nrepeats);
+      if (rank == 0) { printf("Running for %d repeats\n", nrepeats); }
     }
-
-
 
     /* set the connectivity information (for the vector) */
     AMGX_vector_bind(x, A);
     AMGX_vector_bind(b, A);
-    /* upload the vector (and the connectivity information) */
-    AMGX_vector_upload(x, n, 1, h_x);
-    AMGX_vector_upload(b, n, 1, h_b);
     for(int r = 0; r < nrepeats; ++r)
     {
-      /* upload the vector (and the connectivity information) */
-      AMGX_vector_upload(x, n, 1, h_x);
-      AMGX_vector_upload(b, n, 1, h_b);
+      if(r > 0) {
+        // Reset the solution for each repeat
+        AMGX_vector_upload(x, n, block_dimx, x_h);
+      }
+
       /* solver setup */
       //MPI barrier for stability (should be removed in practice to maximize performance)
       MPI_Barrier(amgx_mpi_comm);

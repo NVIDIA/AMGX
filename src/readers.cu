@@ -1261,17 +1261,20 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
         //if (symmetric)
         //  printf("Matrix is symmetric. Counted %d entries and %d diag elements, corresponding to %d nonzeroes\n ", ival, idiag, n_nonzeros_part);
 
-        if (sorted && input_sorted_c.size() != n_nonzeros_part)
+        if (sorted && input_sorted_c.size() != ( n_nonzeros_part + explicit_zeroes ) )
         {
             //printf("input_sorted_c.size() = %d n_nonzeros_part = %d\n", input_sorted_c.size(), n_nonzeros_part);
             FatalError("Matrix Market mismatch in number of entries", AMGX_ERR_IO);
         }
 
-        if (sorted && input_sorted_v.size() != n_nonzeros_part * block_size)
+        if (sorted && input_sorted_v.size() != ( n_nonzeros_part + explicit_zeroes ) * block_size)
         {
             //printf("input_sorted_v.size() = %d n_nonzeros_part*block_size = %d\n", input_sorted_v.size(), n_nonzeros_part*block_size);
             FatalError("Matrix Market mismatch in number of entries", AMGX_ERR_IO);
         }
+
+        // explicit zeros...
+        input_sorted_v.resize(ival);
 
         A.resize(0, 0, 0);
         //A.delProps(COO);
@@ -1378,6 +1381,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
 
         if (rhs)
         {
+            int rhs_len; fin >> rhs_len;
             LoadVector(fin, read_all, rows, block_dimy, b, GlobalToLocalRowMap);
         }
         else
@@ -1416,6 +1420,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
 
         if (soln)
         {
+            int rhs_len; fin >> rhs_len;
             LoadVector(fin, read_all, rows, block_dimx, x, GlobalToLocalRowMap);
         }
         else
@@ -1451,6 +1456,7 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
 
     warning = +"Finished reading\n";
     amgx_output(warning.c_str(), warning.length());
+
     return true;
 }
 

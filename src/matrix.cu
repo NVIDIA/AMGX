@@ -306,6 +306,12 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
         fprintf(fid, "%% %s\n", s);
         fprintf(fid, "%d %d %d\n", this->get_num_rows() * this->get_block_dimx(), this->get_num_cols() * this->get_block_dimy(), tnnz);
 
+        IVector_h this_row_offsets(this->row_offsets.size()); this_row_offsets = this->row_offsets;
+        IVector_h this_col_indices(this->col_indices.size()); this_col_indices = this->col_indices;
+        MVector_h this_values(this->values.size()); this_values = this->values;
+
+        int const bsSquared = this->get_block_dimx() * this->get_block_dimy();
+
         for (i = printRowsStart; i < printRowsEnd; i++)
         {
             for (ydim = 0; ydim < this->get_block_dimy(); ydim++)
@@ -316,7 +322,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
                     {
                         for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                         {
-                            a = this->values[this->diag[i] * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
+                            a = this_values[this->diag[i] * bsSquared + this->get_block_dimy() * ydim + xdim];
                             fprintf(fid, "%d %d ", trafI(i, ydim), trafI(i, xdim));
                             types::util<value_type>::fprintf(fid, "%20.16f", a);
                             fprintf(fid, "\n");
@@ -324,13 +330,13 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
                     }
                 }
 
-                for (ii = this->row_offsets[i]; ii < this->row_offsets[i + 1]; ii++)
+                for (ii = this_row_offsets[i]; ii < this_row_offsets[i + 1]; ii++)
                 {
-                    j = this->col_indices[ii];
+                    j = this_col_indices[ii];
 
                     for (xdim = 0; xdim < this->get_block_dimx(); xdim++)
                     {
-                        a = this->values[ii * this->get_block_dimx() * this->get_block_dimy() + this->get_block_dimy() * ydim + xdim];
+                        a = this_values[ii * bsSquared + this->get_block_dimy() * ydim + xdim];
                         fprintf(fid, "%d %d ", trafI(i, ydim), trafJ(j, xdim));
                         types::util<value_type>::fprintf(fid, "%20.16f", a);
                         fprintf(fid, "\n");

@@ -616,6 +616,8 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
 
         // Store e_out in A
         my_s_A_mtx[lane_id_mod_NxN] = e_out;
+        utils::syncwarp();
+
         // Invert the matrices.
 #pragma unroll
 
@@ -636,11 +638,13 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
             {
                 my_s_A_mtx[N * row + lane_id_mod_NxN_mod_N] *= diag;
             }
+            utils::syncwarp();
 
             if ( is_active && lane_id_mod_NxN_div_N != row && lane_id_mod_NxN_mod_N != row )
             {
                 my_s_A_mtx[lane_id_mod_NxN] -= my_s_A_mtx[N * lane_id_mod_NxN_div_N + row] * my_s_A_mtx[N * row + lane_id_mod_NxN_mod_N];
             }
+            utils::syncwarp();
 
             if ( is_active && lane_id_mod_NxN_div_N == 0 )
             {

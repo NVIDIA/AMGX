@@ -176,7 +176,8 @@ bool MatrixIO<T_Config>::writeSystemMatrixMarket(const char *fname, const Matrix
 
     if (A.hasProps(DIAG) && is_mtx) { fout << "diagonal "; }
 
-    if (is_mtx) { fout << "sorted "; }
+    // Note: we don't actaully have any guarantee that columns are sorted here
+    // if (is_mtx) { fout << "sorted "; }
 
     if (is_rhs) { fout << "rhs "; }
 
@@ -202,17 +203,37 @@ bool MatrixIO<T_Config>::writeSystemMatrixMarket(const char *fname, const Matrix
         }
         else if (A.hasProps(CSR))
         {
+            typename Matrix<T_Config>::IVector_h A_row_offsets;
+            typename Matrix<T_Config>::IVector_h A_col_indices;
+            typename Matrix<T_Config>::MVector_h A_values;
+
+            A_row_offsets.resize(A.row_offsets.size());
+            A_row_offsets = A.row_offsets;
+
+            A_col_indices.resize(A.col_indices.size());
+            A_col_indices = A.col_indices;
+
+            A_values.resize(A.values.size());
+            A_values = A.values;
+
+            int interval = max(10, A.get_num_rows() / 100);
+
             for (int i = 0; i < A.get_num_rows(); i++)
             {
-                for (int j = A.row_offsets[i]; j < A.row_offsets[i + 1]; j++)
+                if (i%interval == 0)
                 {
-                    int c = A.col_indices[j];
+                    float perc = ceil( (double(i)/A.get_num_rows()) * 100 * 100 ) / 100.0;
+                    std::cout << perc << " % done " << std::endl;
+                }
+                for (int j = A_row_offsets[i]; j < A_row_offsets[i + 1]; j++)
+                {
+                    int c = A_col_indices[j];
 
                     //      typename Matrix::value_type v=A.values[j];
                     for (int kx = 0; kx < A.get_block_dimx(); kx++)
                         for (int ky = 0; ky < A.get_block_dimy(); ky++)
                         {
-                            fout << i *A.get_block_dimx() + kx + 1 << " " << c *A.get_block_dimy() + ky + 1 << " " << A.values[j * A.get_block_size() + kx * A.get_block_dimy() + ky] << std::endl;
+                            fout << i *A.get_block_dimx() + kx + 1 << " " << c *A.get_block_dimy() + ky + 1 << " " << A_values[j * A.get_block_size() + kx * A.get_block_dimy() + ky] << std::endl;
                         }
                 }
             }

@@ -296,7 +296,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
         if (this->hasProps(DIAG, this->props))
         {
             //matrix might be non-square so take std::min of # of rows and cols
-            tnnz += std::min(this->get_num_rows(), this->get_num_cols());
+            tnnz += std::min(this->get_num_rows(), this->get_num_cols()) * this->get_block_size();
         }
 
         auto trafI = [&](auto const &I, auto const &i) { return I *  this->get_block_dimy() + i + 1; };

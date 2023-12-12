@@ -653,6 +653,7 @@ void fill_A_kernel_NxN( const int  R_num_rows, // same as num_aggregates.
                 int ac_idx = ac_col_it + set.find_index( key, index, false );
 
                 // Iterate over the NxN items.
+                #pragma unroll 1
                 for ( int k = 0 ; k < NxN ; ++k )
                 {
                     int uniform_ac_col = utils::shfl( ac_col_id, warp_offset + k );

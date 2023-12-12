@@ -125,7 +125,7 @@ Solver<TConfig>::Solver(AMG_Config &cfg, const std::string &cfg_scope,
 }
 
 template<class TConfig>
-Solver<TConfig>::~Solver()
+Solver<TConfig>::~Solver() noexcept(false)
 {
     if (m_obtain_timings)
     {

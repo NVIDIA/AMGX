@@ -5283,6 +5283,53 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
+    AMGX_RC AMGX_matrix_check_diag_dominant(const AMGX_matrix_handle mtx, int* diag_dominant)
+    {
+        nvtxRange nvrf(__func__);
+
+        Resources *resources = NULL;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
+
+#ifdef AMGX_WITH_MPI
+            int nranks;
+            MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+            if(nranks > 1) {
+                std::string err_msg("AMGX_matrix_check_symmetry cannot yet test distributed matrices, please run on 1 rank.\n");
+                amgx_distributed_output(err_msg.c_str(), err_msg.length());
+                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources);    //return AMGX_RC_BAD_PARAMETERS;
+            }
+#endif
+
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from(mtx);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: { \
+                    typedef typename TemplateMode<CASE>::Type TConfig; \
+                    typedef CWrapHandle<AMGX_matrix_handle, Matrix<TConfig>> MatrixW; \
+                    MatrixW wrapA(mtx); \
+                    Matrix<TConfig>& A = *wrapA.wrapped(); \
+                    MatrixAnalysis<TConfig> m_ana(&A); \
+                    m_ana.checkDiagDominate(); \
+                    break; \
+                }
+                AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    return AMGX_RC_BAD_MODE;
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, resources)
+        return AMGX_RC_OK;
+    }
     int AMGX_Debug_get_resource_count(AMGX_resources_handle rsc)
     {
         return ((ResourceW *)rsc)->wrapped().use_count();

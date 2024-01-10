@@ -613,6 +613,10 @@ AMGX_RC AMGX_API AMGX_matrix_check_symmetry
  int* structurally_symmetric,
  int* symmetric);
 
+AMGX_RC AMGX_matrix_check_diag_dominant
+(const AMGX_matrix_handle mtx, 
+ int* diag_dominant);
+
 /*********************************************************
  * C-API deprecated
  *********************************************************/

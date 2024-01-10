@@ -301,7 +301,51 @@ void MatrixAnalysis<T_Config>::checkDiagDominate()
 
     if (TConfig::memSpace == AMGX_device)
     {
-        FatalError("Device version not implemented", AMGX_ERR_NOT_IMPLEMENTED);
+        amgx::thrust::device_vector<int> k_d(1, 0);
+        auto* k = amgx::thrust::raw_pointer_cast(k_d.data());
+        auto* col_indices = A->col_indices.raw();
+        auto* row_offsets = A->row_offsets.raw();
+        auto* values = A->values.raw();
+
+        fprintf(fout, "Check whether the sparse matrix is diagonal dominate on every row for matrix: A %8dx%8d, nnz %8d, block %2dx%2d\n", A->get_num_rows(), A->get_num_cols(), nnz, bx, by);
+
+        amgx::thrust::for_each_n(thrust::device, amgx::thrust::counting_iterator<int>(0), A->get_num_rows(), [=] __device__ (int i)
+        {
+            PODTypeA sum[8];
+
+            for (int m = 0; m < bx; m++) 
+            { 
+                sum[m] = 0.; 
+            }
+
+            for (int j = row_offsets[i]; j < row_offsets[i + 1]; j++)
+            {
+                for (int m = 0; m < bx; m++)
+                {
+                    for (int n = 0; n < by; n++)
+                    {
+                        if ((col_indices[j] == i) && (m == n)) 
+                        {
+                            sum[m] += types::util<ValueTypeA>::abs(values[bs * j + m * by + n]);
+                        }
+                        else 
+                        { 
+                            sum[m] -= types::util<ValueTypeA>::abs(values[bs * j + m * by + n]);
+                        }
+                    }
+                }
+            }
+
+            for (int m = 0; m < bx; m++)
+            {
+                if (sum[m] < -eps) 
+                {  
+                    atomicAdd(&k[0], 1); 
+                }
+            }
+        });
+
+        std::cout << "Percentage of the diagonal-dominant rows is " << 100.0 * (num_rows * bx - k_d[0]) / num_rows << "%" << std::endl;
     }
     else if (TConfig::memSpace == AMGX_host)
     {

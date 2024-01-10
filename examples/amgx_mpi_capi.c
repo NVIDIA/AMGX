@@ -304,6 +304,15 @@ int main(int argc, char **argv)
         errAndExit("ERROR: no linear system was specified");
     }
 
+    pidx = findParamIndex(argv, argc, "-cd");
+    if(pidx != -1) 
+    {
+        int diag_dominant = 0;
+
+        printf("Checking matrix is diag dominant\n");
+        AMGX_matrix_check_diag_dominant(A, &diag_dominant);
+    }
+
     pidx = findParamIndex(argv, argc, "-cs");
     if(pidx != -1) 
     {

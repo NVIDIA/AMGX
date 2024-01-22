@@ -630,7 +630,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product( const Matrix_d &R, const Matrix_d &A, const Matrix_d &P, Matrix_d &RAP, IVector *Rq1, IVector *Aq1, IVector *Pq1, IVector *Rq2, IVector *Aq2, IVector *Pq2)
 {
-    nvtxRangePush("galerkin");
+    nvtxRange gp_nr(__func__);
 
     Matrix_d AP;
     AP.set_initialized(0);
@@ -647,20 +647,21 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         this->set_num_threads_per_row_compute(4);
     }
 
-    nvtxRangePush("AP");
-    if(false && this->m_use_opt_kernels)
     {
-        this->multiply_opt( A, P, AP );
+        nvtxRange AP_nr("AP");
+        if(false && this->m_use_opt_kernels)
+        {
+            this->multiply_opt( A, P, AP );
+        }
+        else if(true && this->m_use_cusparse_kernels)
+        {
+            this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
+        }
+        else
+        {
+            this->multiply( A, P, AP, NULL, NULL, NULL, NULL );
+        }
     }
-    else if(true && this->m_use_cusparse_kernels)
-    {
-        this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
-    }
-    else
-    {
-        this->multiply( A, P, AP, NULL, NULL, NULL, NULL );
-    }
-    nvtxRangePop();
 
     AP.set_initialized(1);
     avg_nz_per_row = AP.get_num_nz() / AP.get_num_rows();
@@ -668,24 +669,24 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
     this->set_num_threads_per_row_compute(32);
     RAP.set_initialized(0);
 
-    nvtxRangePush("RAP");
-    if(false && this->m_use_opt_kernels)
     {
-        this->multiply_opt( R, AP, RAP );
+        nvtxRange RAP_nr("RAP");
+        if(false && this->m_use_opt_kernels)
+        {
+            this->multiply_opt( R, AP, RAP );
+        }
+        else if(true && this->m_use_cusparse_kernels)
+        {
+            this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
+        }
+        else
+        {
+            this->multiply( R, AP, RAP, NULL, NULL, NULL, NULL );
+        }
     }
-    else if(true && this->m_use_cusparse_kernels)
-    {
-        this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
-    }
-    else
-    {
-        this->multiply( R, AP, RAP, NULL, NULL, NULL, NULL );
-    }
-    nvtxRangePop();
 
     RAP.computeDiagonal();
     RAP.set_initialized(1);
-    nvtxRangePop();
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >

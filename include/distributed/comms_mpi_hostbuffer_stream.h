@@ -113,11 +113,15 @@ class CommsMPIHostBufferStream : public CommsMPI<T_Config>
             MPI_Comm_group(mpi_comm, &orig_group);
             MPI_Group_incl(orig_group, coarse_part_to_fine_part.size(), coarse_part_to_fine_part.raw(), &new_group);
             MPI_Comm_create(mpi_comm, new_group, &new_comm);
+            MPI_Group_free(&orig_group);
 
             if (is_root_partition)
             {
+                MPI_Comm_free(&mpi_comm);
                 MPI_Comm_dup(new_comm, &mpi_comm);
-                MPI_Comm_set_errhandler(mpi_comm, glbMPIErrorHandler);
+                MPI_Group_free(&new_group);
+                MPI_Comm_free(&new_comm);
+                // MPI_Comm_set_errhandler(mpi_comm, glbMPIErrorHandler);
             }
 
 #endif

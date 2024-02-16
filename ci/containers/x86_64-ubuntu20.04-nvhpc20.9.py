@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION. All Rights Reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 AmgX base image: x86_64-ubuntu20.04-nvhpc20.9
 """

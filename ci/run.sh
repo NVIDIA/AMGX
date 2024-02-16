@@ -1,4 +1,9 @@
 #!/usr/bin/env sh
+
+# SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION. All Rights Reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 #
 # Supports following environment variables:
 #

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION. All Rights Reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Makefile for building spmv example (single GPU and multi GPU) using AMGX C++ code directly 
 
 # System paths

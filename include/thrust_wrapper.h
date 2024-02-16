@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION. All Rights Reserved.
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once 
 
 #include <thrust/scan.h>

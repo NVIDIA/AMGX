@@ -30,6 +30,7 @@
 #include <gaussian_elimination.h>
 #include <basic_types.h>
 #include <cutil.h>
+#include <sm_utils.inl>
 #include <util.h>
 #include <string>
 #include <miscmath.h>
@@ -684,81 +685,116 @@ void setupBlockJacobiSmooth4by4BlockDiaCsrKernel_V2(const IndexType *dia_indices
     }
 }
 
+template<int N, class TA, class TB>
+__device__ __forceinline__ void
+loadStreamed(TA const *addr,
+             TB       *dest)
+{
+    loadAsVector<N>(addr, dest);
+}
+
+template<>
+__device__ __forceinline__ void
+loadStreamed<4, float, float> (float const *addr,
+                               float       *dest)
+{
+    float4 const *addr_ = reinterpret_cast<float4 const*>(addr);
+    float4       *dst_  = reinterpret_cast<float4 *>(dest);
+
+    *dst_ = __ldcs(addr_);
+}
+
+template<>
+__device__ __forceinline__ void
+loadStreamed<4, double, double> (double const *addr,
+                                 double       *dest)
+{
+    double2 const *addr_ = reinterpret_cast<double2 const*>(addr);
+    double2       *dst_  = reinterpret_cast<double2 *>(dest);
+
+    dst_[0] = __ldcs(addr_);
+    dst_[1] = __ldcs(addr_ + 1);
+}
+
 // Kernel to smooth with Jacobi smoother, Dinv assumed to be computed
-template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int eighthwarps_per_block, int bsize, int log_bsize, int half_bsize, int bsize_sq>
+template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int groups_per_block, int bsize, int log_bsize, int half_bsize, int bsize_sq>
 __global__
-void jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *dia_indices, const ValueTypeA *nonzero_values, const ValueTypeA *Dinv,
+void jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *dia_indices, const ValueTypeA *values, const ValueTypeA *Dinv,
         const ValueTypeB *b, const ValueTypeB *x, double weight, const int num_block_rows, ValueTypeB *xout, const int row_offset)
 {
-    const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    int eighthwarp_id = row_offset + (tid >> log_bsize);
-    const int block_eighthwarp_id = threadIdx.x >> log_bsize;
-    const int vec_entry_index = threadIdx.x & (bsize - 1);
-    volatile __shared__ ValueTypeB s_xtemp[ bsize * eighthwarps_per_block ];
-    ValueTypeB bmAx, xin;
-    ValueTypeB temp[bsize];
-    int offset, i, s_offset;
+    const int gid = blockDim.x * blockIdx.x + threadIdx.x; // Thread Id
+    int group_id_grid = row_offset + (gid >> log_bsize);   // Group ID in grid (offset for LH)
 
-    while (eighthwarp_id < num_block_rows)
+    const int group_id_block = threadIdx.x >> log_bsize;
+    const int group_lane = threadIdx.x & (bsize - 1);
+
+    ValueTypeB temp[bsize]; // Bsize per thread registers
+
+    __shared__ ValueTypeB s_xtemp[bsize * groups_per_block]; // Bsize per group shared
+    ValueTypeB* s_xtemp_g = &s_xtemp[group_id_block*bsize]; // Group level shared
+
+    // (1,1,1,1) shifted left by 0,4,8,etc. (i.e. by group_id_lane)
+    const int group_mask = (bsize_sq - 1) << ( bsize * ( utils::lane_id() >> log_bsize ) );
+
+    int i = group_id_grid;
+    if(i >= num_block_rows) return;
+
+    // 1. COMPUTING b-Ax
+    ValueTypeB bmAx = b[i * bsize + group_lane];
+
+    // Contribution from diagonal
+    ValueTypeB xin = x[i * bsize + group_lane]; // Load column of x
+    s_xtemp[threadIdx.x] = xin;
+    //utils::syncwarp(group_mask);
+
+    // Load dia_values and do matrix multiply
+    loadAsVector<bsize>(&values[dia_indices[i] * bsize_sq + group_lane * bsize], temp); // Load a row of A
+
+    // Dot product for diagonal
+#pragma unroll
+    for (int m = 0; m < bsize; m++)
     {
-        i = eighthwarp_id;
-        offset = i * bsize + vec_entry_index;
-        // 1. COMPUTING b-Ax
-        bmAx = b[offset];
-        // Contribution from diagonal
-        xin = x[offset];
-        types::util<ValueTypeB>::volcast(xin, s_xtemp + threadIdx.x);
-        // Load dia_values and do matrix multiply
-        loadAsVector<bsize>(nonzero_values + bsize_sq * dia_indices[i] + vec_entry_index * bsize, temp);
-        s_offset = block_eighthwarp_id * bsize;
+        bmAx = bmAx - temp[m] * s_xtemp_g[m];
+    }
+
+    // Contribution from each nonzero column
+    for (int jind = row_offsets[i]; jind < row_offsets[i + 1]; jind++)
+    {
+        IndexType j = __cachingLoad(&column_indices[jind]);
+
+        if (j != i)
+        {
+            //utils::syncwarp(group_mask);
+            s_xtemp[threadIdx.x] = x[j * bsize + group_lane];
+            //utils::syncwarp(group_mask);
+
+            // Load values (add __ldcs)
+            loadAsVector<bsize>(&values[jind * bsize_sq + group_lane * bsize], temp);
+
 #pragma unroll
-
-        for (int m = 0; m < bsize; m++)
-        {
-            bmAx = bmAx - temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-        }
-
-        // Contribution from each nonzero column
-        int jmax = row_offsets[i + 1];
-
-        for (int jind = row_offsets[i]; jind < jmax; jind++)
-        {
-            IndexType jcol = __cachingLoad(&column_indices[jind]);
-
-            if (jcol != i)
+            for (int m = 0; m < bsize; m++)
             {
-                offset = jcol * bsize + vec_entry_index;
-                types::util<ValueTypeB>::volcast(x[offset], s_xtemp + threadIdx.x);
-                // Load nonzero_values
-                s_offset = block_eighthwarp_id * bsize;
-                offset = jind * bsize * bsize + vec_entry_index * bsize;
-                loadAsVector<bsize>(nonzero_values + offset, temp);
-#pragma unroll
-
-                for (int m = 0; m < bsize; m++)
-                {
-                    bmAx = bmAx - temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-                }
+                bmAx = bmAx - temp[m] * s_xtemp_g[m];
             }
         }
-
-        types::util<ValueTypeB>::volcast(bmAx, s_xtemp + threadIdx.x);
-        bmAx = types::util<ValueTypeB>::get_zero();
-        // 2. Multiply by Dinv
-        // Load Dinv and multiply to RHS
-        offset = i * bsize * bsize + vec_entry_index * bsize;
-        loadAsVector<bsize>(Dinv + offset, temp);
-        s_offset = block_eighthwarp_id * bsize;
-#pragma unroll
-
-        for (int m = 0; m < bsize; m++)
-        {
-            bmAx = bmAx + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-        }
-
-        xout[i * bsize + vec_entry_index] = xin + bmAx * weight;
-        eighthwarp_id += gridDim.x * blockDim.x >> log_bsize;
     }
+
+    //utils::syncwarp(group_mask);
+    s_xtemp[threadIdx.x] = bmAx;
+    //utils::syncwarp(group_mask);
+
+    // 2. Multiply by Dinv
+    // Load Dinv and multiply to RHS
+    loadAsVector<bsize>(&Dinv[i * bsize_sq + group_lane * bsize], temp);
+    bmAx = types::util<ValueTypeB>::get_zero();
+
+#pragma unroll
+    for (int m = 0; m < bsize; m++)
+    {
+        bmAx = bmAx + temp[m] * s_xtemp_g[m];
+    }
+
+    xout[i * bsize + group_lane] = xin + bmAx * weight;
 }
 
 // Kernel to smooth with jacobi smoother, zero initial guess
@@ -769,26 +805,30 @@ void jacobiSmooth4by4ZeroBlockDiaCsrKernel_NAIVE_tex_readDinv2(const ValueTypeA 
     const int tid = blockDim.x * blockIdx.x + threadIdx.x;
     const int block_eighthwarp_id = threadIdx.x >> log_bsize;
     const int vec_entry_index = threadIdx.x & (bsize - 1);
-    volatile __shared__ ValueTypeB s_xtemp[ bsize * eighthwarps_per_block ];
+    __shared__ ValueTypeB s_xtemp[ bsize * eighthwarps_per_block ];
     ValueTypeB bmAx;
     ValueTypeB temp[bsize];
     int offset, i, s_offset;
+
+    // (1,1,1,1) shifted left by 0,4,8,etc. (i.e. by eighthwarp_id)
+    const int mask = ( (bsize*bsize) - 1) << bsize * ( utils::lane_id() >> log_bsize );
 
     for (int eighthwarp_id = row_offset + (tid >> log_bsize); eighthwarp_id < num_block_rows; eighthwarp_id += (gridDim.x * blockDim.x >> log_bsize))
     {
         i = eighthwarp_id;
         offset = i * bsize + vec_entry_index;
-        types::util<ValueTypeB>::volcast(b[offset], s_xtemp + threadIdx.x);
+        s_xtemp[threadIdx.x] = b[offset];
         bmAx = types::util<ValueTypeB>::get_zero();
         // Load Dinv and multiply to RHS
         offset = i * bsize * bsize + vec_entry_index * bsize;
         loadAsVector<bsize>(Dinv + offset, temp);
         s_offset = block_eighthwarp_id * bsize;
-#pragma unroll
 
+        utils::syncwarp(mask);
+#pragma unroll
         for (int m = 0; m < bsize; m++)
         {
-            bmAx = bmAx + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
+            bmAx = bmAx + temp[m] * s_xtemp[s_offset + m];
         }
 
         xout[i * bsize + vec_entry_index] = bmAx * weight;
@@ -1413,9 +1453,10 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
     IndexType num_rows = A.get_num_rows();
     IndexType offset = 0;
     A.getOffsetAndSizeForView(separation_flags, &offset, &num_rows);
-    const int threads_per_block = 512;
-    const int eightwarps_per_block = threads_per_block / 4;
-    const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / eightwarps_per_block + 1);
+    constexpr int threads_per_block = 128;
+    constexpr int threads_in_group = 4;
+    constexpr int groups_per_block = threads_per_block / threads_in_group;
+    const int num_blocks = num_rows / groups_per_block + 1;
 
     // XXX We need to add latency hiding here
     if (!A.is_matrix_singleGPU())
@@ -1423,8 +1464,8 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
         A.manager->exchange_halo(x, x.tag);
     }
 
-    cudaFuncSetCacheConfig(jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16>, cudaFuncCachePreferL1);
-    jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16> <<< num_blocks, threads_per_block>>>
+    //cudaFuncSetCacheConfig(jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, groups_per_block, 4, 2, 2, 16>, cudaFuncCachePreferL1);
+    jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, groups_per_block, 4, 2, 2, 16> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
      b_ptr, x_ptr, this->weight, offset + num_rows, xout_ptr, offset);
     cudaCheckError();

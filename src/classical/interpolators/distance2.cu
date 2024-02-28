@@ -1929,7 +1929,8 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         IntVector &scratch,
         Matrix_d &P)
 {
-    nvtxRangePush("generateInterpolationMatrix_1x1_distance2");
+    nvtxRange gim_nr(__func__);
+
     const int blockSize = 256;
     typedef typename Matrix_d::index_type IndexType;
     typedef typename Matrix_d::value_type ValueType;
@@ -2250,7 +2251,6 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         prep->createRowsLists(P, true);
         delete prep;
     }
-    nvtxRangePop();
 }
 
 template< class T_Config>

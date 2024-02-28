@@ -549,8 +549,14 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
             // Calculate global average x
             ValueTypeVec xAvg = amgx::thrust::reduce(x.begin(), x.begin() + nRows, amgx::types::util<ValueTypeVec>::get_zero());
-            A.manager->global_reduce_sum(&xAvg);
-            amgx::types::util<ValueTypeVec>::divide_by_integer(xAvg, A.manager->num_rows_global);
+
+            int64_t nr = nRows;
+            if (A.is_matrix_distributed())
+            {
+                A.manager->global_reduce_sum(&xAvg);
+                nr = A.manager->num_rows_global;
+            }
+            amgx::types::util<ValueTypeVec>::divide_by_integer(xAvg, nr);
 
             // Make a copy of b
             Vector_d bTmp(b);
@@ -571,7 +577,11 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
 
             // Fetch the normFactor result and reduce across all ranks
             normFactor = localNormFactor[0];
-            A.manager->global_reduce_sum(&normFactor);
+
+            if (A.is_matrix_distributed())
+            {
+                A.manager->global_reduce_sum(&normFactor);
+            }
 
             // Print the norm factor
             std::stringstream info;

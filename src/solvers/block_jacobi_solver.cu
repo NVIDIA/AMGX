@@ -1454,7 +1454,7 @@ void BlockJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPr
         A.manager->exchange_halo(x, x.tag);
     }
 
-    //cudaFuncSetCacheConfig(jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, groups_per_block, 4, 2, 2, 16>, cudaFuncCachePreferL1);
+    cudaFuncSetCacheConfig(jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, groups_per_block, 4, 2, 2, 16>, cudaFuncCachePreferL1);
     jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, groups_per_block, 4, 2, 2, 16> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
      b_ptr, x_ptr, this->weight, offset + num_rows, xout_ptr, offset);

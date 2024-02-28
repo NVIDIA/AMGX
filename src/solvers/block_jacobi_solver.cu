@@ -742,11 +742,6 @@ void jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_
     // 1. COMPUTING b-Ax
     ValueTypeB bmAx = b[i * bsize + group_lane];
 
-    // Contribution from diagonal
-    ValueTypeB xin = x[i * bsize + group_lane]; // Load column of x
-    s_xtemp[threadIdx.x] = xin;
-    //utils::syncwarp(group_mask);
-
     // Load dia_values and do matrix multiply
     loadAsVector<bsize>(&values[dia_indices[i] * bsize_sq + group_lane * bsize], temp); // Load a row of A
 
@@ -754,7 +749,7 @@ void jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_
 #pragma unroll
     for (int m = 0; m < bsize; m++)
     {
-        bmAx = bmAx - temp[m] * s_xtemp_g[m];
+        bmAx = bmAx - temp[m] * x[i * bsize + m];
     }
 
     // Contribution from each nonzero column
@@ -764,24 +759,19 @@ void jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_
 
         if (j != i)
         {
-            //utils::syncwarp(group_mask);
-            s_xtemp[threadIdx.x] = x[j * bsize + group_lane];
-            //utils::syncwarp(group_mask);
-
             // Load values (add __ldcs)
             loadAsVector<bsize>(&values[jind * bsize_sq + group_lane * bsize], temp);
 
 #pragma unroll
             for (int m = 0; m < bsize; m++)
             {
-                bmAx = bmAx - temp[m] * s_xtemp_g[m];
+                bmAx = bmAx - temp[m] * x[j * bsize + m];
             }
         }
     }
 
-    //utils::syncwarp(group_mask);
     s_xtemp[threadIdx.x] = bmAx;
-    //utils::syncwarp(group_mask);
+    utils::syncwarp(group_mask);
 
     // 2. Multiply by Dinv
     // Load Dinv and multiply to RHS
@@ -794,7 +784,7 @@ void jacobiSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_
         bmAx = bmAx + temp[m] * s_xtemp_g[m];
     }
 
-    xout[i * bsize + group_lane] = xin + bmAx * weight;
+    xout[i * bsize + group_lane] = x[i * bsize + group_lane] + bmAx * weight;
 }
 
 // Kernel to smooth with jacobi smoother, zero initial guess

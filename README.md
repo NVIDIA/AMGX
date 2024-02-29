@@ -93,12 +93,12 @@ enabled.
 
 ### <a name="running"></a> Running examples
 
-Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [src/configs](src/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows.
+Sample input matrix [matrix.mtx](examples/matrix.mtx) is in the examples directory. Sample AMGX solvers configurations are located in the [examples/configs](examples/configs) directory in the root folder. Make sure that examples are able to find AMGX shared library - by default _-rpath_ flag is used for binaries, but you might specify path manually in the environment variable: _LD_LIBRARY_PATH_ for Linux and _PATH_ for Windows.
 
 #### Running single GPU example from the build directory:
 
 ```bash
-> examples/amgx_capi -m ../examples/matrix.mtx -c ../src/configs/FGMRES_AGGREGATION.json
+> examples/amgx_capi -m ../examples/matrix.mtx -c ../examples/configs/FGMRES_AGGREGATION.json
 AMGX version 2.0.0-public-build125
 Built on Oct  7 2017, 04:51:11
 Compiled with CUDA Runtime 9.0, using CUDA driver 9.0
@@ -136,7 +136,7 @@ Total Time: 0.00169123
 #### Running multi GPU example from the build directory:
 
 ```bash
-> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../src/configs/FGMRES_AGGREGATION.json
+> mpirun -n 2 examples/amgx_mpi_capi.exe -m ../examples/matrix.mtx -c ../examples/configs/FGMRES_AGGREGATION.json
 Process 0 selecting device 0
 Process 1 selecting device 0
 AMGX version 2.0.0-public-build125

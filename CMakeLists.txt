@@ -47,7 +47,7 @@ IF(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are Debug Release Profile RelWithTraces" FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
-find_package(CUDAToolkit 10.0 REQUIRED)
+find_package(CUDAToolkit 11.0 REQUIRED)
 
 # update/define the compilation flags.
 IF(WIN32)
@@ -71,8 +71,6 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -Wno-terminate)
   endif()
 endif()
-
-FIND_PACKAGE(OpenMP)
 
 set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}" CACHE STRING "" FORCE)
@@ -238,7 +236,7 @@ thrust_create_target(Thrust)
 # Add the CXX flags to the host set of CUDA flags
 string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler ${CMAKE_CXX_FLAGS})
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
 
 add_library(amgx_libs OBJECT "")

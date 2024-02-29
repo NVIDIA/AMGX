@@ -131,6 +131,8 @@
 #include <resources.h>
 #include <amgx_types/util.h>
 
+#include <eigensolvers.h>
+
 namespace amgx
 {
 
@@ -597,6 +599,7 @@ struct registerClasses<T_Config, true>
         ConvergenceFactory<T_Config>::registerFactory("RELATIVE_INI", new RelativeIniConvergenceFactory<T_Config>);
         ConvergenceFactory<T_Config>::registerFactory("RELATIVE_MAX", new RelativeMaxConvergenceFactory<T_Config>);
         ConvergenceFactory<T_Config>::registerFactory("COMBINED_REL_INI_ABS", new RelativeAbsoluteCombinedConvergenceFactory<T_Config>);
+
     };
 };
 
@@ -797,6 +800,7 @@ AMGX_ERROR initialize()
         AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
         registerParameters();
+        eigensolvers::initialize();
     }
     catch (amgx_exception e)
     {
@@ -819,6 +823,7 @@ void finalize()
     AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
     AMG_Config::unregisterParameters( );
+    eigensolvers::finalize();
 #ifdef AMGX_WITH_MPI
     int mpi_initialized = 0;
     MPI_Initialized(&mpi_initialized); // We want to make sure MPI_Init has been called.

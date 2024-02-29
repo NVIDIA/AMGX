@@ -231,7 +231,6 @@ int main(int argc, const char **argv)
 
   AMGX_SAFE_CALL(AMGX_resources_destroy( rsrc ));
 
-  AMGX_SAFE_CALL(AMGX_finalize_plugins());
   AMGX_SAFE_CALL(AMGX_finalize());
 
   return 0;

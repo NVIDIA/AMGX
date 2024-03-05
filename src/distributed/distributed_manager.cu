@@ -2752,12 +2752,13 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //Approach 2: custom for this routine
     new_row_offsets.resize(total_rows + 1);
     new_col_indices.resize(nnz + nh);
-    new_values.resize(nnz + nh + 1); //extra 1 element stores zero at the end (to follow the original design)
+    int bsize = this->A->get_block_size();
+    new_values.resize((nnz + nh)*bsize + 1); //extra 1 element stores zero at the end (to follow the original design)
     //new_values[nnz]=-1;        //marker to track the last element
     amgx::thrust::copy(identity_csr_rows.begin(), identity_csr_rows.end(), new_row_offsets.begin() + size );
     amgx::thrust::copy(identity_csr_cols.begin(), identity_csr_cols.end(), new_col_indices.begin() + nnz);
-    amgx::thrust::copy(new_values.begin() + nnz,    new_values.begin() + nnz + 1, new_values.begin() + nnz + nh);
-    amgx::thrust::copy(identity_csr_vals.begin(), identity_csr_vals.end(),  new_values.begin() + nnz);
+    amgx::thrust::copy(new_values.begin() + nnz*bsize,    new_values.begin() + (nnz + 1)*bsize, new_values.begin() + (nnz + nh)*bsize);
+    amgx::thrust::copy(identity_csr_vals.begin(), identity_csr_vals.end(),  new_values.begin() + (nnz*bsize));
     /* WARNING: see above. */
     this->A->set_num_cols(total_rows);
     this->A->set_num_rows(total_rows);

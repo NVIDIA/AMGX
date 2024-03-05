@@ -1133,6 +1133,52 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     cusparseSetStream(handle, 0);
 }
 
+// Simple custom implementation of matrix-vector product that has only 1 kernel.
+template <int bsize, int warp_size, int block_size>
+__global__ void Dbsrmv_opt(
+    int nrows,
+    const double alpha,
+    const double* __restrict__ bsrVal,
+    const int* __restrict__ bsrRow,
+    const int* __restrict__ bsrCol,
+    const double* __restrict__ x,
+    const double beta,
+    double* __restrict__ y)
+{
+    const int gid = blockIdx.x*blockDim.x + threadIdx.x;
+    const int bi = threadIdx.x % bsize;
+
+    constexpr int ngroups_per_warp = warp_size / bsize; // Relies on truncation
+    constexpr int nwarps_per_block = block_size / warp_size;
+    const int warp_id = threadIdx.x / warp_size;
+    const int lane_id = threadIdx.x % warp_size;
+    const int group_id = lane_id / bsize;
+    const int row = ngroups_per_warp * nwarps_per_block * blockIdx.x + warp_id * ngroups_per_warp + group_id;
+
+    if(lane_id >= ngroups_per_warp*bsize || row >= nrows) return;
+
+    double y_tmp = amgx::types::util<double>::get_zero();
+
+    for (int col = bsrRow[row]; col < bsrRow[row+1]; ++col)
+    {
+#pragma unroll
+        for(int bj = 0; bj < bsize; ++bj)
+        {
+            y_tmp = alpha * bsrVal[col*bsize*bsize + bi*bsize + bj] * x[bsrCol[col]*bsize + bj] + y_tmp;
+        }
+    }
+
+    // Don't read y unnecessarily
+    if(amgx::types::util<double>::is_zero(beta))
+    {
+        y[row*bsize + bi] = y_tmp;
+    }
+    else
+    {
+        y[row*bsize + bi] = beta*y[row*bsize + bi] + y_tmp;
+    }
+}
+
 inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
                              int mb, int nb, int nnzb,
                              const double *alpha,
@@ -1157,7 +1203,26 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     }
     else
     {
-        cusparseCheckError(cusparseDbsrmv(handle, dir, trans, mb, nb, nnzb, alpha, descr, bsrVal, bsrRowPtr, bsrColInd, blockDim, x, beta, y));
+        constexpr int block_size = 128;
+        constexpr int warp_size = 32;
+        switch(blockDim) 
+        {
+            case 4:
+                {
+                    const int nblocks = mb / (32) + 1;
+                    Dbsrmv_opt<4, warp_size, block_size><<<nblocks, block_size>>>(mb, *alpha, bsrVal, bsrRowPtr, bsrColInd, x, *beta, y);
+                }
+                break;
+            case 5:
+                {
+                    const int nblocks = mb / (30) + 1;
+                    Dbsrmv_opt<5, warp_size, block_size><<<nblocks, block_size>>>(mb, *alpha, bsrVal, bsrRowPtr, bsrColInd, x, *beta, y);
+                }
+                break;
+            default:
+                cusparseCheckError(cusparseDbsrmv(handle, dir, trans, mb, nb, nnzb, alpha, descr, bsrVal, bsrRowPtr, bsrColInd, blockDim, x, beta, y));
+                break;
+        }
     }
 
     // Reset cuSparse to default stream

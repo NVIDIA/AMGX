@@ -25,8 +25,6 @@
 #include <aggregation/coarseAgenerators/thrust_coarse_A_generator.h>
 #include <aggregation/coarseAgenerators/low_deg_coarse_A_generator.h>
 
-#include <omp.h>
-
 #define EXPERIMENTAL_ITERATIVE_MATCHING
 
 namespace amgx

@@ -468,7 +468,8 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPr
 
 template<int warpSize, class ValueTypeMat, class IndexTypeVec, class ValueTypeVec, class ValueTypeNorm>
 __global__ void scaled_norm_factor_calc(
-    int nRows, ValueTypeMat *Avals, IndexTypeVec *Arows, ValueTypeVec *Ax, ValueTypeVec *b, ValueTypeVec xAvg, ValueTypeNorm *localNormFactor)
+    int nRows, ValueTypeMat *Avals, IndexTypeVec *Arows, ValueTypeVec *Ax, ValueTypeVec *b, 
+    ValueTypeVec xAvg, ValueTypeNorm *localNormFactor, ValueTypeMat *diaVals = nullptr)
 {
     int r = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -490,6 +491,7 @@ __global__ void scaled_norm_factor_calc(
         {
             Arow_sum = Arow_sum + Avals[i];
         }
+        if(diaVals) Arow_sum = Arow_sum + diaVals[r];
 
         normFactor =
             types::util<ValueTypeVec>::abs(Ax[r] - Arow_sum * xAvg) +
@@ -566,14 +568,29 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             constexpr int warpSize = 32;
             const int nBlocks = nRows/nThreads + 1;
             NVector_d localNormFactor(1, amgx::types::util<ValueTypeNorm>::get_zero());
-            scaled_norm_factor_calc<warpSize><<<nBlocks, nThreads>>>(
-                nRows,
-                A.values.raw(),
-                A.row_offsets.raw(),
-                Ax.raw(),
-                bTmp.raw(),
-                xAvg,
-                localNormFactor.raw());
+            if(A.hasProps(DIAG))
+            {
+                scaled_norm_factor_calc<warpSize><<<nBlocks, nThreads>>>(
+                    nRows,
+                    A.values.raw(),
+                    A.row_offsets.raw(),
+                    Ax.raw(),
+                    bTmp.raw(),
+                    xAvg,
+                    localNormFactor.raw(),
+                    A.values.raw() + A.diagOffset()*A.get_block_size());
+            }
+            else
+            {
+                scaled_norm_factor_calc<warpSize><<<nBlocks, nThreads>>>(
+                    nRows,
+                    A.values.raw(),
+                    A.row_offsets.raw(),
+                    Ax.raw(),
+                    bTmp.raw(),
+                    xAvg,
+                    localNormFactor.raw());
+            }
 
             // Fetch the normFactor result and reduce across all ranks
             normFactor = localNormFactor[0];

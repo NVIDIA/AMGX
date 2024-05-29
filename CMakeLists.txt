@@ -29,6 +29,9 @@ cmake_minimum_required (VERSION 3.18)
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
+option(AMGX_WITH_TESTS "Compile AmgX test executables" ON)
+option(AMGX_WITH_EXAMPLES "Compile AmgX examples" ON)
+
 find_package(MPI)
 find_package(OpenMP)
 
@@ -292,5 +295,7 @@ install(FILES
   DESTINATION include)
 
 # build examples
+if(AMGX_WITH_EXAMPLES)
 add_subdirectory(examples)
+endif()
 

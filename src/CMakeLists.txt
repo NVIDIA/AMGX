@@ -52,6 +52,7 @@ install(FILES
 
 set(AMGX_INCLUDES ../include)
 
+if(AMGX_WITH_TESTS)
 set(tests_all ${tests_all} testframework.cu test_utils.cu unit_test.cu)
 
 add_library(amgx_tests_libs OBJECT ${tests_all})
@@ -101,3 +102,4 @@ if(NOT ${CMAKE_BUILD_TYPE} MATCHES "Release")
   install(TARGETS amgx_tests_launcher DESTINATION "lib/tests")
 endif(NOT ${CMAKE_BUILD_TYPE} MATCHES "Release")
 
+endif(AMGX_WITH_TESTS)

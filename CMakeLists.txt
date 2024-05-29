@@ -255,43 +255,41 @@ target_compile_options(amgx_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_
 # build amgx
 add_library(amgx STATIC $<TARGET_OBJECTS:amgx_libs>)  # static lib
 target_link_libraries(amgx amgx_libs)
-
-add_library(amgxsh SHARED $<TARGET_OBJECTS:amgx_libs>)  # shared lib
-target_link_libraries(amgxsh amgx_libs)
-
 set_target_properties(amgx PROPERTIES LINKER_LANGUAGE CUDA)
-set_target_properties(amgxsh PROPERTIES LINKER_LANGUAGE CUDA)
-
 target_compile_options(amgx PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
-target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
-
 IF (WIN32)
   target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
-  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
 ELSE (WIN32)
   target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+ENDIF(WIN32)
+if(MPI_FOUND)
+target_link_libraries(amgx MPI::MPI_CXX)
+endif(MPI_FOUND)
+set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+install(TARGETS amgx DESTINATION "lib")
+
+if(BUILD_SHARED_LIBS)
+add_library(amgxsh SHARED $<TARGET_OBJECTS:amgx_libs>)  # shared lib
+target_link_libraries(amgxsh amgx_libs)
+set_target_properties(amgxsh PROPERTIES LINKER_LANGUAGE CUDA)
+target_compile_options(amgxsh PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
+IF (WIN32)
+  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
+ELSE (WIN32)
   target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
 ENDIF(WIN32)
-
 if(MPI_FOUND)
-    target_link_libraries(amgx   MPI::MPI_CXX)
     target_link_libraries(amgxsh MPI::MPI_CXX)
 endif(MPI_FOUND)
-
-# set arch for main libs
-
-set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+install(TARGETS amgxsh DESTINATION "lib")
+#export(TARGETS amgxsh FILE ${CMAKE_CURRENT_SOURCE_DIR}/amgxsh.cmake)
+endif(BUILD_SHARED_LIBS)
 
 install(FILES
   include/amgx_config.h
   include/amgx_c.h
   DESTINATION include)
-
-install(TARGETS amgx   DESTINATION "lib")
-install(TARGETS amgxsh DESTINATION "lib")
-
-#export(TARGETS amgxsh FILE ${CMAKE_CURRENT_SOURCE_DIR}/amgxsh.cmake)
 
 # build examples
 add_subdirectory(examples)

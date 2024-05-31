@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
+//
+// SPDX-FileCopyrightText: Portions Copyright 2024 Siemens and/or its affiliates
+//
+// November 2024 modified by Siemens and/or its affiliates by adding zero-copy interface
 
 #ifndef __AMGX_C_H_INCLUDE__
 #define __AMGX_C_H_INCLUDE__
@@ -100,6 +104,16 @@ typedef enum
 } AMGX_DIST_PARTITION_INFO;
 
 /*********************************************************
+ * Flags for the zero-copy interface
+ *********************************************************/
+typedef enum
+{
+    AMGX_MATRIX_ROW_OFFSETS = 0,
+    AMGX_MATRIX_COL_INDICES = 1,
+    AMGX_MATRIX_VALUES      = 2
+} AMGX_MATRIX_DATA_VECTOR;
+
+/*********************************************************
  * Forward (opaque) handle declaration
  *********************************************************/
 typedef void (*AMGX_print_callback)(const char *msg, int length);
@@ -188,6 +202,12 @@ AMGX_RC AMGX_API AMGX_reset_signal_handler();
 
 AMGX_RC AMGX_API AMGX_register_print_callback
 (AMGX_print_callback func);
+
+AMGX_RC AMGX_API AMGX_get_async_free_to_pool_flag
+(int *ptr);
+
+AMGX_RC AMGX_API AMGX_set_async_free_to_pool_flag
+(int flag);
 
 /* Config */
 AMGX_RC AMGX_API AMGX_config_create
@@ -593,6 +613,72 @@ AMGX_RC AMGX_API AMGX_matrix_check_symmetry
 AMGX_RC AMGX_matrix_check_diag_dominant
 (const AMGX_matrix_handle mtx, 
  int* diag_dominant);
+
+/*********************************************************
+ * C-API zero-copy
+ *********************************************************/
+
+AMGX_RC AMGX_API AMGX_ZC_vector_resize
+(AMGX_vector_handle vec,
+ size_t newSize);
+
+AMGX_RC AMGX_API AMGX_ZC_vector_get_size
+(AMGX_vector_handle vec,
+ size_t *size);
+
+AMGX_RC AMGX_API AMGX_ZC_vector_get_capacity
+(AMGX_vector_handle vec,
+ size_t *capacity);
+
+AMGX_RC AMGX_API AMGX_ZC_vector_get_data_ptr
+(AMGX_vector_handle vec,
+ void **dataPtr);
+
+AMGX_RC AMGX_API AMGX_ZC_vector_shrink_to_fit
+(AMGX_vector_handle vec);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_resize
+(AMGX_matrix_handle mtx,
+ AMGX_MATRIX_DATA_VECTOR dataTag,
+ size_t newSize);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_get_size
+(AMGX_matrix_handle mtx,
+ AMGX_MATRIX_DATA_VECTOR dataTag,
+ size_t *size);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_get_capacity
+(AMGX_matrix_handle mtx,
+ AMGX_MATRIX_DATA_VECTOR dataTag,
+ size_t *capacity);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_get_ptr
+(AMGX_matrix_handle mtx,
+ AMGX_MATRIX_DATA_VECTOR dataTag,
+ void **dataPtr);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_shrink_to_fit
+(AMGX_matrix_handle mtx,
+ AMGX_MATRIX_DATA_VECTOR dataTag);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_initialize
+(AMGX_matrix_handle mtx);
+
+AMGX_RC AMGX_API AMGX_ZC_matrix_finalize
+(AMGX_matrix_handle mtx,
+ int block_dimx,
+ int block_dimy);
+
+AMGX_RC AMGX_API AMGX_ZC_vector_finalize_bind
+(AMGX_vector_handle vec,
+ const AMGX_matrix_handle mtx);
+
+AMGX_RC AMGX_API AMGX_ZC_solver_solve
+(AMGX_solver_handle slv,
+ AMGX_vector_handle rhs,
+ AMGX_vector_handle sol,
+ int initializeSolWithZero);
+
 
 /*********************************************************
  * C-API deprecated

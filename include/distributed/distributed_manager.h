@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
+//
+// SPDX-FileCopyrightText: Portions Copyright 2024 Siemens and/or its affiliates
+//
+// November 2024 modified by Siemens and/or its affiliates by adding zero-copy interface
 
 #pragma once
 
@@ -386,6 +390,7 @@ template <typename TConfig> class DistributedManagerBase
         void uploadMatrix(int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data, Matrix<TConfig> &A);
 
         void updateMapsReorder();
+        void updateMapsNoReorder();
 
         void initializeUploadReorderAll(int n, int nnz, int block_dimx, int block_dimy, const int *row_ptrs, const int *col_indices, const void *data, const void *diag_data, Matrix<TConfig> &A);
 

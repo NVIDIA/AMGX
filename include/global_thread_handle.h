@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
+//
+// SPDX-FileCopyrightText: Portions Copyright 2024 Siemens and/or its affiliates
+//
+// November 2024 modified by Siemens and/or its affiliates by adding zero-copy interface
 
 #pragma once
 
@@ -179,6 +183,7 @@ void expandDeviceMemoryPool(size_t size, size_t max_block_size);
 
 // Do we use async free.
 void setAsyncFreeFlag(bool set);
+bool getAsyncFreeFlag();
 // Do we use device memory pool.
 void setDeviceMemoryPoolFlag(bool set);
 // Define the scaling factor.

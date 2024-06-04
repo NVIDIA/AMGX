@@ -27,9 +27,9 @@
         "max_iters": 100, 
         "monitor_residual": 1, 
         "gmres_n_restart": 10, 
-        "convergence": "RELATIVE_INI_CORE", 
+        "convergence": "RELATIVE_INI", 
         "scope": "main", 
-        "tolerance": 1e-10, 
+        "tolerance" : 1e-06, 
         "norm": "L2"
     }
 }

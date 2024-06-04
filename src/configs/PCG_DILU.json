@@ -11,7 +11,8 @@
         "max_iters": 20, 
         "monitor_residual": 1, 
         "scope": "main", 
-        "tolerance": 1e-06, 
+        "tolerance" : 1e-06, 
+        "convergence": "RELATIVE_INI",
         "norm": "L2"
     }
 }

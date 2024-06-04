@@ -10,9 +10,9 @@
         "print_solve_stats": 1, 
         "obtain_timings": 1, 
         "monitor_residual": 1, 
-        "convergence": "RELATIVE_INI_CORE", 
+        "convergence": "RELATIVE_INI", 
         "scope": "main", 
-        "tolerance": 1e-6, 
+        "tolerance" : 1e-06, 
         "norm": "L2"
     }
 }

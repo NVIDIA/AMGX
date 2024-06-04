@@ -16,7 +16,8 @@
         "scope": "main", 
         "max_levels": 1000, 
         "postsweeps": 1, 
-        "tolerance": 0.1, 
+        "tolerance" : 1e-06, 
+        "convergence": "RELATIVE_INI",
         "print_grid_stats": 1, 
         "norm": "L1", 
         "cycle": "V"

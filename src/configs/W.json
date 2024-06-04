@@ -9,11 +9,11 @@
         "max_iters": 100, 
         "monitor_residual": 1, 
         "interpolator": "D2",
-        "convergence": "ABSOLUTE", 
+        "convergence": "RELATIVE_INI", 
         "scope": "main", 
         "max_levels": 100, 
         "cycle": "W", 
-        "tolerance": 1e-06, 
+        "tolerance" : 1e-06, 
         "norm": "L2", 
         "postsweeps": 1
     }

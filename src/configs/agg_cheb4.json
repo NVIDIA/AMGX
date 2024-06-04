@@ -29,8 +29,8 @@
         "min_coarse_rows": 2, 
         "scope": "main", 
         "max_levels": 1000, 
-        "convergence": "RELATIVE_INI_CORE", 
-        "tolerance": 1e-06, 
+        "convergence": "RELATIVE_INI", 
+        "tolerance" : 1e-06, 
         "norm": "L2",
         "cycle": "V"
     }

@@ -18,7 +18,8 @@
         "scope": "main", 
         "max_levels": 1000, 
         "matrix_coloring_scheme": "MIN_MAX", 
-        "tolerance": 0.1, 
+        "tolerance" : 1e-06, 
+        "convergence": "RELATIVE_INI",
         "norm": "L1", 
         "cycle": "V"
     }

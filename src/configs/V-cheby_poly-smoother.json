@@ -14,7 +14,7 @@
         "obtain_timings": 1, 
         "max_iters": 100, 
         "monitor_residual": 1, 
-        "convergence": "ABSOLUTE", 
+        "convergence": "RELATIVE_INI", 
         "max_levels": 100, 
         "cycle": "V", 
         "smoother": {
@@ -27,7 +27,7 @@
            },
            "tolerance": 1e-4
         },
-        "tolerance": 1e-06, 
+        "tolerance" : 1e-06, 
         "norm": "L2", 
         "presweeps": 0, 
         "postsweeps":3

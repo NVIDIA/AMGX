@@ -11,7 +11,7 @@
         "max_iters": 100, 
         "coarse_solver": "NOSOLVER",
         "monitor_residual": 1, 
-        "convergence": "ABSOLUTE", 
+        "convergence": "RELATIVE_INI", 
         "scope": "main", 
         "max_levels": 100, 
         "error_scaling":3,
@@ -30,7 +30,7 @@
             "cheby_max_lambda" : 0.92,
             "cheby_min_lambda" : 0.07
         },
-        "tolerance": 1e-06, 
+        "tolerance" : 1e-06, 
         "norm": "L2", 
         "presweeps": 0, 
         "postsweeps": 1

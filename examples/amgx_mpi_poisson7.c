@@ -303,6 +303,9 @@ int main(int argc, char **argv)
     /* set the connectivity information (for the vector) */
     AMGX_vector_bind(x, A);
     AMGX_vector_bind(b, A);
+    /* upload the vector (and the connectivity information) */
+    AMGX_vector_upload(x, n, 1, x_h);
+    AMGX_vector_upload(b, n, 1, b_h);
     for(int r = 0; r < nrepeats; ++r)
     {
       if(r > 0) {

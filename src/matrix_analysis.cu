@@ -345,7 +345,9 @@ void MatrixAnalysis<T_Config>::checkDiagDominate()
             }
         });
 
-        std::cout << "Percentage of the diagonal-dominant rows is " << 100.0 * (num_rows * bx - k_d[0]) / num_rows << "%" << std::endl;
+        std::stringstream ss;
+        ss << "Percentage of the diagonal-dominant rows is " << 100.0 * (num_rows * bx - k_d[0]) / num_rows << "%" << std::endl;
+        amgx_output(ss.str().c_str(), ss.str().length());
     }
     else if (TConfig::memSpace == AMGX_host)
     {

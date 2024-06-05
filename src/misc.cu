@@ -51,7 +51,7 @@ int amgx_printf(const char *fmt, ...)
     va_start(ap, fmt);
     retval = vsnprintf(buffer, PRINT_BUF_SIZE, fmt, ap);
     va_end(ap);
-    amgx_output(buffer, strlen(buffer));
+    amgx_distributed_output(buffer, strlen(buffer));
     return retval;
 }
 

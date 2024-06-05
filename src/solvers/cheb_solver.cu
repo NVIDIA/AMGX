@@ -112,11 +112,6 @@ Chebyshev_Solver<T_Config>::Chebyshev_Solver( AMG_Config &cfg, const std::string
                                   "eig_eigenvector=0,\n"
                                   "eig_eigenvector_solver=default";
 
-    /*std::ifstream t("/home/marsaev/work/perforce/marsaev_sw/sw/gpgpu/amgx/amg/eigen_examples/POWER_ITERATION");
-    std::stringstream buffer;
-    buffer << t.rdbuf();
-    std::string eig_cfg_string = buffer.str();*/
-
     if (m_lambda_mode < 2)
     {
         AMG_Configuration eig_cfg;

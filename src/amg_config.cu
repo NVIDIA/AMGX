@@ -25,7 +25,6 @@ namespace amgx
 {
 
 #ifdef RAPIDJSON_DEFINED
-static int unnamed_scope_counter = 0;
 static rapidjson::Document json_parser; //made as global to avoid passing template parameter memory allocator via parameters
 #endif
 
@@ -66,8 +65,10 @@ AMGX_ERROR AMG_Config::parseParameterString(const char *str)
     try
     {
 #ifdef RAPIDJSON_DEFINED
+        // try to read JSON from string first
         if (parse_json_string(str) != AMGX_OK)
         {
+            // continue with legacy configuration format otherwise
 #endif
             //copy to a temporary array to avoid destroying the string
             std::string params(str);
@@ -77,23 +78,22 @@ AMGX_ERROR AMG_Config::parseParameterString(const char *str)
             // Parse the parameter string
             if (parseString(params, config_version) != AMGX_OK)
             {
-                std::string err = "Error parsing parameter string: " + params;
+                std::string err = "Can't parse config from the string";
                 FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
             }
 
 #ifdef RAPIDJSON_DEFINED
         }
-
 #endif
     }
     catch (amgx_exception &e)
     {
-        amgx_printf("Error parsing parameter string: %s\n", e.what());
+        amgx_printf("Error parsing config string: %s", e.what());
         return e.reason();
     }
     catch (...)
     {
-        amgx_printf("Error parsing parameter string\n");
+        amgx_printf("Error parsing config string");
         return AMGX_ERR_CONFIGURATION;
     }
 
@@ -116,12 +116,12 @@ AMGX_ERROR AMG_Config::parseParameterStringAndFile(const char *str, const char *
     }
     catch (amgx_exception &e)
     {
-        amgx_printf("Error parsing parameter string: %s\n", e.what());
+        amgx_printf("Error parsing config file and config string: %s\n", e.what());
         ret = e.reason();
     }
     catch (...)
     {
-        amgx_printf("Error parsing parameter string\n");
+        amgx_printf("Error parsing config file and config string\n");
         ret = AMGX_ERR_CONFIGURATION;
     }
 
@@ -258,13 +258,20 @@ AMGX_ERROR AMG_Config::parseString(std::string &params, int &config_version)
 
         if (m_config_version != this->m_latest_config_version)
         {
+            bool print = false;
+            // Very rare of verbosity in extra config strings, but might be useful for debugging
             size_t pos = params.find("verbosity_level");
-            pos = params.find("=", pos);
-            pos++;
 
-            while (params[pos] == ' ') { pos++; }  // skip spaces
+            if (pos != std::string::npos)
+            {
+                pos = params.find("=", pos);
+                pos++;
 
-            bool print = (pos == std::string::npos) || (params[pos] > '2');
+                while (params[pos] == ' ' || params[pos] == '\t') { pos++; }  // skip spaces
+
+                print = params[pos] > '2';
+            }
+            
             std::string ss = "Converting config string to current config version\n";
 
             if (print)
@@ -305,12 +312,12 @@ AMGX_ERROR AMG_Config::parseString(std::string &params, int &config_version)
     }
     catch (amgx_exception &e)
     {
-        amgx_printf("Error parsing parameter string: %s\n", e.what());
+        amgx_printf("Error parsing parameter string: %s", e.what());
         return e.reason();
     }
     catch (...)
     {
-        amgx_printf("Error parsing parameter string\n");
+        amgx_printf("Error parsing parameter string");
         return AMGX_ERR_CONFIGURATION;
     }
 
@@ -602,19 +609,17 @@ void AMG_Config::import_json_object(rapidjson::Value &obj, bool outer)
 
 AMGX_ERROR AMG_Config::parse_json_file(const char *filename)
 {
-    std::ifstream fin;
 
     try
     {
         // Store the file content into a string
         std::string params = "";
-        fin.open(filename);
+        std::ifstream fin(filename);
 
         if (!fin)
         {
-            char error[500];
-            sprintf(error, "Error opening file '%s'", filename);
-            FatalError(error, AMGX_ERR_IO);
+            // let the caller handle the error
+            return AMGX_ERR_IO;
         }
 
         while (!fin.eof())
@@ -636,9 +641,8 @@ AMGX_ERROR AMG_Config::parse_json_file(const char *filename)
         // start parsing
         if (json_parser.Parse<0>(params.c_str()).HasParseError())
         {
-            std::string tmp = "Cannot read file as JSON object, trying as AMGX config\n";
-            amgx_distributed_output(tmp.c_str(), tmp.length());
-            return AMGX_ERR_NOT_IMPLEMENTED; //
+            // Parse errors - just return with error, will be handled by a caller
+            return AMGX_ERR_NOT_IMPLEMENTED;
         }
 
         // write json cfg to stdout
@@ -646,14 +650,13 @@ AMGX_ERROR AMG_Config::parse_json_file(const char *filename)
         rapidjson::PrettyWriter<rapidjson::FileStream> writer(f);
         json_parser.Accept(writer);
         std::cout << std::endl;*/
+        // File was parsed as JSON, will return AMGX_ERR_CONFIGURATION in case of error
         import_json_object(json_parser, true);
     }
     catch (amgx_exception &e)
     {
+        // We still might want to print diagnostics
         amgx_distributed_output(e.what(), strlen(e.what()));
-
-        if (fin) { fin.close(); }
-
         return e.reason();
     }
     catch (...)
@@ -671,9 +674,8 @@ AMGX_ERROR AMG_Config::parse_json_string(const char *str)
         // start parsing
         if (json_parser.Parse<0>(str).HasParseError())
         {
-            std::string tmp = "Cannot read file as JSON object, trying as AMGX config\n";
-            amgx_distributed_output(tmp.c_str(), tmp.length());
-            return AMGX_ERR_NOT_IMPLEMENTED; //
+            // Cannot parse as JSON, let caller handle the error
+            return AMGX_ERR_NOT_IMPLEMENTED;
         }
 
         /*rapidjson::FileStream f(stdout);
@@ -920,14 +922,27 @@ AMGX_ERROR AMG_Config::parseFile(const char *filename)
         {
             return json_ret;
         }
+        // general error with file - no reason to continue
+        else if (json_ret == AMGX_ERR_IO)
+        {
+            std::string err = "Error: Cannot read config file: " + std::string(filename);
+            FatalError(err.c_str(), json_ret);
+        }
+        // was parsed as JSON but error importing config - again, no reason to continue
+        else if (json_ret == AMGX_ERR_CONFIGURATION)
+        {
+            std::string err = "Error: Cannot import config from JSON file: " + std::string(filename);
+            FatalError(err.c_str(), json_ret);
+        }
 
 #endif
+        // In other cases - try to parse same file as legacy configuration format:
         std::string params;
 
         // Get the parameter string corresponding to file
         if (getParameterStringFromFile(filename, params) != AMGX_OK)
         {
-            std::string err = "Error parsing parameter file: " + std::string(filename);
+            std::string err = "Error: Cannot read config file: " + std::string(filename);
             FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
         }
 
@@ -937,18 +952,20 @@ AMGX_ERROR AMG_Config::parseFile(const char *filename)
         // Parse the string
         if (parseString(params, config_version) != AMGX_OK)
         {
-            std::string err = "Error parsing parameter string obtained from file: " + params;
+            std::string err = "Error: Can't parse either JSON or legacy config from file: " + 
+                std::string(filename);
             FatalError(err.c_str(), AMGX_ERR_CONFIGURATION);
         }
     }
     catch (amgx_exception &e)
     {
-        amgx_output(e.what(), strlen(e.what()));
+        amgx_printf("Error parsing config file: %s", e.what());
         return e.reason();
     }
     catch (...)
     {
-        return AMGX_ERR_UNKNOWN;
+        amgx_printf("Error parsing config file");
+        return AMGX_ERR_CONFIGURATION;
     }
 
     return AMGX_OK;

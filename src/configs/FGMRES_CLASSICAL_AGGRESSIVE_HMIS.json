@@ -1,6 +1,7 @@
 {
     "config_version": 2, 
     "solver": {
+        "scope": "main",
         "print_grid_stats": 1, 
         "store_res_history": 1, 
         "solver": "FGMRES", 
@@ -26,7 +27,7 @@
             "strength_threshold": 0.25, 
             "min_coarse_rows": 2, 
             "scope": "amg_solver", 
-            "max_levels": 24, 
+            "max_levels": 50, 
             "cycle": "V", 
             "postsweeps": 2
         }, 

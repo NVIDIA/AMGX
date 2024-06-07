@@ -16,7 +16,7 @@
             "min_coarse_rows": 32, 
             "relaxation_factor": 0.75, 
             "scope": "amg", 
-            "max_levels": 100, 
+            "max_levels": 50, 
             "matrix_coloring_scheme": "PARALLEL_GREEDY", 
             "cycle": "V"
         }, 

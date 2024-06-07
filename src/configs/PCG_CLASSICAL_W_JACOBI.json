@@ -18,7 +18,7 @@
             "monitor_residual": 0, 
             "store_res_history": 0, 
             "scope": "amg", 
-            "max_levels": 100, 
+            "max_levels": 50, 
             "cycle": "W", 
             "postsweeps": 1
         }, 

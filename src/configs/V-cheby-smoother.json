@@ -15,7 +15,7 @@
         "max_iters": 100, 
         "monitor_residual": 1, 
         "convergence": "RELATIVE_INI", 
-        "max_levels": 100, 
+        "max_levels": 50, 
         "cycle": "V", 
         "smoother": 
         {

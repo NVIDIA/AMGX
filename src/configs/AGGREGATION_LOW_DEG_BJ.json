@@ -17,7 +17,7 @@
         "min_coarse_rows": 2, 
         "relaxation_factor": 0.75, 
         "scope": "main", 
-        "max_levels": 1000, 
+        "max_levels": 50, 
         "postsweeps": 2, 
         "tolerance" : 1e-06, 
         "norm": "L1", 

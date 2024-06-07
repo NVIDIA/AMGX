@@ -14,7 +14,7 @@
             "min_coarse_rows": 32, 
             "relaxation_factor": 0.75, 
             "scope": "amg", 
-            "max_levels": 100, 
+            "max_levels": 50, 
             "postsweeps": 3, 
             "cycle": "V"
         }, 
@@ -22,7 +22,7 @@
         "solver": "FGMRES", 
         "print_solve_stats": 1, 
         "obtain_timings": 1, 
-        "max_iters": 1000, 
+        "max_iters": 100, 
         "monitor_residual": 1, 
         "gmres_n_restart": 32, 
         "convergence": "RELATIVE_INI", 

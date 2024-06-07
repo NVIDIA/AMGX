@@ -12,7 +12,7 @@
            "scope": "amg_solver", 
            "interpolator": "D2", 
            "solver": "AMG", 
-           "max_levels": 24, 
+           "max_levels": 50, 
            "selector": "PMIS", 
            "cycle": "V", 
            "presweeps": 0, 
@@ -31,7 +31,6 @@
               "relaxation_factor": 0.91, 
               "scope": "jacobi", 
               "solver": "CHEBYSHEV",
-              "max_iters": 1,
               "preconditioner" : 
               {
                   "solver": "JACOBI_L1",

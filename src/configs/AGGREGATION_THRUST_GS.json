@@ -20,8 +20,8 @@
         "algorithm": "AGGREGATION", 
         "coarseAgenerator": "THRUST", 
         "solver": "AMG", 
-        "max_iters": 50, 
+        "max_iters": 100, 
         "monitor_residual": 1, 
-        "max_levels": 1000
+        "max_levels": 50
     }
 }

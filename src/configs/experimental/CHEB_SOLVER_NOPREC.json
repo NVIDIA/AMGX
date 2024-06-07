@@ -13,7 +13,7 @@
         "convergence": "RELATIVE_INI", 
         "scope": "main", 
         "tolerance" : 1e-06, 
-        "max_iters": 200,
+        "max_iters": 100,
         "norm": "L2"
     }
 }

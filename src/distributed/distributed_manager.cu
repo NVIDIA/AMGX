@@ -5272,6 +5272,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::transformVector(VVector_v &v)
 {
+    amgx::memory::setAsyncFreeFlag(true);
     if (this->neighbors.size() == 0) { return; }
     else if (this->renumbering.size() == 0)
     {
@@ -5309,6 +5310,11 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     cudaCheckError();
     v.set_transformed();
+    amgx::thrust::global_thread_handle::joinDevicePools();
+    amgx::memory::setAsyncFreeFlag(true);
+
+    // XXX Is this needed?
+    amgx::thrust::global_thread_handle::cudaFreeWait();
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>

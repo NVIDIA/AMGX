@@ -13,8 +13,6 @@
             "presweeps": 1, 
             "selector": "SIZE_2", 
             "max_iters": 1, 
-            "monitor_residual": 1, 
-            "convergence": "RELATIVE_INI", 
             "scope": "amg", 
             "cycle": "W", 
             "max_levels": 50, 
@@ -26,6 +24,7 @@
         "obtain_timings": 1, 
         "max_iters": 100, 
         "monitor_residual": 1, 
+        "convergence": "RELATIVE_INI", 
         "scope": "main", 
         "tolerance" : 1e-06, 
         "norm": "L2"

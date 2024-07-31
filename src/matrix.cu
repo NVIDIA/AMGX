@@ -1201,7 +1201,7 @@ void reorderElementsDeviceCSR(INDEX_TYPE num_rows,
     //TODO: optimise this in terms of storage
     INDEX_TYPE storage_space = 100 * 1024 * 1024 * sizeof(T) / sizeof(cuDoubleComplex); // because we allocate as for cuComplex
     INDEX_TYPE blocks = 1500 < storage_space / (max_row_length * block_size * sizeof(T)) ? 1500 : storage_space / (max_row_length * block_size * sizeof(T));
-    blocks = blocks < num_rows ? blocks : num_rows;
+    blocks = blocks < num_rows ? max(1, blocks) : num_rows;
     INDEX_TYPE aligned_space = ((max_row_length * block_size * sizeof(T) / 128 + 1) * 128) / sizeof(T); //pad to 128 bytes
     Vector<amgx::TemplateConfig<AMGX_device, AMGX_vecDoubleComplex, AMGX_matDoubleComplex, AMGX_indInt> > tempstorage(blocks * aligned_space);
     reorderElements <<< blocks, 256>>>(num_rows, row_offsets, permutation, values, (T *)tempstorage.raw(), aligned_space, block_size);

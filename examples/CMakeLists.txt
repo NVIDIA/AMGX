@@ -6,13 +6,19 @@ cmake_minimum_required (VERSION 3.18)
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../include" "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
+if(BUILD_SHARED_LIBS)
+set(AMGX_LIB amgxsh)
+else(BUILD_SHARED_LIBS)
+set(AMGX_LIB amgx)
+endif(BUILD_SHARED_LIBS)
+
 GET_FILENAME_COMPONENT(CMAKE_C_COMPILER_NAME "${CMAKE_C_COMPILER}" NAME)
 IF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(libs_all CUDA::cusparse CUDA::cusolver)
-  set(dyn_libs amgxsh CUDA::cudart_static CUDA::cublas)
+  set(dyn_libs ${AMGX_LIB} CUDA::cudart_static CUDA::cublas)
 ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
   set(libs_all CUDA::cusparse CUDA::cusolver rt dl)
-  set(dyn_libs amgxsh rt dl CUDA::cudart_static CUDA::cublas)
+  set(dyn_libs ${AMGX_LIB} rt dl CUDA::cudart_static CUDA::cublas)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 ADD_EXECUTABLE(amgx_capi amgx_capi.c)
@@ -79,22 +85,22 @@ if(MPI_FOUND)
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_capi.c PROPERTIES COMPILE_FLAGS -std=c99 )
       set_target_properties ( amgx_mpi_capi PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_capi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(amgx_mpi_capi amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(amgx_mpi_capi ${AMGX_LIB} ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_capi_agg.c PROPERTIES COMPILE_FLAGS -std=c99 )
       set_target_properties ( amgx_mpi_capi_agg PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_capi_agg PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(amgx_mpi_capi_agg amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(amgx_mpi_capi_agg ${AMGX_LIB} ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_capi_cla.c PROPERTIES COMPILE_FLAGS -std=c99 )
       set_target_properties ( amgx_mpi_capi_cla PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_capi_cla PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(amgx_mpi_capi_cla amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(amgx_mpi_capi_cla ${AMGX_LIB} ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_poisson7.c PROPERTIES COMPILE_FLAGS -std=c99 )
       set_target_properties ( amgx_mpi_poisson7 PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_poisson7 PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries( amgx_mpi_poisson7 amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries( amgx_mpi_poisson7 ${AMGX_LIB} ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
 
     ENDIF(WIN32) 
     

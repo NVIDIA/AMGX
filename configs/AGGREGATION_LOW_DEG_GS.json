@@ -1,0 +1,27 @@
+{
+    "config_version": 2, 
+    "determinism_flag": 1, 
+    "solver": {
+        "print_grid_stats": 1, 
+        "max_uncolored_percentage": 0.15, 
+        "algorithm": "AGGREGATION", 
+        "obtain_timings": 1, 
+        "solver": "AMG", 
+        "smoother": "MULTICOLOR_GS", 
+        "print_solve_stats": 1, 
+        "presweeps": 1, 
+        "symmetric_GS": 1, 
+        "selector": "SIZE_2", 
+        "coarsest_sweeps": 2, 
+        "max_iters": 100, 
+        "monitor_residual": 1, 
+        "postsweeps": 1, 
+        "scope": "main", 
+        "max_levels": 50, 
+        "matrix_coloring_scheme": "MIN_MAX", 
+        "tolerance" : 1e-06, 
+        "convergence": "RELATIVE_INI",
+        "norm": "L1", 
+        "cycle": "V"
+    }
+}

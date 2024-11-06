@@ -339,6 +339,9 @@ int main(int argc, char **argv)
       else if(status == AMGX_SOLVE_FAILED) {
           print_callback("***Solver Failed\n", 0);
       }
+      else if(status == AMGX_SOLVE_SUCCESS) {
+          print_callback("***Solver Converged\n", 0);
+      }
     }
 
     /* example of how to get (the local part of) the solution */

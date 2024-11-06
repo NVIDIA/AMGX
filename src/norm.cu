@@ -1,29 +1,6 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include <norm.h>
 #ifdef _WIN32
@@ -468,7 +445,8 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPr
 
 template<int warpSize, class ValueTypeMat, class IndexTypeVec, class ValueTypeVec, class ValueTypeNorm>
 __global__ void scaled_norm_factor_calc(
-    int nRows, ValueTypeMat *Avals, IndexTypeVec *Arows, ValueTypeVec *Ax, ValueTypeVec *b, ValueTypeVec xAvg, ValueTypeNorm *localNormFactor)
+    int nRows, ValueTypeMat *Avals, IndexTypeVec *Arows, ValueTypeVec *Ax, ValueTypeVec *b, 
+    ValueTypeVec xAvg, ValueTypeNorm *localNormFactor, ValueTypeMat *diaVals = nullptr)
 {
     int r = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -490,6 +468,7 @@ __global__ void scaled_norm_factor_calc(
         {
             Arow_sum = Arow_sum + Avals[i];
         }
+        if(diaVals) Arow_sum = Arow_sum + diaVals[r];
 
         normFactor =
             types::util<ValueTypeVec>::abs(Ax[r] - Arow_sum * xAvg) +
@@ -566,14 +545,29 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
             constexpr int warpSize = 32;
             const int nBlocks = nRows/nThreads + 1;
             NVector_d localNormFactor(1, amgx::types::util<ValueTypeNorm>::get_zero());
-            scaled_norm_factor_calc<warpSize><<<nBlocks, nThreads>>>(
-                nRows,
-                A.values.raw(),
-                A.row_offsets.raw(),
-                Ax.raw(),
-                bTmp.raw(),
-                xAvg,
-                localNormFactor.raw());
+            if(A.hasProps(DIAG))
+            {
+                scaled_norm_factor_calc<warpSize><<<nBlocks, nThreads>>>(
+                    nRows,
+                    A.values.raw(),
+                    A.row_offsets.raw(),
+                    Ax.raw(),
+                    bTmp.raw(),
+                    xAvg,
+                    localNormFactor.raw(),
+                    A.values.raw() + A.diagOffset()*A.get_block_size());
+            }
+            else
+            {
+                scaled_norm_factor_calc<warpSize><<<nBlocks, nThreads>>>(
+                    nRows,
+                    A.values.raw(),
+                    A.row_offsets.raw(),
+                    Ax.raw(),
+                    bTmp.raw(),
+                    xAvg,
+                    localNormFactor.raw());
+            }
 
             // Fetch the normFactor result and reduce across all ranks
             normFactor = localNormFactor[0];

@@ -1,29 +1,6 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include <matrix_analysis.h>
 #include <sstream>
@@ -324,7 +301,53 @@ void MatrixAnalysis<T_Config>::checkDiagDominate()
 
     if (TConfig::memSpace == AMGX_device)
     {
-        FatalError("Device version not implemented", AMGX_ERR_NOT_IMPLEMENTED);
+        amgx::thrust::device_vector<int> k_d(1, 0);
+        auto* k = amgx::thrust::raw_pointer_cast(k_d.data());
+        auto* col_indices = A->col_indices.raw();
+        auto* row_offsets = A->row_offsets.raw();
+        auto* values = A->values.raw();
+
+        fprintf(fout, "Check whether the sparse matrix is diagonal dominate on every row for matrix: A %8dx%8d, nnz %8d, block %2dx%2d\n", A->get_num_rows(), A->get_num_cols(), nnz, bx, by);
+
+        amgx::thrust::for_each_n(thrust::device, amgx::thrust::counting_iterator<int>(0), A->get_num_rows(), [=] __device__ (int i)
+        {
+            PODTypeA sum[8];
+
+            for (int m = 0; m < bx; m++) 
+            { 
+                sum[m] = 0.; 
+            }
+
+            for (int j = row_offsets[i]; j < row_offsets[i + 1]; j++)
+            {
+                for (int m = 0; m < bx; m++)
+                {
+                    for (int n = 0; n < by; n++)
+                    {
+                        if ((col_indices[j] == i) && (m == n)) 
+                        {
+                            sum[m] += types::util<ValueTypeA>::abs(values[bs * j + m * by + n]);
+                        }
+                        else 
+                        { 
+                            sum[m] -= types::util<ValueTypeA>::abs(values[bs * j + m * by + n]);
+                        }
+                    }
+                }
+            }
+
+            for (int m = 0; m < bx; m++)
+            {
+                if (sum[m] < -eps) 
+                {  
+                    atomicAdd(&k[0], 1); 
+                }
+            }
+        });
+
+        std::stringstream ss;
+        ss << "Percentage of the diagonal-dominant rows is " << 100.0 * (num_rows * bx - k_d[0]) / num_rows << "%" << std::endl;
+        amgx_output(ss.str().c_str(), ss.str().length());
     }
     else if (TConfig::memSpace == AMGX_host)
     {

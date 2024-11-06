@@ -10,7 +10,7 @@
         "print_solve_stats": 1, 
         "presweeps": 2, 
         "selector": "SIZE_2", 
-        "convergence": "RELATIVE_MAX_CORE", 
+        "convergence": "RELATIVE_INI", 
         "coarsest_sweeps": 2, 
         "max_iters": 100, 
         "monitor_residual": 1, 
@@ -19,7 +19,7 @@
         "scope": "main", 
         "max_levels": 1000, 
         "postsweeps": 2, 
-        "tolerance": 0.1, 
+        "tolerance" : 1e-06, 
         "norm": "L1", 
         "cycle": "V"
     }

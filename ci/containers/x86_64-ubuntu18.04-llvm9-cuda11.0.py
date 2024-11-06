@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION. All Rights Reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 AmgX base image: x86_64-ubuntu18.04-llvm-cuda11.0
 """

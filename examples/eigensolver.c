@@ -1,12 +1,6 @@
-/*
-# Copyright (c) 2011-2016 NVIDIA CORPORATION. All Rights Reserved.
-#
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto. Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
-*/
+// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,7 +79,6 @@ int main(int argc, const char **argv)
   AMGX_SAFE_CALL(AMGX_solver_register_print_callback(&print_callback));
 
   AMGX_SAFE_CALL(AMGX_initialize());
-  AMGX_SAFE_CALL(AMGX_initialize_plugins());
 
   AMGX_SAFE_CALL(AMGX_install_signal_handler());
 

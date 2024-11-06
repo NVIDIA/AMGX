@@ -33,8 +33,8 @@
         "max_iters": 100, 
         "monitor_residual": 1, 
         "gmres_n_restart": 10, 
-        "convergence": "RELATIVE_INI_CORE", 
-        "tolerance": 1e-06, 
+        "convergence": "RELATIVE_INI", 
+        "tolerance" : 1e-06, 
         "norm": "L2"
      }
 }

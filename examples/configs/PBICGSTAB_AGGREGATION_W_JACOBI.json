@@ -14,7 +14,7 @@
             "selector": "SIZE_2", 
             "max_iters": 1, 
             "monitor_residual": 1, 
-            "convergence": "RELATIVE_INI_CORE", 
+            "convergence": "RELATIVE_INI", 
             "scope": "amg", 
             "cycle": "W", 
             "norm": "L1", 
@@ -26,7 +26,7 @@
         "max_iters": 20, 
         "monitor_residual": 1, 
         "scope": "main", 
-        "tolerance": 0.001, 
+        "tolerance" : 1e-06, 
         "norm": "L2"
     }
 }

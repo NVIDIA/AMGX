@@ -8,7 +8,7 @@
         "obtain_timings": 1, 
         "relaxation_factor": 0.75, 
         "scope": "main", 
-        "tolerance": 1e-06, 
+        "tolerance" : 1e-06, 
         "norm": "L1", 
         "postsweeps": 2, 
         "max_uncolored_percentage": 0.15, 

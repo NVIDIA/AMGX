@@ -1,29 +1,6 @@
-/* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
 #ifdef _WIN32
 #ifndef AMGX_API_EXPORTS
@@ -5283,6 +5260,53 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
+    AMGX_RC AMGX_matrix_check_diag_dominant(const AMGX_matrix_handle mtx, int* diag_dominant)
+    {
+        nvtxRange nvrf(__func__);
+
+        Resources *resources = NULL;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromMatrixHandle(mtx, &resources)), NULL)
+
+#ifdef AMGX_WITH_MPI
+            int nranks;
+            MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+            if(nranks > 1) {
+                std::string err_msg("AMGX_matrix_check_symmetry cannot yet test distributed matrices, please run on 1 rank.\n");
+                amgx_distributed_output(err_msg.c_str(), err_msg.length());
+                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources);    //return AMGX_RC_BAD_PARAMETERS;
+            }
+#endif
+
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from(mtx);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: { \
+                    typedef typename TemplateMode<CASE>::Type TConfig; \
+                    typedef CWrapHandle<AMGX_matrix_handle, Matrix<TConfig>> MatrixW; \
+                    MatrixW wrapA(mtx); \
+                    Matrix<TConfig>& A = *wrapA.wrapped(); \
+                    MatrixAnalysis<TConfig> m_ana(&A); \
+                    m_ana.checkDiagDominate(); \
+                    break; \
+                }
+                AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    return AMGX_RC_BAD_MODE;
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, resources)
+        return AMGX_RC_OK;
+    }
     int AMGX_Debug_get_resource_count(AMGX_resources_handle rsc)
     {
         return ((ResourceW *)rsc)->wrapped().use_count();

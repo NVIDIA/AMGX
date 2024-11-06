@@ -1,29 +1,6 @@
-/* Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -157,9 +134,21 @@ class AMG_Config
 
     public:
         AMG_Config();
+        
+        /****************************************************
+        * Main parse functionality
+        ****************************************************/
+        
+        AMGX_ERROR parseFile(const char *filename);
+
+        AMGX_ERROR parseParameterString(const char *str);
+
+        AMGX_ERROR parseParameterStringAndFile(const char *str, const char *filename);
+
         /***********************************************
          * Registers the parameter in the database.
         **********************************************/
+
         template <typename Type> static void registerParameter(std::string name, std::string description, Type default_value)
         {
             param_desc[name] = ParameterDescription(&typeid(Type), name, description, default_value);
@@ -197,28 +186,11 @@ class AMG_Config
         template <typename Type> Type getParameter(const std::string &name, const std::string &current_scope) const;
         template <typename Type> void getParameter(const std::string &name, Type &value, const std::string &current_scope, std::string &new_scope) const;
 
-        AMGX_ERROR parseParameterString(const char *str);
-
-        AMGX_ERROR parseParameterStringAndFile(const char *str, const char *filename);
-
-        template<typename T>
-        void setNamedParameter(const std::string &name, const T &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter);
-        template<typename T>
-        void importNamedParameter(const char *c_name, const T &c_value, const std::string &current_scope, const std::string &new_scope);
-
-#ifdef RAPIDJSON_DEFINED
-        AMGX_ERROR parse_json_file(const char *filename);
-        AMGX_ERROR parse_json_string(const char *str);
-        void import_json_object(rapidjson::Value &obj, bool outer);
-#endif
-
-        // this will return an error if JSON is not supported
+        /**********************************************
+        * Writes supported parameters and values to the file
+        * This will return an error if JSON is not supported
+        *********************************************/        
         static AMGX_ERROR write_parameters_description_json(const char *filename);
-
-        /****************************************************
-        * Parse a config file
-        ****************************************************/
-        AMGX_ERROR parseFile(const char *filename);
 
         /**********************************************
         * Sets a parameter in the database
@@ -285,6 +257,17 @@ class AMG_Config
         AMGX_ERROR getParameterStringFromFile(const char *filename, std::string &params);
 
         AMGX_ERROR checkString(std::string &str);
+
+        template<typename T>
+        void setNamedParameter(const std::string &name, const T &c_value, const std::string &current_scope, const std::string &new_scope, ParamDesc::iterator &param_desc_iter);
+        template<typename T>
+        void importNamedParameter(const char *c_name, const T &c_value, const std::string &current_scope, const std::string &new_scope);
+
+#ifdef RAPIDJSON_DEFINED
+        AMGX_ERROR parse_json_file(const char *filename);
+        AMGX_ERROR parse_json_string(const char *str);
+        void import_json_object(rapidjson::Value &obj, bool outer);
+#endif
 
         /****************************************************
          * Parse parameters in the format

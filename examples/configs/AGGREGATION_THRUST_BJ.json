@@ -14,7 +14,8 @@
         "monitor_residual": 1, 
         "scope": "main", 
         "postsweeps": 1, 
-        "tolerance": 0.1, 
+        "tolerance" : 1e-06, 
+        "convergence": "RELATIVE_INI",
         "cycle": "V"
     }
 }

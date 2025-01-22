@@ -799,8 +799,8 @@ void finalize()
     AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
     AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
-    AMG_Config::unregisterParameters( );
     eigensolvers::finalize();
+    AMG_Config::unregisterParameters( );
 #ifdef AMGX_WITH_MPI
     int mpi_initialized = 0;
     MPI_Initialized(&mpi_initialized); // We want to make sure MPI_Init has been called.

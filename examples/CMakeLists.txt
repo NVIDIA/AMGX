@@ -21,8 +21,6 @@ add_executable(eigensolver eigensolver.c)
 set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_include_directories( amgx_capi PUBLIC ${AMGX_INCLUDES})
 target_link_libraries ( amgx_capi ${dyn_libs} )
-
-set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_include_directories( eigensolver PUBLIC ${AMGX_INCLUDES})
 target_link_libraries ( eigensolver ${dyn_libs} )
 
@@ -138,54 +136,4 @@ install(TARGETS amgx_capi eigensolver DESTINATION "lib/examples")
 if(MPI_FOUND)
   install(TARGETS amgx_mpi_capi amgx_mpi_capi_agg amgx_mpi_capi_cla amgx_mpi_poisson7 eigensolver_mpi DESTINATION "lib/examples")
 endif(MPI_FOUND)
-
-#copy configs to build directory
-add_custom_target(copy_configs ALL)
-add_custom_command(TARGET copy_configs COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/configs" "${CMAKE_BINARY_DIR}/configs")
-add_custom_target(copy_eigen_configs ALL)
-add_custom_command(TARGET copy_eigen_configs COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs" "${CMAKE_BINARY_DIR}/eigen_configs")
-
-install(FILES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/AGGREGATION_DILU.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/AGGREGATION_GS.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/AGGREGATION_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/AGGREGATION_MULTI_PAIRWISE.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/CG_DILU.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/CLASSICAL_CG_CYCLE.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/CLASSICAL_CGF_CYCLE.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/CLASSICAL_F_CYCLE.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/CLASSICAL_V_CYCLE.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/CLASSICAL_W_CYCLE.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/FGMRES_AGGREGATION_DILU.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/FGMRES_AGGREGATION_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/FGMRES_CLASSICAL_AGGRESSIVE_HMIS.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/FGMRES_CLASSICAL_AGGRESSIVE_PMIS.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/FGMRES_NOPREC.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/GMRES_AMG_D2.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/IDR_DILU.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/IDRMSYNC_DILU.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PBICGSTAB_AGGREGATION_W_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PBICGSTAB_CLASSICAL_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PBICGSTAB_NOPREC.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCG_AGGREGATION_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCG_CLASSICAL_F_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCG_CLASSICAL_V_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCG_CLASSICAL_W_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCG_DILU.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCG_NOPREC.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCGF_CLASSICAL_F_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCGF_CLASSICAL_V_JACOBI.json"
-    "${CMAKE_CURRENT_SOURCE_DIR}/configs/PCGF_CLASSICAL_W_JACOBI.json"
-    DESTINATION "lib/configs")
-
-install(FILES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/ARNOLDI"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/INVERSE_FGMRES"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/JACOBI_DAVIDSON"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/LANCZOS"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/LOBPCG"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/PAGERANK"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/POWER_ITERATION"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/SUBSPACE_ITERATION"
-    DESTINATION "lib/eigen_configs")
 

@@ -41,12 +41,12 @@ AMGX_RC getResourcesFromEigenSolverHandle(AMGX_eigensolver_handle slv, Resources
 #undef AMGX_CASE_LINE
 
             default:
-                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+                AMGX_CHECK_API_ERROR_NORSRC(AMGX_ERR_BAD_MODE);
         }
     }
 
     AMGX_CATCHES(rc)
-    AMGX_CHECK_API_ERROR(rc, NULL)
+    AMGX_CHECK_API_ERROR_NORSRC(rc)
     return AMGX_RC_OK;
 }
 
@@ -169,7 +169,7 @@ extern "C" {
             ///if (!c_resources)
             if (!c_r.wrapped())
             {
-                AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, NULL);    //return AMGX_RC_BAD_PARAMETERS;
+                AMGX_CHECK_API_ERROR_NORSRC(AMGX_ERR_BAD_PARAMETERS);    //return AMGX_RC_BAD_PARAMETERS;
             }
 
             resources = c_r.wrapped().get();/// (Resources*)(c_resources->hdl);
@@ -200,7 +200,7 @@ extern "C" {
     AMGX_RC AMGX_eigensolver_setup(AMGX_eigensolver_handle eigensolver, AMGX_matrix_handle mtx)
     {
         Resources *resources;
-        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
+        AMGX_CHECK_API_ERROR_NORSRC(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)));
         AMGX_ERROR rc = AMGX_OK;
 
         AMGX_TRIES()
@@ -231,7 +231,7 @@ extern "C" {
     AMGX_RC AMGX_eigensolver_pagerank_setup(AMGX_eigensolver_handle eigensolver, AMGX_vector_handle a)
     {
         Resources *resources;
-        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
+        AMGX_CHECK_API_ERROR_NORSRC(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)));
         AMGX_ERROR rc = AMGX_OK;
 
         AMGX_TRIES()
@@ -262,7 +262,7 @@ extern "C" {
     AMGX_RC AMGX_eigensolver_solve(AMGX_eigensolver_handle eigensolver, AMGX_vector_handle x)
     {
         Resources *resources;
-        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
+        AMGX_CHECK_API_ERROR_NORSRC(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)));
         AMGX_ERROR rc = AMGX_OK;
 
         AMGX_TRIES()
@@ -291,7 +291,7 @@ extern "C" {
     AMGX_RC AMGX_eigensolver_destroy(AMGX_eigensolver_handle slv)
     {
         Resources *resources;
-        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(slv, &resources)), NULL);
+        AMGX_CHECK_API_ERROR_NORSRC(getAMGXerror(getResourcesFromEigenSolverHandle(slv, &resources)));
         AMGX_ERROR rc = AMGX_OK;
 
         AMGX_TRIES()

@@ -47,7 +47,7 @@ IF(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are Debug Release Profile RelWithTraces" FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
-find_package(CUDAToolkit 10.0 REQUIRED)
+find_package(CUDAToolkit 11.0 REQUIRED)
 
 # update/define the compilation flags.
 IF(WIN32)
@@ -269,8 +269,8 @@ IF (WIN32)
   target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver)
   target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver)
 ELSE (WIN32)
-  target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
-  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver CUDA::nvToolsExt m pthread)
+  target_link_libraries(amgx CUDA::cublas CUDA::cusparse CUDA::cusolver m pthread)
+  target_link_libraries(amgxsh CUDA::cublas CUDA::cusparse CUDA::cusolver m pthread)
 ENDIF(WIN32)
 
 if(MPI_FOUND)

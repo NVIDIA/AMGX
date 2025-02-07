@@ -20,7 +20,6 @@
 
 #include <iostream>
 #include <strided_reduction.h>
-#include <aggregation/selectors/selector_kernels.h>
 namespace amgx
 {
 

@@ -40,7 +40,7 @@ if(MPI_FOUND)
     ELSE(WIN32)
       SET_SOURCE_FILES_PROPERTIES( eigensolver_mpi.c PROPERTIES COMPILE_FLAGS -std=c99 )
       set_target_properties ( eigensolver_mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(eigensolver_mpi amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(eigensolver_mpi amgxsh ${MPI_C_LIBRARIES} ${dyn_libs})
     ENDIF(WIN32) 
     
     if(MPI_COMPILE_FLAGS)

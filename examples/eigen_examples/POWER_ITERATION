@@ -1,5 +1,0 @@
-config_version=2
-default:eig_solver=POWER_ITERATION
-default:eig_max_iters=40000
-default:eig_tolerance=1e-4
-default:eig_which=largest

@@ -50,3 +50,8 @@ if(MPI_FOUND)
     endif(MPI_COMPILE_FLAGS)
 
 endif(MPI_FOUND)
+
+if(MPI_FOUND)
+  install(TARGETS eigensolver_mpi eigensolver DESTINATION "lib/eigen_examples")
+endif(MPI_FOUND)
+

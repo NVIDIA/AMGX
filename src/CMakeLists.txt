@@ -63,8 +63,6 @@ endif(NOT ${CMAKE_BUILD_TYPE} MATCHES "Release")
 #copy configs to build directory
 add_custom_target(copy_configs ALL)
 add_custom_command(TARGET copy_configs COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/configs" "${CMAKE_BINARY_DIR}/configs")
-add_custom_target(copy_eigen_configs ALL)
-add_custom_command(TARGET copy_eigen_configs COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs" "${CMAKE_BINARY_DIR}/eigen_configs")
 
 install(FILES 
     "${CMAKE_CURRENT_SOURCE_DIR}/configs/AGGREGATION_DILU.json"
@@ -100,13 +98,13 @@ install(FILES
     DESTINATION "lib/configs")
 
 install(FILES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/ARNOLDI"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/INVERSE_FGMRES"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/JACOBI_DAVIDSON"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/LANCZOS"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/LOBPCG"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/PAGERANK"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/POWER_ITERATION"
-    "${CMAKE_CURRENT_SOURCE_DIR}/eigen_configs/SUBSPACE_ITERATION"
-    DESTINATION "lib/eigen_configs")
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/ARNOLDI"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/INVERSE_FGMRES"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/JACOBI_DAVIDSON"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/LANCZOS"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/LOBPCG"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/PAGERANK"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/POWER_ITERATION"
+    "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/SUBSPACE_ITERATION"
+    DESTINATION "lib/configs/eigen_configs")
 

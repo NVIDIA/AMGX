@@ -1,6 +1,0 @@
-config_version=2
-default:eig_solver=PAGERANK
-default:eig_damping_factor=0.85
-default:eig_max_iters=50
-default:eig_tolerance=1e-3
-default:eig_which=pagerank

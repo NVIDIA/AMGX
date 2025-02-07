@@ -16,25 +16,18 @@ ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clan
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
 add_executable(amgx_capi amgx_capi.c)
-add_executable(eigensolver eigensolver.c)
 
 set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_include_directories( amgx_capi PUBLIC ${AMGX_INCLUDES})
 target_link_libraries ( amgx_capi ${dyn_libs} )
-target_include_directories( eigensolver PUBLIC ${AMGX_INCLUDES})
-target_link_libraries ( eigensolver ${dyn_libs} )
 
 IF(WIN32)
     IF(MSVC)
       set_source_files_properties( amgx_capi.c PROPERTIES LANGUAGE CXX)
       set_target_properties ( amgx_capi PROPERTIES LINKER_LANGUAGE CXX )
-
-      set_source_files_properties( eigensolver.c PROPERTIES LANGUAGE CXX)
-      set_target_properties ( eigensolver PROPERTIES LINKER_LANGUAGE CXX )
     ENDIF(MSVC)
 ELSE(WIN32)
   set_source_filES_PROPERTIES( amgx_capi.c PROPERTIES COMPILE_FLAGS -std=c99 )
-  set_source_filES_PROPERTIES( eigensolver.c PROPERTIES COMPILE_FLAGS -std=c99 )
 ENDIF(WIN32)
 
 add_executable(generate_poisson generate_poisson.cu)
@@ -56,7 +49,6 @@ if(MPI_FOUND)
     add_executable(amgx_mpi_capi_agg amgx_mpi_capi_agg.c )
     add_executable(amgx_mpi_capi_cla amgx_mpi_capi_cla.c )
     add_executable(amgx_mpi_poisson7 amgx_mpi_poisson7.c )
-    add_executable(eigensolver_mpi eigensolver_mpi.c )
     IF(WIN32)
       IF(MSVC)
         set_source_files_properties( amgx_mpi_capi.c PROPERTIES LANGUAGE CXX)
@@ -78,11 +70,6 @@ if(MPI_FOUND)
         set_target_properties(amgx_mpi_poisson7 PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS}" LINKER_LANGUAGE CXX )
         set_target_properties(amgx_mpi_poisson7 PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
         target_link_libraries(amgx_mpi_poisson7  ${MPI_C_LIBRARIES} ${dyn_libs})
-
-        set_source_files_properties(eigensolver_mpi.c PROPERTIES LANGUAGE CXX)
-        set_target_properties(eigensolver_mpi PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS}" LINKER_LANGUAGE CXX )
-        set_target_properties(eigensolver_mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-        target_link_libraries(eigensolver_mpi  ${MPI_C_LIBRARIES} ${dyn_libs})
       ENDIF(MSVC)
     ELSE(WIN32)
 
@@ -106,10 +93,6 @@ if(MPI_FOUND)
       set_target_properties ( amgx_mpi_poisson7 PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
       target_link_libraries( amgx_mpi_poisson7 amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
 
-      SET_SOURCE_FILES_PROPERTIES( eigensolver_mpi.c PROPERTIES COMPILE_FLAGS -std=c99 )
-      set_target_properties ( eigensolver_mpi PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
-      set_target_properties ( eigensolver_mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries( eigensolver_mpi amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
     ENDIF(WIN32) 
     
     if(MPI_COMPILE_FLAGS)
@@ -117,7 +100,6 @@ if(MPI_FOUND)
       set_target_properties(amgx_mpi_capi_agg PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
       set_target_properties(amgx_mpi_capi_cla PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
       set_target_properties(amgx_mpi_poisson7 PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-      set_target_properties(eigensolver_mpi PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
     endif(MPI_COMPILE_FLAGS)
 
     target_include_directories(amgx_mpi_capi PUBLIC ${AMGX_INCLUDES})
@@ -132,8 +114,9 @@ if(MPI_FOUND)
 
 endif(MPI_FOUND)
 
-install(TARGETS amgx_capi eigensolver DESTINATION "lib/examples")
 if(MPI_FOUND)
-  install(TARGETS amgx_mpi_capi amgx_mpi_capi_agg amgx_mpi_capi_cla amgx_mpi_poisson7 eigensolver_mpi DESTINATION "lib/examples")
+  install(TARGETS amgx_mpi_capi amgx_mpi_capi_agg amgx_mpi_capi_cla amgx_mpi_poisson7 DESTINATION "lib/examples")
 endif(MPI_FOUND)
+
+add_subdirectory(eigen_examples)
 

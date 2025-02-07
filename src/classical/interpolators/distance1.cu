@@ -127,11 +127,7 @@ struct compute_weights
     inline
     int get_thread_id( ) const
     {
-#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
-        return omp_get_thread_num( );
-#else
         return 0;
-#endif
     }
 
     // Operator to find the weights.
@@ -309,21 +305,8 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
                             P.row_offsets.begin( ) );
     cudaCheckError();
     // For each row we compute the weights.
-#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
-    typedef IntVector IntArray1d;
-    int nthreads = omp_get_max_threads( );
-    size_t sz = nthreads * sizeof( IntArray1d );
-    IntArray1d *edges_markers = reinterpret_cast<IntArray1d *>( ::operator new ( sz ) );
-
-    for ( int i = 0 ; i < nthreads ; ++i )
-    {
-        new (edges_markers + i) IntArray1d( A.get_num_rows(), -1 );
-    }
-
-#else
     IntVector edges_markers_on_stack( A.get_num_rows(), -1 );
     IntVector *edges_markers = &edges_markers_on_stack;
-#endif
     detail::compute_weights<Matrix_h> compute_fct( A, diag, are_sc, cf_map, edges_markers, P );
 
     amgx::thrust::for_each( amgx::thrust::host,
@@ -331,15 +314,6 @@ void Distance1_Interpolator<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_in
                       amgx::thrust::make_counting_iterator<int>( A.get_num_rows() ),
                       compute_fct );
     cudaCheckError();
-#if( THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_OMP )
-
-    for ( int i = 0 ; i < nthreads ; ++i )
-    {
-        (edges_markers + i)->~IntArray1d( );
-    }
-
-    ::operator delete ( edges_markers );
-#endif
 }
 
 /*************************************************************************

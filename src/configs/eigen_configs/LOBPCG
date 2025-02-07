@@ -1,0 +1,42 @@
+config_version=2
+default:eig_solver=LOBPCG
+default:eig_max_iters=1000
+default:eig_tolerance=1e-4
+default:eig_which=largest
+
+#gmres accelerator config
+default:solver(main)=FGMRES
+main:gmres_n_restart=10
+main:preconditioner(amg)=AMG
+
+#outer solver setup
+main:convergence=RELATIVE_INI
+main:norm=L2
+main:use_scalar_norm=1
+main:max_iters=2
+main:tolerance=1e-4
+
+#amg specific
+amg:max_iters=1
+amg:algorithm=AGGREGATION
+amg:selector=SIZE_2
+amg:cycle=V
+amg:smoother=MULTICOLOR_DILU
+amg:presweeps=0 
+amg:postsweeps=3 
+amg:error_scaling=0
+amg:max_levels=100
+amg:coarseAgenerator=LOW_DEG
+amg:matrix_coloring_scheme=PARALLEL_GREEDY
+amg:max_uncolored_percentage=0.05
+amg:relaxation_factor=0.75
+amg:coarse_solver=DENSE_LU_SOLVER
+amg:min_coarse_rows=32
+
+
+
+#printing obtions
+#main:print_solve_stats=1
+main:monitor_residual=1
+#main:obtain_timings=1
+#amg:print_grid_stats=1

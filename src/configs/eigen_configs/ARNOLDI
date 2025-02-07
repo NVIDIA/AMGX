@@ -1,0 +1,5 @@
+config_version=2
+default:eig_solver=ARNOLDI
+default:eig_max_iters=128
+default:eig_tolerance=1e-4
+default:eig_which=largest

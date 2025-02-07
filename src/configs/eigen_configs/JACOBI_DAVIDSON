@@ -1,0 +1,22 @@
+default:config_version=2
+default:eig_solver=JACOBI_DAVIDSON
+default:eig_max_iters=128
+default:eig_tolerance=1e-4
+default:eig_which=largest
+
+#gmres accelerator config
+default:solver(main)=FGMRES
+main:gmres_n_restart=10
+main:preconditioner(amg)=NOSOLVER
+
+#outer solver setup
+main:convergence=RELATIVE_INI
+main:norm=L2
+main:use_scalar_norm=1
+main:max_iters=20
+main:tolerance=1e-2
+
+#printing obtions
+#main:print_solve_stats=1
+#main:monitor_residual=1
+#main:obtain_timings=1

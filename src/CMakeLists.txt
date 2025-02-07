@@ -50,7 +50,7 @@ ELSE()
     set(libs_all CUDA::cusparse CUDA::cublas rt dl)
 ENDIF()
 
-target_link_libraries(amgx_tests_launcher amgx_tests_library amgxsh ${libs_all} OpenMP::OpenMP_C)
+target_link_libraries(amgx_tests_launcher amgx_tests_library amgxsh ${libs_all})
 
 if(MPI_FOUND)
     target_link_libraries(amgx_tests_launcher MPI::MPI_CXX)

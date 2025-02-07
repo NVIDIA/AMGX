@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
+//
+// SPDX-FileCopyrightText: Portions Copyright 2024 Siemens and/or its affiliates
+//
+// November 2024 modified by Siemens and/or its affiliates by adding zero-copy interface
 
 #ifdef _WIN32
 #ifndef AMGX_API_EXPORTS
@@ -3784,6 +3788,22 @@ extern "C" {
         return AMGX_RC_OK;
     }
 
+    AMGX_RC AMGX_get_async_free_to_pool_flag(int *ptr)
+    {
+        nvtxRange nvrf(__func__);
+
+        *ptr = amgx::memory::getAsyncFreeFlag();
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_set_async_free_to_pool_flag(int flag)
+    {
+        nvtxRange nvrf(__func__);
+
+        amgx::memory::setAsyncFreeFlag(flag);
+        return AMGX_RC_OK;
+    }
+
     AMGX_RC AMGX_install_signal_handler()
     {
         nvtxRange nvrf(__func__);
@@ -5312,4 +5332,469 @@ extern "C" {
         return ((ResourceW *)rsc)->wrapped().use_count();
     }
 
+    AMGX_RC AMGX_API AMGX_ZC_vector_resize(AMGX_vector_handle vec, size_t newSize)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            get_mode_object_from<CASE,Vector,AMGX_vector_handle>(vec)->resize(newSize); \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_vector_get_size(AMGX_vector_handle vec, size_t *size)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            *size = get_mode_object_from<CASE,Vector,AMGX_vector_handle>(vec)->size(); \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_vector_get_capacity(AMGX_vector_handle vec, size_t *capacity)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            *capacity = get_mode_object_from<CASE,Vector,AMGX_vector_handle>(vec)->capacity(); \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_vector_get_data_ptr(AMGX_vector_handle vec, void **dataPtr)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            *dataPtr = (void*)get_mode_object_from<CASE,Vector,AMGX_vector_handle>(vec)->raw(); \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_vector_shrink_to_fit(AMGX_vector_handle vec)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            get_mode_object_from<CASE,Vector,AMGX_vector_handle>(vec)->shrink_to_fit(); \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_resize(AMGX_matrix_handle mtx, AMGX_MATRIX_DATA_VECTOR dataTag, size_t newSize)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            switch(dataTag) { \
+                case(AMGX_MATRIX_ROW_OFFSETS): { get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->row_offsets.resize(newSize); break; } \
+                case(AMGX_MATRIX_COL_INDICES): { get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->col_indices.resize(newSize); break; } \
+                case(AMGX_MATRIX_VALUES):      { get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->values.resize(newSize);      break; } \
+            } \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_get_size(AMGX_matrix_handle mtx, AMGX_MATRIX_DATA_VECTOR dataTag, size_t *size)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            switch(dataTag) { \
+                case(AMGX_MATRIX_ROW_OFFSETS): { *size = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->row_offsets.size(); break; } \
+                case(AMGX_MATRIX_COL_INDICES): { *size = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->col_indices.size(); break; } \
+                case(AMGX_MATRIX_VALUES):      { *size = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->values.size();      break; } \
+            } \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_get_capacity(AMGX_matrix_handle mtx, AMGX_MATRIX_DATA_VECTOR dataTag, size_t *capacity)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            switch(dataTag) { \
+                case(AMGX_MATRIX_ROW_OFFSETS): { *capacity = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->row_offsets.capacity(); break; } \
+                case(AMGX_MATRIX_COL_INDICES): { *capacity = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->col_indices.capacity(); break; } \
+                case(AMGX_MATRIX_VALUES):      { *capacity = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->values.capacity();      break; } \
+            } \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_get_ptr(AMGX_matrix_handle mtx, AMGX_MATRIX_DATA_VECTOR dataTag, void **dataPtr)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            switch(dataTag) { \
+                case(AMGX_MATRIX_ROW_OFFSETS): { *dataPtr = (void*)get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->row_offsets.raw(); break; } \
+                case(AMGX_MATRIX_COL_INDICES): { *dataPtr = (void*)get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->col_indices.raw(); break; } \
+                case(AMGX_MATRIX_VALUES):      { *dataPtr = (void*)get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->values.raw();      break; } \
+            } \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_data_vec_shrink_to_fit(AMGX_matrix_handle mtx, AMGX_MATRIX_DATA_VECTOR dataTag)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+            switch(dataTag) { \
+                case(AMGX_MATRIX_ROW_OFFSETS): { get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->row_offsets.shrink_to_fit(); break; } \
+                case(AMGX_MATRIX_COL_INDICES): { get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->col_indices.shrink_to_fit(); break; } \
+                case(AMGX_MATRIX_VALUES):      { get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx)->values.shrink_to_fit();      break; } \
+            } \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_initialize(AMGX_matrix_handle mtx)
+    {
+        // these calls have to happen here and not only in AMGX_ZC_matrix_finalize,
+        // they resize and modify the row_offsets, col_indices, values arrays
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+                typedef typename TemplateMode<CASE>::Type TConfig; \
+                typedef CWrapHandle<AMGX_matrix_handle, Matrix<TConfig>> MatrixW; \
+                MatrixW wrapA(mtx); \
+                Matrix<TConfig>& A = *wrapA.wrapped(); \
+                A.set_initialized(0); \
+                A.delProps(amgx::COO); \
+                A.addProps(amgx::CSR); \
+                A.setColsReorderedByColor(false); \
+                A.delProps(amgx::DIAG); \
+        } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_matrix_finalize(AMGX_matrix_handle mtx, int block_dimx, int block_dimy)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_matrix_handle>(mtx);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+                typedef typename TemplateMode<CASE>::Type TConfig; \
+                typedef CWrapHandle<AMGX_matrix_handle, Matrix<TConfig>> MatrixW; \
+                MatrixW wrapA(mtx); \
+                Matrix<TConfig>& A = *wrapA.wrapped(); \
+                A.set_initialized(0); \
+                A.set_block_dimx(block_dimx); \
+                A.set_block_dimy(block_dimy); \
+                if (A.manager == NULL) \
+                { \
+                    int const nRows = A.row_offsets.size() - 1; \
+                    int const nnz   = A.col_indices.size(); \
+                    A.resize(nRows, nRows, nnz, block_dimx, block_dimy); \
+                    A.set_initialized(1); \
+                } \
+                else \
+                { \
+                    A.getManager()->updateMapsNoReorder(); \
+                } \
+        } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_vector_finalize_bind(AMGX_vector_handle vec, const AMGX_matrix_handle mtx)
+    {
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+                auto A = get_mode_object_from<CASE,Matrix,AMGX_matrix_handle>(mtx); \
+                auto v = get_mode_object_from<CASE,Vector,AMGX_vector_handle>(vec); \
+                v->set_block_dimx(1); \
+                v->set_block_dimy(A->get_block_dimy()); \
+                if (auto manager = A->getManager()) \
+                { \
+                    v->setManager(*manager); \
+                } \
+            } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_ZC_solver_solve(AMGX_solver_handle solver, AMGX_vector_handle rhs, AMGX_vector_handle sol, int initializeSolWithZero)
+    {
+        Resources *resources;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromSolverHandle(solver, &resources)), NULL);
+
+        AMGX_ERROR rc = AMGX_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(rhs);
+
+            switch (mode)
+            {
+    #define AMGX_CASE_LINE(CASE) case CASE: { \
+                auto rhsV = get_mode_object_from<CASE,Vector,AMGX_vector_handle>(rhs); \
+                auto solV = get_mode_object_from<CASE,Vector,AMGX_vector_handle>(sol); \
+                if (rhsV->getManager() != NULL) \
+                { \
+                    rhsV->dirtybit = 0; \
+                    solV->dirtybit = initializeSolWithZero ? 0 : 1; \
+                } \
+                if (initializeSolWithZero) \
+                { \
+                    typedef TemplateMode<CASE>::Type T_Config; \
+                    amgx::thrust::fill(solV->begin(), solV->end(), types::util<typename T_Config::VecPrec>::get_zero()); \
+                } \
+                rc = solve_with<CASE,AMG_Solver,Vector>(solver, rhs, sol, resources, initializeSolWithZero); \
+                AMGX_CHECK_API_ERROR(rc, resources); \
+                if (solV->getManager() != NULL) \
+                { \
+                    solV->getManager()->exchange_halo(*solV, solV->tag); \
+                } \
+                } \
+            break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+    #undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, NULL);
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, NULL)
+        return AMGX_RC_OK;
+    }
 }//extern "C"

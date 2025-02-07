@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
+//
+// SPDX-FileCopyrightText: Portions Copyright 2024 Siemens and/or its affiliates
+//
+// November 2024 modified by Siemens and/or its affiliates by adding zero-copy interface
 
 #include <distributed/distributed_manager.h>
 #include <distributed/comms_mpi_gpudirect.h>
@@ -785,6 +789,18 @@ void DistributedManagerBase<TConfig>::remove_boundary(IVector_d &flagArray, IVec
     int num_blocks = std::min(4096, (size + 127) / 128);
     remove_boundary_kernel <<< num_blocks, 128>>>(flagArray.raw(), B2L_map.raw(), size);
     cudaCheckError();
+}
+
+void __global__ set_diagonal(INDEX_TYPE nrows, INDEX_TYPE *row_offsets, INDEX_TYPE* diag, INDEX_TYPE* diag_end)
+{
+    INDEX_TYPE row = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (row < nrows)
+    {
+        diag[row] = row_offsets[row];
+        diag_end[row] = row_offsets[row] + 1;
+        row += blockDim.x * gridDim.x;
+    }
 }
 
 template < class TConfig >
@@ -2263,6 +2279,106 @@ void initializeMatrixCopyAll(int n, int nnz, int block_dimx, int block_dimy, con
     }
 
     cudaCheckError();
+}
+
+template <class TConfig>
+void DistributedManagerBase<TConfig>::updateMapsNoReorder()
+{
+    int num_neighbors = this->neighbors.size();
+    B2L_maps.resize(num_neighbors);
+    L2H_maps.resize(num_neighbors);
+
+    this->set_num_halo_rings(1);
+    B2L_rings.resize(num_neighbors);
+
+    for (int i = 0; i < num_neighbors; i++)
+    {
+        B2L_maps[i] = this->cached_B2L_maps[i];
+        L2H_maps[i] = this->cached_L2H_maps[i];
+        B2L_rings[i].resize(2);
+        B2L_rings[i][0] = 0;
+        B2L_rings[i][1] = this->cached_B2L_maps[i].size();
+    }
+
+    if (num_neighbors == 0) { return; }
+
+    if (this->getComms()->halo_coloring != LAST)
+    {
+        FatalError("Only halo_coloring==LAST is supported for zero-copy matrices !", AMGX_ERR_UNKNOWN);
+    }
+
+    // figure out # of primal/halo rows from communication maps
+    int nrows_total = this->A->row_offsets.size() - 1;
+    int nrows_halo = 0;
+    for (int i = 0; i < num_neighbors; i++)
+    {
+        nrows_halo += this->cached_L2H_maps[i].size();
+    }
+    int nrows_primal = nrows_total - nrows_halo;
+
+    int my_id = this->getComms()->get_global_id();
+    DistributedComms<TConfig> *comms_tmp = this->getComms();
+    DistributedComms<TConfig> **comms_ = &comms_tmp;
+    this->DistributedManagerBaseInit(my_id, 0, nrows_total, *(this->A), comms_, NULL, NULL);
+
+    // note: DistributedManagerBaseInit resets _num_halo_rings TO THE WRONG VALUE so we set it again
+    this->set_num_halo_rings(1);
+
+    // I do not know what this is used for, I **BELIEVE** IT DOES NOT MATTER
+    this->num_rows_global = 0;
+
+    this->halo_offsets.resize(num_neighbors + 1, 0);
+    for (int i = 0; i < num_neighbors; i++)
+    {
+        this->halo_offsets[i] = this->cached_L2H_maps[i].size();
+    }
+    amgx::thrust::exclusive_scan(this->halo_offsets.begin(), this->halo_offsets.end(), this->halo_offsets.begin(), nrows_primal);
+    this->set_num_halo_rows(nrows_halo);
+
+    // rows [0..first_bnd_node) must be exactly the interior nodes
+    int first_bnd_node = nrows_primal;
+    for (int i = 0; i < num_neighbors; i++)
+    {
+        if (this->B2L_maps[i].size() > 0)
+        {
+            first_bnd_node = thrust_wrapper::reduce<TConfig::memSpace>(this->B2L_maps[i].begin(), this->B2L_maps[i].end(), first_bnd_node, amgx::thrust::minimum<int>());
+        }
+    }
+
+    // these members define the row-offsets for different views and would usually be set in createRenumbering,
+    this->_num_interior_nodes = first_bnd_node;
+    this->_num_boundary_nodes = nrows_primal - this->_num_interior_nodes;
+
+    this->A->set_num_rows(nrows_primal);
+    this->A->set_num_cols(nrows_total);
+    this->A->set_num_nz(this->A->row_offsets[nrows_primal]);
+
+    this->A->m_seq_offsets.resize(nrows_total + 1);
+    amgx::thrust::sequence(this->A->m_seq_offsets.begin(), this->A->m_seq_offsets.end());
+
+    if (!this->A->hasProps(DIAG))
+    {
+        this->A->diag.resize(nrows_total);
+        this->A->m_diag_end_offsets.resize(nrows_total);
+        // diagonal entries are first in row, we can do this by hand
+        if ( nrows_total > 0 )
+        {
+            set_diagonal<<<min(4096, (nrows_total + 511) / 512), 512>>>(nrows_total, this->A->row_offsets.raw(), this->A->diag.raw(), this->A->m_diag_end_offsets.raw());
+        }
+    }
+    else
+    {
+        FatalError("Only embedded diagonal is supported for zero-copy matrices !", AMGX_ERR_UNKNOWN);
+    }
+
+    // caches num_rows/nnz for different views (INTERIOR,BOUNDARY,OWNED, etc.)
+    this->A->set_initialized(1);
+
+    this->A->setView(OWNED);
+
+    // sets some important offsets based on B2L_rings
+    DistributedArranger<TConfig> prep;
+    prep.initialize_B2L_maps_offsets(*(this->A), this->num_halo_rings());
 }
 
 template <class TConfig>

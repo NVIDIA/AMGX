@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
+//
+// SPDX-FileCopyrightText: Portions Copyright 2024 Siemens and/or its affiliates
+//
+// November 2024 modified by Siemens and/or its affiliates by adding zero-copy interface
 
 #include <global_thread_handle.h>
 #include <iostream>
@@ -688,6 +692,12 @@ void setAsyncFreeFlag(bool set)
 {
     MemoryManager &manager = MemoryManager::get_instance();
     manager.m_use_async_free = set;
+}
+
+bool getAsyncFreeFlag()
+{
+    MemoryManager &manager = MemoryManager::get_instance();
+    return manager.m_use_async_free;
 }
 
 void setDeviceMemoryPoolFlag(bool set)

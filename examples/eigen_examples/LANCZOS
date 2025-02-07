@@ -1,7 +1,0 @@
-config_version=2
-default:eig_solver=LANCZOS
-default:eig_max_iters=128
-default:eig_tolerance=1e-4
-default:eig_which=largest
-default:eig_eigenvector=0
-default:eig_eigenvector_solver=default

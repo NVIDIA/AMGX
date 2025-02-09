@@ -2796,7 +2796,7 @@ void DistributedArranger<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
         }
     }
 
-    A.resize(new_num_rows, new_num_rows, new_num_nnz, 1, 1, 1);
+    A.resize(new_num_rows, new_num_rows, new_num_nnz, A.get_block_dimx(), A.get_block_dimy(), 1);
 
     for (int i = 0; i < num_neighbors; i++)
     {

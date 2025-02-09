@@ -776,7 +776,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         solve_init(b, x, xIsZero);
     }
 
-    AMGX_STATUS conv_stat = AMGX_ST_NOT_CONVERGED;
+    AMGX_STATUS conv_stat = done ? AMGX_ST_CONVERGED : AMGX_ST_NOT_CONVERGED;
 
     // Run the iterations
     std::stringstream ss;

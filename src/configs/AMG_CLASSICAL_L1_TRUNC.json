@@ -3,6 +3,7 @@
     "print_grid_stats": 1, 
     "store_res_history": 1, 
     "solver": {
+       "scope": "main",
        "solver": "FGMRES", 
        "print_solve_stats": 1, 
        "obtain_timings": 1, 
@@ -22,7 +23,7 @@
            "max_iters": 1, 
            "max_row_sum": 0.9, 
            "scope": "amg_solver", 
-           "max_levels": 25, 
+           "max_levels": 50, 
            "postsweeps": 1, 
            "cycle": "V"
        }, 

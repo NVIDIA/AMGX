@@ -40,7 +40,6 @@ count_non_zeroes( const Index_vector &A_rows, const Index_vector &A_cols, const 
     typedef std::set<Index_type> Set;
 #endif
     int nRows = static_cast<int>( A_rows.size( ) - 1 );
-    #pragma omp parallel for shared(nRows)
 
     for ( int aRowId = 0 ; aRowId < nRows ; ++aRowId )
     {

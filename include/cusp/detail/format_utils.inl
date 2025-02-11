@@ -76,7 +76,7 @@ void indices_to_offsets(const IndexArray& indices, OffsetArray& offsets)
 }
 
 template<typename IndexType>
-struct row_operator : public std::unary_function<size_t,IndexType>
+struct row_operator
 {
     size_t pitch;
 

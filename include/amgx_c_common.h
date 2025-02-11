@@ -46,6 +46,28 @@ void amgx_error_exit(Resources *rsc = NULL, int err = 1);
         return _check_err; \
   }
 
+#define AMGX_CHECK_API_ERROR_NORSRC(rc) \
+  { \
+    int handle_errors = 0; \
+    AMGX_RC _check_err = getCAPIerror_x(rc);     \
+    if (handle_errors) { \
+      char msg[4096];   \
+      switch(_check_err) {    \
+      case AMGX_RC_OK: \
+        break; \
+      default: \
+        fprintf(stderr, "AMGX ERROR: file %s line %6d\n", __FILE__, __LINE__); \
+        AMGX_GetErrorString(rc, msg, 4096);\
+        fprintf(stderr, "AMGX ERROR: %s\n", msg); \
+        amgx_error_exit(NULL);\
+        break; \
+      } \
+      } \
+      else \
+      if (_check_err != AMGX_RC_OK) \
+        return _check_err; \
+  }
+
 //memory manager for malloc/free arrays
 struct MemCArrManager
 {

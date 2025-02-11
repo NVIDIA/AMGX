@@ -15,9 +15,9 @@ ELSE(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clan
   set(dyn_libs amgxsh rt dl CUDA::cudart_static CUDA::cublas)
 ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES clang)
 
-ADD_EXECUTABLE(amgx_capi amgx_capi.c)
+add_executable(amgx_capi amgx_capi.c)
 
-set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
+set(AMGX_INCLUDES ${THRUST_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_include_directories( amgx_capi PUBLIC ${AMGX_INCLUDES})
 target_link_libraries ( amgx_capi ${dyn_libs} )
 
@@ -27,7 +27,7 @@ IF(WIN32)
       set_target_properties ( amgx_capi PROPERTIES LINKER_LANGUAGE CXX )
     ENDIF(MSVC)
 ELSE(WIN32)
-  SET_SOURCE_FILES_PROPERTIES( amgx_capi.c PROPERTIES COMPILE_FLAGS -std=c99 )
+  set_source_filES_PROPERTIES( amgx_capi.c PROPERTIES COMPILE_FLAGS -std=c99 )
 ENDIF(WIN32)
 
 add_executable(generate_poisson generate_poisson.cu)
@@ -35,7 +35,6 @@ target_compile_options(generate_poisson PUBLIC "-Xcompiler=-I$ENV{METIS_INSTALL_
 target_link_libraries(generate_poisson amgx ${libs_all} )
 set_target_properties(generate_poisson PROPERTIES LINK_FLAGS "")
 target_include_directories(generate_poisson PUBLIC ${AMGX_INCLUDES})
-
 set_target_properties(generate_poisson PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 add_executable(generate_poisson7_dist_renum generate_poisson7_dist_renum.cu)
@@ -43,58 +42,48 @@ target_compile_options(generate_poisson7_dist_renum PUBLIC "-Xcompiler=-I$ENV{ME
 target_link_libraries(generate_poisson7_dist_renum amgx ${libs_all} )
 set_target_properties(generate_poisson7_dist_renum PROPERTIES LINK_FLAGS "")
 target_include_directories(generate_poisson7_dist_renum PUBLIC ${AMGX_INCLUDES})
-
 set_target_properties(generate_poisson7_dist_renum PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
 
 if(MPI_FOUND)
-    ADD_EXECUTABLE(amgx_mpi_capi amgx_mpi_capi.c )
-    ADD_EXECUTABLE(amgx_mpi_capi_agg amgx_mpi_capi_agg.c )
-    ADD_EXECUTABLE(amgx_mpi_capi_cla amgx_mpi_capi_cla.c )
-    ADD_EXECUTABLE(amgx_mpi_poisson7 amgx_mpi_poisson7.c )
+    add_executable(amgx_mpi_capi amgx_mpi_capi.c )
+    add_executable(amgx_mpi_capi_agg amgx_mpi_capi_agg.c )
+    add_executable(amgx_mpi_capi_cla amgx_mpi_capi_cla.c )
+    add_executable(amgx_mpi_poisson7 amgx_mpi_poisson7.c )
     IF(WIN32)
       IF(MSVC)
         set_source_files_properties( amgx_mpi_capi.c PROPERTIES LANGUAGE CXX)
-        set_target_properties(amgx_mpi_capi PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS}" LINKER_LANGUAGE CXX )
         set_target_properties(amgx_mpi_capi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
         target_link_libraries(amgx_mpi_capi ${MPI_C_LIBRARIES} ${dyn_libs})
 
         set_source_files_properties(amgx_mpi_capi_agg.c PROPERTIES LANGUAGE CXX)
-        set_target_properties(amgx_mpi_capi_agg PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS}" LINKER_LANGUAGE CXX )
         set_target_properties(amgx_mpi_capi_agg PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
         target_link_libraries(amgx_mpi_capi_agg ${MPI_C_LIBRARIES} ${dyn_libs})
 
         set_source_files_properties(amgx_mpi_capi_cla.c PROPERTIES LANGUAGE CXX)
-        set_target_properties(amgx_mpi_capi_cla PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS}" LINKER_LANGUAGE CXX )
         set_target_properties(amgx_mpi_capi_cla PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
         target_link_libraries(amgx_mpi_capi_cla ${MPI_C_LIBRARIES} ${dyn_libs})
 
         set_source_files_properties(amgx_mpi_poisson7.c PROPERTIES LANGUAGE CXX)
-        set_target_properties(amgx_mpi_poisson7 PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS}" LINKER_LANGUAGE CXX )
         set_target_properties(amgx_mpi_poisson7 PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
         target_link_libraries(amgx_mpi_poisson7  ${MPI_C_LIBRARIES} ${dyn_libs})
-
       ENDIF(MSVC)
     ELSE(WIN32)
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_capi.c PROPERTIES COMPILE_FLAGS -std=c99 )
-      set_target_properties ( amgx_mpi_capi PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_capi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(amgx_mpi_capi amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(amgx_mpi_capi amgxsh ${MPI_C_LIBRARIES} ${dyn_libs})
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_capi_agg.c PROPERTIES COMPILE_FLAGS -std=c99 )
-      set_target_properties ( amgx_mpi_capi_agg PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_capi_agg PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(amgx_mpi_capi_agg amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(amgx_mpi_capi_agg amgxsh ${MPI_C_LIBRARIES} ${dyn_libs})
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_capi_cla.c PROPERTIES COMPILE_FLAGS -std=c99 )
-      set_target_properties ( amgx_mpi_capi_cla PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_capi_cla PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries(amgx_mpi_capi_cla amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries(amgx_mpi_capi_cla amgxsh ${MPI_C_LIBRARIES} ${dyn_libs})
 
       SET_SOURCE_FILES_PROPERTIES( amgx_mpi_poisson7.c PROPERTIES COMPILE_FLAGS -std=c99 )
-      set_target_properties ( amgx_mpi_poisson7 PROPERTIES COMPILE_FLAGS "${OpenMP_C_FLAGS} -pthread" )
       set_target_properties ( amgx_mpi_poisson7 PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-      target_link_libraries( amgx_mpi_poisson7 amgxsh ${omp_lib} ${MPI_C_LIBRARIES} ${dyn_libs})
+      target_link_libraries( amgx_mpi_poisson7 amgxsh ${MPI_C_LIBRARIES} ${dyn_libs})
 
     ENDIF(WIN32) 
     
@@ -117,7 +106,9 @@ if(MPI_FOUND)
 
 endif(MPI_FOUND)
 
-install(TARGETS amgx_capi DESTINATION "lib/examples")
 if(MPI_FOUND)
   install(TARGETS amgx_mpi_capi amgx_mpi_capi_agg amgx_mpi_capi_cla amgx_mpi_poisson7 DESTINATION "lib/examples")
 endif(MPI_FOUND)
+
+add_subdirectory(eigen_examples)
+

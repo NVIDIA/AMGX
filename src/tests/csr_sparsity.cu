@@ -36,7 +36,6 @@ count_non_zeroes( const Index_vector &A_rows, const Index_vector &A_cols,
 {
     typedef typename Index_vector::value_type Index_type;
     int nRows = static_cast<int>( A_rows.size( ) - 1 );
-    #pragma omp parallel  for  shared(nRows)
 
     for ( int aRowId = 0 ; aRowId < nRows ; ++aRowId )
     {
@@ -75,7 +74,6 @@ compute_sparsity( const Index_vector &A_rows, const Index_vector &A_cols,
     typedef std::set<Index_type> Set;
 #endif
     int nRows = static_cast<int>( A_rows.size( ) - 1 );
-    #pragma omp parallel  for  shared(nRows)
 
     for ( int aRowId = 0 ; aRowId < nRows ; ++aRowId )
     {

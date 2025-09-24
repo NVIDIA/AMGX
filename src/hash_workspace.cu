@@ -53,7 +53,7 @@ Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::~Hash_Workspace
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I, typename Key_type >
 void Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >::allocate_workspace()
 {
-    const int NUM_WARPS_IN_GRID = m_grid_size * m_max_warp_count;
+    const size_t NUM_WARPS_IN_GRID = m_grid_size * m_max_warp_count;
 
     // Allocate memory to store the keys of the device-based hashtable.
     if ( m_keys != NULL )

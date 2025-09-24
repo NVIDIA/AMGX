@@ -59,7 +59,7 @@ class Hash_Workspace<TemplateConfig<AMGX_device, V, M, I>, Key_type >
         inline Value_type *get_vals() const { return m_vals; }
 
         // Expand the workspace.
-        inline void expand() { m_gmem_size *= 2; allocate_workspace(); }
+        inline void expand() { if ( m_gmem_size > 1e9) printf("ERROR\n"); m_gmem_size *= 2; allocate_workspace(); }
 
         // Define the number of threads per row of B.
         inline void set_num_threads_per_row_count( int val ) { m_num_threads_per_row_count = val; }

@@ -881,7 +881,7 @@ solver_setup(bool reuse_matrix_structure)
         // Allocate mem for cudense pivoting sequence.
         allocMem(m_ipiv, m_num_rows, false);
         // Allocate memory to store the dense A and initialize to zero.
-        allocMem(m_dense_A, m_num_cols * m_lda, true);
+        allocMem(m_dense_A, static_cast<size_t>(m_num_cols) * m_lda, true);
         csr_to_dense(); // copy sparse A to dense_A
     }
 

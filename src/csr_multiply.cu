@@ -9,6 +9,8 @@
 #include <amgx_cusparse.h>
 #include <thrust_wrapper.h>
 
+#define CUSPARSE_SPGEMM_ALG_CHOICE CUSPARSE_SPGEMM_ALG2
+
 namespace amgx
 {
 
@@ -296,14 +298,16 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
    // CUSPARSE APIs
     cusparseHandle_t handle = Cusparse::get_instance().get_handle();
     cusparseSpMatDescr_t matA, matB, matC;
-    void*  dBuffer1    = NULL, *dBuffer2   = NULL;
-    size_t bufferSize1 = 0,    bufferSize2 = 0;
+    void*  dBuffer1    = NULL, *dBuffer2   = NULL, *dBuffer3 = NULL;
+    size_t bufferSize1 = 0,    bufferSize2 = 0, bufferSize3 = 0;
     cudaDataType matType;
     if (M == AMGX_matDouble) matType = CUDA_R_64F;
     else if (M == AMGX_matFloat) matType = CUDA_R_32F;
     else if (M == AMGX_matDoubleComplex) matType = CUDA_C_64F;
     else if (M == AMGX_matComplex) matType = CUDA_C_32F;
     else FatalError("multiply::cusparse_multiply unknown matrix format", AMGX_ERR_INTERNAL);
+
+    cudaCheckError();
 
     cusparseIndexType_t indType;
     if (I == AMGX_indInt) indType = CUSPARSE_INDEX_32I;
@@ -334,37 +338,70 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     cusparseCheckError( cusparseSpGEMM_createDescr(&spgemmDesc) );
 
     // ask bufferSize1 bytes for external memory
-    cusparseSpGEMM_workEstimation(handle, opA, opB,
+    cusparseCheckError(cusparseSpGEMM_workEstimation(handle, opA, opB,
                                   &alpha, matA, matB, &beta, matC,
-                                  computeType, CUSPARSE_SPGEMM_DEFAULT,
-                                  spgemmDesc, &bufferSize1, NULL);
+                                  computeType, CUSPARSE_SPGEMM_ALG_CHOICE,
+                                  spgemmDesc, &bufferSize1, NULL));
+
     if(bufferSize1 > 0) {
         amgx::memory::cudaMallocAsync(&dBuffer1, bufferSize1);
+        cudaCheckError();
     }
+
     // inspect the matrices A and B to understand the memory requiremnent for
     // the next step
-    cusparseSpGEMM_workEstimation(handle, opA, opB,
+    cusparseCheckError(cusparseSpGEMM_workEstimation(handle, opA, opB,
                                   &alpha, matA, matB, &beta, matC,
-                                  computeType, CUSPARSE_SPGEMM_DEFAULT,
-                                  spgemmDesc, &bufferSize1, dBuffer1);
+                                  computeType, CUSPARSE_SPGEMM_ALG_CHOICE,
+                                  spgemmDesc, &bufferSize1, dBuffer1));
 
-    // ask bufferSize2 bytes for external memory
-    cusparseSpGEMM_compute(handle, opA, opB,
-                           &alpha, matA, matB, &beta, matC,
-                           computeType, CUSPARSE_SPGEMM_DEFAULT,
-                           spgemmDesc, &bufferSize2, NULL);
+    if (CUSPARSE_SPGEMM_ALG_CHOICE == CUSPARSE_SPGEMM_ALG3 || CUSPARSE_SPGEMM_ALG_CHOICE == CUSPARSE_SPGEMM_ALG2) {
+        // chunk fraction used by ALG3 only
+        auto chunk_fraction = 0.5f;
+        // ask bufferSize3 bytes for external memory
+        cusparseCheckError(
+                cusparseSpGEMM_estimateMemory(handle, opA, opB,
+                    &alpha, matA, matB, &beta, matC,
+                    computeType, CUSPARSE_SPGEMM_ALG_CHOICE,
+                    spgemmDesc, chunk_fraction,
+                    &bufferSize3, NULL, NULL) );
+        amgx::memory::cudaMallocAsync(&dBuffer3, bufferSize3);
+
+        // inspect the matrices A and B to understand the memory requirement for
+        // the next step
+        cusparseCheckError(
+                cusparseSpGEMM_estimateMemory(handle, opA, opB,
+                    &alpha, matA, matB, &beta, matC,
+                    computeType, CUSPARSE_SPGEMM_ALG_CHOICE,
+                    spgemmDesc, chunk_fraction,
+                    &bufferSize3, dBuffer3,
+                    &bufferSize2) );
+        amgx::memory::cudaFreeAsync(dBuffer3);  // dBuffer3 can be safely freed to
+                                                // save more memory
+    }
+    else {
+        // ask bufferSize2 bytes for external memory
+        cusparseCheckError( cusparseSpGEMM_compute(handle, opA, opB,
+                    &alpha, matA, matB, &beta, matC,
+                    computeType, CUSPARSE_SPGEMM_ALG_CHOICE,
+                    spgemmDesc, &bufferSize2, NULL) );
+    }
+
     if(bufferSize2 > 0) {
         amgx::memory::cudaMallocAsync(&dBuffer2, bufferSize2);
+        cudaCheckError();
     }
 
     // compute the intermediate product of A * B
-    cusparseSpGEMM_compute(handle, opA, opB,
+    cusparseCheckError(cusparseSpGEMM_compute(handle, opA, opB,
                            &alpha, matA, matB, &beta, matC,
-                           computeType, CUSPARSE_SPGEMM_DEFAULT,
-                           spgemmDesc, &bufferSize2, dBuffer2);
+                           computeType, CUSPARSE_SPGEMM_ALG_CHOICE,
+                           spgemmDesc, &bufferSize2, dBuffer2));
+
     // get matrix C non-zero entries C_num_nnz1
     int64_t C_num_rows1, C_num_cols1, C_num_nnz1;
-    cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1);
+    cusparseCheckError(cusparseSpMatGetSize(matC, &C_num_rows1, &C_num_cols1, &C_num_nnz1));
+
     // Setup C metadata
     C.set_initialized(0);
     C.row_offsets.resize( A.get_num_rows() + 1 );
@@ -380,12 +417,12 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     C.set_num_nz( C_num_nnz1 );
     C.values.resize( C_num_nnz1 );
 
-    cusparseCsrSetPointers(matC, C.row_offsets.raw(), C.col_indices.raw(), C.values.raw());
+    cusparseCheckError(cusparseCsrSetPointers(matC, C.row_offsets.raw(), C.col_indices.raw(), C.values.raw()));
 
     // copy the final products to the matrix C
-    cusparseSpGEMM_copy(handle, opA, opB,
+    cusparseCheckError(cusparseSpGEMM_copy(handle, opA, opB,
                         &alpha, matA, matB, &beta, matC,
-                        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc);
+                        computeType, CUSPARSE_SPGEMM_ALG_CHOICE, spgemmDesc));
 
     C.set_initialized(1);
 
@@ -396,6 +433,7 @@ template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I > void C
     cusparseCheckError( cusparseDestroySpMat(matC) );
     amgx::memory::cudaFreeAsync(dBuffer1);
     amgx::memory::cudaFreeAsync(dBuffer2);
+    cudaCheckError();
 }
 
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
@@ -630,7 +668,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         {
             this->multiply_opt( A, P, AP );
         }
-        else if(true && this->m_use_cusparse_kernels)
+        else if(this->m_use_cusparse_kernels)
         {
             this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
         }
@@ -652,7 +690,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         {
             this->multiply_opt( R, AP, RAP );
         }
-        else if(true && this->m_use_cusparse_kernels)
+        else if(this->m_use_cusparse_kernels)
         {
             this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
         }

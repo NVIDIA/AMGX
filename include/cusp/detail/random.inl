@@ -19,7 +19,7 @@ namespace detail
 
 // Integer hash functions
 template <typename IndexType, typename T>
-struct random_integer_functor : public amgx::thrust::unary_function<IndexType,T>
+struct random_integer_functor
 {
     size_t seed;
 
@@ -28,7 +28,7 @@ struct random_integer_functor : public amgx::thrust::unary_function<IndexType,T>
 
     // source: http://www.concentric.net/~ttwang/tech/inthash.htm
     __host__ __device__
-    T hash(const IndexType i, amgx::thrust::detail::false_type) const
+    T hash(const IndexType i, std::false_type) const
     {
         unsigned int h = (unsigned int) i ^ (unsigned int) seed;
         h = ~h + (h << 15);
@@ -41,7 +41,7 @@ struct random_integer_functor : public amgx::thrust::unary_function<IndexType,T>
     }
 
     __host__ __device__
-    T hash(const IndexType i, amgx::thrust::detail::true_type) const
+    T hash(const IndexType i, std::true_type) const
     {
         unsigned long long h = (unsigned long long) i ^ (unsigned long long) seed;
         h = ~h + (h << 21);
@@ -57,12 +57,12 @@ struct random_integer_functor : public amgx::thrust::unary_function<IndexType,T>
     __host__ __device__
     T operator()(const IndexType i) const
     {
-        return hash(i, typename amgx::thrust::detail::integral_constant<bool, sizeof(IndexType) == 8 || sizeof(T) == 8>::type());
+        return hash(i, typename std::integral_constant<bool, sizeof(IndexType) == 8 || sizeof(T) == 8>::type());
     }
 };
 
 template <typename UnsignedInteger, typename Real>
-struct integer_to_real : public amgx::thrust::unary_function<UnsignedInteger,Real>
+struct integer_to_real
 {
     __host__ __device__
     Real operator()(const UnsignedInteger i) const

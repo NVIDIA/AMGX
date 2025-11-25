@@ -19,7 +19,7 @@
 #include <algorithm>
 
 template<typename T>
-struct row_length : public amgx::thrust::unary_function<T, T>
+struct row_length
 {
     __host__ __device__ T operator()(const T &x) const
     {

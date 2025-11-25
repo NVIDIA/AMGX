@@ -27,8 +27,8 @@ template<unsigned int CTA_SIZE,
 __device__
 void scan_by_key(KeyIterator keys, ValueIterator vals)
 {
-    typedef typename amgx::thrust::iterator_value<KeyIterator>::type   KeyType;
-    typedef typename amgx::thrust::iterator_value<ValueIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<KeyIterator>::value_type   KeyType;
+    typedef typename amgx::thrust::iterator_traits<ValueIterator>::value_type ValueType;
 
     KeyType   key = keys[threadIdx.x];
     ValueType val = vals[threadIdx.x];

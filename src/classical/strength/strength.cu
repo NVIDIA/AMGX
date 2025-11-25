@@ -6,7 +6,6 @@
 #include <fstream>
 #include <cutil.h>
 #include <types.h>
-#include <thrust/detail/integer_traits.h>
 
 #include <assert.h>
 

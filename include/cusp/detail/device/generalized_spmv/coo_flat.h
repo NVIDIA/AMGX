@@ -85,8 +85,8 @@ void spmv_coo_kernel_postprocess(SizeType        num_outputs,
                                  OutputIterator1 row_carries,
                                  OutputIterator2 val_carries)
 {
-  typedef typename amgx::thrust::iterator_value<OutputIterator1>::type IndexType;
-  typedef typename amgx::thrust::iterator_value<OutputIterator2>::type ValueType;
+  typedef typename amgx::thrust::iterator_traits<OutputIterator1>::value_type IndexType;
+  typedef typename amgx::thrust::iterator_traits<OutputIterator2>::value_type ValueType;
 
   __shared__ IndexType rows[BLOCK_SIZE + 1];
   __shared__ ValueType vals[BLOCK_SIZE + 1];
@@ -214,11 +214,11 @@ void spmv_coo_kernel(SizeType        num_entries,
                      OutputIterator1 row_carries,
                      OutputIterator2 val_carries)
 {
-  typedef typename amgx::thrust::iterator_value<IndexIterator1>::type IndexType1;
-  typedef typename amgx::thrust::iterator_value<IndexIterator2>::type IndexType2;
-  typedef typename amgx::thrust::iterator_value<ValueIterator1>::type ValueType1;
-  typedef typename amgx::thrust::iterator_value<ValueIterator2>::type ValueType2;
-  typedef typename amgx::thrust::iterator_value<ValueIterator4>::type ValueType4;
+  typedef typename amgx::thrust::iterator_traits<IndexIterator1>::value_type IndexType1;
+  typedef typename amgx::thrust::iterator_traits<IndexIterator2>::value_type IndexType2;
+  typedef typename amgx::thrust::iterator_traits<ValueIterator1>::value_type ValueType1;
+  typedef typename amgx::thrust::iterator_traits<ValueIterator2>::value_type ValueType2;
+  typedef typename amgx::thrust::iterator_traits<ValueIterator4>::value_type ValueType4;
 
   __shared__ IndexType1 rows[K][BLOCK_SIZE + 1];
   __shared__ ValueType4 vals[K][BLOCK_SIZE + 1];
@@ -472,8 +472,8 @@ void spmv_coo(SizeType        num_rows,
               BinaryFunction1 combine,
               BinaryFunction2 reduce)
 {
-  typedef typename amgx::thrust::iterator_value<IndexIterator2>::type IndexType2;
-  typedef typename amgx::thrust::iterator_value<ValueIterator4>::type ValueType4;
+  typedef typename amgx::thrust::iterator_traits<IndexIterator2>::value_type IndexType2;
+  typedef typename amgx::thrust::iterator_traits<ValueIterator4>::value_type ValueType4;
   typedef typename cusp::array1d<IndexType2, cusp::device_memory>::iterator OutputIterator1;
   typedef typename cusp::array1d<ValueType4, cusp::device_memory>::iterator OutputIterator2;
 

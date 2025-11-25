@@ -18,6 +18,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/detail/vector_base.h>
 
+#include <type_traits>
+
 namespace cusp
 {
   // forward definitions
@@ -83,7 +85,7 @@ class array1d : public amgx::thrust::detail::vector_base<T, typename cusp::defau
           : Parent(n, value) {}
 
         template<typename Array>
-          array1d(const Array& a, typename amgx::thrust::detail::enable_if<!amgx::thrust::detail::is_convertible<Array,size_type>::value>::type * = 0)
+          array1d(const Array& a, typename std::enable_if<!std::is_convertible<Array,size_type>::value>::type * = 0)
           : Parent(a.begin(), a.end()) {}
 
         template<typename InputIterator>
@@ -117,15 +119,15 @@ class array1d_view
     // what about const_iterator and const_reference?
     typedef RandomAccessIterator                                             iterator;
     typedef cusp::array1d_format                                             format;
-    typedef typename amgx::thrust::iterator_reference<RandomAccessIterator>::type  reference;
-    typedef typename amgx::thrust::iterator_difference<RandomAccessIterator>::type difference_type;
-    typedef typename amgx::thrust::iterator_value<RandomAccessIterator>::type      value_type;
+    typedef typename amgx::thrust::iterator_traits<RandomAccessIterator>::reference  reference;
+    typedef typename amgx::thrust::iterator_traits<RandomAccessIterator>::difference_type difference_type;
+    typedef typename amgx::thrust::iterator_traits<RandomAccessIterator>::value_type      value_type;
 #if THRUST_VERSION >= 100600
     typedef typename amgx::thrust::iterator_system<RandomAccessIterator>::type     memory_space;
 #else
     typedef typename amgx::thrust::iterator_space<RandomAccessIterator>::type      memory_space;
 #endif
-    typedef typename amgx::thrust::iterator_pointer<RandomAccessIterator>::type    pointer;
+    typedef typename amgx::thrust::iterator_traits<RandomAccessIterator>::pointer    pointer;
         
     /*! equivalent container type
      */

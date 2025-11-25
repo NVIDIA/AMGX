@@ -92,7 +92,7 @@ struct row_operator
 
 
 template <typename IndexType>
-struct tuple_equal_to : public amgx::thrust::unary_function<amgx::thrust::tuple<IndexType,IndexType>,bool>
+struct tuple_equal_to
 {
     __host__ __device__
     bool operator()(const amgx::thrust::tuple<IndexType,IndexType>& t) const

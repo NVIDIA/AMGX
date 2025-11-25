@@ -47,7 +47,7 @@ struct find_row_diagonal
 };
 
 template< class CsrMatrixType >
-struct count_nnz_per_row : public amgx::thrust::unary_function<int, int>
+struct count_nnz_per_row
 {
     const CsrMatrixType &my_A;
     static const AMGX_VecPrecision vecPrec = CsrMatrixType::TConfig::vecPrec;

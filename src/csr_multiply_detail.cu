@@ -2114,10 +2114,10 @@ void calc_max_nnz_per_row_of_C(
         }
     }
 
-    using BR = cub::BlockReduce<int, CTA_SIZE>;
+    using BR = amgx::cub::BlockReduce<int, CTA_SIZE>;
 
     __shared__ typename BR::TempStorage max_s;
-    int max_nnz_block = BR(max_s).Reduce(expected_max_row_nnz, cub::Max());
+    int max_nnz_block = BR(max_s).Reduce(expected_max_row_nnz, [] __device__ (int a, int b) { return a > b ? a : b; });
 
     if(threadIdx.x == 0)
     {

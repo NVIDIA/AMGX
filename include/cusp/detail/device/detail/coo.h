@@ -6,6 +6,7 @@
 
 #include <cusp/array1d.h>
 #include <cusp/detail/format_utils.h>
+#include <cusp/detail/functional.h>
 
 #include <thrust/functional.h>
 #include <thrust/reduce.h>

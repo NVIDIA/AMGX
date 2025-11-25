@@ -110,11 +110,6 @@ if (DEFINED ENV{CRAY_MPICH2_DIR})
   set(MPI_C_INCLUDE_PATH "$ENV{CRAY_MPICH2_DIR}/include")
 endif(DEFINED ENV{CRAY_MPICH2_DIR})
 
-# Thrust:
-if (DEFINED ENV{THRUST_ROOT})
-  set (THRUST_DIR $ENV{THRUST_ROOT})
-endif(DEFINED ENV{THRUST_ROOT})
-
 set(AMGX_INCLUDE_EXTERNAL True CACHE BOOL "Include external 3rd party libraries")
 if (AMGX_INCLUDE_EXTERNAL)
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -DRAPIDJSON_DEFINED)
@@ -225,11 +220,6 @@ ELSE()
 
 ENDIF()
 
-# We depend on a specific version of thrust now so include the submodule
-add_subdirectory("thrust")
-find_package(Thrust REQUIRED CONFIG)
-thrust_create_target(Thrust)
-
 # Add the CXX flags to the host set of CUDA flags
 string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -239,8 +229,6 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -DTHRUST_CUB_WRAPPED_NAMESPACE=amgx)
 add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
-
-target_link_libraries(amgx_libs Thrust)
 
 # set arch for main libs target
 set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")

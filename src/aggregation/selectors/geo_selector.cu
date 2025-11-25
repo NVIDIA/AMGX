@@ -130,7 +130,7 @@ template <class T_Config>
 bool compz (typename GEO_SelectorBase<T_Config>::p3d i, typename GEO_SelectorBase<T_Config>::p3d j) { return (i.z < j.z); }
 
 template <typename Tuple, typename GeoType, typename IndexType>
-struct reduce_functor2 : public amgx::thrust::binary_function< Tuple, Tuple, Tuple >
+struct reduce_functor2
 {
     __host__ __device__
     Tuple operator()(const Tuple x, const Tuple y)
@@ -143,7 +143,7 @@ struct reduce_functor2 : public amgx::thrust::binary_function< Tuple, Tuple, Tup
 };
 
 template <typename Tuple, typename GeoType, typename IndexType>
-struct reduce_functor3 : public amgx::thrust::binary_function< Tuple, Tuple, Tuple >
+struct reduce_functor3
 {
     __host__ __device__
     Tuple operator()(const Tuple x, const Tuple y)

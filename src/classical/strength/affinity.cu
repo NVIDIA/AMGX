@@ -8,7 +8,6 @@
 //#include <classical/strength/ahat.h>
 //#include <classical/strength/all.h>
 #include <classical/strength/affinity.h>
-#include <thrust/detail/integer_traits.h>
 #include <float.h>
 #include <specific_spmv.h>
 

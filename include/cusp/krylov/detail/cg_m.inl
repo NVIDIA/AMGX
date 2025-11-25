@@ -135,7 +135,7 @@ namespace detail_m
 
   // like blas::copy, but copies the same array many times into a larger array
   template <typename ScalarType>
-    struct KERNEL_VCOPY : amgx::thrust::unary_function<int, ScalarType>
+    struct KERNEL_VCOPY
   {
     int N_t;
     const ScalarType *source;
@@ -167,7 +167,7 @@ namespace detail_m
   };
 
   template <typename T>
-    struct XPAY : public amgx::thrust::binary_function<T,T,T>
+    struct XPAY
   {
     T alpha;
 

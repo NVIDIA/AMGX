@@ -55,7 +55,7 @@ namespace detail
 
     // square<T> computes the square of a number f(x) -> x*x
     template <typename T>
-        struct square : public amgx::thrust::unary_function<T,T>
+        struct square
         {
             __host__ __device__
                 T operator()(T x)
@@ -66,7 +66,7 @@ namespace detail
         
     // absolute<T> computes the absolute value of a number f(x) -> sqrt(x)
     template <typename T>
-        struct sqrt : public amgx::thrust::unary_function<T,T>
+        struct sqrt
         {
             __host__ __device__
                 T operator()(T x)
@@ -77,7 +77,7 @@ namespace detail
         
     // absolute<T> computes the absolute value of a number f(x) -> |x|
     template <typename T>
-        struct absolute : public amgx::thrust::unary_function<T,T>
+        struct absolute
         {
             __host__ __device__
                 T operator()(T x)
@@ -88,7 +88,7 @@ namespace detail
 
     // maximum<T> returns the largest of two numbers
     template <typename T>
-        struct maximum : public amgx::thrust::binary_function<T,T,T>
+        struct maximum
         {
             __host__ __device__
   	        T operator()(T x, T y)
@@ -99,7 +99,7 @@ namespace detail
 
     // maximum<T> returns the number with the largest real part
     template <typename T>
-        struct maximum<cusp::complex<T> > : public amgx::thrust::binary_function<cusp::complex<T>,cusp::complex<T>,cusp::complex<T> >
+        struct maximum<cusp::complex<T> >
         {
             __host__ __device__
 	    cusp::complex<T> operator()(cusp::complex<T> x, cusp::complex<T> y)
@@ -110,7 +110,7 @@ namespace detail
     
     // conjugate<T> computes the complex conjugate of a number f(a + b * i) -> a - b * i
     template <typename T>
-        struct conjugate : public amgx::thrust::unary_function<T,T>
+        struct conjugate
         {
             __host__ __device__
                 T operator()(T x)
@@ -120,8 +120,7 @@ namespace detail
         };
 
     template <typename T>
-        struct conjugate<cusp::complex<T> > : public amgx::thrust::unary_function<cusp::complex<T>,
-									    cusp::complex<T> >
+        struct conjugate<cusp::complex<T> >
         {
             __host__ __device__
 	        cusp::complex<T> operator()(cusp::complex<T> x)
@@ -132,7 +131,7 @@ namespace detail
 
     // square<T> computes the square of a number f(x) -> x*conj(x)
     template <typename T>
-        struct norm_squared : public amgx::thrust::unary_function<T,T>
+        struct norm_squared
         {
             __host__ __device__
                 T operator()(T x)
@@ -213,7 +212,7 @@ namespace detail
         };
 
     template <typename T>
-        struct XMY : public amgx::thrust::binary_function<T,T,T>
+        struct XMY
         {
             __host__ __device__
                 T operator()(T x, T y)
@@ -285,7 +284,7 @@ namespace detail
 	   InputIterator2 first2,
 	   OutputIterator output)
   {
-    typedef typename amgx::thrust::iterator_value<OutputIterator>::type ScalarType;
+    typedef typename amgx::thrust::iterator_traits<OutputIterator>::value_type ScalarType;
     amgx::thrust::transform(first1, last1, first2, output, detail::XMY<ScalarType>());
   }
   
@@ -300,23 +299,23 @@ namespace detail
   
   template <typename InputIterator1,
 	    typename InputIterator2>
-  typename amgx::thrust::iterator_value<InputIterator1>::type
+  typename amgx::thrust::iterator_traits<InputIterator1>::value_type
   dot(InputIterator1 first1,
       InputIterator1 last1,
       InputIterator2 first2)
   {
-    typedef typename amgx::thrust::iterator_value<InputIterator1>::type OutputType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator1>::value_type OutputType;
     return amgx::thrust::inner_product(first1, last1, first2, OutputType(0));
   }
 
   template <typename InputIterator1,
 	    typename InputIterator2>
-  typename amgx::thrust::iterator_value<InputIterator1>::type
+  typename amgx::thrust::iterator_traits<InputIterator1>::value_type
   dotc(InputIterator1 first1,
        InputIterator1 last1,
        InputIterator2 first2)
   {
-    typedef typename amgx::thrust::iterator_value<InputIterator1>::type OutputType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator1>::value_type OutputType;
     return amgx::thrust::inner_product(amgx::thrust::make_transform_iterator(first1, detail::conjugate<OutputType>()),
                                  amgx::thrust::make_transform_iterator(last1,  detail::conjugate<OutputType>()),
                                  first2,
@@ -329,16 +328,16 @@ namespace detail
 	    ForwardIterator last,
 	    ScalarType alpha)
   {
-      typedef typename amgx::thrust::iterator_value<ForwardIterator>::memory_space MemorySpace;
+      typedef typename amgx::thrust::iterator_traits<ForwardIterator>::memory_space MemorySpace;
       thrust_wrapper::fill<CuspMemMap<MemorySpace>::value>(first, last, alpha);
   }
   
   template <typename InputIterator>
-  typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+  typename norm_type<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
   nrm1(InputIterator first,
        InputIterator last)
   {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
     
     detail::absolute<ValueType> unary_op;
     amgx::thrust::plus<ValueType>     binary_op;
@@ -349,11 +348,11 @@ namespace detail
   }
 
   template <typename InputIterator>
-  typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+  typename norm_type<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
   nrm2(InputIterator first,
        InputIterator last)
   {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
 
     detail::norm_squared<ValueType> unary_op;
     amgx::thrust::plus<ValueType>   binary_op;
@@ -364,11 +363,11 @@ namespace detail
   }
 
   template <typename InputIterator>
-  typename amgx::thrust::iterator_value<InputIterator>::type
+  typename amgx::thrust::iterator_traits<InputIterator>::value_type
   nrmmax(InputIterator first,
 	 InputIterator last)
   {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
 
     detail::absolute<ValueType>  unary_op;
     detail::maximum<ValueType>   binary_op;
@@ -540,8 +539,8 @@ void xmy(InputIterator1 first1,
          InputIterator2 first2,
          OutputIterator output)
 {
-    typedef typename amgx::thrust::iterator_value<OutputIterator>::type ScalarType;
-    typedef typename amgx::thrust::iterator_value<InputIterator1>::memory_space MemorySpace;
+    typedef typename amgx::thrust::iterator_traits<OutputIterator>::value_type ScalarType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator1>::memory_space MemorySpace;
     thrust_wrapper::transform<CuspMemMap<MemorySpace>::value>(first1, last1, first2, output, detail::XMY<ScalarType>());
 }
 
@@ -602,12 +601,12 @@ void copy(const Array1& x,
 // TODO properly harmonize heterogenous types
 template <typename InputIterator1,
           typename InputIterator2>
-typename amgx::thrust::iterator_value<InputIterator1>::type
+typename amgx::thrust::iterator_traits<InputIterator1>::value_type
     dot(InputIterator1 first1,
         InputIterator1 last1,
         InputIterator2 first2)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator1>::type OutputType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator1>::value_type OutputType;
     return amgx::thrust::inner_product(first1, last1, first2, OutputType(0));
 }
 
@@ -626,12 +625,12 @@ typename Array1::value_type
 // TODO properly harmonize heterogenous types
 template <typename InputIterator1,
           typename InputIterator2>
-typename amgx::thrust::iterator_value<InputIterator1>::type
+typename amgx::thrust::iterator_traits<InputIterator1>::value_type
     dotc(InputIterator1 first1,
          InputIterator1 last1,
          InputIterator2 first2)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator1>::type OutputType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator1>::value_type OutputType;
     return amgx::thrust::inner_product(amgx::thrust::make_transform_iterator(first1, detail::conjugate<OutputType>()),
                                  amgx::thrust::make_transform_iterator(last1,  detail::conjugate<OutputType>()),
                                  first2,
@@ -681,11 +680,11 @@ void fill(const Array& x,
 
 
 template <typename InputIterator>
-typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename norm_type<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
     nrm1(InputIterator first,
          InputIterator last)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
 
     detail::absolute<ValueType> unary_op;
     amgx::thrust::plus<ValueType>     binary_op;
@@ -705,11 +704,11 @@ typename norm_type<typename Array::value_type>::type
 
 
 template <typename InputIterator>
-typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename norm_type<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
     nrm2(InputIterator first,
          InputIterator last)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
 
     detail::norm_squared<ValueType> unary_op;
     amgx::thrust::plus<ValueType>   binary_op;
@@ -729,11 +728,11 @@ typename norm_type<typename Array::value_type>::type
 
 
 template <typename InputIterator>
-typename amgx::thrust::iterator_value<InputIterator>::type
+typename amgx::thrust::iterator_traits<InputIterator>::value_type
     nrmmax(InputIterator first,
            InputIterator last)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
 
     detail::absolute<ValueType>  unary_op;
     amgx::thrust::maximum<ValueType>   binary_op;
@@ -758,7 +757,7 @@ void scal(ForwardIterator first,
           ForwardIterator last,
           ScalarType alpha)
 {
-    typedef typename amgx::thrust::iterator_value<ForwardIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<ForwardIterator>::value_type ValueType;
     thrust_wrapper::transform(first, last, first, detail::SCAL<ValueType>(alpha));
 }
 

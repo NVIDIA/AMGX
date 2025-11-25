@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <iostream> //debug only:
 
-struct is_my_part : public amgx::thrust::unary_function<int, bool>
+struct is_my_part
 {
     const int _my_part;
     is_my_part(int my_part) : _my_part(my_part) { }

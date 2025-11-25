@@ -33,7 +33,7 @@ void transpose(const MatrixType1& A, MatrixType2& At,
 
 // convert logical linear index in the (tranposed) destination into a physical index in the source
 template <typename IndexType, typename Orientation1, typename Orientation2>
-struct transpose_index_functor : public amgx::thrust::unary_function<IndexType,IndexType>
+struct transpose_index_functor
 {
   IndexType num_rows, num_cols, pitch; // source dimensions
 

@@ -17,8 +17,6 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/reduce.h>
 
-#include <thrust/detail/integer_traits.h>
-
 namespace cusp
 {
 namespace detail
@@ -27,7 +25,7 @@ namespace detail
 // TODO move this to a shared header
 // absolute<T> computes the absolute value of a number f(x) -> |x|
 template <typename T>
-struct absolute : public amgx::thrust::unary_function<T,T>
+struct absolute
 {
     __host__ __device__
 	T operator()(T x)

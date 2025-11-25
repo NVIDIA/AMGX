@@ -9,6 +9,7 @@
 #include <cusp/detail/device/common.h>
 #include <cusp/detail/device/utils.h>
 #include <cusp/detail/device/texture.h>
+#include <cusp/detail/functional.h>
 
 #include <thrust/functional.h>
 #include <thrust/experimental/arch.h>

@@ -215,7 +215,7 @@ namespace detail_m
 
   // computes new x
   template <typename ScalarType>
-    struct KERNEL_X : amgx::thrust::binary_function<int, ScalarType, ScalarType>
+    struct KERNEL_X
   {
     int N;
     const ScalarType *raw_ptr_beta_0_s;
@@ -256,7 +256,7 @@ namespace detail_m
 
   // computes new p
   template <typename ScalarType>
-    struct KERNEL_P : amgx::thrust::binary_function<int, ScalarType, ScalarType>
+    struct KERNEL_P
   {
     int N;
     const ScalarType *alpha_0_s;
@@ -281,7 +281,7 @@ namespace detail_m
 
   // like blas::copy, but copies the same array many times into a larger array
   template <typename ScalarType>
-    struct KERNEL_VCOPY : amgx::thrust::unary_function<int, ScalarType>
+    struct KERNEL_VCOPY
   {
     int N_t;
     const ScalarType *source;

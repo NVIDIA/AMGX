@@ -113,12 +113,17 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     // grab diagonal
     diag = VVector(A.get_num_rows());
     grabDiagonalVector <<< 4096, 128>>>(A.get_num_rows(), A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), diag.raw());
+    cudaCheckError();
     // check diagonal +ve
     bool positive = true, *d_positive;
     amgx::memory::cudaMallocAsync((void**)&d_positive, sizeof(bool));
+    cudaCheckError();
     cudaMemcpy(d_positive, &positive, sizeof(bool), cudaMemcpyHostToDevice);
+    cudaCheckError();
     checkPositiveVector <<< 4096, 256>>>(diag.size(), diag.raw(), d_positive);
+    cudaCheckError();
     cudaMemcpy(&positive, d_positive, sizeof(bool), cudaMemcpyDeviceToHost);
+    cudaCheckError();
 
     // fail out if necessary
     if (!positive)
@@ -128,6 +133,7 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
 
     // set scale = 1./sqrt(diag) , reciprocal square root
     sqrtVector <<< 4096, 256>>>(diag.size(), diag.raw());
+    cudaCheckError();
 }
 
 //Host version
@@ -142,6 +148,7 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_i
     // grab diagonal
     diag = VVector(A.get_num_rows());
     //grabDiagonalVector<<<4096, 128>>>(A.get_num_rows(), A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), diag.raw());
+    cudaCheckError();
     IndexType *offsets =  A.row_offsets.raw();
     IndexType *indices = A.col_indices.raw();
     ValueTypeA *values = A.values.raw();
@@ -160,6 +167,7 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_i
     bool positive = true;
 
     //checkPositiveVector<<<4096, 256>>>(diag.size(), diag.raw(), d_positive);
+    cudaCheckError();
     for (int i = 0; i < diag.size(); i++)
     {
         if (diag[i] < ValueTypeB(0)) { positive = false; }
@@ -173,6 +181,7 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_i
 
     // set scale = 1./sqrt(diag) , reciprocal square root
     // sqrtVector<<<4096, 256>>>(diag.size(), diag.raw());
+    cudaCheckError();
     for (int i = 0; i < diag.size(); i++)
     {
         // we know by this point that the diagonal is +ve
@@ -187,6 +196,7 @@ void DiagonalSymmetricScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t
     // A_ij *= scale[i] * scale[j];
     ScaleMatrix <<< 4096, 256>>>(A.get_num_rows(), A.row_offsets.raw(), A.col_indices.raw(),
                                  A.values.raw(), diag.raw(), scaleOrUnscale);
+    cudaCheckError();
 }
 
 // 1x1 Host
@@ -220,6 +230,7 @@ template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrec
 void DiagonalSymmetricScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::scaleVector(VVector &v, ScaleDirection scaleOrUnscale, ScaleSide leftOrRight)
 {
     scaleVectorKernel <<< 4096, 256>>>(v.size(), v.raw(), diag.raw(), scaleOrUnscale, leftOrRight);
+    cudaCheckError();
 }
 
 // 4x4 Host

@@ -809,6 +809,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             A.diag.raw(),
             A.values.raw(),
             diag_ptr);
+            cudaCheckError();
     /*  getDiagonalKernel<<<numBlocks,blocksize>>>(Aoffsets_ptr,Acolumn_indices_ptr,Avalues_ptr,
                                                  numRows,diag_ptr);*/
     cudaCheckError();

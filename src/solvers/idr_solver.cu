@@ -369,7 +369,11 @@ void IDR_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
         hres.raw()[i + offsetres] = dotc(a, b, offseta + i * size, offsetb, size);
     }
 
-    cudaMemcpy((void *) res.raw(),       (void *) hres.raw(),       (s - k)*sizeof(ValueTypeB),   cudaMemcpyHostToDevice);
+    cudaError_t cuda_rc = cudaMemcpy((void *) res.raw(),       (void *) hres.raw(),       (s - k)*sizeof(ValueTypeB),   cudaMemcpyHostToDevice);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy failed in idr_solver gemv", AMGX_ERR_CUDA_FAILURE);
+    }
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -384,13 +388,21 @@ void IDR_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
     if (s == 1)
     {
         gemv_res = dotc(A, x, 0, k * m, m);
-        cudaMemcpy((void *) & (y.raw()[k * s + k]),       (void *) &gemv_res,       sizeof(ValueTypeB),   cudaMemcpyHostToDevice);
+        cudaError_t cuda_rc = cudaMemcpy((void *) & (y.raw()[k * s + k]),       (void *) &gemv_res,       sizeof(ValueTypeB),   cudaMemcpyHostToDevice);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMemcpy failed in idr_solver gemv_div (gemv_res)", AMGX_ERR_CUDA_FAILURE);
+        }
 
         if (gemv_res != (ValueTypeB) 0)
         {
-            cudaMemcpy((void *) &numer,
+            cuda_rc = cudaMemcpy((void *) &numer,
                        (void *) & ((nume.raw())[k]),
                        sizeof(ValueTypeB),   cudaMemcpyDeviceToHost);
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaMemcpy failed in idr_solver gemv_div (numer)", AMGX_ERR_CUDA_FAILURE);
+            }
             *ratio = numer / gemv_res;
         }
         else
@@ -406,7 +418,9 @@ void IDR_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
         }
 
         cudaMemcpy((void *) & (y.raw())[k * s + k],       (void *) svec_chk.raw(),       (s - k)*sizeof(ValueTypeB),   cudaMemcpyHostToDevice);
+        cudaCheckError();
         cudaMemcpy((void *) &denom, (void *) & (y.raw())[k + s * k],  sizeof(ValueTypeB),   cudaMemcpyDeviceToHost);
+        cudaCheckError();
 
         if (denom != (ValueTypeB) 0)
         {
@@ -471,7 +485,9 @@ void IDR_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
 {
     ValueTypeB dnr;
     cudaMemcpy((void *) &dnr, (void *) & (denom.raw())[i + s * i],  sizeof(ValueTypeB),   cudaMemcpyDeviceToHost);
+    cudaCheckError();
     cudaDeviceSynchronize();
+    cudaCheckError();
 
     if (dnr != (ValueTypeB) 0)
     {
@@ -510,10 +526,12 @@ void IDR_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
     for (i = 0; i < s; i++) { (hbuff.raw())[i * s + i] = (ValueTypeB) 1.0; }
 
     cudaMemcpy((void *)M.raw(), (void *)hbuff.raw(), s * s * sizeof(ValueTypeB), cudaMemcpyHostToDevice);
+    cudaCheckError();
 
     if (s == 1)
     {
         cudaMemcpy((void *)P.raw(), (void *)b.raw(), N * s * sizeof(ValueTypeB), cudaMemcpyDeviceToDevice);
+        cudaCheckError();
     }
     else
     {
@@ -524,6 +542,7 @@ void IDR_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
             (hbuff.raw())[i] = (ValueTypeB) rand() / (ValueTypeB (RAND_MAX));
         }
         cudaMemcpy((void *)P.raw(), (void *)hbuff.raw(), N * s * sizeof(ValueTypeB), cudaMemcpyHostToDevice);
+        cudaCheckError();
     }
 
 //

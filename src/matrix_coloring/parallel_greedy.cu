@@ -693,16 +693,20 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     IVector_d d_new_color(1);
     cudaMemsetAsync(d_new_color.raw(), 0, sizeof(int), stream);
+    cudaCheckError();
     this->m_num_colors = 1;
     IVector_d d_num_colors(1);
     IVector_d d_start_color(1); //for coloring safely without fallback
     cudaMemcpyAsync(d_num_colors.raw(), &this->m_num_colors, sizeof(int), cudaMemcpyHostToDevice, stream);
+    cudaCheckError();
     int tmp = 0;
     cudaMemcpyAsync(d_start_color.raw(), &tmp, sizeof(int), cudaMemcpyHostToDevice, stream);
+    cudaCheckError();
     IVector_d d_num_uncolored(1);
     IVector_d d_num_uncolored_block(MAX_GRID_SIZE);
     int *h_done = NULL;
     amgx::memory::cudaMallocHost( (void **) &h_done, sizeof(int));
+    cudaCheckError();
     IVector_d d_done(1);
     d_done[0] = 0;
     *h_done = 0;
@@ -724,38 +728,47 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
         if (this->m_coloring_level == 1)
         {
             color_kernel_thread<CTA_SIZE> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>(PG_ARGS);
+            cudaCheckError();
             count_uncolored_and_num_colors_kernel<MAX_GRID_SIZE, true> <<< 1, MAX_GRID_SIZE, 0, stream>>>(d_new_color.raw(), d_num_colors.raw(), max_uncolored_rows, d_num_uncolored_block.raw(), d_num_uncolored.raw(), d_done.raw(), h_done, d_start_color.raw(), GRID_SIZE);
+            cudaCheckError();
         }
         else
         {
             if (this->m_coloring_level == 2)
             {
                 color_kernel_thread_anyring<CTA_SIZE, 2> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>(PG_ARGS, d_start_color.raw());
+                cudaCheckError();
             }
             else if (this->m_coloring_level == 3)
             {
                 color_kernel_thread_anyring<CTA_SIZE, 3> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>(PG_ARGS, d_start_color.raw());
+                cudaCheckError();
             }
             else if (this->m_coloring_level == 4)
             {
                 color_kernel_thread_anyring<CTA_SIZE, 4> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>(PG_ARGS, d_start_color.raw());
+                cudaCheckError();
             }
             else if (this->m_coloring_level == 5)
             {
                 color_kernel_thread_anyring<CTA_SIZE, 5> <<< GRID_SIZE, CTA_SIZE, 0, stream>>>(PG_ARGS, d_start_color.raw());
+                cudaCheckError();
             }
 
             count_uncolored_and_num_colors_kernel<MAX_GRID_SIZE, false> <<< 1, MAX_GRID_SIZE, 0, stream>>>(d_new_color.raw(), d_num_colors.raw(), max_uncolored_rows, d_num_uncolored_block.raw(), d_num_uncolored.raw(), d_done.raw(), h_done, d_start_color.raw(), GRID_SIZE);
+            cudaCheckError();
         }
 
         // Throttle every 4 iteration
         if (iteration % 4 == 0)
         {
             cudaEventRecord(throttle_event);
+            cudaCheckError();
         }
         else
         {
             cudaEventSynchronize(throttle_event);
+            cudaCheckError();
         };
 
         iteration++;
@@ -766,6 +779,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
     typedef typename Matrix_h::IVector IVector_h;
     IVector_h new_color(1);
     cudaEventDestroy(throttle_event);
+    cudaCheckError();
     this->m_num_colors = d_num_colors[0];
     int num_uncolored = d_num_uncolored[0];
     int prev_num_uncolored = 0;
@@ -813,6 +827,7 @@ Parallel_Greedy_Matrix_Coloring<TemplateConfig<AMGX_device, V, M, I> >::colorMat
 
 #endif
     amgx::memory::cudaFreeHost(h_done);
+    cudaCheckError();
     A.setView(oldView);
 }
 

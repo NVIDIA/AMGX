@@ -513,11 +513,13 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
             // Reset the status.
             int status = 0;
             cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
+            cudaCheckError();
             // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
             // properly set but it is responsible for setting the work queue.
             this->count_non_zeroes( A, B, C, Aq1, Bq1, Aq2, Bq2 );
             // Read the result from count_non_zeroes.
             cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
+            cudaCheckError();
             done = status == 0;
         }
     }
@@ -556,11 +558,13 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::multiply( const M
            // Reset the status.
            int status = 0;
            cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
+           cudaCheckError();
            // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
            // properly set but it is responsible for setting the work queue.
            this->compute_values( A, B, C, this->m_num_threads_per_row_compute, Aq1, Bq1, Aq2, Bq2 );
            // Read the result from count_non_zeroes.
            cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
+           cudaCheckError();
            done = status == 0;
        }
 
@@ -596,11 +600,13 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
         // Reset the status.
         int status = 0;
         cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
         // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
         // properly set but it is responsible for setting the work queue.
         this->count_non_zeroes_RAP_sparse_add( RAP, RAP_int, RAP_ext_row_offsets, RAP_ext_col_indices, RAP_ext_values, RAP_ext_row_ids );
         // Read the result from count_non_zeroes.
         cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
+        cudaCheckError();
         done = status == 0;
     }
 
@@ -623,11 +629,13 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparse_add( Matri
         // Reset the status.
         int status = 0;
         cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
         // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
         // properly set but it is responsible for setting the work queue.
         this->compute_values_RAP_sparse_add( RAP, RAP_int, RAP_ext_row_offsets, RAP_ext_col_indices, RAP_ext_values, RAP_ext_row_ids,  this->m_num_threads_per_row_compute );
         // Read the result from count_non_zeroes.
         cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
+        cudaCheckError();
         done = status == 0;
     }
 
@@ -747,11 +755,13 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::sparsity( const M
         // Reset the status.
         int status = 0;
         cudaMemcpy( this->m_status, &status, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
         // Count the number of non-zeroes. The function count_non_zeroes assumes status has been
         // properly set but it is responsible for setting the work queue.
         this->count_non_zeroes( A, B, C, NULL, NULL, NULL, NULL );
         // Read the result from count_non_zeroes.
         cudaMemcpy( &status, this->m_status, sizeof(int), cudaMemcpyDeviceToHost );
+        cudaCheckError();
         done = status == 0;
     }
 

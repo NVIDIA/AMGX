@@ -142,8 +142,10 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
     if (b.linear_buffers_size < neighbors)
     {
         if (b.linear_buffers_size != 0) { amgx::memory::cudaFreeHost(b.linear_buffers); }
+        cudaCheckError();
 
         amgx::memory::cudaMallocHost((void **) & (b.linear_buffers), neighbors * sizeof(vtyp *));
+        cudaCheckError();
         b.linear_buffers_size = neighbors;
         b.linear_buffers_ptrs.resize(neighbors);
     }
@@ -170,6 +172,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
 
         // It is more efficient to synchronise only when linear buffers change
         cudaStreamSynchronize(0);
+        cudaCheckError();
     }
 
     int offset = 0;
@@ -192,10 +195,12 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
             b.host_buffer.resize(1);
             cudaEventCreateWithFlags(&b.mpi_event, cudaEventDisableTiming);
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, total_size * sizeof(vtyp));
+            cudaCheckError();
         }
         else if (total_size > b.explicit_buffer_size)
         {
             amgx::memory::cudaFreeHost(b.explicit_host_buffer);
+            cudaCheckError();
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, total_size * sizeof(vtyp));
         }
 
@@ -244,6 +249,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
     {
         b.buffer->resize(size);
         cudaStreamSynchronize(0);
+        cudaCheckError();
     }
 
     b.host_buffer.resize(send_size + recv_size);
@@ -256,10 +262,12 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
             b.host_buffer.resize(1);
             cudaEventCreateWithFlags(&b.mpi_event, cudaEventDisableTiming);
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, size * sizeof(vtyp));
+            cudaCheckError();
         }
         else if (size > b.explicit_buffer_size)
         {
             amgx::memory::cudaFreeHost(b.explicit_host_buffer);
+            cudaCheckError();
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, size * sizeof(vtyp));
         }
 
@@ -271,8 +279,10 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
     if (b.linear_buffers_size < neighbors)
     {
         if (b.linear_buffers_size != 0) { amgx::memory::cudaFreeHost(b.linear_buffers); }
+        cudaCheckError();
 
         amgx::memory::cudaMallocHost((void **) & (b.linear_buffers), neighbors * sizeof(vtyp *));
+        cudaCheckError();
         b.linear_buffers_size = neighbors;
     }
 
@@ -509,6 +519,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfi
             {
                 // we need to use new indices after renumbering - these are stored in L2H_maps
                 cudaMemcpyAsync(b.linear_buffers[i] + total, b.raw() + m.manager->halo_offsets[j * num_neighbors + i], size*sizeof(typename T::value_type), cudaMemcpyDefault, stream);
+                cudaCheckError();
                 total += size;
             }
         }
@@ -516,6 +527,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfi
         cudaCheckError();
     }
     cudaStreamSynchronize(stream);
+    cudaCheckError();
 
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
@@ -546,6 +558,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H_v2(T &b, const Matrix<TCo
     if (total != 0)
     {
         cudaMemcpyAsync(b.linear_buffers[0], b.raw() + m.manager->halo_offsets[0], total*sizeof(typename T::value_type), cudaMemcpyDefault, stream);
+        cudaCheckError();
     }
 
 #else

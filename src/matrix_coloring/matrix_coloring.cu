@@ -89,14 +89,19 @@ void MatrixColoring<TConfig>::assertColoring( Matrix<TConfig> &A, IVector &aggre
     IndexType *color = new IndexType[numRows];
     //copy to host
     cudaMemcpy( ia, A.row_offsets.raw(), sizeof(IndexType) * (numRows + 1), cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy( ja, A.col_indices.raw(), sizeof(IndexType)*nnz, cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy( aa, A.values.raw(), sizeof(ValueType)*blocksize * nnz, cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy( color, coloring.raw(), sizeof(IndexType)*numRows, cudaMemcpyDeviceToHost );
+    cudaCheckError();
     IndexType *agg = new IndexType[numRows];
 
     if ( check_downwind )
     {
         cudaMemcpy( agg, aggregates.raw(), sizeof(IndexType)*numRows, cudaMemcpyDeviceToHost );
+        cudaCheckError();
     }
 
     //count how many nodes have a color
@@ -306,6 +311,7 @@ void MatrixColoring<TConfig>::createColorArrays(Matrix<TConfig> &A)
             int size = num_rows;
             int num_blocks = std::min(4096, (size + 123) / 124);
             findSeparation <<< num_blocks, 128>>>(m_sorted_rows_by_color.raw(), offsets_rows_per_color.raw(), separation_offsets_rows_per_color.raw(), separation, m_num_colors, num_rows);
+            cudaCheckError();
             amgx::thrust::copy(separation_offsets_rows_per_color.begin(), separation_offsets_rows_per_color.end(), m_offsets_rows_per_color_separation.begin());
             cudaCheckError();
 

@@ -912,6 +912,7 @@ void gpu_orgqr(int m, int n, int k,
         if (i < n - 1)
         {
             set1 <<< 1, 1>>>(&a[i + i * lda]);
+            cudaCheckError();
             i1 = m - i;
             i2 = n - i - 1;
             larf(i1, i2, &a[i + i * lda], 1, &tau[i],
@@ -925,8 +926,13 @@ void gpu_orgqr(int m, int n, int k,
         }
 
         add_tau <<< 1, 1>>>(&a[i + i * lda], tau[i]);
+        cudaCheckError();
         /*        Set A(1:i-1,i) to zero */
-        cudaMemset(&a[i * lda], 0, sizeof(T) * i);
+        cudaError_t cuda_rc = cudaMemset(&a[i * lda], 0, sizeof(T) * i);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMemset failed in geqr2", AMGX_ERR_CUDA_FAILURE);
+        }
     }
 
     cudaCheckError();
@@ -977,12 +983,20 @@ void larfg(int n, T *alpha, T *x,
     T xnorm;
     Cublas::nrm2(i1, x, incx, &xnorm);
     T h_alpha;
-    cudaMemcpy(&h_alpha, alpha, sizeof(T), cudaMemcpyDeviceToHost);
+    cudaError_t cuda_rc = cudaMemcpy(&h_alpha, alpha, sizeof(T), cudaMemcpyDeviceToHost);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy D2H failed in larfg", AMGX_ERR_CUDA_FAILURE);
+    }
     T d1;
     compute_tau_host(&h_alpha, &xnorm, tau, &d1);
     Cublas::scal(i1, d1, x, incx);
     // Update the diagonal value on the device.
-    cudaMemcpy(alpha, &h_alpha, sizeof(T), cudaMemcpyHostToDevice);
+    cuda_rc = cudaMemcpy(alpha, &h_alpha, sizeof(T), cudaMemcpyHostToDevice);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy H2D failed in larfg", AMGX_ERR_CUDA_FAILURE);
+    }
 }
 
 template <typename T>
@@ -991,7 +1005,11 @@ void gpu_geqrf(int m, int n, T *a, int lda,
 {
     int k = std::min(m, n);
     T *aii;
-    amgx::memory::cudaMallocAsync((void**)&aii, sizeof(T));
+    cudaError_t cuda_rc = amgx::memory::cudaMallocAsync((void**)&aii, sizeof(T));
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMallocAsync failed in gpu_geqrf", AMGX_ERR_CUDA_FAILURE);
+    }
 
     for (int i = 0; i < k; ++i)
     {
@@ -1006,18 +1024,30 @@ void gpu_geqrf(int m, int n, T *a, int lda,
         if (i < n - 1)
         {
             /*           Apply H(i) to A(i:m,i+1:n) from the left */
-            cudaMemcpy(aii, &a[i + i * lda], sizeof(T), cudaMemcpyDeviceToDevice);
+            cuda_rc = cudaMemcpy(aii, &a[i + i * lda], sizeof(T), cudaMemcpyDeviceToDevice);
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaMemcpy D2D failed in gpu_geqrf", AMGX_ERR_CUDA_FAILURE);
+            }
             set1 <<< 1, 1>>>(&a[i + i * lda]);
             cudaCheckError();
             i2 = m - i;
             i3 = n - i - 1;
             larf(i2, i3, &a[i + i * lda], 1,
                  &tau[i], &a[i + (i + 1) * lda], lda, work);
-            cudaMemcpy(&a[i + i * lda], aii, sizeof(T), cudaMemcpyDeviceToDevice);
+            cuda_rc = cudaMemcpy(&a[i + i * lda], aii, sizeof(T), cudaMemcpyDeviceToDevice);
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaMemcpy D2D failed in gpu_geqrf", AMGX_ERR_CUDA_FAILURE);
+            }
         }
     }
 
-    amgx::memory::cudaFreeAsync(aii);
+    cuda_rc = amgx::memory::cudaFreeAsync(aii);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaFreeAsync failed in gpu_geqrf", AMGX_ERR_CUDA_FAILURE);
+    }
 }
 } // end anonymous namespace
 

@@ -555,6 +555,7 @@ void CFJacobiSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
           b.raw(),
           this->weight,
           x.raw());*/
+          cudaCheckError();
         // it is not so much harder to initialize whole vector instead of just C or F points
         amgx::thrust::transform(b.begin( ),
                           b.begin( ) + A.get_num_rows(),

@@ -399,11 +399,17 @@ void LocallyDownwindColoringBase<TConfig>::colorMatrixUsingAggregates(Matrix<TCo
     IndexType *color = new IndexType[numRows];
     //copy data from device to host
     cudaMemcpy(ia, A.row_offsets.raw(), (numRows + 1)*sizeof(IndexType), cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy(ja, A.col_indices.raw(), A.col_indices.size()*sizeof(IndexType), cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy(aa, A.values.raw(), nnz * blockdim * sizeof(ValueType), cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy(ria, R_row_offsets.raw(), R_row_offsets.size()*sizeof(IndexType), cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy(rja, R_col_indices.raw(), R_col_indices.size()*sizeof(IndexType), cudaMemcpyDeviceToHost );
+    cudaCheckError();
     cudaMemcpy(agg, aggregates.raw(), aggregates.size()*sizeof(IndexType), cudaMemcpyDeviceToHost );
+    cudaCheckError();
 
     for (IndexType i = 0; i < numRows; i++)
     {
@@ -509,6 +515,7 @@ void LocallyDownwindColoringBase<TConfig>::colorMatrixUsingAggregates(Matrix<TCo
     //copy back results
     this->m_row_colors.resize(A.row_offsets.size() - 1, 0);
     cudaMemcpy( this->m_row_colors.raw(), color, numRows * sizeof(IndexType), cudaMemcpyHostToDevice );
+    cudaCheckError();
     //free all the others
     delete [] ia;
     delete [] ja;
@@ -552,6 +559,7 @@ void LocallyDownwindColoringBase<TConfig>::colorMatrixUsingAggregates(Matrix<TCo
                 numAggregates,
                 max_aggregate_size,
                 blocksize);
+                cudaCheckError();
         cudaDeviceSynchronize();
         cudaCheckError();
         std::cout << "uncolored nodes: " << amgx::thrust::count( this->m_row_colors.begin(), this->m_row_colors.end(), -1 ) << std::endl;

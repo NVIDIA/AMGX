@@ -716,6 +716,7 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         {
             mergeWithExistingAggregatesCsr <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_values_ptr,
                     diag_ptr, num_rows, aggregates_ptr, this->deterministic, aggregates_candidate.raw());
+                    cudaCheckError();
             // Sync here
             joinExistingAggregates <<< num_blocks, threads_per_block>>>(num_rows, aggregates_ptr, aggregates_candidate.raw());
             cudaCheckError();
@@ -810,10 +811,18 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             if ( s == 0 )
             {
                 // count unaggregated vertices
-                cudaMemsetAsync(d_unaggregated, 0, sizeof(int), str);
+                cudaError_t cuda_rc = cudaMemsetAsync(d_unaggregated, 0, sizeof(int), str);
+                if (cuda_rc != cudaSuccess)
+                {
+                    FatalError("cudaMemsetAsync failed in size2_selector", AMGX_ERR_CUDA_FAILURE);
+                }
                 countAggregates<IndexType, threads_per_block> <<< num_blocks, threads_per_block, 0, str>>>(num_block_rows, aggregates_ptr, d_unaggregated);
                 cudaCheckError();
-                cudaMemcpyAsync(unaggregated, d_unaggregated, sizeof(int), cudaMemcpyDeviceToHost, str);
+                cuda_rc = cudaMemcpyAsync(unaggregated, d_unaggregated, sizeof(int), cudaMemcpyDeviceToHost, str);
+                if (cuda_rc != cudaSuccess)
+                {
+                    FatalError("cudaMemcpyAsync failed in size2_selector", AMGX_ERR_CUDA_FAILURE);
+                }
                 throttle_event->record(str);
             }
             else
@@ -824,7 +833,11 @@ void Size2Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             }
 
 #else
-            cudaStreamSynchronize(str);
+            cudaError_t cuda_rc = cudaStreamSynchronize(str);
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaStreamSynchronize failed in size2_selector", AMGX_ERR_CUDA_FAILURE);
+            }
             numUnassigned_previous = numUnassigned;
             numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
             cudaCheckError();

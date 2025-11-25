@@ -140,6 +140,7 @@ void Size4Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     {
         cudaFuncSetCacheConfig(computeEdgeWeightsBlockDiaCsr_V2<IndexType, ValueType, float>, cudaFuncCachePreferL1);
         computeEdgeWeightsBlockDiaCsr_V2 <<< num_blocks_V2, threads_per_block>>>(A_row_offsets_ptr, A_row_indices_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, num_nonzero_blocks, edge_weights_ptr, rand_edge_weights_ptr, num_block_rows, A.get_block_dimy(), this->m_aggregation_edge_weight_component, this->weight_formula);
+        cudaCheckError();
     }
 
     // -------------------------------------------------

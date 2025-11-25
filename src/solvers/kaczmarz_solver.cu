@@ -549,6 +549,7 @@ KaczmarzSolver_Base<T_Config>::solver_setup(bool reuse_matrix_structure)
              d_inv,
              c_inv_sz,
              this->m_c_inv.raw());
+             cudaCheckError();
         }
 
         cudaDeviceSynchronize();
@@ -783,6 +784,7 @@ void KaczmarzSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
          x_ptr,
          x_ptr,
          offset);
+         cudaCheckError();
     }
     else
     {

@@ -92,11 +92,17 @@ Solver<TConfig>::Solver(AMG_Config &cfg, const std::string &cfg_scope,
 
     // Allocate events.
     cudaEventCreate(&m_setup_start);
+    cudaCheckError();
     cudaEventCreate(&m_setup_stop);
+    cudaCheckError();
     cudaEventCreate(&m_solve_start);
+    cudaCheckError();
     cudaEventCreate(&m_solve_stop);
+    cudaCheckError();
     cudaEventCreate(&m_iter_start);
+    cudaCheckError();
     cudaEventCreate(&m_iter_stop);
+    cudaCheckError();
     // Reset times.
     m_setup_time = 0.0f;
     m_solve_time = 0.0f;
@@ -122,11 +128,17 @@ Solver<TConfig>::~Solver() noexcept(false)
 #endif
 #endif
         cudaEventDestroy(m_setup_start);
+        cudaCheckError();
         cudaEventDestroy(m_setup_stop);
+        cudaCheckError();
         cudaEventDestroy(m_solve_start);
+        cudaCheckError();
         cudaEventDestroy(m_solve_stop);
+        cudaCheckError();
         cudaEventDestroy(m_iter_start);
+        cudaCheckError();
         cudaEventDestroy(m_iter_stop);
+        cudaCheckError();
     }
 
     delete m_r;
@@ -363,9 +375,11 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
         VT_User_marker__(tag, "Setup Constructor");
 #endif
         cudaDeviceSynchronize();
+        cudaCheckError();
 #endif
 #endif
         cudaEventRecord(m_setup_start);
+        cudaCheckError();
     }
 
     Matrix<TConfig> *B_ptr = dynamic_cast<Matrix<TConfig>*>(&A);
@@ -500,7 +514,9 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
     if (m_obtain_timings)
     {
         cudaEventRecord(m_setup_stop);
+        cudaCheckError();
         cudaEventSynchronize(m_setup_stop);
+        cudaCheckError();
         cudaEventElapsedTime(&m_setup_time, m_setup_start, m_setup_stop);
         m_setup_time *= 1e-3f;
 #ifdef AMGX_WITH_MPI
@@ -516,6 +532,7 @@ void Solver<TConfig>::setup( Operator<TConfig> &A, bool reuse_matrix_structure)
         VT_User_marker__(tag, "Setup Destructor");
 #endif
         cudaDeviceSynchronize();
+        cudaCheckError();
 #endif
 #endif
     }
@@ -640,9 +657,11 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         VT_User_marker__(tag, "Solver Start");
 #endif
         cudaDeviceSynchronize();
+        cudaCheckError();
 #endif
 #endif
         cudaEventRecord(m_solve_start);
+        cudaCheckError();
     }
 
     // if scaling, time to scale the rhs
@@ -847,7 +866,9 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
     if (m_obtain_timings)
     {
         cudaEventRecord(m_solve_stop);
+        cudaCheckError();
         cudaEventSynchronize(m_solve_stop);
+        cudaCheckError();
         cudaEventElapsedTime(&m_solve_time, m_solve_start, m_solve_stop);
         m_solve_time *= 1e-3f;
 #ifdef AMGX_WITH_MPI
@@ -863,6 +884,7 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
         VT_User_marker__(tag, "Solver End");
 #endif
         cudaDeviceSynchronize();
+        cudaCheckError();
 #endif
 #endif
     }

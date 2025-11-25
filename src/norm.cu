@@ -556,6 +556,7 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
                     xAvg,
                     localNormFactor.raw(),
                     A.values.raw() + A.diagOffset()*A.get_block_size());
+                cudaCheckError();
             }
             else
             {
@@ -567,6 +568,7 @@ class Norm_Factor<Vector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_ind
                     bTmp.raw(),
                     xAvg,
                     localNormFactor.raw());
+                cudaCheckError();
             }
 
             // Fetch the normFactor result and reduce across all ranks

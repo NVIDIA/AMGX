@@ -91,14 +91,18 @@ void l_times_u(int n, Matrix_data *lu_d, int lda)
     amgx::memory::cudaMallocAsync((void **) &l_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
+    cudaCheckError();
     amgx::memory::cudaMallocAsync((void **) &u_d, n * lda * sizeof(Matrix_data), 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
+    cudaCheckError();
     // Split LU.
     dim3 block_dim(16, 16);
     dim3 grid_dim((n + block_dim.x - 1) / block_dim.x, (n + block_dim.y - 1) / block_dim.y);
     split_l_and_u <<< grid_dim, block_dim>>>(n, lu_d, lda, l_d, u_d);
+    cudaCheckError();
     cudaError_t status = cudaDeviceSynchronize();
+    cudaCheckError();
     UNITTEST_ASSERT_EQUAL(status, cudaSuccess);
     // LxU = LU.
     Matrix_data one(1), zero(0);
@@ -119,9 +123,11 @@ void l_times_u(int n, Matrix_data *lu_d, int lda)
     cudaFreeAsync(l_d, 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
+    cudaCheckError();
     cudaFreeAsync(u_d, 0);
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     UNITTEST_ASSERT_EQUAL(cudaStreamSynchronize(0), cudaSuccess);
+    cudaCheckError();
 }
 
 template< typename Matrix, typename Matrix_data >
@@ -132,6 +138,7 @@ void check_lu_product(const Matrix &A_h, int n, Matrix_data *lu_d, int lda)
     // Copy LxU to the host.
     Matrix_data *lu_h = new Matrix_data[n * lda];
     cudaMemcpy(lu_h, lu_d, n * lda * sizeof(Matrix_data), cudaMemcpyDeviceToHost);
+    cudaCheckError();
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
     // Make sure LxU equals A.
     Matrix_data *dense_A_h = new Matrix_data[n * lda];
@@ -171,6 +178,7 @@ void run()
     solver.setup(A, false);
     FVector_h m(N * N);
     cudaMemcpy(m.raw(), solver.get_dense_A(), N * N * sizeof(Matrix_data), cudaMemcpyDeviceToHost);
+    cudaCheckError();
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
 
     for ( int i = 0 ; i < N ; ++i )
@@ -205,6 +213,7 @@ void run()
     solver.setup(A, false);
     FVector_h m(N * N);
     cudaMemcpy(m.raw(), solver.get_dense_A(), N * N * sizeof(Matrix_data), cudaMemcpyDeviceToHost);
+    cudaCheckError();
     UNITTEST_ASSERT_EQUAL(cudaGetLastError(), cudaSuccess);
 
     for ( int i = 0 ; i < N ; ++i )

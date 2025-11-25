@@ -549,6 +549,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             0);
+                cudaCheckError();
             }
             else {
                 computeStrongConnectionsAndWeightsKernel_opt<IndexType, ValueType, blockSize, false>
@@ -563,6 +564,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             A.manager->base_index());
+                cudaCheckError();
             }
         }
         else
@@ -584,6 +586,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             0);
+                cudaCheckError();
             }
             else {
                 computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, false>
@@ -598,6 +601,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             A.manager->base_index());
+                cudaCheckError();
             }
         }
     }

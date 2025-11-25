@@ -172,14 +172,26 @@ void Cusparse::bsrmv_with_mask_restriction(
         cudaStream_t null_stream = 0;
         bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, HALO1, null_stream, P);
         P.manager->add_from_halo_split_gather(y, y.tag);
-        cudaEventRecord(P.manager->get_comm_event());
+        cudaError_t cuda_rc = cudaEventRecord(P.manager->get_comm_event());
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventRecord failed", AMGX_ERR_CUDA_FAILURE);
+        }
         bsrmv_internal_with_mask_restriction(alphaConst, R, x, betaConst, y, OWNED, null_stream, P);
 
         if (P.manager->neighbors.size() != 0)
         {
-            cudaEventSynchronize(P.manager->get_comm_event());
+            cuda_rc = cudaEventSynchronize(P.manager->get_comm_event());
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaEventSynchronize failed", AMGX_ERR_CUDA_FAILURE);
+            }
             P.manager->add_from_halo_split_finish(y, y.tag, P.manager->get_bdy_stream());
-            cudaStreamSynchronize(P.manager->get_bdy_stream());
+            cuda_rc = cudaStreamSynchronize(P.manager->get_bdy_stream());
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaStreamSynchronize failed", AMGX_ERR_CUDA_FAILURE);
+            }
         }
     }
     else
@@ -632,7 +644,7 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
 
     if (has_offdiag)
     {
-        cusparseSetStream(Cusparse::get_instance().m_handle, stream);
+        cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, stream));
         bsrxmv_internal( Cusparse::get_instance().m_handle, direction, CUSPARSE_OPERATION_NON_TRANSPOSE, nrows,
                          nrows, A.get_num_cols(), nnz, &alphaConst,
                          A.cuMatDescr,
@@ -644,7 +656,7 @@ void Cusparse::bsrmv_internal_with_mask( const typename TConfig::VecPrec alphaCo
                          y.raw() );
 
         // Reset to default stream
-        cusparseSetStream(Cusparse::get_instance().m_handle, 0);
+        cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, 0));
     }
 
     if (A.hasProps(DIAG))
@@ -845,7 +857,7 @@ void Cusparse::bsrmv_internal( ColumnColorSelector columnColorSelector,
     }
 
     bool has_offdiag = A.get_num_nz() != 0;
-    cusparseSetStream(Cusparse::get_instance().m_handle, stream);
+    cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, stream));
 
     if (has_offdiag)
     {
@@ -883,7 +895,7 @@ void Cusparse::bsrmv_internal( ColumnColorSelector columnColorSelector,
     }
 
     // Reset to default stream
-    cusparseSetStream(Cusparse::get_instance().m_handle, 0);
+    cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, 0));
 }
 
 template< class TConfig >
@@ -950,7 +962,7 @@ void Cusparse::bsrmv_internal( const int color,
         direction = CUSPARSE_DIRECTION_ROW;
     }
 
-    cusparseSetStream(Cusparse::get_instance().m_handle, stream);
+    cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, stream));
 
     bsrxmv_internal( Cusparse::get_instance().m_handle, direction, CUSPARSE_OPERATION_NON_TRANSPOSE, colorNum,
                      A.get_num_rows(), A.get_num_cols(), A.get_num_nz(), &alphaConst,
@@ -964,7 +976,7 @@ void Cusparse::bsrmv_internal( const int color,
                      x.raw(), &betaConst,
                      y.raw() );
     // Reset to default stream
-    cusparseSetStream(Cusparse::get_instance().m_handle, 0);
+    cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, 0));
 }
 
 // Simple custom implementation of matrix-vector product that has only 1 kernel.
@@ -1040,6 +1052,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         constexpr int unroll_factor = 16;
         int nblocks = mb / cta_size + 1;
         csrmv<unroll_factor><<<nblocks, cta_size>>>(mb, *alpha, val, rowPtr, colInd, x, *beta, y);
+        cudaCheckError();
     }
     else
     {
@@ -1062,7 +1075,11 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
         void* dBuffer = NULL;
         if(bufferSize > 0)
         {
-            amgx::memory::cudaMallocAsync(&dBuffer, bufferSize, stream);
+            cudaError_t cuda_rc = amgx::memory::cudaMallocAsync(&dBuffer, bufferSize, stream);
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaMallocAsync failed in generic_SpMV", AMGX_ERR_CUDA_FAILURE);
+            }
         }
 
         cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG1, dBuffer) );
@@ -1073,7 +1090,11 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
 
         if(bufferSize > 0)
         {
-            amgx::memory::cudaFreeAsync(dBuffer);
+            cudaError_t cuda_rc = amgx::memory::cudaFreeAsync(dBuffer);
+            if (cuda_rc != cudaSuccess)
+            {
+                FatalError("cudaFreeAsync failed in generic_SpMV", AMGX_ERR_CUDA_FAILURE);
+            }
         }
     }
 }
@@ -1094,7 +1115,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cudaStream_t& stream)
 {
     // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
+    cusparseCheckError(cusparseSetStream(handle, stream));
 
     if (blockDim == 1)
     {
@@ -1106,7 +1127,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     }
 
     // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
+    cusparseCheckError(cusparseSetStream(handle, 0));
 }
 
 inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
@@ -1125,7 +1146,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cudaStream_t& stream)
 {
     // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
+    cusparseCheckError(cusparseSetStream(handle, stream));
 
     if (blockDim == 1)
     {
@@ -1137,7 +1158,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     }
 
     // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
+    cusparseCheckError(cusparseSetStream(handle, 0));
 }
 
 inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
@@ -1157,13 +1178,13 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
 {
     #if 0
         // Run cuSparse on selected stream
-        cusparseSetStream(handle, stream);
+        cusparseCheckError(cusparseSetStream(handle, stream));
 
         const double *d_bsrVal = reinterpret_cast<const double *>(const_cast<float *>(bsrVal)); // this works due to private API call in the matrix initialization which sets cusparse matrix description in the half precision mode
         cusparseCheckError(cusparseDbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
 
         // Reset cuSparse to default stream
-        cusparseSetStream(handle, 0);
+        cusparseCheckError(cusparseSetStream(handle, 0));
     #else
         FatalError("Mixed precision modes not currently supported for CUDA 10.1 or later.", AMGX_ERR_NOT_IMPLEMENTED);
     #endif
@@ -1249,6 +1270,7 @@ inline void Xcsrxmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseO
     constexpr int unroll_factor = 16;
     int nblocks = sizeOfMask / cta_size + 1;
     csrxmv<unroll_factor><<<nblocks, cta_size>>>(sizeOfMask, *alpha, bsrVal, bsrMaskPtr, bsrRowPtr, bsrColInd, x, *beta, y);
+    cudaCheckError();
 }
 
 // overloaded C++ wrappers for cusparse?bsrxmv
@@ -1368,7 +1390,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cudaStream_t& stream)
 {
     // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
+    cusparseCheckError(cusparseSetStream(handle, stream));
 
     if (blockDim == 1)
     {
@@ -1380,7 +1402,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     }
 
     // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
+    cusparseCheckError(cusparseSetStream(handle, 0));
 }
 
 inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
@@ -1399,7 +1421,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
                              const cudaStream_t& stream)
 {
     // Run cuSparse on selected stream
-    cusparseSetStream(handle, stream);
+    cusparseCheckError(cusparseSetStream(handle, stream));
 
     if (blockDim == 1)
     {
@@ -1411,7 +1433,7 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
     }
 
     // Reset cuSparse to default stream
-    cusparseSetStream(handle, 0);
+    cusparseCheckError(cusparseSetStream(handle, 0));
 }
 
 inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, cusparseOperation_t trans,
@@ -1431,13 +1453,13 @@ inline void Cusparse::bsrmv( cusparseHandle_t handle, cusparseDirection_t dir, c
 {
     #if 0
         // Run cuSparse on selected stream
-        cusparseSetStream(handle, stream);
+        cusparseCheckError(cusparseSetStream(handle, stream));
 
         const cuDoubleComplex *d_bsrVal = reinterpret_cast<cuDoubleComplex *>(const_cast<cuComplex *>(bsrVal));
         cusparseCheckError(cusparseZbsrxmv(handle, dir, trans, mb, mb, nb, nnzb, alpha, descr, d_bsrVal, bsrMaskPtr, bsrRowPtr, bsrRowPtr + 1, bsrColInd, blockDim, x, beta, y));
 
         // Reset cuSparse to default stream
-        cusparseSetStream(handle, 0);
+        cusparseCheckError(cusparseSetStream(handle, 0));
     #else
         FatalError("Mixed precision modes not currently supported for CUDA 10.1 or later.", AMGX_ERR_NOT_IMPLEMENTED);
     #endif
@@ -1581,7 +1603,11 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
     void* dBuffer = NULL;
     if(bufferSize > 0)
     {
-        amgx::memory::cudaMallocAsync(&dBuffer, bufferSize);
+        cudaError_t cuda_rc = amgx::memory::cudaMallocAsync(&dBuffer, bufferSize);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMallocAsync failed in generic_SpMM", AMGX_ERR_CUDA_FAILURE);
+        }
     }
 
     // Compute the sparse matrix - dense matrix product
@@ -1596,7 +1622,11 @@ generic_SpMM(cusparseHandle_t handle, cusparseOperation_t transA,
 
     if(bufferSize > 0)
     {
-        amgx::memory::cudaFreeAsync(dBuffer);
+        cudaError_t cuda_rc = amgx::memory::cudaFreeAsync(dBuffer);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaFreeAsync failed in generic_SpMM", AMGX_ERR_CUDA_FAILURE);
+        }
     }
 }
 
@@ -1718,7 +1748,11 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
     void *buffer = nullptr;
     if (bufferSize > 0)
     {
-        amgx::memory::cudaMallocAsync(&buffer, bufferSize);
+        cudaError_t cuda_rc = amgx::memory::cudaMallocAsync(&buffer, bufferSize);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMallocAsync failed in transpose_internal", AMGX_ERR_CUDA_FAILURE);
+        }
     }
 
     cusparseCheckError(cusparseCsr2cscEx2(
@@ -1727,7 +1761,11 @@ void transpose_internal(cusparseHandle_t handle, int nRows, int nCols, int nNz, 
 
     if(bufferSize > 0)
     {
-        amgx::memory::cudaFreeAsync(buffer);
+        cudaError_t cuda_rc = amgx::memory::cudaFreeAsync(buffer);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaFreeAsync failed in transpose_internal", AMGX_ERR_CUDA_FAILURE);
+        }
     }
 }
 

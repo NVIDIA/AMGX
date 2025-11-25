@@ -1161,6 +1161,7 @@ void AMG_Config::printAMGConfig()
     std::stringstream ss;
     int devId;
     cudaGetDevice(&devId);
+    cudaCheckError();
     cudaDeviceProp deviceProp = getDeviceProperties();
     //ss << "HP Scalar Type: " << scalar_hp << std::endl;
     //ss << "LP Scalar Type: " << scalar_lp << std::endl;

@@ -43,7 +43,11 @@ scalar_t count_block_results_pinned_memory(const int a, const int i, const int n
 
     if (ret == 0)
     {
-        amgx::memory::cudaMallocHost((void **)&ret, buffers * sizeof(scalar_t));
+        cudaError_t cuda_rc = amgx::memory::cudaMallocHost((void **)&ret, buffers * sizeof(scalar_t));
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMallocHost failed in size8_selector", AMGX_ERR_CUDA_FAILURE);
+        }
         ret[0] = 0;
         cudaEventCreateWithFlags(&throttle_event, cudaEventDisableTiming);
     }
@@ -53,8 +57,16 @@ scalar_t count_block_results_pinned_memory(const int a, const int i, const int n
 
     if (ib == buffers - 1)
     {
-        cudaEventRecord(throttle_event);
-        cudaEventSynchronize(throttle_event);
+        cudaError_t cuda_rc = cudaEventRecord(throttle_event);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventRecord failed in size8_selector", AMGX_ERR_CUDA_FAILURE);
+        }
+        cuda_rc = cudaEventSynchronize(throttle_event);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventSynchronize failed in size8_selector", AMGX_ERR_CUDA_FAILURE);
+        }
         scalar_t tot = 0;
 
         for (int j = 0; j < buffers; j++)
@@ -1135,9 +1147,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     if (push)
     {
         stream_old = amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()];
-        cudaStreamSynchronize(amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
+        cudaError_t cuda_rc = cudaStreamSynchronize(amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaStreamSynchronize failed in size8_selector", AMGX_ERR_CUDA_FAILURE);
+        }
 
-        if (stream == 0) { cudaStreamCreate(&stream); }
+        if (stream == 0) { cudaStreamCreate(&stream); cudaCheckError(); }
 
         amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()] = stream;
     }
@@ -1166,6 +1182,7 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
     if (push)
     {
         //cudaStreamSynchronize(stream);
+        cudaCheckError();
         //amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()] = stream_old;
     }
 
@@ -1267,12 +1284,14 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
                 cudaFuncSetCacheConfig(my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_NOMERGE, 1, 0, int>, cudaFuncCachePreferL1);
                 my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_NOMERGE, 1, 0, int> <<< num_blocks, threads_per_block, 0, stream>>>(
                     A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, num_nonzero_blocks,  0, 0, strongest_neighbour_ptr, partner_index_ptr, 0, this->deterministic, 0, 0);
+                    cudaCheckError();
             }
             else
             {
                 cudaFuncSetCacheConfig(my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_NOMERGE, 0, 0, int>, cudaFuncCachePreferL1);
                 my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_NOMERGE, 0, 0, int> <<< num_blocks, threads_per_block, 0, stream>>>(
                     A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, num_nonzero_blocks, 0, 0, strongest_neighbour_ptr, partner_index_ptr, 0, this->deterministic, 0, 0);
+                    cudaCheckError();
             }
         }
         else
@@ -1327,11 +1346,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             {
                 cudaFuncSetCacheConfig(my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS, 1, 0, int>, cudaFuncCachePreferL1);
                 my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS, 1, 0, int> <<< num_blocks, threads_per_block, 0, stream>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, num_nonzero_blocks, aggregated_ptr, aggregates_ptr, strongest_neighbour_ptr, partner_index_ptr, weight_strongest_neighbour_ptr, this->deterministic, 0, 0);
+                cudaCheckError();
             }
             else
             {
                 cudaFuncSetCacheConfig(my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS, 0, 0, int>, cudaFuncCachePreferL1);
                 my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS, 0, 0, int> <<< num_blocks, threads_per_block, 0, stream>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, num_nonzero_blocks,  aggregated_ptr, aggregates_ptr, strongest_neighbour_ptr, partner_index_ptr, weight_strongest_neighbour_ptr, this->deterministic, 0, 0);
+                cudaCheckError();
             }
         }
         else
@@ -1348,11 +1369,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         if (avoid_thrust_count == 0)
         {
             matchAggregatesSize4 <IndexType> <<< num_blocks, threads_per_block, 0, stream>>>(aggregates_ptr, aggregated_ptr, strongest_neighbour_ptr, partner_index_ptr, num_block_rows);
+            cudaCheckError();
             numUnassigned = thrust_wrapper::count<AMGX_device>(aggregated.begin(), aggregated.end(), -1);
         }
         else
         {
             my_matchAggregatesSize4 <<< num_blocks_1024, 1024, 0, stream>>>(aggregates_ptr, aggregated_ptr, strongest_neighbour_ptr, partner_index_ptr, num_block_rows, sets_per_block);
+            cudaCheckError();
             numUnassigned = numUnassigned_previous - amgx::strided_reduction::count_block_results_pinned_memory(1, icount, num_blocks_1024, sets_per_block, amgx::strided_reduction::op_sum(), stream);
         }
 
@@ -1383,11 +1406,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             {
                 cudaFuncSetCacheConfig(my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS_2, 1, 0, int>, cudaFuncCachePreferL1);
                 my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS_2, 1, 0, int> <<< num_blocks, threads_per_block, 0, stream>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, num_nonzero_blocks,  aggregated_ptr, aggregates_ptr, strongest_neighbour_ptr, partner_index_ptr, weight_strongest_neighbour_ptr, this->deterministic, 0, 0);
+                cudaCheckError();
             }
             else
             {
                 cudaFuncSetCacheConfig(my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS_2, 0, 0, int>, cudaFuncCachePreferL1);
                 my_findStrongestNeighbourBlockDiaCsr_NoMerge<AVG_NNZ, ALGORITHM_STOREWEIGHTS_2, 0, 0, int> <<< num_blocks, threads_per_block, 0, stream>>>(A_row_offsets_ptr, A_column_indices_ptr, edge_weights_ptr, num_block_rows, num_nonzero_blocks, aggregated_ptr, aggregates_ptr, strongest_neighbour_ptr, partner_index_ptr, weight_strongest_neighbour_ptr, this->deterministic, 0, 0);
+                cudaCheckError();
             }
         }
         else
@@ -1401,6 +1426,7 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         if (!this->deterministic)
         {
             agreeOnProposal_2 <<< num_blocks, threads_per_block, 0, stream>>>(A_row_offsets_ptr, A_column_indices_ptr, num_block_rows, aggregated_ptr, strongest_neighbour_ptr, weight_strongest_neighbour_ptr, partner_index_ptr, aggregates_ptr, this->deterministic);
+            cudaCheckError();
         }
         else
         {
@@ -1411,6 +1437,7 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
                 A_column_indices_ptr, num_block_rows,
                 aggregated_ptr, strongest_neighbour_ptr,
                 weight_strongest_neighbour_ptr, partner_index_ptr, aggregates_ptr, this->deterministic);
+                cudaCheckError();
             strongest_neighbour_tmp.swap(strongest_neighbour);
             strongest_neighbour_ptr = strongest_neighbour.raw(); //re-saving the correct pointer..
         }
@@ -1421,11 +1448,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         if (avoid_thrust_count == 0)
         {
             matchAggregates <IndexType> <<< num_blocks, threads_per_block, 0, stream>>>(aggregates_ptr, aggregated_ptr, strongest_neighbour_ptr, num_block_rows);
+            cudaCheckError();
             numUnassigned = thrust_wrapper::count<AMGX_device>(aggregated.begin(), aggregated.end(), -1);
         }
         else
         {
             my_matchAggregates <<< num_blocks_1024, 1024, 0, stream>>>(aggregates_ptr, aggregated_ptr, strongest_neighbour_ptr, num_block_rows, sets_per_block);
+            cudaCheckError();
             numUnassigned = numUnassigned_previous - amgx::strided_reduction::count_block_results_pinned_memory(2, icount, num_blocks_1024, sets_per_block, amgx::strided_reduction::op_sum(), stream);
         }
 
@@ -1463,11 +1492,13 @@ void Size8Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
             if (avoid_thrust_count == 0)
             {
                 joinExistingAggregates <<< num_blocks, threads_per_block, 0, stream>>>(num_block_rows, aggregates_ptr, aggregated_ptr, aggregates_candidate.raw());
+                cudaCheckError();
                 numUnassigned = (int)thrust_wrapper::count<AMGX_device>(aggregated.begin(), aggregated.end(), -1);
             }
             else
             {
                 my_joinExistingAggregates <<< num_blocks_1024, 1024, 0, stream>>>(num_block_rows, aggregates_ptr, aggregated_ptr, aggregates_candidate.raw(), sets_per_block);
+                cudaCheckError();
                 numUnassigned = numUnassigned_previous - amgx::strided_reduction::count_block_results_pinned_memory(3, local_iter, num_blocks_1024, sets_per_block, amgx::strided_reduction::op_sum(), stream);
             }
 

@@ -3936,8 +3936,10 @@ MulticolorDILUSolver<TemplateConfig<AMGX_device, V, M, I> >::MulticolorDILUSolve
 {
     int device = 0;
     cudaGetDevice( &device );
+    cudaCheckError();
     cudaDeviceProp properties;
     cudaGetDeviceProperties( &properties, device );
+    cudaCheckError();
     m_is_kepler = properties.major >= 3;
 }
 

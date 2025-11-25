@@ -449,6 +449,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
     }
 
     cudaDeviceSynchronize();
+    cudaCheckError();
     double elapsed = timer.elapsed();
 // End of GS check
     // get the raw pointers for everything I need
@@ -475,6 +476,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
             A.get_num_rows(),
             m_aff_values_ptr
         );
+        cudaCheckError();
 
         if (A.is_matrix_singleGPU())
             computeStrongConnectionsAndWeightsFromAffinityKernel<IndexType, ValueTypeA, blockSize, true>
@@ -498,6 +500,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                 weights.raw(),
                 this->alpha,
                 A.manager->base_index());
+        
+        cudaCheckError();
     }
 
     if (!A.is_matrix_singleGPU() && A.currentView() == OWNED)

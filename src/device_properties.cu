@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include <device_properties.h>
+#include <error.h>
 namespace amgx
 {
 static cudaDeviceProp deviceProps;
@@ -13,7 +14,9 @@ cudaDeviceProp getDeviceProperties()
     if(!initialized) {
         int dev;
         cudaGetDevice(&dev);
+        cudaCheckError();
         cudaGetDeviceProperties(&deviceProps, dev);
+        cudaCheckError();
         initialized=true;
     }
     return deviceProps;

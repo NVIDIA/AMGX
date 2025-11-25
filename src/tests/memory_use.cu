@@ -89,10 +89,14 @@ void launch_test_case(TestCase &test_case)
     {
         cusparseHandle_t cusparse_handle;
         cusparseCreate(&cusparse_handle);
+        cudaCheckError();
         cusparseDestroy(cusparse_handle);
+        cudaCheckError();
         cublasHandle_t cublas_handle;
         cublasCreate(&cublas_handle);
+        cudaCheckError();
         cublasDestroy(cublas_handle);
+        cudaCheckError();
     }
     size_t after = get_memory_usage();
     size_t used_mem_before = get_memory_usage();

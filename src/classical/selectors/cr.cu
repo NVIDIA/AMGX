@@ -493,12 +493,14 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
                                 Avalues_ptr, AdiagValues.raw(),
                                 AnumRows, cf_map_ptr,
                                 Asc_nnzPerRow.raw(), Asc_thresh_per_row.raw(), Asc_thresh);
+                                cudaCheckError();
 #else
     compute_Asc_nnzPerRow_kernel<IndexType, ValueType>
     <<< numBlocks, blocksize>>>(ArowOffsets_ptr, AcolInd_ptr,
                                 Avalues_ptr, AdiagValues.raw(),
                                 AnumRows, cf_map_ptr,
                                 Asc_nnzPerRow.raw(), 0.1);
+                                cudaCheckError();
 #endif
     cudaCheckError();
     // get the offsets in Asc with an inclusive scan
@@ -522,12 +524,14 @@ void CR_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >
                                 Avalues_ptr, AdiagValues.raw(),
                                 AnumRows, cf_map_ptr,
                                 Asc.row_offsets.raw(), Asc.col_indices.raw(), Asc_thresh_per_row.raw());
+                                cudaCheckError();
 #else
     compute_AscColInd_kernel<IndexType, ValueType>
     <<< numBlocks, blocksize>>>(ArowOffsets_ptr, AcolInd_ptr,
                                 Avalues_ptr, AdiagValues.raw(),
                                 AnumRows, cf_map_ptr,
                                 Asc.row_offsets.raw(), Asc.col_indices.raw(), 0.25);
+                                cudaCheckError();
 #endif
     cudaCheckError();
     Asc.set_initialized(0);

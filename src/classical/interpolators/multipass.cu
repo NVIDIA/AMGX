@@ -1859,6 +1859,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, V, M, I>>::compute_c_hat
             assigned,
             assigned_set.raw(),
             pass);
+            cudaCheckError();
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -1919,6 +1920,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         int ngroups_per_block = cta_size / group_size;
         int grid_size = A.get_num_rows() / ngroups_per_block + 1;
         initializeAssignedArray_opt<IndexType, cta_size, group_size> <<< grid_size, cta_size>>>(cf_map.raw(), assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), C_hat_start.raw(), Anum_rows);
+        cudaCheckError();
     }
     else
     {
@@ -1953,10 +1955,12 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             int ngroups_per_block = cta_size / group_size;
             int nblocks = A.get_num_rows() / ngroups_per_block + 1;
             fillAssignedArray_opt<IndexType, cta_size, group_size> <<< nblocks, cta_size>>>(assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), Anum_rows, pass);
+            cudaCheckError();
         }
         else
         {
             fillAssignedArray<IndexType, cta_size> <<< grid_size, cta_size>>>(assigned.raw(), A.row_offsets.raw(), A.col_indices.raw(), s_con.raw(), Anum_rows, pass);
+            cudaCheckError();
         }
         num_unassigned = thrust_wrapper::count_if<AMGX_device>(assigned.begin(), assigned.begin() + A.get_num_rows(), is_less_than_zero());
         cudaCheckError();
@@ -2027,6 +2031,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         int work_offset = GRID_SIZE * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
 
         // Do one ring exchange of C_hat_start, which have been filled for nodes with assigned=1
         if (A.is_matrix_distributed())
@@ -2050,6 +2055,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                         assigned.raw(),
                         C_hat_start.raw(),
                         i);
+                        cudaCheckError();
             }
             else
             {
@@ -2061,6 +2067,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                         assigned.raw(),
                         C_hat_start.raw(),
                         i);
+                        cudaCheckError();
             }
 
             if (A.is_matrix_distributed())
@@ -2163,6 +2170,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 int nthreads = 128;
                 int nblocks = assigned.size() / nthreads + 1;
                 set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw(), assigned_offs.raw());
+                cudaCheckError();
 
                 thrust_wrapper::inclusive_scan<AMGX_device>(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin()+1);
 
@@ -2171,6 +2179,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 {
                     IntVector assigned_set(nassigned_in_pass);
                     assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
+                    cudaCheckError();
 
                     int max_c_hat_size = thrust::reduce(C_hat_size_.begin(), C_hat_size_.end(), -1, thrust::maximum<int>());
 
@@ -2250,9 +2259,11 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 // Reset the status. TODO: Launch async copies.
                 int status = 0;
                 cudaMemcpy( exp_wk.get_status(), &status, sizeof(int), cudaMemcpyHostToDevice );
+                cudaCheckError();
                 // Compute the set C_hat.
                 int work_offset = GRID_SIZE * NUM_WARPS;
                 cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+                cudaCheckError();
                 // Run the computation.
                 multipass::compute_c_hat_kernel< 8, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
                     A.get_num_rows(),
@@ -2269,6 +2280,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                     exp_wk.get_work_queue(),
                     exp_wk.get_status(),
                     i);
+                    cudaCheckError();
 
                 if (A.is_matrix_distributed())
                 {
@@ -2282,6 +2294,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 cudaCheckError();
                 // Read the result from count_non_zeroes.
                 cudaMemcpy( &status, exp_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost );
+                cudaCheckError();
                 done = status == 0;
             }
         }
@@ -2373,6 +2386,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     else
     {
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
 
         // Compute the set C_hat.
         multipass::compute_interp_weight_first_pass_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
@@ -2409,10 +2423,12 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             int nthreads = 128;
             int nblocks = assigned.size() / nthreads + 1;
             set_assigned_in_pass<<<nblocks, nthreads>>>(assigned.size(), i, assigned.raw(), assigned_in_pass.raw(), assigned_offs.raw());
+            cudaCheckError();
             thrust_wrapper::inclusive_scan<AMGX_device>(assigned_in_pass.begin(), assigned_in_pass.end(), assigned_offs.begin()+1);
 
             IntVector assigned_set(assigned_offs[assigned_offs.size()-1]);
             assigned_set_fill<<<nblocks, nthreads>>>(assigned.size(), assigned_in_pass.raw(), assigned_offs.raw(), assigned_set.raw());
+            cudaCheckError();
 
             Hash_Workspace<TConfig_d, int64_t> exp_wk2(true, 4096);
             multipass::compute_interp_weight_kernel_opt<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< 4096, CTA_SIZE>>>(
@@ -2437,10 +2453,12 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                     assigned.raw(),
                     assigned_set.raw(),
                     i);
+                    cudaCheckError();
         }
         else
         {
             cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+            cudaCheckError();
             multipass::compute_interp_weight_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE, int64_t> <<< GRID_SIZE, CTA_SIZE>>>(
                     A.get_num_rows(),
                     A.row_offsets.raw(),
@@ -2462,6 +2480,7 @@ void Multipass_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                     exp_wk.get_work_queue(),
                     assigned.raw(),
                     i);
+                    cudaCheckError();
         }
 
         if (A.is_matrix_distributed())

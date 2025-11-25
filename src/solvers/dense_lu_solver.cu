@@ -400,6 +400,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         case 1: // Column-major, external diagonal.
@@ -413,6 +414,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         case 2: // Row-major, no external diagonal.
@@ -426,6 +428,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         case 3: // Row-major, external diagonal.
@@ -439,6 +442,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         default:
@@ -539,7 +543,11 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
     else
     {
         int t_info;
-        cudaMemcpy(&t_info, m_cuds_info, sizeof(int), cudaMemcpyDefault);
+        cudaError_t cuda_rc = cudaMemcpy(&t_info, m_cuds_info, sizeof(int), cudaMemcpyDefault);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMemcpy failed in dense_lu_solver", AMGX_ERR_CUDA_FAILURE);
+        }
 
         if (t_info != 0)
         {
@@ -810,9 +818,11 @@ solver_setup(bool reuse_matrix_structure)
             constexpr int nthreads = 128;
             int nblocks = nnz / nthreads + 1;
             local_col_indices_to_global<<<nblocks, nthreads>>>(nnz, num_rows, row_displs[rank], local_Acols_d.raw(), A->manager->local_to_global_map.raw());
+            cudaCheckError();
 
             nblocks = num_rows / nthreads + 1;
             local_row_offsets_to_global<<<nblocks, nthreads>>>(num_rows, nz_displs[rank], local_Arows_d.raw());
+            cudaCheckError();
 
             // Copy the transformed indices to the host
             IVector_h local_Acols_h(nnz);
@@ -864,6 +874,7 @@ solver_setup(bool reuse_matrix_structure)
             A->hasProps(DIAG) ? A->diag.raw() : NULL,
             m_dense_A,
             m_lda);
+            cudaCheckError();
 
         cudaStreamSynchronize(stream);
         cudaCheckError();

@@ -715,6 +715,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
                                 Adiag_ptr, numCoarse,
                                 cf_map_ptr, fullToCoarseMap_ptr, coarse_idx_ptr,
                                 PnnzPerCol.raw(), thresh_per_row.raw());
+                                cudaCheckError();
     printMatrixStats(A);
     cudaCheckError();
     // Column offsets of P (CSC format)
@@ -1095,6 +1096,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
                      Pvalues_ptr + PcolOffset, 1,
                      &zero, place_holder_ptr, 1);
         cudaDeviceSynchronize();
+        cudaCheckError();
     }
 
     if (place_holder_ptr) { amgx::memory::cudaFreeAsync(place_holder_ptr); place_holder_ptr = 0; }
@@ -1198,6 +1200,7 @@ void EM_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     Vector_d v_x;
     solveMa_e(Ma, AnumRows, v_x);
     cudaDeviceSynchronize();
+    cudaCheckError();
     Ma.set_initialized(0);
     Ma.resize(0, 0, 0, 1);
     /*  Now, we are done with the following Matlab code analogue.

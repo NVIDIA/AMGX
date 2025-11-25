@@ -146,6 +146,7 @@ void partition(const INDEX_TYPE my_id, INDEX_TYPE num_part, const int64_t *part_
 
     int device = -1;
     cudaGetDevice( &device );
+    cudaCheckError();
     printf("Processing partition %d/%d size: %ld offset %d nnz %d on device %d\n", my_id + 1, num_part, part_offsets[my_id + 1] - part_offsets[my_id], (int)part_offsets[my_id], (int)(A.row_offsets[part_offsets[my_id + 1]] - A.row_offsets[part_offsets[my_id]]), device);
     A_part.resize(part_offsets[my_id + 1] - part_offsets[my_id], A.get_num_cols(), (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]] - (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.get_block_dimy(), A.get_block_dimx(), 1);
     amgx::thrust::copy(A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id]], A.col_indices.begin() + (INDEX_TYPE)A.row_offsets[part_offsets[my_id + 1]], A_part.col_indices.begin());
@@ -420,6 +421,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     }
 
     //cudaSetDevice(A.getResources()->getDevice(0));
+    cudaCheckError();
     part_offsets_h.resize(partitions + 1);
     int64_t num_rows = Ah.get_num_rows();
 
@@ -502,6 +504,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 {
     Resources *resources = A.getResources();
     cudaSetDevice(resources->getDevice(0));
+    cudaCheckError();
     Matrix<TConfig_h> Ah;
     Vector<TConfig_h> bh;
     Vector<TConfig_h> xh;
@@ -655,9 +658,11 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                     cudaHostRegister(row_ptrs, (num_rows + 1)*sizeof(int), cudaHostRegisterMapped);
                     cudaCheckError();
                     cudaSetDevice(A.getResources()->getDevice(0));
+                    cudaCheckError();
                     A.manager->consolidateAndUploadAll(num_rows, nnz, block_dimx, block_dimy, row_ptrs, col_indices, values, diag_data, A);
                     A.set_initialized(1);
                     cudaSetDevice(A.getResources()->getDevice(0));
+                    cudaCheckError();
 
                     if (diag_data != NULL)
                     {
@@ -691,6 +696,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 cudaHostUnregister(b_host);
                 cudaHostUnregister(x_host);
                 cudaDeviceSynchronize();
+                cudaCheckError();
                 return AMGX_OK;
             } // end of boundary sparation
         }
@@ -733,6 +739,7 @@ AMGX_ERROR DistributedRead<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
             cudaHostUnregister(b_host);
             cudaHostUnregister(x_host);
             cudaDeviceSynchronize();
+            cudaCheckError();
             return AMGX_OK;
         }
     }

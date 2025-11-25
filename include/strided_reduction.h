@@ -330,11 +330,7 @@ struct warputil<8, strided_reduction_arch_KEPLER>
 
 template<int STRIDE, int CTA_SIZE, int WARP_SIZE, int BLOCKS_PER_THREAD, class OP, class T, class V, class TRANSFORM>
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 2 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 2 )
-#endif
 void strided_reduction(const T *X, const int N, V *sums, const TRANSFORM tx = TRANSFORM(), const OP op = OP())
 {
     int tid = threadIdx.x + blockDim.x * blockIdx.x;

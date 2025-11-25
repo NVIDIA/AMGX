@@ -399,11 +399,7 @@ void blockDiaCsrMultiplyKernel(const IndexType *row_offsets,
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, int CTA_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
-#endif
 void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         const IndexType *column_indices,
         const IndexType *dia_ptr,

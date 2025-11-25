@@ -169,11 +169,7 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
 
 template< typename Value_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool HAS_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 8 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 8 )
-#endif
 void fill_A_kernel_1x1( const int  R_num_rows,
                         const int *R_rows,
                         const int *R_cols,

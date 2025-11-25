@@ -42,11 +42,7 @@ namespace multicolor_ilu_solver
 
 template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int CtaSize, int bsize, bool ROW_MAJOR, bool hasDiag>
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CtaSize, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CtaSize, 16 )
-#endif
 void LU_forward_4x4_kernel_warp( const IndexType *LU_row_offsets,
                                  const IndexType *LU_smaller_color_offsets,
                                  const IndexType *LU_column_indices,
@@ -400,11 +396,7 @@ void LU_forward_4x4_kernel(const IndexType *LU_row_offsets, const IndexType *LU_
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, int CtaSize, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CtaSize, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CtaSize, 16 )
-#endif
 void LU_backward_4x4_kernel_warp( const IndexType *row_offsets,
                                   const IndexType *larger_color_offsets,
                                   const IndexType *column_indices,
@@ -962,11 +954,7 @@ computeAtoLUmappingExtDiag_kernel( int A_nRows,
 
 template< typename ValueTypeA, int CtaSize, int SMemSize, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CtaSize, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CtaSize, 12 )
-#endif
 void
 compute_LU_factors_4x4_kernel_warp( int A_nRows,
                                     const int *__restrict A_row_offsets,

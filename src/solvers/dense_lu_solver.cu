@@ -146,11 +146,7 @@ Value_type reduce_distributed_vectors( Value_type x, int is_leader, unsigned int
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE,
           int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void b_minus_A_halo_x( const int *__restrict A_rows,
                        const int *__restrict A_cols,
                        const Matrix_type *__restrict A_vals,

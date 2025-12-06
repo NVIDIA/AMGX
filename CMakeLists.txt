@@ -63,7 +63,7 @@ IF(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are Debug Release Profile RelWithTraces" FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
-find_package(CUDAToolkit 11.0 REQUIRED)
+find_package(CUDAToolkit 12.0 REQUIRED)
 
 # update/define the compilation flags.
 IF(WIN32)
@@ -209,13 +209,9 @@ ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.0.0)
 
   SET(CUDA_ALLOW_ARCH "70;75;80;86;89;90;100;120")
 
-ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
-
-  SET(CUDA_ALLOW_ARCH "70;75;80;86")
-
 ELSE()
 
-  MESSAGE(FATAL_ERROR "Error: CUDA minimum supported version is 11.0.")
+  MESSAGE(FATAL_ERROR "Error: CUDA minimum supported version is 12.0.")
 
 ENDIF()
 

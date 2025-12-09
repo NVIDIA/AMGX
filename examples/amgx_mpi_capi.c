@@ -54,6 +54,10 @@ void printUsageAndExit()
     strcat(msg, "     -m file: read matrix stored in the file\n");
     strcat(msg, "     -c:      set the amg solver options from the config file\n");
     strcat(msg, "     -amg:    set the amg solver options from the command line\n");
+    strcat(msg, "     -cd:     check if matrix is diagonally dominant\n");
+    strcat(msg, "     -cs:     check matrix symmetry\n");
+    strcat(msg, "     -om file: write the matrix system to file and exit\n");
+    strcat(msg, "     -r N:    run setup/solve N times for performance analysis\n");
     print_callback(msg, MAX_MSG_LEN);
     MPI_Finalize();
     exit(0);

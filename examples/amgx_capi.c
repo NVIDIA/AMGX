@@ -47,6 +47,10 @@ void printUsageAndExit()
     printf("%s", "     -m file: read matrix stored in the file\n");
     printf("%s", "     -c:      set the amg solver options from the config file\n");
     printf("%s", "     -amg:    set the amg solver options from the command line\n");
+    printf("%s", "     -cd:     check if matrix is diagonally dominant\n");
+    printf("%s", "     -cs:     check matrix symmetry\n");
+    printf("%s", "     -om file: write the matrix system to file and exit\n");
+    printf("%s", "     -r N:    run setup/solve N times for performance analysis\n");
     exit(0);
 }
 
@@ -359,6 +363,66 @@ int main(int argc, const char **argv)
         errAndExit("ERROR: no linear system was specified");
     }
 
+    pidx = findParamIndex(argv, argc, "-cd");
+    if(pidx != -1) 
+    {
+        int diag_dominant = 0;
+
+        printf("Checking matrix is diag dominant\n");
+        AMGX_matrix_check_diag_dominant(A, &diag_dominant);
+    }
+
+    pidx = findParamIndex(argv, argc, "-cs");
+    if(pidx != -1) 
+    {
+        int structurally_symmetric = 0;
+        int symmetric = 0;
+
+        printf("Checking matrix symmetry\n");
+        AMGX_matrix_check_symmetry(A, &structurally_symmetric, &symmetric);
+        if(symmetric) {
+            printf("A is symmetric\n");
+        }
+        else if(structurally_symmetric) {
+            printf("A is structurally_symmetric\n");
+        }
+        else {
+            printf("A is assymetric\n");
+        }
+    }
+
+    pidx = findParamIndex(argv, argc, "-om");
+    if(pidx != -1)
+    {
+        AMGX_write_system(A, b, x, argv[pidx + 1]);
+        return 0;
+    }
+
+    // Print out details of matrix as initialised by file and seen by the C API
+    if(bsize_x > 1 || bsize_y > 1) {
+        printf("Matrix A has %d rows with %d x %d blocks\n", n, bsize_x, bsize_y);
+    }
+    else {
+        printf("Matrix A is scalar and has %d rows\n", n);
+    }
+
+    size_t sizeof_v_val = ((AMGX_GET_MODE_VAL(AMGX_VecPrecision, mode) == AMGX_vecDouble))? sizeof(double) : sizeof(float);
+
+    // Potential setup dumb repeats for perf analysis
+    // Repeats just reset the solution to original state and setup/solve again
+    // Typically useful to analyse performance without overheads of a cold start
+    void *x_h = NULL;
+    int nrepeats = 1;
+    pidx = findParamIndex(argv, argc, "-r");
+    if(pidx != -1)
+    {
+      nrepeats = atoi(argv[pidx+1]);
+      x_h = malloc(n * bsize_x * sizeof_v_val);
+      AMGX_vector_download(x, x_h);
+
+      printf("Running for %d repeats\n", nrepeats);
+    }
+
 // example of getting initial residual norm
     /*
       {
@@ -406,14 +470,31 @@ int main(int argc, const char **argv)
         if (row_coloring) { free(row_coloring); }
     }
 
-    /* solver setup */
-    AMGX_solver_setup(solver, A);
-    /* solver solve */
-    AMGX_solver_solve(solver, b, x);
-    /* example of how to change parameters between non-linear iterations */
-    //AMGX_config_add_parameters(&cfg, "config_version=2, default:tolerance=1e-12");
-    //AMGX_solver_solve(solver, b, x);
-    AMGX_solver_get_status(solver, &status);
+    for(int r = 0; r < nrepeats; ++r)
+    {
+        if(r > 0) {
+            // Reset the solution for each repeat
+            AMGX_vector_upload(x, n, bsize_x, x_h);
+        }
+
+        /* solver setup */
+        AMGX_solver_setup(solver, A);
+        /* solver solve */
+        AMGX_solver_solve(solver, b, x);
+        /* example of how to change parameters between non-linear iterations */
+        //AMGX_config_add_parameters(&cfg, "config_version=2, default:tolerance=1e-12");
+        //AMGX_solver_solve(solver, b, x);
+        AMGX_solver_get_status(solver, &status);
+        if(status == AMGX_SOLVE_DIVERGED) {
+            print_callback("***Solver Diverged\n", 0);
+        }
+        else if(status == AMGX_SOLVE_NOT_CONVERGED) {
+            print_callback("***Solver Did Not Converge\n", 0);
+        }
+        else if(status == AMGX_SOLVE_FAILED) {
+            print_callback("***Solver Failed\n", 0);
+        }
+    }
     /* example of how to print the residual history */
     //int nit;
     //double res;
@@ -442,5 +523,5 @@ int main(int argc, const char **argv)
 #ifdef AMGX_DYNAMIC_LOADING
     amgx_libclose(lib_handle);
 #endif
-    return status;
+    return 0;
 }

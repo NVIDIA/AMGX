@@ -19,15 +19,7 @@ namespace amgx
 template< AMGX_VecPrecision V, AMGX_MatPrecision M, AMGX_IndPrecision I >
 void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create()
 {
-    cudaDeviceProp props = getDeviceProperties();
-    int arch = 10 * props.major + props.minor;
-
-    if ( arch >= 70 )
-    {
-        return new CSR_Multiply_Detail<TConfig_d>();
-    }
-
-    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Volta GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
+  return new CSR_Multiply_Detail<TConfig_d>();
 }
 
 // ====================================================================================================================
@@ -37,21 +29,27 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
 {
     int max_attempts = cfg.getParameter<int>("spmm_max_attempts", cfg_scope);
     int use_opt_kernels = cfg.getParameter<int>("use_opt_kernels", "default");
-    int use_cusparse_kernels = cfg.getParameter<int>("use_cusparse_kernels", "default");
-
-    cudaDeviceProp props = getDeviceProperties();
-    int arch = 10 * props.major + props.minor;
-
-    if ( arch >= 70 )
-    {
-        CSR_Multiply_Detail<TConfig_d> *wk = new CSR_Multiply_Detail<TConfig_d>();
-        wk->set_max_attempts(max_attempts);
-        wk->set_opt_multiply(use_opt_kernels);
-        wk->set_use_cusparse_kernels(use_cusparse_kernels);
-        return wk;
+    int use_cusparse_spgemm = cfg.getParameter<int>("use_cusparse_spgemm", "default");
+    std::string cusparse_spgemm_alg_str = cfg.getParameter<std::string>("cusparse_spgemm_alg", "default");
+    double cusparse_spgemm_fraction = cfg.getParameter<double>("cusparse_spgemm_fraction", "default");
+    cusparseSpGEMMAlg_t cusparse_spgemm_alg = CUSPARSE_SPGEMM_DEFAULT;
+    if (cusparse_spgemm_alg_str == "CUSPARSE_SPGEMM_DEFAULT") {
+      cusparse_spgemm_alg = CUSPARSE_SPGEMM_DEFAULT;
+    } else if (cusparse_spgemm_alg_str == "CUSPARSE_SPGEMM_ALG1") {
+      cusparse_spgemm_alg = CUSPARSE_SPGEMM_ALG1;
+    } else if (cusparse_spgemm_alg_str == "CUSPARSE_SPGEMM_ALG2") {
+      cusparse_spgemm_alg = CUSPARSE_SPGEMM_ALG2;
+    } else if (cusparse_spgemm_alg_str == "CUSPARSE_SPGEMM_ALG3") {
+      cusparse_spgemm_alg = CUSPARSE_SPGEMM_ALG3;
+    }
+    else {
+      FatalError( "Unknown cusparse algorithm", AMGX_ERR_NOT_IMPLEMENTED );
     }
 
-    FatalError( "CSR_Multiply: Unsupported architecture. It requires a Volta GPU or newer!!!", AMGX_ERR_NOT_SUPPORTED_BLOCKSIZE );
+    CSR_Multiply_Detail<TConfig_d> *wk = new CSR_Multiply_Detail<TConfig_d>();
+    wk->set_max_attempts(max_attempts);
+    wk->set_opt_multiply(use_opt_kernels);
+    wk->set_use_cusparse_spgemm(use_cusparse_spgemm);
 }
 
 // ====================================================================================================================
@@ -676,7 +674,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         {
             this->multiply_opt( A, P, AP );
         }
-        else if(this->m_use_cusparse_kernels)
+        else if(this->m_use_cusparse_spgemm)
         {
             this->cusparse_multiply(A, P, AP, NULL, NULL, NULL, NULL);
         }
@@ -698,7 +696,7 @@ void CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> >::galerkin_product(
         {
             this->multiply_opt( R, AP, RAP );
         }
-        else if(this->m_use_cusparse_kernels)
+        else if(this->m_use_cusparse_spgemm)
         {
             this->cusparse_multiply(R, AP, RAP, NULL, NULL, NULL, NULL);
         }

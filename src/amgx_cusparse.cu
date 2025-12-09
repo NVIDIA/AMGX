@@ -28,7 +28,7 @@
 namespace amgx
 {
 
-Cusparse::Cusparse() : m_handle(0)
+Cusparse::Cusparse() : m_handle(0), m_determinism_flag(false)
 {
     cusparseCheckError( cusparseCreate(&m_handle) );
 }
@@ -1069,8 +1069,11 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
             cusparseCreateCsr(&matA_descr, mb, nb, nnzb, const_cast<IndType*>(rows), const_cast<IndType*>(cols),
                               const_cast<MatType*>(vals), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, matType));
 
+        // Use ALG2 for deterministic results when determinism_flag is set
+        cusparseSpMVAlg_t spmv_alg = Cusparse::get_instance().is_deterministic() ? CUSPARSE_CSRMV_ALG2 : CUSPARSE_CSRMV_ALG1;
+
         size_t bufferSize = 0;
-        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG1, &bufferSize));
+        cusparseCheckError(cusparseSpMV_bufferSize(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, spmv_alg, &bufferSize));
 
         void* dBuffer = NULL;
         if(bufferSize > 0)
@@ -1082,7 +1085,7 @@ inline void generic_SpMV(cusparseHandle_t handle, cusparseOperation_t trans,
             }
         }
 
-        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, CUSPARSE_CSRMV_ALG1, dBuffer) );
+        cusparseCheckError(cusparseSpMV(handle, trans, alpha, matA_descr, vecX_descr, beta, vecY_descr, matType, spmv_alg, dBuffer) );
 
         cusparseCheckError(cusparseDestroySpMat(matA_descr));
         cusparseCheckError(cusparseDestroyDnVec(vecX_descr));

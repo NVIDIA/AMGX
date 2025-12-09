@@ -72,6 +72,7 @@ Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false), m_tmng(n
     amgx::allocate_resources(m_pool_size, m_max_alloc_size, m_scaling_factor, m_scaling_threshold, m_pool_size_limit);
     // setup NV libraries
     Cusparse &c = Cusparse::get_instance();
+    c.set_determinism_flag(m_cfg->getParameter<int>("determinism_flag", "default") != 0);
     Cublas::get_handle();
     // create and initialize thread manager
     //m_tmng = new ThreadManager();
@@ -120,6 +121,7 @@ Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const i
 
     // setup NV libraries
     Cusparse &c = Cusparse::get_instance();
+    c.set_determinism_flag(m_cfg->getParameter<int>("determinism_flag", "default") != 0);
     Cublas::get_handle();
     // create communicator
     // create and initialize thread manager

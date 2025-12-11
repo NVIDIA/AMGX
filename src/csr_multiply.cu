@@ -50,6 +50,7 @@ void *CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_workspace_create(
     wk->set_max_attempts(max_attempts);
     wk->set_opt_multiply(use_opt_kernels);
     wk->set_use_cusparse_spgemm(use_cusparse_spgemm);
+    return wk;
 }
 
 // ====================================================================================================================
@@ -80,7 +81,6 @@ void CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_multiply( const Ma
 
     if ( wk == NULL )
     {
-        printf("csr_multiply: wk is NULL\n");
         impl = static_cast<CSR_Multiply_Impl<TConfig_d> *>( csr_workspace_create() );
     }
     else
@@ -118,7 +118,6 @@ void CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_sparsity( const Ma
 
     if ( wk == NULL )
     {
-        printf("csr_sparsity: wk is NULL\n");
         impl = static_cast<CSR_Multiply_Impl<TConfig_d> *>( csr_workspace_create() );
     }
     else
@@ -156,7 +155,6 @@ void CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_sparsity( const Ma
 
     if ( wk == NULL )
     {
-        printf("csr_sparsity 2: wk is NULL\n");
         impl = static_cast<CSR_Multiply_Impl<TConfig_d> *>( csr_workspace_create() );
     }
     else
@@ -184,7 +182,6 @@ void CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_sparsity_ilu1( con
 
     if ( wk == NULL )
     {
-        printf("csr_sparsity_ilu1: wk is NULL\n");
         impl = static_cast<CSR_Multiply_Impl<TConfig_d> *>( csr_workspace_create() );
     }
     else
@@ -228,7 +225,6 @@ CSR_Multiply<TemplateConfig<AMGX_device, V, M, I> >::csr_galerkin_product( const
 
     if ( wk == NULL )
     {
-        printf("csr_galerkin_product: wk is NULL\n");
         impl = static_cast<CSR_Multiply_Impl<TConfig_d> *>( csr_workspace_create() );
     }
     else

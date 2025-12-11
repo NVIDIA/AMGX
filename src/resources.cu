@@ -124,7 +124,7 @@ Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const i
     c.set_determinism_flag(m_cfg->getParameter<int>("determinism_flag", "default") != 0);
     Cublas::get_handle();
     // create communicator
-    // create and initialize thread manager
+    // create and initialized thread manager
     //m_tmng = new ThreadManager();
     //m_tmng->setup_streams(m_num_streams, m_high_priority_stream, m_serialize_threads);
     // spawn threads

@@ -491,7 +491,7 @@ csr_to_dense(
     const Matrix_d *A = dynamic_cast<Matrix_d *>(Base::m_A);
     const int block_size = 256;
     const int num_warps  = block_size / WARP_SIZE;
-    const int grid_size = std::min(4096, (A->get_num_rows() + num_warps - 1) / num_warps);
+    const int grid_size = (A->get_num_rows() + num_warps - 1) / num_warps;
     cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     csr_to_dense_kernel<Matrix_data, Vector_data, WARP_SIZE> <<< grid_size, block_size, 0, stream>>>(
         A->get_num_rows(),
@@ -530,6 +530,7 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
     allocMem(m_trf_wspace, wsize, false);
     status1 = cusolverDnXgetrf(m_cuds_handle, m_num_rows, m_num_cols,
                                m_dense_A, m_lda, m_trf_wspace, m_ipiv, m_cuds_info);
+    cudaCheckError();
 
     if ( status1 != CUSOLVER_STATUS_SUCCESS)
     {
@@ -539,11 +540,8 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
     else
     {
         int t_info;
-        cudaError_t cuda_rc = cudaMemcpy(&t_info, m_cuds_info, sizeof(int), cudaMemcpyDefault);
-        if (cuda_rc != cudaSuccess)
-        {
-            FatalError("cudaMemcpy failed in dense_lu_solver", AMGX_ERR_CUDA_FAILURE);
-        }
+        cudaMemcpy(&t_info, m_cuds_info, sizeof(int), cudaMemcpyDefault);
+        cudaCheckError();
 
         if (t_info != 0)
         {
@@ -776,7 +774,7 @@ solver_setup(bool reuse_matrix_structure)
         allocMem(m_ipiv, m_num_rows, false);
 
         // Allocate memory to store the dense A and initialize to zero.
-        allocMem(m_dense_A, m_num_cols * m_num_rows, true);
+        allocMem(m_dense_A, static_cast<size_t>(m_num_cols) * m_num_rows, true);
 
         // Much of the data can be reused if we are performing a resetup
         if (!reuse_matrix_structure)
@@ -850,7 +848,7 @@ solver_setup(bool reuse_matrix_structure)
         MVector_h Avals_global_h(m_nnz_global);
         A->manager->getComms()->all_gather_v(local_Avals_h, nnz, Avals_global_h, nz_all, nz_displs);
 
-        allocMem(m_dense_A, m_num_cols * m_lda, true);
+        allocMem(m_dense_A, static_cast<size_t>(m_num_cols) * m_lda, true);
 
         MVector_d Avals_global(m_nnz_global);
         amgx::thrust::copy(Avals_global_h.begin(), Avals_global_h.end(), Avals_global.begin());

@@ -351,11 +351,14 @@ int main(int argc, char **argv)
     int block_dimy;
     AMGX_matrix_get_size(A, &n, &block_dimx, &block_dimy);
 
+    int global_n;
+    MPI_Reduce(&n, &global_n, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
     if(block_dimx > 1 || block_dimy > 1) {
-        if(rank == 0) { printf("Matrix A has %d rows with %d x %d blocks\n", n, block_dimx, block_dimy); };
+        if(rank == 0) { printf("Matrix A has %d rows with %d x %d blocks\n", global_n, block_dimx, block_dimy); };
     }
     else {
-        if(rank == 0) { printf("Matrix A is scalar and has %d rows\n", n); };
+        if(rank == 0) { printf("Matrix A is scalar and has %d rows\n", global_n); };
     }
 
     size_t sizeof_v_val = ((AMGX_GET_MODE_VAL(AMGX_VecPrecision, mode) == AMGX_vecDouble))? sizeof(double) : sizeof(float);

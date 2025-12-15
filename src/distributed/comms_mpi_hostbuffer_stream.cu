@@ -651,7 +651,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_async(T &b, const Matr
     Accept(fsmV);
     fsmV.next();//advance FSM
 
-    if (min_rows_latency_hiding < 0 || m.get_num_rows() < min_rows_latency_hiding)
+    if (min_rows_latency_hiding < 0 || m.manager->num_rows_all() < min_rows_latency_hiding)
     {
         MPI_Waitall(2 * neighbors, &b.requests[0], /*&b.statuses[0]*/ MPI_STATUSES_IGNORE); //I only wait to receive data, I can start working before all my buffers were sent
         b.dirtybit = 0;
@@ -670,7 +670,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_wait(T &b, const Matri
 #ifdef AMGX_WITH_MPI
     int bsize = b.get_block_size();
 
-    if (!(min_rows_latency_hiding < 0 || m.get_num_rows() < min_rows_latency_hiding))
+    if (!(min_rows_latency_hiding < 0 || m.manager->num_rows_all() < min_rows_latency_hiding))
     {
         MPI_Waitall(2 * neighbors, &b.requests[0], MPI_STATUSES_IGNORE);
         b.dirtybit = 0;

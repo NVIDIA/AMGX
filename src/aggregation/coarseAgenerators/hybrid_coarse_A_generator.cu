@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -34,7 +34,7 @@ struct isDiagonal
     __host__ __device__
     bool operator()(tuple_t IJ)
     {
-        return ( IJ.get<0>() == IJ.get<1>() );
+        return ( amgx::thrust::get<0>(IJ) == amgx::thrust::get<1>(IJ) );
     }
 
 };

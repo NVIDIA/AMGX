@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -943,6 +943,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 num_nonzero_blocks,
                 num_block_rows,
                 this->filter_weights_alpha);
+                cudaCheckError();
         cudaStreamSynchronize(str);
         cudaCheckError();
         tmp.swap( edge_weights );
@@ -986,6 +987,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                                 degree.raw(),
                                 num_block_rows,
                                 this->max_aggregate_size );
+                                cudaCheckError();
 
                     // 1-phase handshaking
                     if ( this->modified_handshake )
@@ -1031,6 +1033,7 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 if ( this->merge_singletons == 2 )
                 {
                     matchEdges <<< num_blocks, threads_per_block, 0, str>>>(num_block_rows, aggregates_ptr, strongest_neighbour_ptr, sizes.raw());
+                    cudaCheckError();
                 }
                 else
                 {
@@ -1044,10 +1047,18 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 if ( s == 0 )
                 {
                     // count unaggregated vertices
-                    cudaMemsetAsync(d_unaggregated, 0, sizeof(int), str);
+                    cudaError_t cuda_rc = cudaMemsetAsync(d_unaggregated, 0, sizeof(int), str);
+                    if (cuda_rc != cudaSuccess)
+                    {
+                        FatalError("cudaMemsetAsync failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+                    }
                     countAggregates<IndexType, threads_per_block> <<< num_blocks, threads_per_block, 0, str>>>(num_block_rows, aggregates_ptr, d_unaggregated);
                     cudaCheckError();
-                    cudaMemcpyAsync(unaggregated, d_unaggregated, sizeof(int), cudaMemcpyDeviceToHost, str);
+                    cuda_rc = cudaMemcpyAsync(unaggregated, d_unaggregated, sizeof(int), cudaMemcpyDeviceToHost, str);
+                    if (cuda_rc != cudaSuccess)
+                    {
+                        FatalError("cudaMemcpyAsync failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+                    }
                     throttle_event->record(str);
                 }
                 else
@@ -1058,7 +1069,11 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
                 }
 
 #else
-                cudaStreamSynchronize(str);
+                cudaError_t cuda_rc = cudaStreamSynchronize(str);
+                if (cuda_rc != cudaSuccess)
+                {
+                    FatalError("cudaStreamSynchronize failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+                }
                 numUnassigned_previous = numUnassigned;
                 numUnassigned = (int)amgx::thrust::count(aggregates.begin(), aggregates.begin() + num_block_rows, -1);
                 cudaCheckError();
@@ -1164,9 +1179,21 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     IndexType *agg = new IndexType[numRows];
     IndexType *deg = new IndexType[numRows];
     //copy
-    cudaMemcpy( ia, A.row_offsets.raw(), sizeof(IndexType) * (numRows + 1), cudaMemcpyDeviceToHost );
-    cudaMemcpy( ja, A.col_indices.raw(), sizeof(IndexType)*nnz, cudaMemcpyDeviceToHost );
-    cudaMemcpy( w, edge_weights.raw(), sizeof(ValueType)*nnz, cudaMemcpyDeviceToHost );
+    cudaError_t cuda_rc = cudaMemcpy( ia, A.row_offsets.raw(), sizeof(IndexType) * (numRows + 1), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy row_offsets D2H failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy( ja, A.col_indices.raw(), sizeof(IndexType)*nnz, cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy col_indices D2H failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy( w, edge_weights.raw(), sizeof(ValueType)*nnz, cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy edge_weights D2H failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
     //init agg and compute the degree of each aggregate
     int max_degree = 0;
 
@@ -1360,7 +1387,11 @@ void MultiPairwiseSelector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     }
 
     //copy result back to device
-    cudaMemcpy( aggregates.raw(), agg, sizeof(IndexType)*numRows, cudaMemcpyHostToDevice );
+    cuda_rc = cudaMemcpy( aggregates.raw(), agg, sizeof(IndexType)*numRows, cudaMemcpyHostToDevice );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy aggregates H2D failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
 
     //assert matching
     for (IndexType node = 0; node < numRows; node++)
@@ -1478,9 +1509,21 @@ void MultiPairwiseSelectorBase<TConfig>::assertRestriction( const IVector &R_row
         used_col[i] = 0;
     }
 
-    cudaMemcpy( r_ia, R_row_offsets.raw(), sizeof(int)*R_row_offsets.size(), cudaMemcpyDeviceToHost );
-    cudaMemcpy( r_ja, R_col_indices.raw(), sizeof(int)*R_col_indices.size(), cudaMemcpyDeviceToHost );
-    cudaMemcpy( agg, aggregates.raw(), sizeof(int)*aggregates.size(), cudaMemcpyDeviceToHost );
+    cudaError_t cuda_rc = cudaMemcpy( r_ia, R_row_offsets.raw(), sizeof(int)*R_row_offsets.size(), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy R_row_offsets D2H failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy( r_ja, R_col_indices.raw(), sizeof(int)*R_col_indices.size(), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy R_col_indices D2H failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy( agg, aggregates.raw(), sizeof(int)*aggregates.size(), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy aggregates D2H failed in multi_pairwise", AMGX_ERR_CUDA_FAILURE);
+    }
 
     for ( int i = 0; i < R_row_offsets.size() - 1; i++ )
     {
@@ -1649,6 +1692,7 @@ void MultiPairwiseSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
                     const int index_offset = A.get_block_dimy() * m_aggregation_edge_weight_component + m_aggregation_edge_weight_component;
                     //do the interleaved copy
                     gatherValuesInterleaved <<< num_blocks_inter, threads_per_block, 0, stream>>>( A.values.raw(), w.values.raw(), nnz, sq_blocksize, index_offset );
+                    cudaCheckError();
                     cudaStreamSynchronize( stream );
                     cudaCheckError();
                 }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -142,8 +142,10 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
     if (b.linear_buffers_size < neighbors)
     {
         if (b.linear_buffers_size != 0) { amgx::memory::cudaFreeHost(b.linear_buffers); }
+        cudaCheckError();
 
         amgx::memory::cudaMallocHost((void **) & (b.linear_buffers), neighbors * sizeof(vtyp *));
+        cudaCheckError();
         b.linear_buffers_size = neighbors;
         b.linear_buffers_ptrs.resize(neighbors);
     }
@@ -170,6 +172,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
 
         // It is more efficient to synchronise only when linear buffers change
         cudaStreamSynchronize(0);
+        cudaCheckError();
     }
 
     int offset = 0;
@@ -192,10 +195,12 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
             b.host_buffer.resize(1);
             cudaEventCreateWithFlags(&b.mpi_event, cudaEventDisableTiming);
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, total_size * sizeof(vtyp));
+            cudaCheckError();
         }
         else if (total_size > b.explicit_buffer_size)
         {
             amgx::memory::cudaFreeHost(b.explicit_host_buffer);
+            cudaCheckError();
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, total_size * sizeof(vtyp));
         }
 
@@ -244,6 +249,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
     {
         b.buffer->resize(size);
         cudaStreamSynchronize(0);
+        cudaCheckError();
     }
 
     b.host_buffer.resize(send_size + recv_size);
@@ -256,10 +262,12 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
             b.host_buffer.resize(1);
             cudaEventCreateWithFlags(&b.mpi_event, cudaEventDisableTiming);
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, size * sizeof(vtyp));
+            cudaCheckError();
         }
         else if (size > b.explicit_buffer_size)
         {
             amgx::memory::cudaFreeHost(b.explicit_host_buffer);
+            cudaCheckError();
             amgx::memory::cudaMallocHost((void **)&b.explicit_host_buffer, size * sizeof(vtyp));
         }
 
@@ -271,8 +279,10 @@ void CommsMPIHostBufferStream<T_Config>::do_setup_L2H(T &b, Matrix<TConfig> &m, 
     if (b.linear_buffers_size < neighbors)
     {
         if (b.linear_buffers_size != 0) { amgx::memory::cudaFreeHost(b.linear_buffers); }
+        cudaCheckError();
 
         amgx::memory::cudaMallocHost((void **) & (b.linear_buffers), neighbors * sizeof(vtyp *));
+        cudaCheckError();
         b.linear_buffers_size = neighbors;
     }
 
@@ -509,6 +519,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfi
             {
                 // we need to use new indices after renumbering - these are stored in L2H_maps
                 cudaMemcpyAsync(b.linear_buffers[i] + total, b.raw() + m.manager->halo_offsets[j * num_neighbors + i], size*sizeof(typename T::value_type), cudaMemcpyDefault, stream);
+                cudaCheckError();
                 total += size;
             }
         }
@@ -516,6 +527,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H(T &b, const Matrix<TConfi
         cudaCheckError();
     }
     cudaStreamSynchronize(stream);
+    cudaCheckError();
 
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
@@ -546,6 +558,7 @@ void CommsMPIHostBufferStream<T_Config>::do_gather_L2H_v2(T &b, const Matrix<TCo
     if (total != 0)
     {
         cudaMemcpyAsync(b.linear_buffers[0], b.raw() + m.manager->halo_offsets[0], total*sizeof(typename T::value_type), cudaMemcpyDefault, stream);
+        cudaCheckError();
     }
 
 #else
@@ -638,7 +651,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_async(T &b, const Matr
     Accept(fsmV);
     fsmV.next();//advance FSM
 
-    if (min_rows_latency_hiding < 0 || m.get_num_rows() < min_rows_latency_hiding)
+    if (min_rows_latency_hiding < 0 || m.manager->num_rows_all() < min_rows_latency_hiding)
     {
         MPI_Waitall(2 * neighbors, &b.requests[0], /*&b.statuses[0]*/ MPI_STATUSES_IGNORE); //I only wait to receive data, I can start working before all my buffers were sent
         b.dirtybit = 0;
@@ -657,7 +670,7 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_wait(T &b, const Matri
 #ifdef AMGX_WITH_MPI
     int bsize = b.get_block_size();
 
-    if (!(min_rows_latency_hiding < 0 || m.get_num_rows() < min_rows_latency_hiding))
+    if (!(min_rows_latency_hiding < 0 || m.manager->num_rows_all() < min_rows_latency_hiding))
     {
         MPI_Waitall(2 * neighbors, &b.requests[0], MPI_STATUSES_IGNORE);
         b.dirtybit = 0;

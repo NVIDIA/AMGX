@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -92,7 +92,7 @@ struct row_operator
 
 
 template <typename IndexType>
-struct tuple_equal_to : public amgx::thrust::unary_function<amgx::thrust::tuple<IndexType,IndexType>,bool>
+struct tuple_equal_to
 {
     __host__ __device__
     bool operator()(const amgx::thrust::tuple<IndexType,IndexType>& t) const

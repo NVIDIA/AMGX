@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -298,6 +298,7 @@ IDRMSYNC_Solver_Base<T_Config>::solve_iteration( VVector &b, VVector &x, bool xI
         // G(:,k) = A*U(:,k); matvec
         copy_ext(U, tempu, k * N, 0, N);
         cudaDeviceSynchronize();
+        cudaCheckError();
         A.apply(tempu, tempg);
         copy_ext(tempg, G, 0, k * N, N);
         // Bi-Orthogonalise the new basis vectors:
@@ -445,6 +446,7 @@ void IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     }
 
     cudaMemcpy((void *) res.raw(),       (void *) hres.raw(),       (s - k)*sizeof(ValueTypeB),   cudaMemcpyHostToDevice);
+    cudaCheckError();
 }
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::divide_for_beta(VVector &nume, VVector &denom, VVector &Result, ValueTypeB *hresult, int k, int s)
@@ -510,6 +512,7 @@ void IDRMSYNC_Solver< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPre
     }// else ends for more than one processor
 
     cudaMemcpy((void *)result.raw(), (void *)hresult.raw(), s * sizeof(ValueTypeB), cudaMemcpyHostToDevice);
+    cudaCheckError();
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
@@ -549,12 +552,16 @@ void IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     ValueTypeB numer, denom;//, dotval;
     gemv_extnd(trans, A, x, y, m, n, alpha, beta, incx, incy, lda, offsetA, offsetx, offsety);
     cudaDeviceSynchronize();
+    cudaCheckError();
     cudaMemcpy((void *) &numer,
                (void *) & ((nume.raw())[k]),
                sizeof(ValueTypeB),   cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
+    cudaCheckError();
     cudaMemcpy((void *) &denom, (void *) & (y.raw())[k + s * k],  sizeof(ValueTypeB),   cudaMemcpyDeviceToHost);
+    cudaCheckError();
     cudaDeviceSynchronize();
+    cudaCheckError();
 
     if (denom != (ValueTypeB) 0)
     {
@@ -592,7 +599,9 @@ IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::
 {
     ValueTypeB dnr;
     cudaMemcpy((void *) &dnr, (void *) & (denom.raw())[i + s * i],  sizeof(ValueTypeB),   cudaMemcpyDeviceToHost);
+    cudaCheckError();
     cudaDeviceSynchronize();
+    cudaCheckError();
 
     if (dnr != (ValueTypeB) 0)
     {
@@ -635,6 +644,7 @@ void IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     for (i = 0; i < s; i++) { (hbuff.raw())[i * s + i] = (ValueTypeB) 1.0; }
 
     cudaMemcpy((void *)M.raw(), (void *)hbuff.raw(), s * s * sizeof(ValueTypeB), cudaMemcpyHostToDevice);
+    cudaCheckError();
     srand(0);
 
     for (i = 0; i < N * s; i++)
@@ -643,6 +653,7 @@ void IDRMSYNC_Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec
     }
     
     cudaMemcpy((void *)P.raw(), (void *)hbuff.raw(), N * s * sizeof(ValueTypeB), cudaMemcpyHostToDevice);
+    cudaCheckError();
 
 }
 

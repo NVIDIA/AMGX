@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -169,11 +169,7 @@ compute_sparsity_kernel( const int  R_num_rows, // same as num_aggregates.
 
 template< typename Value_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int SMEM_SIZE, int WARP_SIZE, bool HAS_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 8 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 8 )
-#endif
 void fill_A_kernel_1x1( const int  R_num_rows,
                         const int *R_rows,
                         const int *R_cols,
@@ -845,9 +841,17 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
 
     const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
     int *h_status;
-    amgx::memory::cudaMallocHost((void **) &h_status, sizeof(int));
+    cudaError_t cuda_rc = amgx::memory::cudaMallocHost((void **) &h_status, sizeof(int));
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMallocHost failed for h_status in low_deg_coarse_A_generator", AMGX_ERR_CUDA_FAILURE);
+    }
     int *h_work_offset;
-    amgx::memory::cudaMallocHost((void **) &h_work_offset, sizeof(int));
+    cuda_rc = amgx::memory::cudaMallocHost((void **) &h_work_offset, sizeof(int));
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMallocHost failed for h_work_offset in low_deg_coarse_A_generator", AMGX_ERR_CUDA_FAILURE);
+    }
     int attempt = 0;
     bool warning_printed = 0;
 
@@ -894,13 +898,26 @@ void compute_sparsity_dispatch( Workspace &hash_wk,
         cudaCheckError();
         // Read the result from count_non_zeroes.
         cudaMemcpyAsync( p_status, hash_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost, amgx::thrust::global_thread_handle::get_stream() );
-        cudaStreamSynchronize(amgx::thrust::global_thread_handle::get_stream());
+        cudaCheckError();
+        cuda_rc = cudaStreamSynchronize(amgx::thrust::global_thread_handle::get_stream());
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaStreamSynchronize failed in low_deg_coarse_A_generator", AMGX_ERR_CUDA_FAILURE);
+        }
         done = (*p_status == 0);
         cudaCheckError();
     }
 
-    amgx::memory::cudaFreeHost(h_status);
-    amgx::memory::cudaFreeHost(h_work_offset);
+    cuda_rc = amgx::memory::cudaFreeHost(h_status);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaFreeHost failed for h_status in low_deg_coarse_A_generator", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = amgx::memory::cudaFreeHost(h_work_offset);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaFreeHost failed for h_work_offset in low_deg_coarse_A_generator", AMGX_ERR_CUDA_FAILURE);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -954,6 +971,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                 hash_wk.get_keys(),
                 hash_wk.get_vals(),
                 hash_wk.get_work_queue() );
+                cudaCheckError();
             break;
 
         case 2:
@@ -975,6 +993,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                 hash_wk.get_keys(),
                 reinterpret_cast<int *>( hash_wk.get_vals() ),
                 hash_wk.get_work_queue() );
+                cudaCheckError();
             break;
 
         case 3:
@@ -996,6 +1015,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                 hash_wk.get_keys(),
                 reinterpret_cast<int *>( hash_wk.get_vals() ),
                 hash_wk.get_work_queue() );
+                cudaCheckError();
             break;
 
         case 4:
@@ -1037,7 +1057,8 @@ void fill_A_dispatch( Workspace &hash_wk,
                     hash_wk.get_keys(),
                     reinterpret_cast<int *>( hash_wk.get_vals() ),
                     hash_wk.get_work_queue() );
-
+            
+            cudaCheckError();
             break;
 
         case 5:
@@ -1059,6 +1080,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                 hash_wk.get_keys(),
                 reinterpret_cast<int *>( hash_wk.get_vals() ),
                 hash_wk.get_work_queue() );
+                cudaCheckError();
             break;
 
         case 8:
@@ -1080,6 +1102,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                 hash_wk.get_keys(),
                 reinterpret_cast<int *>( hash_wk.get_vals() ),
                 hash_wk.get_work_queue() );
+                cudaCheckError();
             break;
 
         case 10:
@@ -1101,6 +1124,7 @@ void fill_A_dispatch( Workspace &hash_wk,
                 hash_wk.get_keys(),
                 reinterpret_cast<int *>( hash_wk.get_vals() ),
                 hash_wk.get_work_queue() );
+                cudaCheckError();
             break;
 
         default:

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -95,7 +95,7 @@ struct is_valid_coo_index
 };
 
 template <typename T>
-struct transpose_index_functor : public amgx::thrust::unary_function<T,T>
+struct transpose_index_functor
 {
   const T num_entries_per_row;
   const T pitch;
@@ -132,7 +132,7 @@ struct occupied_diagonal_functor
 };
 
 template <typename IndexType>
-struct diagonal_index_functor : public amgx::thrust::unary_function<IndexType,IndexType>
+struct diagonal_index_functor
 {
   const IndexType pitch;
 
@@ -151,7 +151,7 @@ struct diagonal_index_functor : public amgx::thrust::unary_function<IndexType,In
 };
 
 template <typename T>
-struct sum_tuple_functor : public amgx::thrust::unary_function<T,T>
+struct sum_tuple_functor
 {
   template <typename Tuple>
     __host__ __device__
@@ -165,7 +165,7 @@ struct sum_tuple_functor : public amgx::thrust::unary_function<T,T>
 };
 
 template <typename T>
-struct multiply_value : public amgx::thrust::unary_function<T,T>
+struct multiply_value
 {
   const T value;
 
@@ -180,7 +180,7 @@ struct multiply_value : public amgx::thrust::unary_function<T,T>
 };
 
 template <typename T>
-struct divide_value : public amgx::thrust::unary_function<T,T>
+struct divide_value
 {
   const T value;
 
@@ -195,7 +195,7 @@ struct divide_value : public amgx::thrust::unary_function<T,T>
 };
 
 template <typename T>
-struct modulus_value : public amgx::thrust::unary_function<T,T>
+struct modulus_value
 {
   const T value;
 

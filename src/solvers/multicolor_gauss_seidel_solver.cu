@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -1011,6 +1011,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     if (use_aux_stream)
     {
         cudaEventRecord(this->m_start, stream);
+        cudaCheckError();
         cudaStreamWaitEvent(work_stream, this->m_start, 0); // work_stream to wait for stream 
     }
 
@@ -1137,6 +1138,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     if (use_aux_stream)
     {
         cudaEventRecord(this->m_start, work_stream);
+        cudaCheckError();
         cudaStreamWaitEvent(stream, this->m_start, 0); // stream to wait for work_stream
     }
     cudaCheckError();

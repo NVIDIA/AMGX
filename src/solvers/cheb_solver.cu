@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -60,12 +60,14 @@ void Chebyshev_Solver<T_Config>::compute_eigenmax_estimate(const Matrix<T_Config
         cudaFuncSetCacheConfig(getLambdaEstimate < IndexType, ValueTypeA, ValueTypeB, LAMBDA_BLOCK_SIZE, LAMBDA_BLOCK_SIZE / 32, true >, cudaFuncCachePreferL1);
         getLambdaEstimate < IndexType, ValueTypeA, ValueTypeB, LAMBDA_BLOCK_SIZE, LAMBDA_BLOCK_SIZE / 32, true > <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, A.get_num_rows(), tsum.raw());
+        cudaCheckError();
     }
     else
     {
         cudaFuncSetCacheConfig(getLambdaEstimate < IndexType, ValueTypeA, ValueTypeB, LAMBDA_BLOCK_SIZE, LAMBDA_BLOCK_SIZE / 32, false >, cudaFuncCachePreferL1);
         getLambdaEstimate < IndexType, ValueTypeA, ValueTypeB, LAMBDA_BLOCK_SIZE, LAMBDA_BLOCK_SIZE / 32, false > <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, A.get_num_rows(), tsum.raw());
+        cudaCheckError();
     }
 
     lambda = *(amgx::thrust::max_element(tsum.begin(), tsum.end()));

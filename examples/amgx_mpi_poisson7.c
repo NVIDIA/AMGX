@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -358,9 +358,9 @@ int main(int argc, char **argv)
     AMGX_resources_destroy(rsrc);
     /* destroy config (need to use AMGX_SAFE_CALL after this point) */
     AMGX_SAFE_CALL(AMGX_config_destroy(cfg))
-      /* shutdown and exit */
-      AMGX_SAFE_CALL(AMGX_finalize())
-      /* close the library (if it was dynamically loaded) */
+    /* shutdown and exit */
+    AMGX_SAFE_CALL(AMGX_finalize())
+    /* close the library (if it was dynamically loaded) */
 #ifdef AMGX_DYNAMIC_LOADING
       amgx_libclose(lib_handle);
 #endif

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -116,9 +116,7 @@ __inline__ __device__ float fetch_x(const int& i, const float * x)
 template <bool UseCache>
 __inline__ __device__ double fetch_x(const int& i, const double * x)
 {
-#if __CUDA_ARCH__ >= 130
 #ifdef CUSP_USE_TEXTURE_MEMORY
-    // double requires Compute Capability 1.3 or greater
     if (UseCache)
     {
         int2 v = tex1Dfetch(tex_x_double, i);
@@ -127,9 +125,6 @@ __inline__ __device__ double fetch_x(const int& i, const double * x)
     else
 #endif // CUSP_USE_TEXTURE_MEMORY
         return x[i];
-#else 
-    return 1.0f;
-#endif
 }
 
 
@@ -147,9 +142,7 @@ __inline__ __device__ cusp::complex<float> fetch_x(const int& i, const cusp::com
 template <bool UseCache>
 __inline__ __device__ cusp::complex<double> fetch_x(const int& i, const cusp::complex<double> * x)
 {
-#if __CUDA_ARCH__ >= 130
 #ifdef CUSP_USE_TEXTURE_MEMORY
-    // double requires Compute Capability 1.3 or greater
     if (UseCache)
       {
 	int2 vr = tex1Dfetch(tex_x_double, i*2);
@@ -159,8 +152,5 @@ __inline__ __device__ cusp::complex<double> fetch_x(const int& i, const cusp::co
     else
 #endif // CUSP_USE_TEXTURE_MEMORY
         return x[i];
-#else 
-    return 1.0f;
-#endif
 }
 

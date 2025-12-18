@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -1929,6 +1929,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         const int NUM_WARPS = CTA_SIZE / WARP_SIZE;
         int work_offset = grid_size * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
         int avg_nz_per_row = (A.get_num_rows() == 0) ? 0 : A.get_num_nz() / A.get_num_rows();
 
         if ( avg_nz_per_row < 16 )
@@ -1940,6 +1941,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                 cf_map.raw(),
                 s_con.raw(),
                 C_hat_start.raw());
+                cudaCheckError();
         }
         else
         {
@@ -1977,9 +1979,11 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             // Reset the status. TODO: Launch async copies.
             int status = 0;
             cudaMemcpy( exp_wk.get_status(), &status, sizeof(int), cudaMemcpyHostToDevice );
+            cudaCheckError();
             // Compute the set C_hat.
             int work_offset = grid_size * NUM_WARPS;
             cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+            cudaCheckError();
 
             // Run the computation.
             if ( avg_nz_per_row < 16 )
@@ -1998,6 +2002,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
                     exp_wk.get_keys(),
                     exp_wk.get_work_queue(),
                     exp_wk.get_status() );
+                    cudaCheckError();
             }
             else
             {
@@ -2020,6 +2025,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             cudaCheckError();
             // Read the result from count_non_zeroes.
             cudaMemcpy( &status, exp_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost );
+            cudaCheckError();
             done = status == 0;
         }
     }
@@ -2139,6 +2145,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         // Compute the set C_hat.
         int work_offset = grid_size * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
         // Run the computation.
         typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
         {
@@ -2169,6 +2176,7 @@ void Distance2_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
         // Compute the set C_hat.
         int work_offset = grid_size * NUM_WARPS;
         cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+        cudaCheckError();
         // Run the computation.
         typedef typename MatPrecisionMap<t_matPrec>::Type Value_type;
         distance2::compute_interp_weight_kernel<Value_type, CTA_SIZE, SMEM_SIZE, WARP_SIZE> <<< grid_size, CTA_SIZE>>>(

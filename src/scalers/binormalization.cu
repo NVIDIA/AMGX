@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -254,7 +254,7 @@ void computeBetaDevice(const int nrows, IndexType *offsets, IndexType *indices, 
 
 
 template<typename T>
-struct square_value : public thrust::unary_function<T, T>
+struct square_value
 {
     __host__ __device__ T operator()(const T &x) const
     {
@@ -320,6 +320,7 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     const ValueTypeB tolerance = 1e-10;
     VVector diag(A.get_num_rows());
     grabDiagonalVector <<< 4096, 128>>>(A.get_num_rows(), A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), diag.raw());
+    cudaCheckError();
     int nrows = A.get_num_rows();
     // temporary vectors
     VVector x(nrows, 1), xn(nrows), davg(nrows), beta(nrows, 0);
@@ -336,6 +337,7 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
 
         computeBetaDevice <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(),
                                            diag.raw(), x.raw(), xn.raw(), beta.raw(), avg, davg.raw());
+        cudaCheckError();
         avg += thrust_wrapper::reduce<AMGX_device>(davg.begin(), davg.end());
         // ValueTypeB stdx_old = stdx;
         stdx = sqrt(amgx::thrust::inner_product(x_ptr, x_ptr + nrows, beta_ptr, ValueTypeB(0.), amgx::thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(avg)) / nrows) / avg;

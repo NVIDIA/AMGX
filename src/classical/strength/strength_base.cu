@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -7,7 +7,6 @@
 #include <types.h>
 #include <classical/strength/ahat.h>
 #include <classical/strength/all.h>
-#include <thrust/detail/integer_traits.h>
 #include <float.h>
 #include <specific_spmv.h>
 #include <sm_utils.inl>
@@ -550,6 +549,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             0);
+                cudaCheckError();
             }
             else {
                 computeStrongConnectionsAndWeightsKernel_opt<IndexType, ValueType, blockSize, false>
@@ -564,6 +564,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             A.manager->base_index());
+                cudaCheckError();
             }
         }
         else
@@ -585,6 +586,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             0);
+                cudaCheckError();
             }
             else {
                 computeStrongConnectionsAndWeightsKernel<IndexType, ValueType, blockSize, false>
@@ -599,6 +601,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
                             A.manager->base_index());
+                cudaCheckError();
             }
         }
     }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -481,26 +481,32 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     {
         case 2:
             restrictResidualBlockDiaCsrKernel<IndexType, ValueTypeB, 2> <<< num_blocks, block_size>>>(R_row_offsets_ptr, R_column_indices_ptr, r_ptr, rr_ptr, max_threads);
+            cudaCheckError();
             break;
 
         case 3:
             restrictResidualBlockDiaCsrKernel<IndexType, ValueTypeB, 3> <<< num_blocks, block_size>>>(R_row_offsets_ptr, R_column_indices_ptr, r_ptr, rr_ptr, max_threads);
+            cudaCheckError();
             break;
 
         case 4:
             restrictResidualBlockDiaCsrKernel<IndexType, ValueTypeB, 4> <<< num_blocks, block_size>>>(R_row_offsets_ptr, R_column_indices_ptr, r_ptr, rr_ptr, max_threads);
+            cudaCheckError();
             break;
 
         case 5:
             restrictResidualBlockDiaCsrKernel<IndexType, ValueTypeB, 5> <<< num_blocks, block_size>>>(R_row_offsets_ptr, R_column_indices_ptr, r_ptr, rr_ptr, max_threads);
+            cudaCheckError();
             break;
 
         case 8:
             restrictResidualBlockDiaCsrKernel<IndexType, ValueTypeB, 8> <<< num_blocks, block_size>>>(R_row_offsets_ptr, R_column_indices_ptr, r_ptr, rr_ptr, max_threads);
+            cudaCheckError();
             break;
 
         case 10:
             restrictResidualBlockDiaCsrKernel<IndexType, ValueTypeB, 10> <<< num_blocks, block_size>>>(R_row_offsets_ptr, R_column_indices_ptr, r_ptr, rr_ptr, max_threads);
+            cudaCheckError();
             break;
 
         default:
@@ -727,6 +733,7 @@ void Aggregation_AMG_Level<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
         const int num_block_values = std::min( AMGX_GRID_MAX_SIZE, (numRowsFine * blockdim - 1) / threads_per_block + 1);
         const cudaStream_t stream = nullptr;
         prolongateVector <<< num_block_values, threads_per_block, 0, stream>>>( this->m_aggregates.raw(), ec.raw(), ef.raw(), numRowsFine, numRowsCoarse, blockdim );
+        cudaCheckError();
         ef.dirtybit = 1;
         cudaStreamSynchronize(stream);
         cudaCheckError();
@@ -1341,6 +1348,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
                         halo_btl[i].B2L_maps[0].raw() + halo_btl[i].B2L_rings[0][ring],
                         halo_btl[i].base_index(),
                         Ac.manager->halo_offsets[ring * num_neighbors + i], size);
+                        cudaCheckError();
             }
         }
 
@@ -1382,6 +1390,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
                 Ac.manager->index_range(),
                 num_neighbors,
                 size);
+                cudaCheckError();
 
             for (int ring = 0; ring < rings; ring++)
             {
@@ -1421,6 +1430,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_full(const Mat
                 int num_rows = halo_btl[i].B2L_rings[0][ring + 1] - halo_btl[i].B2L_rings[0][ring];
                 int num_blocks = std::min(4096, (num_rows + 127) / 128);
                 reorder_whole_matrix <<< num_blocks, 128>>>(halo_rows[i].row_offsets.raw() + halo_btl[i].B2L_rings[0][ring], halo_rows[i].col_indices.raw(), halo_rows[i].values.raw(), Ac.row_offsets.raw() + Ac.manager->halo_offsets[ring * num_neighbors + i], Ac.col_indices.raw(), Ac.values.raw(), Ac.get_block_size(), num_rows);
+                cudaCheckError();
 
                 if (diag)
                 {
@@ -1490,6 +1500,7 @@ void Aggregation_AMG_Level_Base<T_Config>::prepareNextLevelMatrix_diag(const Mat
             {
                 int num_blocks = std::min(4096, (size + 127) / 128);
                 write_diagonals_back <<< num_blocks, 128>>>(Ac.values.raw(), Ac.diag.raw() + Ac.manager->halo_offsets[i], diagonals[i].raw(), Ac.get_block_size(), size);
+                cudaCheckError();
             }
         }
 
@@ -1738,6 +1749,7 @@ void Aggregation_AMG_Level_Base<T_Config>::setNeighborAggregates()
         int block_size = 128;
         int grid_size = std::min( 4096, ( size + block_size - 1 ) / block_size);
         flag_coarse_boundary <<< grid_size, block_size>>>(B2L_aggregates.raw(), A.manager->B2L_maps[i].raw(), this->m_aggregates.raw(), size);
+        cudaCheckError();
         thrust_wrapper::exclusive_scan<TConfig::memSpace>(B2L_aggregates.begin(), B2L_aggregates.begin() + vec_size, B2L_aggregates.begin());
         (Ac.manager->B2L_maps)[i].resize(B2L_aggregates[vec_size - 1]);
         populate_coarse_boundary <<< grid_size, block_size>>>(B2L_aggregates.raw(), A.manager->B2L_maps[i].raw(), this->m_aggregates.raw(), Ac.manager->B2L_maps[i].raw(), size);
@@ -1848,8 +1860,10 @@ void Aggregation_AMG_Level_Base<T_Config>::setNeighborAggregates()
         int block_size = 128;
         int grid_size = std::min( 4096, ( size + block_size - 1 ) / block_size);
         flag_halo_indices <<< grid_size, block_size>>>(scratch.raw(), exchanged_aggregates.raw() + A.manager->halo_offsets[i], min_index /*min_local*/, size);
+        cudaCheckError();
         thrust_wrapper::exclusive_scan<TConfig::memSpace>(scratch.begin(), scratch.begin() + s_size, scratch.begin());
         apply_halo_aggregate_indices <<< grid_size, block_size>>>(scratch.raw(), exchanged_aggregates.raw() + A.manager->halo_offsets[i], this->m_aggregates.raw() + A.manager->halo_offsets[i], min_index /*min_local*/, m_num_all_aggregates, size);
+        cudaCheckError();
         Ac.manager->halo_offsets[i] = m_num_all_aggregates;
         m_num_all_aggregates += scratch[s_size - 1];
     }

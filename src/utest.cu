@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -245,7 +245,9 @@ int main(int argc, char **argv)
     {
         // call this once to force everything to initialize so any timing results are not skewed
         cudaSetDevice(0);
+        cudaCheckError();
         cudaFree(0);
+        cudaCheckError();
         Cusparse &c = Cusparse::get_instance();
         Cublas::get_handle();
         UnitTestDriverFramework::framework().do_work();

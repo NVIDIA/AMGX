@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -6,7 +6,6 @@
 #include <fstream>
 #include <cutil.h>
 #include <types.h>
-#include <thrust/detail/integer_traits.h>
 
 #include <assert.h>
 

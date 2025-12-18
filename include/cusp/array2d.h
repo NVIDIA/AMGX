@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -103,7 +103,7 @@ namespace detail
   
   // functors 
   template <typename IndexType, typename Orientation>
-  struct logical_to_physical_functor : public amgx::thrust::unary_function<IndexType,IndexType>
+  struct logical_to_physical_functor
   {
     IndexType num_rows, num_cols, pitch;
   
@@ -118,7 +118,7 @@ namespace detail
   };
 
   template <typename IndexType, typename Orientation1, typename Orientation2>
-  struct logical_to_other_physical_functor : public amgx::thrust::unary_function<IndexType,IndexType>
+  struct logical_to_other_physical_functor
   {
     IndexType num_rows, num_cols, pitch;
   

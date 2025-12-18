@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -398,8 +398,10 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
             row_colors_ptr,
             this->m_num_colors,
             num_rows);
+            cudaCheckError();
 #else
         colorRowsKernel<IndexType> <<< num_blocks, threads_per_block, 0, amgx::thrust::global_thread_handle::get_stream()>>>(A.row_offsets.raw(), A.col_indices.raw(), row_colors_ptr, this->m_num_colors, num_rows);
+        cudaCheckError();
 #endif
         cudaCheckError();
         this->m_num_colors += 2;
@@ -468,18 +470,22 @@ void MinMaxMatrixColoring<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         if ( avg_nnz_per_row < 8.0f )
         {
             find_min_max_neighbors_kernel<threads_per_block, 2> <<< num_blocks, threads_per_block>>>( A.row_offsets.raw(), A.col_indices.raw(), this->m_row_colors.raw(), max_hash_array.raw(), min_hash_array.raw(), this->m_num_colors, num_rows );
+            cudaCheckError();
         }
         else if ( avg_nnz_per_row < 16.0f )
         {
             find_min_max_neighbors_kernel<threads_per_block, 4> <<< num_blocks, threads_per_block>>>( A.row_offsets.raw(), A.col_indices.raw(), this->m_row_colors.raw(), max_hash_array.raw(), min_hash_array.raw(), this->m_num_colors, num_rows );
+            cudaCheckError();
         }
         else // if( avg_nnz_per_row < 32.0f )
         {
             find_min_max_neighbors_kernel<threads_per_block, 8> <<< num_blocks, threads_per_block>>>( A.row_offsets.raw(), A.col_indices.raw(), this->m_row_colors.raw(), max_hash_array.raw(), min_hash_array.raw(), this->m_num_colors, num_rows );
+            cudaCheckError();
         }
 
 #else
         FindMaxMinNeighboursKernel <<< num_blocks, threads_per_block>>>(A.row_offsets.raw(), A.col_indices.raw(), this->m_row_colors.raw(), max_hash_array.raw(), min_hash_array.raw(), this->m_num_colors, num_rows);
+        cudaCheckError();
 #endif
         // Each vertex checks if its still the min or max
         colorRowsRingTwoKernel<IndexType> <<< num_blocks, threads_per_block>>>(A.row_offsets.raw(), A.col_indices.raw(), this->m_row_colors.raw(), max_hash_array.raw(), min_hash_array.raw(), this->m_num_colors, num_rows);

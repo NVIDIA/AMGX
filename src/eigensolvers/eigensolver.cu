@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -57,11 +57,17 @@ EigenSolver<TConfig>::EigenSolver(AMG_Config &cfg, const std::string &cfg_scope)
 
     // Allocate events.
     cudaEventCreate(&m_setup_start);
+    cudaCheckError();
     cudaEventCreate(&m_setup_stop);
+    cudaCheckError();
     cudaEventCreate(&m_solve_start);
+    cudaCheckError();
     cudaEventCreate(&m_solve_stop);
+    cudaCheckError();
     cudaEventCreate(&m_iter_start);
+    cudaCheckError();
     cudaEventCreate(&m_iter_stop);
+    cudaCheckError();
     m_setup_time = 0.0f;
     m_solve_time = 0.0f;
 }
@@ -72,11 +78,17 @@ EigenSolver<TConfig>::~EigenSolver()
     m_eigenvalues.clear();
     m_eigenvectors.clear();
     cudaEventDestroy(m_setup_start);
+    cudaCheckError();
     cudaEventDestroy(m_setup_stop);
+    cudaCheckError();
     cudaEventDestroy(m_solve_start);
+    cudaCheckError();
     cudaEventDestroy(m_solve_stop);
+    cudaCheckError();
     cudaEventDestroy(m_iter_start);
+    cudaCheckError();
     cudaEventDestroy(m_iter_stop);
+    cudaCheckError();
 }
 
 template <class TConfig>
@@ -121,6 +133,7 @@ void EigenSolver<TConfig>::setup(Operator<TConfig> &A)
 #endif
 #endif
     cudaEventRecord(m_setup_start);
+    cudaCheckError();
     solver_setup();
 #ifdef AMGX_WITH_MPI
 #ifdef MPI_SOLVE_PROFILE
@@ -128,7 +141,9 @@ void EigenSolver<TConfig>::setup(Operator<TConfig> &A)
 #endif
 #endif
     cudaEventRecord(m_setup_stop);
+    cudaCheckError();
     cudaEventSynchronize(m_setup_stop);
+    cudaCheckError();
     cudaEventElapsedTime(&m_setup_time, m_setup_start, m_setup_stop);
     m_setup_time *= 1e-3f;
 }
@@ -218,6 +233,7 @@ AMGX_STATUS EigenSolver<TConfig>::solve(VVector &x)
 #endif
 #endif
     cudaEventRecord(m_solve_start);
+    cudaCheckError();
     solve_init(x);
     bool done = false;
 
@@ -271,7 +287,9 @@ AMGX_STATUS EigenSolver<TConfig>::solve(VVector &x)
 #endif
 #endif
     cudaEventRecord(m_solve_stop);
+    cudaCheckError();
     cudaEventSynchronize(m_solve_stop);
+    cudaCheckError();
     cudaEventElapsedTime(&m_solve_time, m_solve_start, m_solve_stop);
     m_solve_time *= 1e-3f;
 

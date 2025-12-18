@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <iostream> //debug only:
 
-struct is_my_part : public amgx::thrust::unary_function<int, bool>
+struct is_my_part
 {
     const int _my_part;
     is_my_part(int my_part) : _my_part(my_part) { }
@@ -947,8 +947,11 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(Matrix<TConfig> &
     halo_rows_ref_count(0), halo_btl_ref_count(0), halo_ranges(_halo_ranges), halo_ranges_h(_halo_ranges_h), part_offsets(_part_offsets), part_offsets_h(_part_offsets_h), halo_rows(NULL), halo_btl(NULL), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 {
     cudaEventCreate(&comm_event);
+    cudaCheckError();
     cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+    cudaCheckError();
     cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
+    cudaCheckError();
     this->createComms(A->getResources());
     int my_id = this->getComms()->get_global_id();
     int num_parts = this->getComms()->get_num_partitions();
@@ -998,6 +1001,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     const int cta_size = 128;
     const int grid_size = std::min( 4096, (num_rows + cta_size - 1) / cta_size );
     poisson7pt_count_row_len <<< grid_size, cta_size>>>(this->A->row_offsets.raw(), nx, ny, nz, p, q, r, P, Q, R, num_rows);
+    cudaCheckError();
     thrust_wrapper::exclusive_scan<AMGX_device>(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
     cudaCheckError();
     // Now set nonzeros columns and values
@@ -1115,6 +1119,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     if (diag)
     {
         cudaMemcpy(this->A->values.raw() + this->A->diagOffset()*this->A->get_block_size(), diag, sizeof(mat_value_type) * num_rows * block_dimx * block_dimy, cudaMemcpyDefault);
+        cudaCheckError();
     }
     else
     {
@@ -1601,7 +1606,9 @@ inline DistributedManagerBase<TConfig>::DistributedManagerBase(
     B2L_maps(_B2L_maps),  L2H_maps(_L2H_maps), B2L_rings(_B2L_rings), m_is_root_partition(false), m_is_glued(false), m_is_fine_level_glued(false), m_is_fine_level_consolidated(false), m_is_fine_level_root_partition(false), m_use_cuda_ipc_consolidation(false), m_fixed_view_size(false)
 {
     cudaStreamCreateWithFlags(&m_int_stream, cudaStreamNonBlocking);
+    cudaCheckError();
     cudaStreamCreateWithFlags(&m_bdy_stream, cudaStreamNonBlocking);
+    cudaCheckError();
 
     if (num_import_rings != 1)
     {
@@ -1677,17 +1684,37 @@ inline void DistributedManagerBase<TConfig>::cacheMapsOneRing(const VecInt_t **b
     l2h_buffer.resize(num_neighbors);
     b2l_sizes_buffer.resize(num_neighbors);
     l2h_sizes_buffer.resize(num_neighbors);
-    cudaMemcpy(&(b2l_sizes_buffer[0]), b2l_sizes, sizeof(VecInt_t) * num_neighbors, cudaMemcpyDefault);
-    cudaMemcpy(&(l2h_sizes_buffer[0]), l2h_sizes, sizeof(VecInt_t) * num_neighbors, cudaMemcpyDefault);
-    cudaMemcpy(&(b2l_buffer[0]), b2l_maps, sizeof(VecInt_t *) * num_neighbors, cudaMemcpyDefault);
-    cudaMemcpy(&(l2h_buffer[0]), l2h_maps, sizeof(VecInt_t *) * num_neighbors, cudaMemcpyDefault);
+    cudaError_t cuda_rc = cudaMemcpy(&(b2l_sizes_buffer[0]), b2l_sizes, sizeof(VecInt_t) * num_neighbors, cudaMemcpyDefault);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy b2l_sizes failed in distributed_manager", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy(&(l2h_sizes_buffer[0]), l2h_sizes, sizeof(VecInt_t) * num_neighbors, cudaMemcpyDefault);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy l2h_sizes failed in distributed_manager", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy(&(b2l_buffer[0]), b2l_maps, sizeof(VecInt_t *) * num_neighbors, cudaMemcpyDefault);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy b2l_maps failed in distributed_manager", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy(&(l2h_buffer[0]), l2h_maps, sizeof(VecInt_t *) * num_neighbors, cudaMemcpyDefault);
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy l2h_maps failed in distributed_manager", AMGX_ERR_CUDA_FAILURE);
+    }
 
     // caching all of the maps
     for (int i = 0; i < num_neighbors; i++)
     {
         int size = b2l_sizes_buffer[i];
         this->cached_B2L_maps[i].resize(size);
-        cudaMemcpy(&(this->cached_B2L_maps[i][0]), b2l_buffer[i], sizeof(VecInt_t) * size, cudaMemcpyDefault);
+        cuda_rc = cudaMemcpy(&(this->cached_B2L_maps[i][0]), b2l_buffer[i], sizeof(VecInt_t) * size, cudaMemcpyDefault);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMemcpy cached_B2L_maps failed in distributed_manager", AMGX_ERR_CUDA_FAILURE);
+        }
         cudaCheckError();
         size = l2h_sizes_buffer[i];
         this->cached_L2H_maps[i].resize(size);
@@ -1753,7 +1780,9 @@ DistributedManagerBase<TConfig>::~DistributedManagerBase()
     destroyComms();
     // from childrens:
     cudaStreamDestroy(this->m_int_stream);
+    cudaCheckError();
     cudaStreamDestroy(this->m_bdy_stream);
+    cudaCheckError();
 
     if (!this->halo_rows_ref_count && this->halo_rows != NULL)
     {
@@ -1818,6 +1847,7 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
     {
       checkPinnedBuffer(size);
       cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+      cudaCheckError();
       return m_pinned_buffer;
     }
     else {
@@ -1833,6 +1863,7 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
     {
         checkPinnedBuffer(size);
         rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+        cudaCheckError();
 
         if (rc != cudaSuccess)
         {
@@ -1858,6 +1889,7 @@ void *DistributedManagerBase<TConfig>::getHostPointerForData(void *ptr, size_t s
             //you are in case 2
             checkPinnedBuffer(size);
             rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+            cudaCheckError();
 
             if (rc != cudaSuccess)
             {
@@ -1943,6 +1975,7 @@ const void *DistributedManagerBase<TConfig>::getHostPointerForData(const void *p
     {
         checkPinnedBuffer(size);
         rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+        cudaCheckError();
 
         if (rc != cudaSuccess)
         {
@@ -1968,6 +2001,7 @@ const void *DistributedManagerBase<TConfig>::getHostPointerForData(const void *p
             //you are in case 2
             checkPinnedBuffer(size);
             rc = cudaMemcpy(m_pinned_buffer, ptr, size, cudaMemcpyDefault);
+            cudaCheckError();
 
             if (rc != cudaSuccess)
             {
@@ -2064,6 +2098,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
         }
 
         rc = cudaMemcpy(ptr_d, ptr, size, cudaMemcpyDefault);
+        cudaCheckError();
 
         if (rc != cudaSuccess)
         {
@@ -2095,6 +2130,7 @@ void *DistributedManagerBase<TConfig>::getDevicePointerForData(void *ptr, size_t
             }
 
             rc = cudaMemcpy(ptr_d, ptr, size, cudaMemcpyDefault);
+            cudaCheckError();
 
             if (rc != cudaSuccess)
             {
@@ -2185,6 +2221,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
         }
 
         rc = cudaMemcpy(ptr_d, ptr, size, cudaMemcpyDefault);
+        cudaCheckError();
 
         if (rc != cudaSuccess)
         {
@@ -2216,6 +2253,7 @@ const void *DistributedManagerBase<TConfig>::getDevicePointerForData(const void 
             }
 
             rc = cudaMemcpy(ptr_d, ptr, size, cudaMemcpyDefault);
+            cudaCheckError();
 
             if (rc != cudaSuccess)
             {
@@ -2256,6 +2294,7 @@ void initializeMatrixCopyAll(int n, int nnz, int block_dimx, int block_dimy, con
     if (diag)
     {
         cudaMemcpy( A->values.raw() + A->diagOffset()*A->get_block_size(), (mat_value_type *)diag, (n * block_dimx * block_dimy) * sizeof(mat_value_type), cudaMemcpyDefault );
+        cudaCheckError();
     }
     else
     {
@@ -2446,6 +2485,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         if (size > 0)
         {
             remove_boundary_kernel <<< num_blocks, 128>>>(flagArray.raw(), this->B2L_maps[i].raw(), size);
+            cudaCheckError();
         }
 
         //If there are any L2H maps
@@ -2510,6 +2550,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             get_unassigned_kernel <<< num_blocks, 192>>>(flagArray.raw(),
                     this->B2L_maps[i].raw(),
                     boundary_renum_flags.raw(), size, global_size /*,rank*/);
+                    cudaCheckError();
 
         //calculate the local renumbering (within this boundary region) of these nodes
         thrust_wrapper::exclusive_scan<AMGX_device>(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, boundary_renum.begin());
@@ -2521,6 +2562,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     this->B2L_maps[i].raw(),
                     renumbering.raw(),
                     size, max_element, global_size /*,rank*/);
+                    cudaCheckError();
 
         //update the number of renumbered nodes
         max_element += boundary_renum[max_size - 1] + boundary_renum_flags[max_size - 1];
@@ -2559,6 +2601,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                 get_unassigned_kernel <<< num_blocks, 192>>>(flagArray.raw(),
                         this->L2H_maps[i].raw(),
                         boundary_renum_flags.raw(), size, global_size /*,rank*/);
+                        cudaCheckError();
 
             //calculate the local renumbering (within this boundary region) of these nodes
             thrust_wrapper::exclusive_scan<AMGX_device>(boundary_renum_flags.begin(), boundary_renum_flags.begin() + max_size, boundary_renum.begin());
@@ -2570,6 +2613,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                         this->L2H_maps[i].raw(),
                         renumbering.raw(),
                         size, max_element, global_size /*,rank*/);
+                        cudaCheckError();
 
             //update the number of renumbered nodes
             max_element += boundary_renum[max_size - 1] + boundary_renum_flags[max_size - 1];
@@ -2729,12 +2773,13 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     //Approach 2: custom for this routine
     new_row_offsets.resize(total_rows + 1);
     new_col_indices.resize(nnz + nh);
-    new_values.resize(nnz + nh + 1); //extra 1 element stores zero at the end (to follow the original design)
+    int bsize = this->A->get_block_size();
+    new_values.resize((nnz + nh)*bsize + 1); //extra 1 element stores zero at the end (to follow the original design)
     //new_values[nnz]=-1;        //marker to track the last element
     amgx::thrust::copy(identity_csr_rows.begin(), identity_csr_rows.end(), new_row_offsets.begin() + size );
     amgx::thrust::copy(identity_csr_cols.begin(), identity_csr_cols.end(), new_col_indices.begin() + nnz);
-    amgx::thrust::copy(new_values.begin() + nnz,    new_values.begin() + nnz + 1, new_values.begin() + nnz + nh);
-    amgx::thrust::copy(identity_csr_vals.begin(), identity_csr_vals.end(),  new_values.begin() + nnz);
+    amgx::thrust::copy(new_values.begin() + nnz*bsize,    new_values.begin() + (nnz + 1)*bsize, new_values.begin() + (nnz + nh)*bsize);
+    amgx::thrust::copy(identity_csr_vals.begin(), identity_csr_vals.end(),  new_values.begin() + (nnz*bsize));
     /* WARNING: see above. */
     this->A->set_num_cols(total_rows);
     this->A->set_num_rows(total_rows);
@@ -2967,6 +3012,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                                          halo_mapping.raw(),
                                          neighbor_rows_d.raw(),
                                          this->base_index(), num_neighbors, size);*/
+                                         cudaCheckError();
     amgx::thrust::copy(amgx::thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.begin()),
                  amgx::thrust::make_permutation_iterator(this->renumbering.begin(), this->A->col_indices.end()),
                  this->A->col_indices.begin());
@@ -3082,6 +3128,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     new_row_offsets.raw() + this->halo_offsets[ring * num_neighbors + i],
                     new_col_indices.raw(), new_values.raw(), NULL, this->A->get_block_size(), num_rows,
                     insert, this->halo_offsets[ring * num_neighbors + i], halo_btl[i].B2L_rings[0][ring], halo_btl[i].B2L_rings[0][rings]);
+                    cudaCheckError();
 
             if (diag)
             {
@@ -3827,6 +3874,7 @@ void DistributedManagerBase<TConfig>::consAndRenumberHalos(IVector_hd &aggregate
                         this->read_halo_ids(size, scratch, fine_halo_aggregates_to_root_array[j][k], min_index_coarse_halo[i]);
                         //and send them back to contributing partitions
                         cudaDeviceSynchronize(); //TODO: don't need to synchronize when using GPUDirect
+                        cudaCheckError();
                         int current_part = fine_parts_to_consolidate[j];
                         int tag = 4444 + dest_part;
 
@@ -3920,6 +3968,7 @@ void DistributedManagerBase<TConfig>::ipcExchangePtr(void *&ptr, bool is_root_pa
     if (is_root_partition)
     {
         cudaIpcGetMemHandle( (cudaIpcMemHandle_t *) &handle, ptr ) ;
+        cudaCheckError();
 
         for (int i = 0; i < num_parts_to_consolidate; i++)
         {
@@ -3935,6 +3984,7 @@ void DistributedManagerBase<TConfig>::ipcExchangePtr(void *&ptr, bool is_root_pa
     {
         comms->recv_raw_data(&handle, sizeof(handle), my_root_partition, 456);
         cudaError_t err = cudaIpcOpenMemHandle( (void **) &ptr, handle, cudaIpcMemLazyEnablePeerAccess);
+        cudaCheckError();
     }
 }
 
@@ -3944,9 +3994,12 @@ void DistributedManagerBase<TConfig>::ipcWaitForChildren(bool is_root_partition,
     cudaEvent_t event;
     cudaIpcEventHandle_t event_handle;
     cudaEventCreateWithFlags(&event, cudaEventDisableTiming | cudaEventInterprocess);
+    cudaCheckError();
     cudaIpcGetEventHandle( &event_handle, event);
+    cudaCheckError();
     // Each rank record the event
     cudaEventRecord(event);
+    cudaCheckError();
 
     if (is_root_partition)
     {
@@ -3962,6 +4015,7 @@ void DistributedManagerBase<TConfig>::ipcWaitForChildren(bool is_root_partition,
             {
                 comms->recv_raw_data(&(child_event_handles[i]), sizeof(cudaIpcEventHandle_t), current_part, 987 + current_part);
                 cudaIpcOpenEventHandle(&child_events[i], child_event_handles[i]);
+                cudaCheckError();
             }
         }
 
@@ -3970,6 +4024,7 @@ void DistributedManagerBase<TConfig>::ipcWaitForChildren(bool is_root_partition,
             if (parts_to_consolidate[i] != my_id)
             {
                 cudaEventSynchronize(child_events[i]);
+                cudaCheckError();
             }
         }
     }
@@ -3989,8 +4044,10 @@ void DistributedManagerBase<TConfig>::ipcWaitForRoot(bool is_root_partition, int
     if (is_root_partition)
     {
         cudaIpcGetEventHandle( &event_handle, event);
+        cudaCheckError();
         // Root records the event
         cudaEventRecord(event);
+        cudaCheckError();
 
         // Root partition sends event_handles to child
         for (int i = 0; i < num_parts_to_consolidate; i++)
@@ -4007,7 +4064,9 @@ void DistributedManagerBase<TConfig>::ipcWaitForRoot(bool is_root_partition, int
     {
         comms->recv_raw_data(&event_handle, sizeof(event_handle), my_destination_part, 988 + my_id);
         cudaIpcOpenEventHandle(&event, event_handle);
+        cudaCheckError();
         cudaEventSynchronize(event);
+        cudaCheckError();
     }
 }
 
@@ -4462,6 +4521,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         {
             cudaEvent_t event;
             cudaEventCreate(&event);
+            cudaCheckError();
             //TODO: Could use streams here
             //TODO: Avoid extra device to host copies
             std::vector<IVector_h> data_recv(num_parts_to_consolidate);
@@ -4520,20 +4580,27 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     comms->recv_vector(this->m_child_old_row_offsets[i], current_part, 10001 + current_part, 0, this->m_child_n[i] + 1);
                     comms->recv_vector(this->m_child_row_ids[i], current_part, 10002 + current_part, 0, this->m_child_n[i] + this->m_child_num_halos[i]);
                     zero_copy_row_lengths_ids_offsets<mat_value_type> <<< grid_size, cta_size>>>(this->m_child_old_row_offsets[i].raw(), this->A->row_offsets.raw(), this->m_child_row_ids[i].raw(), this->m_child_n[i], this->m_child_num_halos[i], (mat_value_type *) diag);
+                    cudaCheckError();
                     // Wait for kernel to finish before overwriting host buffer
                     cudaEventRecord(event);
+                    cudaCheckError();
                     cudaEventSynchronize(event);
+                    cudaCheckError();
                 }
                 else
                 {
                     zero_copy_row_lengths_ids_offsets<mat_value_type> <<< grid_size, cta_size>>>(this->m_old_row_offsets_CONS.raw(), this->A->row_offsets.raw(), this->m_row_ids_CONS.raw(), n, total_num_halos, (mat_value_type *) diag);
+                    cudaCheckError();
                     cudaEventRecord(event);
+                    cudaCheckError();
                     cudaEventSynchronize(event);
+                    cudaCheckError();
                 }
             }
 
             cudaCheckError();
             cudaEventDestroy(event);
+            cudaCheckError();
         } // If root partition
 
         //TODO: is this necessary
@@ -4545,10 +4612,12 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     {
         cudaEvent_t event;
         cudaEventCreate(&event);
+        cudaCheckError();
         // Populate the halo rows with diagonal, increase the length of the halo rows
         thrust_wrapper::fill<TConfig::memSpace>(this->A->row_offsets.begin() + halo_offsets[0], this->A->row_offsets.begin() + halo_offsets[root_num_cons_neighbors], 1);
         thrust_wrapper::exclusive_scan<TConfig::memSpace>(this->A->row_offsets.begin(), this->A->row_offsets.end(), this->A->row_offsets.begin());
         cudaEventRecord(event);
+        cudaCheckError();
         cudaEventSynchronize(event);
         cudaCheckError();
         this->A->set_initialized(0);
@@ -4560,6 +4629,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->A->set_num_nz(nnz); // num_nz doesn't include halo rows
         //this->A->set_initialized(1);
         cudaEventDestroy(event);
+        cudaCheckError();
     }
     else
     {
@@ -4618,6 +4688,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         {
             cudaEvent_t event;
             cudaEventCreate(&event);
+            cudaCheckError();
             //TODO: Could use streams here
             int *child_col_indices;
             mat_value_type *child_data;
@@ -4658,20 +4729,27 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     }
 
                     ipc_consolidation_upload_matrix<mat_value_type> <<< grid_size2, cta_size2>>>(this->m_child_n[i], this->m_child_row_ids[i].raw(), this->m_child_old_row_offsets[i].raw(), this->A->row_offsets.raw(), child_col_indices_hd, this->A->col_indices.raw(), child_data_hd, this->A->values.raw(), child_diag_hd, bsize);
+                    cudaCheckError();
                     // Wait for kernel to finish before overwriting host buffer
                     cudaEventRecord(event);
+                    cudaCheckError();
                     cudaEventSynchronize(event);
+                    cudaCheckError();
                 }
                 else
                 {
                     ipc_consolidation_upload_matrix<mat_value_type> <<< grid_size2, cta_size2>>>(n, this->m_row_ids_CONS.raw(), this->m_old_row_offsets_CONS.raw(), this->A->row_offsets.raw(), col_indices_hd, this->A->col_indices.raw(), data_hd, this->A->values.raw(), diag_hd, bsize);
+                    cudaCheckError();
                     cudaEventRecord(event);
+                    cudaCheckError();
                     cudaEventSynchronize(event);
+                    cudaCheckError();
                 }
             }
 
             cudaCheckError();
             cudaEventDestroy(event);
+            cudaCheckError();
             amgx::memory::cudaFreeHost(child_col_indices);
             amgx::memory::cudaFreeHost(child_data);
 
@@ -4738,6 +4816,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         this->A->computeDiagonal(); //
         this->A->setView(OWNED);
         cudaEventCreate(&(this->comm_event));
+        cudaCheckError();
         this->A->set_initialized(1);
     }
     else
@@ -4794,14 +4873,17 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
     if (insertDiagonals && diag_pinned != NULL)
     {
         replace_values_matrix <32> <<< num_blocks, 512>>>(data_hd, diag_hd, this->old_row_offsets.raw(), this->A->row_offsets.raw(), this->A->values.raw(), this->renumbering.raw(), block_size, num_rows);
+        cudaCheckError();
     }
     else
     {
         replace_values_matrix <32> <<< num_blocks, 512>>>(data_hd, this->old_row_offsets.raw(), this->A->row_offsets.raw(), this->A->values.raw(), this->renumbering.raw(), block_size, num_rows);
+        cudaCheckError();
 
         if (diag_pinned != NULL)
         {
             reorder_vector_values <<< num_blocks, 512>>>(this->A->values.raw() + this->A->row_offsets[total_rows]*block_size, diag_hd, this->renumbering.raw(), block_size, num_rows);
+            cudaCheckError();
         }
     }
 
@@ -4885,6 +4967,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             {
                 cudaEvent_t event;
                 cudaEventCreate(&event);
+                cudaCheckError();
                 //TODO: Could use streams here
                 mat_value_type *child_data;
                 mat_value_type *child_diag = NULL;
@@ -4920,20 +5003,27 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                         }
 
                         ipc_consolidation_replace_values<mat_value_type> <<< grid_size2, cta_size2>>>(this->m_child_n[i], this->m_child_row_ids[i].raw(), this->m_child_old_row_offsets[i].raw(), this->A->row_offsets.raw(), child_data_hd, this->A->values.raw(), child_diag_hd, bsize);
+                        cudaCheckError();
                         // Wait for kernel to finish before overwriting host buffer
                         cudaEventRecord(event);
+                        cudaCheckError();
                         cudaEventSynchronize(event);
+                        cudaCheckError();
                     }
                     else
                     {
                         ipc_consolidation_replace_values<mat_value_type> <<< grid_size2, cta_size2>>>(ncons, this->m_row_ids_CONS.raw(), this->m_old_row_offsets_CONS.raw(), this->A->row_offsets.raw(), data_hd, this->A->values.raw(), diag_hd, bsize);
+                        cudaCheckError();
                         //cudaEventRecord(event);
+                        cudaCheckError();
                         //cudaEventSynchronize(event);
+                        cudaCheckError();
                     }
                 }
 
                 cudaCheckError();
                 cudaEventDestroy(event);
+                cudaCheckError();
                 amgx::memory::cudaFreeHost(child_data);
 
                 if (diag_pinned != NULL)
@@ -5113,6 +5203,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         cudaCheckError();
         int num_blocks = std::min(4096, (n + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>( (value_type *) root_temp_ptr, data_hd, this->m_row_ids_CONS.raw(), v.get_block_size(), n);
+        cudaCheckError();
         // Root partition waits for children to be done
         this->ipcWaitForChildren(this->m_is_fine_level_root_partition, this->m_num_fine_level_parts_to_consolidate, this->m_fine_level_parts_to_consolidate, this->m_my_fine_level_destination_part, this->fine_level_id(), this->getFineLevelComms());
         cudaCheckError();
@@ -5140,6 +5231,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
             {
                 cudaEvent_t event;
                 cudaEventCreate(&event);
+                cudaCheckError();
                 IVector_h child_n(this->m_num_fine_level_parts_to_consolidate);
                 int max_n = 0;
 
@@ -5173,18 +5265,22 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     {
                         this->getFineLevelComms()->recv_raw_data(&child_data[0], child_n[i]*v.get_block_size()*sizeof(value_type), current_part, 20001 + current_part);
                         reorder_vector_values <<< num_blocks, 512>>>( (value_type *) root_temp_ptr, child_data_hd, this->m_child_row_ids[i].raw(), v.get_block_size(), child_n[i]);
+                        cudaCheckError();
                         cudaEventRecord(event);
+                        cudaCheckError();
                         cudaEventSynchronize(event);
                         cudaCheckError();
                     }
                     else
                     {
                         reorder_vector_values <<< num_blocks, 512>>>( (value_type *) root_temp_ptr, data_hd, this->m_row_ids_CONS.raw(), v.get_block_size(), n);
+                        cudaCheckError();
                     }
                 } // Loop over parts to consolidate
 
                 cudaCheckError();
                 cudaEventDestroy(event);
+                cudaCheckError();
                 amgx::memory::cudaFreeHost(child_data);
             } // If root partition
         } //agg
@@ -5296,6 +5392,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         int size = this->halo_offsets[0];
         int num_blocks = std::min(4096, (size + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>(temp.raw(), v.raw(), this->renumbering.raw(), v.get_block_size(), size);
+        cudaCheckError();
         v.swap(temp);
     }
     else
@@ -5304,6 +5401,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
         int size = this->halo_offsets[0];
         int num_blocks = std::min(4096, (size + 511) / 512);
         reorder_vector_values <<< num_blocks, 512>>>(temp.raw(), v.raw(), this->renumbering.raw(), v.get_block_size(), size);
+        cudaCheckError();
         amgx::thrust::copy(temp.begin(), temp.end(), v.begin());
     }
 
@@ -5528,11 +5626,13 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
                     if (current_part != this->fine_level_id())
                     {
                         inverse_reorder_vector_values <<< num_blocks, 512>>>( child_temp.raw(), (value_type *) root_v_ptr, this->m_child_row_ids[i].raw(), v_in.get_block_size(), child_n[i]);
+                        cudaCheckError();
                         this->getFineLevelComms()->send_vector(child_temp, current_part, 30001 + current_part, 0, child_n[i]*v_in.get_block_size());
                     }
                     else
                     {
                         inverse_reorder_vector_values <<< num_blocks, 512>>>( temp.raw(), (value_type *) root_v_ptr, this->m_row_ids_CONS.raw(), v_in.get_block_size(), child_n[i]);
+                        cudaCheckError();
                     }
                 }
 
@@ -6007,6 +6107,7 @@ void DistributedManagerBase<TConfig>::print(char *f, char *s, int trank)
         int rp = (int)m->isRootPartition(); //cast from boolean to int
         fprintf(fid, "gid=%d,bi=%ld,np=%d,rp=%d,ir=%d,in=%d,bn=%d\n", m->global_id(), bi, np, rp, m->index_range(), m->num_interior_nodes(), m->num_boundary_nodes());
         cudaDeviceSynchronize();
+        cudaCheckError();
         cudaGetLastError();
 
         if (fid != stdout)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -30,20 +30,7 @@ static __device__ __forceinline__ void atomic_add( float *address, float value )
 
 static __device__ __forceinline__ void atomic_add( double *address, double value )
 {
-#if __CUDA_ARCH__ >= 600
     atomicAdd( address, value );
-#else
-    unsigned long long *address_as_ull = (unsigned long long *) address;
-    unsigned long long old = __double_as_longlong( address[0] ), assumed;
-
-    do
-    {
-        assumed = old;
-        old = atomicCAS( address_as_ull, assumed, __double_as_longlong( value + __longlong_as_double( assumed ) ) );
-    }
-    while ( assumed != old );
-
-#endif
 }
 
 static __device__ __forceinline__ void atomic_add( cuComplex *address, cuComplex value )

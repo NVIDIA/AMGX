@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -174,6 +174,7 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
             const int threads_per_block = 256;
             const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (numRows-1)/threads_per_block + 1 );
             rescaleVector<<<num_blocks, threads_per_block, 0, str>>>( x.raw(), numRows );
+            cudaCheckError();
 
 
             // smooth
@@ -192,6 +193,7 @@ void AdaptiveSelectorBase<T_Config>::setAggregates(Matrix<T_Config> &A,
             aggregates.resize( numRows );
             numAggregates = numRows / 4;
             assignNodeToBin<<<num_blocks, threads_per_block, 0, str>>>( x.raw(), aggregates.raw(), min, max, numRows, numAggregates );
+            cudaCheckError();
 
             //sync
             cudaStreamSynchronize( str );

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -19,7 +19,7 @@
 #include <algorithm>
 
 template<typename T>
-struct row_length : public amgx::thrust::unary_function<T, T>
+struct row_length
 {
     __host__ __device__ T operator()(const T &x) const
     {
@@ -323,6 +323,7 @@ Matrix< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::print(ch
         }
 
         cudaDeviceSynchronize();
+        cudaCheckError();
         cudaGetLastError();
 
         if (fid != stdout)
@@ -433,6 +434,7 @@ Matrix< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::print(char
         }
 
         cudaDeviceSynchronize();
+        cudaCheckError();
         cudaGetLastError();
 
         if (fid != stdout)
@@ -1092,11 +1094,13 @@ void Matrix<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::comp
     {
         int num_blocks = std::min(4096, (this->get_num_rows() + 511) / 512);
         computeDiagonalKernelDiagProp <<< num_blocks, 512, 0, amgx::thrust::global_thread_handle::get_stream()>>>(this->get_num_rows(), this->get_num_nz(), this->diag.raw(), this->m_diag_end_offsets.raw());
+        cudaCheckError();
     }
     else if (this->hasProps(COO))
     {
         int num_blocks = std::min(4096, (this->get_num_nz() + 511) / 512);
         computeDiagonalKernelCOO <<< num_blocks, 512>>>(this->get_num_nz(), this->row_indices.raw(), this->col_indices.raw(), this->diag.raw(), this->m_diag_end_offsets.raw());
+        cudaCheckError();
     }
     else
     {

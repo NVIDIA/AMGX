@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -503,14 +503,17 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
         if (cf_map_init == 0)
         {
             initialMarkingKernel <<< numBlocks, blockSize>>>(offsets_ptr, column_indices_ptr, numRows, cf_map_ptr, weights_ptr, s_con_ptr);
+            cudaCheckError();
         }
         else if (cf_map_init == 1)
         {
             initialMarkingCfInitKernel <<< numBlocks, blockSize>>>(offsets_ptr, column_indices_ptr, numRows, cf_map_ptr, weights_ptr, s_con_ptr, mark.raw());
+            cudaCheckError();
         }
         else if (cf_map_init == 3)
         {
             initialMarkingCFInit3Kernel <<< numBlocks, blockSize>>>(offsets_ptr, column_indices_ptr, numRows, cf_map_ptr, weights_ptr, s_con_ptr);
+            cudaCheckError();
         }
         else
         {
@@ -557,9 +560,11 @@ void PMIS_Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> 
                 // Laucnhed for 1-ring
                 markUnassignedAsCoarseKernel <<< numBlocks1Ring, blockSize>>>(one_ring_size, weights_ptr, cf_map_ptr,
                         scratch_ptr, mark.raw());
+                cudaCheckError();
                 markAdditionalCoarsePointsKernel <<< numBlocks, blockSize>>>(offsets_ptr, column_indices_ptr,
                         numRows, weights_ptr, s_con_ptr,
                         scratch_ptr, mark.raw());
+                cudaCheckError();
             }
             else
             {

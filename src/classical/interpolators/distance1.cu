@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -47,7 +47,7 @@ struct find_row_diagonal
 };
 
 template< class CsrMatrixType >
-struct count_nnz_per_row : public amgx::thrust::unary_function<int, int>
+struct count_nnz_per_row
 {
     const CsrMatrixType &my_A;
     static const AMGX_VecPrecision vecPrec = CsrMatrixType::TConfig::vecPrec;
@@ -809,6 +809,7 @@ void Distance1_Interpolator<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             A.diag.raw(),
             A.values.raw(),
             diag_ptr);
+            cudaCheckError();
     /*  getDiagonalKernel<<<numBlocks,blocksize>>>(Aoffsets_ptr,Acolumn_indices_ptr,Avalues_ptr,
                                                  numRows,diag_ptr);*/
     cudaCheckError();

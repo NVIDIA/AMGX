@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include <memory>
+#include <type_traits>
 
 #include <thrust/device_allocator.h>
 #include <thrust/iterator/iterator_traits.h>
@@ -33,20 +34,20 @@ namespace detail
    
   template<typename T, typename MemorySpace>
    struct default_memory_allocator
-      : amgx::thrust::detail::eval_if<
-          amgx::thrust::detail::is_convertible<MemorySpace, host_memory>::value,
+      : std::conditional<
+          std::is_convertible<MemorySpace, host_memory>::value,
   
-          amgx::thrust::detail::identity_< std::allocator<T> >,
+          std::allocator<T>,
   
           // XXX add backend-specific allocators here?
   
-          amgx::thrust::detail::eval_if<
-            amgx::thrust::detail::is_convertible<MemorySpace, device_memory>::value,
+          typename std::conditional<
+            std::is_convertible<MemorySpace, device_memory>::value,
   
-            amgx::thrust::detail::identity_< amgx::thrust_amgx_allocator<T, AMGX_device> >,
+            amgx::thrust_amgx_allocator<T, AMGX_device>,
   
-            amgx::thrust::detail::identity_< MemorySpace >
-          >
+            MemorySpace
+          >::type
         >
   {};
   

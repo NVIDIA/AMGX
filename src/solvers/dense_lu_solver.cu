@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -146,11 +146,7 @@ Value_type reduce_distributed_vectors( Value_type x, int is_leader, unsigned int
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE,
           int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void b_minus_A_halo_x( const int *__restrict A_rows,
                        const int *__restrict A_cols,
                        const Matrix_type *__restrict A_vals,
@@ -400,6 +396,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         case 1: // Column-major, external diagonal.
@@ -413,6 +410,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         case 2: // Row-major, no external diagonal.
@@ -426,6 +424,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         case 3: // Row-major, external diagonal.
@@ -439,6 +438,7 @@ void distributed_rhs_mod_dispatch( const int *__restrict A_rows,
                 new_rhs,
                 num_owned_rows
             );
+            cudaCheckError();
             break;
 
         default:
@@ -491,7 +491,7 @@ csr_to_dense(
     const Matrix_d *A = dynamic_cast<Matrix_d *>(Base::m_A);
     const int block_size = 256;
     const int num_warps  = block_size / WARP_SIZE;
-    const int grid_size = std::min(4096, (A->get_num_rows() + num_warps - 1) / num_warps);
+    const int grid_size = (A->get_num_rows() + num_warps - 1) / num_warps;
     cudaStream_t stream = amgx::thrust::global_thread_handle::get_stream();
     csr_to_dense_kernel<Matrix_data, Vector_data, WARP_SIZE> <<< grid_size, block_size, 0, stream>>>(
         A->get_num_rows(),
@@ -530,6 +530,7 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
     allocMem(m_trf_wspace, wsize, false);
     status1 = cusolverDnXgetrf(m_cuds_handle, m_num_rows, m_num_cols,
                                m_dense_A, m_lda, m_trf_wspace, m_ipiv, m_cuds_info);
+    cudaCheckError();
 
     if ( status1 != CUSOLVER_STATUS_SUCCESS)
     {
@@ -540,6 +541,7 @@ void DenseLUSolver<TemplateConfig<AMGX_device, V, M, I> >::cudense_getrf()
     {
         int t_info;
         cudaMemcpy(&t_info, m_cuds_info, sizeof(int), cudaMemcpyDefault);
+        cudaCheckError();
 
         if (t_info != 0)
         {
@@ -772,7 +774,7 @@ solver_setup(bool reuse_matrix_structure)
         allocMem(m_ipiv, m_num_rows, false);
 
         // Allocate memory to store the dense A and initialize to zero.
-        allocMem(m_dense_A, m_num_cols * m_num_rows, true);
+        allocMem(m_dense_A, static_cast<size_t>(m_num_cols) * m_num_rows, true);
 
         // Much of the data can be reused if we are performing a resetup
         if (!reuse_matrix_structure)
@@ -810,9 +812,11 @@ solver_setup(bool reuse_matrix_structure)
             constexpr int nthreads = 128;
             int nblocks = nnz / nthreads + 1;
             local_col_indices_to_global<<<nblocks, nthreads>>>(nnz, num_rows, row_displs[rank], local_Acols_d.raw(), A->manager->local_to_global_map.raw());
+            cudaCheckError();
 
             nblocks = num_rows / nthreads + 1;
             local_row_offsets_to_global<<<nblocks, nthreads>>>(num_rows, nz_displs[rank], local_Arows_d.raw());
+            cudaCheckError();
 
             // Copy the transformed indices to the host
             IVector_h local_Acols_h(nnz);
@@ -844,7 +848,7 @@ solver_setup(bool reuse_matrix_structure)
         MVector_h Avals_global_h(m_nnz_global);
         A->manager->getComms()->all_gather_v(local_Avals_h, nnz, Avals_global_h, nz_all, nz_displs);
 
-        allocMem(m_dense_A, m_num_cols * m_lda, true);
+        allocMem(m_dense_A, static_cast<size_t>(m_num_cols) * m_lda, true);
 
         MVector_d Avals_global(m_nnz_global);
         amgx::thrust::copy(Avals_global_h.begin(), Avals_global_h.end(), Avals_global.begin());
@@ -864,6 +868,7 @@ solver_setup(bool reuse_matrix_structure)
             A->hasProps(DIAG) ? A->diag.raw() : NULL,
             m_dense_A,
             m_lda);
+            cudaCheckError();
 
         cudaStreamSynchronize(stream);
         cudaCheckError();

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -35,11 +35,7 @@ enum { CTA_SIZE = 128, WARP_SIZE = 32 };
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE, int NUM_WARP_ITERS_PER_BLOCK >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_setup_NxN_kernel_large( const int *__restrict A_rows,
                                   const int *__restrict A_cols,
                                   const int *__restrict A_diag,
@@ -364,11 +360,7 @@ void DILU_setup_NxN_kernel_large( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_setup_NxN_kernel( const int *__restrict A_rows,
                             const int *__restrict A_cols,
                             const int *__restrict A_diag,
@@ -650,11 +642,7 @@ void DILU_setup_NxN_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
-#endif
 void DILU_setup_1x1_kernel( const int *__restrict A_rows,
                             const int *__restrict A_cols,
                             const int *__restrict A_diag,
@@ -860,11 +848,7 @@ Value_type reduce_distributed_vectors( Value_type x, int is_leader )
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_forward_NxN_kernel( const int *__restrict A_rows,
                               const int *__restrict A_cols,
                               const Matrix_type *__restrict A_vals,
@@ -1118,11 +1102,7 @@ void DILU_forward_NxN_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int N, int CTA_SIZE, int WARP_SIZE, bool HAS_EXTERNAL_DIAG, int NUM_WARP_ITERS_PER_BLOCK >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_forward_NxN_kernel_large( const int *__restrict A_rows,
                                     const int *__restrict A_cols,
                                     const Matrix_type *__restrict A_vals,
@@ -1365,11 +1345,7 @@ void DILU_forward_NxN_kernel_large( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_forward_4x4_kernel( const int *__restrict A_rows,
                               const int *__restrict A_cols,
                               const Matrix_type *__restrict A_vals,
@@ -1608,11 +1584,7 @@ void DILU_forward_4x4_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int CTA_SIZE, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         const int *__restrict A_cols,
         const Matrix_type *__restrict A_vals,
@@ -1790,11 +1762,7 @@ void DILU_forward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE, bool HAS_EXTERNAL_DIAG >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_forward_1x1_kernel( const int *__restrict A_rows,
                               const int *__restrict A_cols,
                               const Matrix_type *__restrict A_vals,
@@ -1936,11 +1904,7 @@ void DILU_forward_1x1_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int N, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_backward_NxN_kernel( const int *__restrict A_rows,
                                const int *__restrict A_cols,
                                const Matrix_type *__restrict A_vals,
@@ -2194,11 +2158,7 @@ void DILU_backward_NxN_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int N, int CTA_SIZE, int WARP_SIZE, bool ROW_MAJOR, int NUM_WARP_ITERS_PER_BLOCK >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_backward_NxN_kernel_large( const int *__restrict A_rows,
                                      const int *__restrict A_cols,
                                      const Matrix_type *__restrict A_vals,
@@ -2436,11 +2396,7 @@ void DILU_backward_NxN_kernel_large( const int *__restrict A_rows,
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, typename WeightType, int CTA_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
-#endif
 void DILU_backward_4x4_kernel( const IndexType *row_offsets,
                                const IndexType *column_indices,
                                const ValueTypeA *nonzero_values,
@@ -2647,11 +2603,7 @@ void DILU_backward_4x4_kernel( const IndexType *row_offsets,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int CTA_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
-#endif
 void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
         const int *__restrict A_cols,
         const Matrix_type *__restrict A_vals,
@@ -2819,11 +2771,7 @@ void DILU_backward_4x4_kernel_row_major_vec4( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int NUM_THREADS_PER_ROW, int CTA_SIZE, int WARP_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 12 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 12 )
-#endif
 void DILU_backward_1x1_kernel( const int *__restrict A_rows,
                                const int *__restrict A_cols,
                                const Matrix_type *__restrict A_vals,
@@ -2936,11 +2884,7 @@ void DILU_backward_1x1_kernel( const int *__restrict A_rows,
 
 template< typename Matrix_type, typename Vector_type, typename WeightType, int N, int CTA_SIZE >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
-#endif
 void DILU_backward_NxN_kernel_skip( Vector_type *__restrict x,
                                     const WeightType weight,
                                     const int *__restrict sorted_rows_by_color,
@@ -3936,8 +3880,10 @@ MulticolorDILUSolver<TemplateConfig<AMGX_device, V, M, I> >::MulticolorDILUSolve
 {
     int device = 0;
     cudaGetDevice( &device );
+    cudaCheckError();
     cudaDeviceProp properties;
     cudaGetDeviceProperties( &properties, device );
+    cudaCheckError();
     m_is_kepler = properties.major >= 3;
 }
 

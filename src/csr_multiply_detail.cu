@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -1640,6 +1640,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 this->m_keys,
                 this->m_work_queue,
                 this->m_status );
+                cudaCheckError();
             break;
 
         case 4:
@@ -1659,6 +1660,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 this->m_keys,
                 this->m_work_queue,
                 this->m_status );
+                cudaCheckError();
             break;
 
         case 8:
@@ -1678,6 +1680,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 this->m_keys,
                 this->m_work_queue,
                 this->m_status );
+                cudaCheckError();
             break;
 
         case 16:
@@ -1697,6 +1700,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 this->m_keys,
                 this->m_work_queue,
                 this->m_status );
+                cudaCheckError();
             break;
 
         default:
@@ -1787,6 +1791,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                 flagArray[i].raw(),
                 i,
                 RAP.manager->global_id());
+                cudaCheckError();
         }
     }
 
@@ -1831,6 +1836,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 keys,
                 work_queue,
                 status );
+                cudaCheckError();
             break;
 
         case 4:
@@ -1845,6 +1851,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 keys,
                 work_queue,
                 status );
+                cudaCheckError();
             break;
 
         case 8:
@@ -1859,6 +1866,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 keys,
                 work_queue,
                 status );
+                cudaCheckError();
             break;
 
         case 16:
@@ -1873,6 +1881,7 @@ count_non_zeroes_ilu1_dispatch( const Matrix &A, Matrix &B, int num_threads_per_
                 keys,
                 work_queue,
                 status );
+                cudaCheckError();
             break;
 
         default:
@@ -1972,6 +1981,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsit
                 this->m_keys,
                 this->m_work_queue,
                 NULL );
+                cudaCheckError();
             break;
 
         case 4:
@@ -1991,6 +2001,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsit
                 this->m_keys,
                 this->m_work_queue,
                 NULL );
+                cudaCheckError();
             break;
 
         case 8:
@@ -2010,6 +2021,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsit
                 this->m_keys,
                 this->m_work_queue,
                 NULL );
+                cudaCheckError();
             break;
 
         case 16:
@@ -2029,6 +2041,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_sparsit
                 this->m_keys,
                 this->m_work_queue,
                 NULL );
+                cudaCheckError();
             break;
 
         default:
@@ -2114,10 +2127,10 @@ void calc_max_nnz_per_row_of_C(
         }
     }
 
-    using BR = cub::BlockReduce<int, CTA_SIZE>;
+    using BR = amgx::cub::BlockReduce<int, CTA_SIZE>;
 
     __shared__ typename BR::TempStorage max_s;
-    int max_nnz_block = BR(max_s).Reduce(expected_max_row_nnz, cub::Max());
+    int max_nnz_block = BR(max_s).Reduce(expected_max_row_nnz, [] __device__ (int a, int b) { return a > b ? a : b; });
 
     if(threadIdx.x == 0)
     {
@@ -2143,6 +2156,7 @@ bool CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
                     A.col_indices.raw(),
                     B.row_offsets.raw(),
                     C_row_max_block.raw());
+                    cudaCheckError();
 
     int max_nnz = thrust_wrapper::reduce<AMGX_device>(
         C_row_max_block.raw(), 
@@ -2158,6 +2172,7 @@ bool CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::count_non_zeroe
         B.row_offsets.raw(), \
         B.col_indices.raw(), \
         C.row_offsets.raw());
+        cudaCheckError();
 
     // Operation is group per row, where group size is determined by num_threads
     switch ( num_threads )
@@ -2262,6 +2277,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::cvk_opt(const M
                 C.row_offsets.raw(), 
                 C.col_indices.raw(), 
                 C.values.raw()); 
+                cudaCheckError();
 }
 
 
@@ -2538,6 +2554,7 @@ void CSR_Multiply_Detail<TemplateConfig<AMGX_device, V, M, I> >::compute_values_
                 flagArray[i].raw(),
                 i,
                 RAP.manager->global_id());
+                cudaCheckError();
         }
     }
 

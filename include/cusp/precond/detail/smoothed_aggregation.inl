@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -62,14 +62,14 @@ double estimate_rho_Dinv_A(const MatrixType& A)
 
 
 template <typename T>
-struct square : amgx::thrust::unary_function<T,T>
+struct square
 {
     __host__ __device__
     T operator()(const T& x) { return x * x; }
 };
 
 template <typename T>
-struct sqrt_functor : amgx::thrust::unary_function<T,T>
+struct sqrt_functor
 {
     __host__ __device__
     T operator()(const T& x) { return sqrt(x); }

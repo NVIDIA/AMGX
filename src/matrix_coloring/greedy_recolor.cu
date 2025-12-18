@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -924,6 +924,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
                         this->m_row_colors.raw(), amgx::thrust::raw_pointer_cast(color_in.data()),
                         2 * K * i, seed,
                         sets_per_block_ptr);
+                        cudaCheckError();
             }
             else
             {
@@ -959,8 +960,10 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
 #endif
             /*if (iteration++%4==0) {
                 cudaEventRecord(throttle_event);
+                cudaCheckError();
             } else {
                 cudaEventSynchronize(throttle_event);
+                cudaCheckError();
             }*/
         }
 
@@ -1072,6 +1075,7 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
     sorted_rows_by_color.raw(),start,end,\
     max_color_per_block_ptr\
     ); cudaCheckError(); }
+    cudaCheckError();
 #if 1 //straight order: generates a color histogram similar to parallel greedy
     //start from color=2: 1st color would be assigned to 1, no change
 
@@ -1114,8 +1118,10 @@ Greedy_Recolor_MatrixColoring<TemplateConfig<AMGX_device, V, M, I> >::color_matr
         cudaCheckError();
         /*if (iteration++%4==0) {
             cudaEventRecord(throttle_event);
+            cudaCheckError();
         } else {
             cudaEventSynchronize(throttle_event);
+            cudaCheckError();
         }*/
     }
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -399,11 +399,7 @@ void blockDiaCsrMultiplyKernel(const IndexType *row_offsets,
 
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, int CTA_SIZE, bool ROW_MAJOR >
 __global__
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 __launch_bounds__( CTA_SIZE, 16 )
-#elif defined(__CUDA_ARCH__)
-__launch_bounds__( CTA_SIZE, 16 )
-#endif
 void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         const IndexType *column_indices,
         const IndexType *dia_ptr,
@@ -992,11 +988,13 @@ class Multiply_4x4
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, true>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                     else
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, false>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
 
                 }
@@ -1007,10 +1005,12 @@ class Multiply_4x4
                     if ( A.getBlockFormat() == ROW_MAJOR )
                     {
                         blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, threads_per_block, true > <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                     else
                     {
                         blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, threads_per_block, false > <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
 #else
 
@@ -1018,11 +1018,13 @@ class Multiply_4x4
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, true>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                     else
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, false>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
 
 #endif
@@ -1106,11 +1108,13 @@ class Multiply_3x3
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 0, true>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 0, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                     else
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 0, false>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 0, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                 }
                 else
@@ -1119,11 +1123,13 @@ class Multiply_3x3
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 1, true>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 1, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                     else
                     {
                         cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 1, false>, cudaFuncCachePreferL1);
                         blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 3, 1, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaCheckError();
                     }
                 }
 

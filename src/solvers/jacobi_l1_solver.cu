@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -580,6 +580,7 @@ void JacobiL1Solver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>
     int n = num_rows - offset;
     int nblocks = n / nthreads_per_block + 1;
     jacobi_l1_postsmooth_zero<<<nblocks, nthreads_per_block>>>(n, this->weight, x.raw() + offset, this->m_d.raw() + offset, b.raw() + offset);
+    cudaCheckError();
 
     A.setView(oldView);
     cudaCheckError();

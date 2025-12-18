@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -761,6 +761,7 @@ class AMG_Setup
                 {
                     //cancel the CPU coloring task if the GPU is idle
                     cudaStreamSynchronize(amgx::thrust::global_thread_handle::get_stream());
+                    cudaCheckError();
                     enqueue_async(asyncmanager::singleton()->global_parallel_queue, async_global::singleton()->cancel_cpu_coloring_task);
                     //wait for every spawning task
                     asyncmanager::singleton()->waitall();
@@ -804,6 +805,7 @@ class AMG_Setup
 
 #if 0 //AMGX_ASYNCCPU_PROOF_OF_CONCEPT
             cudaStreamSynchronize(amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()]);
+            cudaCheckError();
             amgx::thrust::global_thread_handle::threadStream[getCurrentThreadId()] = 0;
 #endif
             return prev_level;
@@ -1100,6 +1102,7 @@ class AMG_Solve
         static void solve_iteration( AMG_Class *amg, Vector_hd &b, Vector_hd &x)
         {
             cudaStreamSynchronize(0);
+            cudaCheckError();
             nvtxRange amg_si("amg_solve_iteration");
             MemorySpace memorySpaceTag;
             AMG_Level<TConfig_hd> *fine = amg->getFinestLevel( memorySpaceTag );
@@ -1111,6 +1114,7 @@ class AMG_Solve
             // Disabling this call for now
             //MemoryInfo::updateMaxMemoryUsage();
             cudaStreamSynchronize(0);
+            cudaCheckError();
         }
 
 };

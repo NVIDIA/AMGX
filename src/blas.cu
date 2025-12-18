@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -32,7 +32,7 @@ namespace amgx
 
 // conjugate<T> computes the complex conjugate of a number f(a + b * i) -> a - b * i
 template <typename T>
-struct conjugate : public amgx::thrust::unary_function<T, T>
+struct conjugate
 {
     __host__ __device__
     T operator()(T x)
@@ -43,7 +43,7 @@ struct conjugate : public amgx::thrust::unary_function<T, T>
 
 // square<T> computes the square of a number f(x) -> x*conj(x)
 template <typename T>
-struct norm_squared : public amgx::thrust::unary_function<T, T>
+struct norm_squared
 {
     __host__ __device__
     typename types::PODTypes<T>::type operator()(T x)
@@ -125,7 +125,7 @@ struct AXPBYPCZ
 
 // absolute<T> computes the absolute value of a number f(x) -> |x|
 template <typename T>
-struct absolute : public amgx::thrust::unary_function<T, T>
+struct absolute
 {
     __host__ __device__
     typename types::PODTypes<T>::type operator()(T x)
@@ -136,7 +136,7 @@ struct absolute : public amgx::thrust::unary_function<T, T>
 
 // maximum<T> returns the largest of two numbers
 template <typename T>
-struct maximum : public amgx::thrust::binary_function<T, T, T>
+struct maximum
 {
     __host__ __device__
     T operator()(T x, T y)
@@ -202,12 +202,12 @@ void thrust_axpbypcz(InputIterator1 first1,
 
 template <typename InputIterator1,
           typename InputIterator2>
-typename amgx::thrust::iterator_value<InputIterator1>::type
+typename amgx::thrust::iterator_traits<InputIterator1>::value_type
 thrust_dotc(InputIterator1 first1,
             InputIterator1 last1,
             InputIterator2 first2)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator1>::type OutputType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator1>::value_type OutputType;
     return amgx::thrust::inner_product(amgx::thrust::make_transform_iterator(first1, conjugate<OutputType>()),
                                  amgx::thrust::make_transform_iterator(last1,  conjugate<OutputType>()),
                                  first2,
@@ -215,12 +215,12 @@ thrust_dotc(InputIterator1 first1,
 }
 
 template <int MemSpace, typename InputIterator>
-typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename types::PODTypes<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
 thrust_nrm1(InputIterator first,
             InputIterator last)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
-    typedef typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type OutType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
+    typedef typename types::PODTypes<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type OutType;
     absolute<ValueType> unary_op;
     amgx::thrust::plus<OutType> binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast
@@ -230,11 +230,11 @@ thrust_nrm1(InputIterator first,
 }
 
 template <int MemSpace, typename InputIterator>
-typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename types::PODTypes<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
 thrust_nrm2(InputIterator first,
             InputIterator last)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
     typedef typename types::PODTypes<ValueType>::type OutType;
     norm_squared<ValueType> unary_op;
     amgx::thrust::plus<OutType> binary_op;
@@ -245,12 +245,12 @@ thrust_nrm2(InputIterator first,
 }
 
 template <int MemSpace, typename InputIterator>
-typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename types::PODTypes<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
 thrust_nrmmax(InputIterator first,
               InputIterator last)
 {
-    typedef typename amgx::thrust::iterator_value<InputIterator>::type ValueType;
-    typedef typename types::PODTypes<typename amgx::thrust::iterator_value<InputIterator>::type>::type OutType;
+    typedef typename amgx::thrust::iterator_traits<InputIterator>::value_type ValueType;
+    typedef typename types::PODTypes<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type OutType;
     absolute<ValueType>  unary_op;
     maximum<OutType>   binary_op;
     OutType init = types::util<OutType>::get_zero(); // OutType is always scalar, we could just typecast

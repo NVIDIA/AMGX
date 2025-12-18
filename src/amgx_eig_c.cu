@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -77,6 +77,7 @@ inline AMGX_ERROR eigensolve_setup(AMGX_eigensolver_handle slv,
     }
 
     //cudaSetDevice(solver.getResources()->getDevice(0));
+    cudaCheckError();
     return solver.setup_capi_no_throw(wrapA.wrapped());
 }
 
@@ -108,6 +109,7 @@ inline AMGX_ERROR eigensolve_setup_pagerank(AMGX_eigensolver_handle slv,
     }
 
     //cudaSetDevice(solver.getResources()->getDevice(0));
+    cudaCheckError();
     return solver.pagerank_setup_no_throw(vec);
 }
 
@@ -174,6 +176,7 @@ extern "C" {
 
             resources = c_r.wrapped().get();/// (Resources*)(c_resources->hdl);
             cudaSetDevice(resources->getDevice(0));//because solver cnstr allocates resources on the device
+            cudaCheckError();
 
             switch (mode)
             {
@@ -301,6 +304,7 @@ extern "C" {
             switch (mode)
             {
                     //cudaSetDevice(get_mode_object_from<CASE,EigenSolver,AMGX_eigensolver_handle>(slv)->getResources()->getDevice(0));
+                    cudaCheckError();
 #define AMGX_CASE_LINE(CASE) case CASE: { \
       \
       remove_managed_object<CASE, AMG_EigenSolver, AMGX_eigensolver_handle>(slv); \

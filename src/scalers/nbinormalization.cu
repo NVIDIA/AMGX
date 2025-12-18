@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -286,7 +286,7 @@ void setOneOverVector(int N, ValueType *x, ValueType sum1, ValueType *beta)
 }
 
 template<typename T>
-struct square_value : public thrust::unary_function<T, T>
+struct square_value
 {
     __host__ __device__ T operator()(const T &x) const
     {
@@ -417,6 +417,7 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
     // perform matvecs to get beta and gamma (spmv for beta, spmvT for gamma)
     computeBetaGammaDevice<256, 8, 32> <<< 4096, 256>>>(rows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(),
             x.raw(), y.raw(), beta.raw(), gamma.raw());
+    cudaCheckError();
     ValueTypeB sum1 = cols, sum2 = rows, std1, std2;
     // calculate initial std1 and std2
     amgx::thrust::device_ptr<ValueTypeB> x_ptr(x.raw()), y_ptr(y.raw()), beta_ptr(beta.raw()), gamma_ptr(gamma.raw());
@@ -430,13 +431,17 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
 
         // x = sum1 ./ beta
         setOneOverVector <<< 4096, 256>>>(rows, x.raw(), sum1, beta.raw());
+        cudaCheckError();
         // gamma = C*x := B'*x
         thrust_wrapper::fill<AMGX_device>(gamma.begin(), gamma.end(), ValueTypeB(0.));
         computeGammaDevice<256, 8> <<< 4096, 256>>>(rows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), x.raw(), gamma.raw());
+        cudaCheckError();
         // gamma = 1 ./ beta
         setOneOverVector <<< 4096, 256>>>(cols, y.raw(), sum2, gamma.raw());
+        cudaCheckError();
         // beta = B*y
         computeBetaDevice<256, 8> <<< 4096, 256>>>(rows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), y.raw(), beta.raw());
+        cudaCheckError();
         //ValueTypeB std_old = std;
         std = sqrt(amgx::thrust::inner_product(x_ptr, x_ptr + rows, beta_ptr, ValueTypeB(0.), amgx::thrust::plus<ValueTypeB>(), std_f<ValueTypeB>(sum1)) / rows) / sum1;
         // print it #, current error, convergence rate

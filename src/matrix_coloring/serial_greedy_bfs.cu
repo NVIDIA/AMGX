@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -564,8 +564,17 @@ void copy_using_buffer_d2h(void *dst, void *src, size_t size)
         if (end > size) { end = size; }
 
         cudaMemcpyAsync(buffer, ((unsigned char *)src) + offset, end - offset, cudaMemcpyDeviceToHost, stream);
-        cudaEventRecord(event, stream);
-        cudaEventSynchronize(event);
+        cudaCheckError();
+        cudaError_t cuda_rc = cudaEventRecord(event, stream);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventRecord failed in copy_using_buffer_d2h", AMGX_ERR_CUDA_FAILURE);
+        }
+        cuda_rc = cudaEventSynchronize(event);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventSynchronize failed in copy_using_buffer_d2h", AMGX_ERR_CUDA_FAILURE);
+        }
         memcpy(((unsigned char *)dst) + offset, buffer, end - offset);
         offset = end;
     }
@@ -596,8 +605,17 @@ void copy_using_buffer_h2d(void *dst, void *src, size_t size)
 
         memcpy(buffer, ((unsigned char *)src) + offset, end - offset);
         cudaMemcpyAsync( ((unsigned char *)dst) + offset, buffer, end - offset, cudaMemcpyHostToDevice, stream);
-        cudaEventRecord(event, stream);
-        cudaEventSynchronize(event);
+        cudaCheckError();
+        cudaError_t cuda_rc = cudaEventRecord(event, stream);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventRecord failed in copy_using_buffer_h2d", AMGX_ERR_CUDA_FAILURE);
+        }
+        cuda_rc = cudaEventSynchronize(event);
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaEventSynchronize failed in copy_using_buffer_h2d", AMGX_ERR_CUDA_FAILURE);
+        }
         offset = end;
     }
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -128,7 +128,7 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
         int m_max_attempts;
 
         int m_use_opt_kernels = 0;
-        int m_use_cusparse_kernels = 0;
+        int m_use_cusparse_spgemm = 0;
 
     public:
         // Create a workspace to run the product.
@@ -156,7 +156,7 @@ class CSR_Multiply_Impl<TemplateConfig<AMGX_device, V, M, I> > : public Hash_Wor
         // Set the max number of attempts before the fallback to CUSPARSE.
         inline void set_max_attempts(int max_attempts) { m_max_attempts = max_attempts; }
         inline void set_opt_multiply(bool use_opt_kernels) { m_use_opt_kernels = use_opt_kernels; }
-        inline void set_use_cusparse_kernels(bool use_cusparse_kernels) { m_use_cusparse_kernels = use_cusparse_kernels; }
+        inline void set_use_cusparse_spgemm(bool use_cusparse_spgemm) { m_use_cusparse_spgemm = use_cusparse_spgemm; }
 
     protected:
         // Count the number of non-zero elements. The callee is responsible for setting the work queue value.

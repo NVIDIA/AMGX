@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -17,7 +17,16 @@
 #endif 
 
 // decorator for deprecated features
+#ifdef THRUST_DEPRECATED
 #define CUSP_DEPRECATED THRUST_DEPRECATED
+#else
+// THRUST_DEPRECATED not available in this version, use C++14 attribute or empty macro
+#if __cplusplus >= 201402L
+#define CUSP_DEPRECATED [[deprecated]]
+#else
+#define CUSP_DEPRECATED
+#endif
+#endif
 
 // hooks for profiling
 #if defined(CUSP_PROFILE_ENABLED)

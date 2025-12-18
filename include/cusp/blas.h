@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -199,7 +199,7 @@ void copy(const Array1& array1,
 template <typename InputIterator1,
           typename InputIterator2>
 CUSP_DEPRECATED
-typename amgx::thrust::iterator_value<InputIterator1>::type
+typename amgx::thrust::iterator_traits<InputIterator1>::value_type
     dot(InputIterator1 first1,
         InputIterator1 last1,
         InputIterator2 first2);
@@ -216,7 +216,7 @@ typename Array1::value_type
 template <typename InputIterator1,
           typename InputIterator2>
 CUSP_DEPRECATED
-typename amgx::thrust::iterator_value<InputIterator1>::type
+typename amgx::thrust::iterator_traits<InputIterator1>::value_type
     dotc(InputIterator1 first1,
          InputIterator1 last1,
          InputIterator2 first2);
@@ -254,7 +254,7 @@ void fill(const Array& array,
 
 template <typename InputIterator>
 CUSP_DEPRECATED
-typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename norm_type<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
     nrm1(InputIterator first,
          InputIterator last);
 
@@ -267,7 +267,7 @@ typename norm_type<typename Array::value_type>::type
 
 template <typename InputIterator>
 CUSP_DEPRECATED
-typename norm_type<typename amgx::thrust::iterator_value<InputIterator>::type>::type
+typename norm_type<typename amgx::thrust::iterator_traits<InputIterator>::value_type>::type
     nrm2(InputIterator first,
          InputIterator last);
 
@@ -280,7 +280,7 @@ typename norm_type<typename Array::value_type>::type
 
 template <typename InputIterator>
 CUSP_DEPRECATED
-typename amgx::thrust::iterator_value<InputIterator>::type
+typename amgx::thrust::iterator_traits<InputIterator>::value_type
     nrmmax(InputIterator first,
            InputIterator last);
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -80,6 +80,7 @@ void hash_path_determinism_checker::checkpoint(const std::string &name, void *da
     if ( no_permute )
     {
         fast_hash_kernel_no_permute <<< 26, 256>>>((unsigned int *)data, amgx::thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
+        cudaCheckError();
     }
     else
     {
@@ -100,6 +101,7 @@ unsigned long long int hash_path_determinism_checker::checksum( void *data, long
     if ( no_permute )
     {
         fast_hash_kernel_no_permute <<< 26, 256>>>((unsigned int *)data, amgx::thrust::raw_pointer_cast(hash_buff.data()), size_in_bytes / 4, 1987);
+        cudaCheckError();
     }
     else
     {

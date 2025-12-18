@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -54,6 +54,10 @@ void printUsageAndExit()
     strcat(msg, "     -m file: read matrix stored in the file\n");
     strcat(msg, "     -c:      set the amg solver options from the config file\n");
     strcat(msg, "     -amg:    set the amg solver options from the command line\n");
+    strcat(msg, "     -cd:     check if matrix is diagonally dominant\n");
+    strcat(msg, "     -cs:     check matrix symmetry\n");
+    strcat(msg, "     -om file: write the matrix system to file and exit\n");
+    strcat(msg, "     -r N:    run setup/solve N times for performance analysis\n");
     print_callback(msg, MAX_MSG_LEN);
     MPI_Finalize();
     exit(0);
@@ -347,11 +351,14 @@ int main(int argc, char **argv)
     int block_dimy;
     AMGX_matrix_get_size(A, &n, &block_dimx, &block_dimy);
 
+    int global_n;
+    MPI_Reduce(&n, &global_n, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
     if(block_dimx > 1 || block_dimy > 1) {
-        if(rank == 0) { printf("Matrix A has %d rows with %d x %d blocks\n", n, block_dimx, block_dimy); };
+        if(rank == 0) { printf("Matrix A has %d rows with %d x %d blocks\n", global_n, block_dimx, block_dimy); };
     }
     else {
-        if(rank == 0) { printf("Matrix A is scalar and has %d rows\n", n); };
+        if(rank == 0) { printf("Matrix A is scalar and has %d rows\n", global_n); };
     }
 
     size_t sizeof_v_val = ((AMGX_GET_MODE_VAL(AMGX_VecPrecision, mode) == AMGX_vecDouble))? sizeof(double) : sizeof(float);

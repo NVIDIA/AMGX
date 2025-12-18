@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2008 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2008 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -19,7 +19,7 @@ namespace precond
 namespace detail
 {
     template <typename T>
-        struct reciprocal : public amgx::thrust::unary_function<T,T>
+        struct reciprocal
     {
         __host__ __device__
         T operator()(const T& v)

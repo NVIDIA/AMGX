@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2017, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2011-2025, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -26,6 +26,23 @@
 
 cmake_minimum_required (VERSION 3.18)
 
+# IMPORTANT: CMAKE_CUDA_ARCHITECTURES must be set before project() enables CUDA
+# Backward compatibility: translate old CUDA_ARCH to new CMAKE_CUDA_ARCHITECTURES
+if(DEFINED CUDA_ARCH)
+    message(WARNING "CUDA_ARCH is deprecated. Please use CMAKE_CUDA_ARCHITECTURES instead.")
+    set(CMAKE_CUDA_ARCHITECTURES "${CUDA_ARCH}" CACHE STRING "Target CUDA architectures" FORCE)
+endif()
+
+# If CMAKE_CUDA_ARCHITECTURES is not set, provide a default
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    # Default to common architectures (will be validated later based on CUDA version)
+    set(CMAKE_CUDA_ARCHITECTURES "90;100;120" CACHE STRING 
+        "CUDA architectures to compile for (e.g., 90;100;120)")
+    message(STATUS "Using default CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+else()
+    message(STATUS "Using CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+endif()
+
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
@@ -46,7 +63,7 @@ IF(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are Debug Release Profile RelWithTraces" FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
-find_package(CUDAToolkit 11.0 REQUIRED)
+find_package(CUDAToolkit 12.0 REQUIRED)
 
 # update/define the compilation flags.
 IF(WIN32)
@@ -109,11 +126,6 @@ if (DEFINED ENV{CRAY_MPICH2_DIR})
   set(MPI_C_LIBRARIES "$ENV{CRAY_MPICH2_DIR}/lib/libmpich.so")
   set(MPI_C_INCLUDE_PATH "$ENV{CRAY_MPICH2_DIR}/include")
 endif(DEFINED ENV{CRAY_MPICH2_DIR})
-
-# Thrust:
-if (DEFINED ENV{THRUST_ROOT})
-  set (THRUST_DIR $ENV{THRUST_ROOT})
-endif(DEFINED ENV{THRUST_ROOT})
 
 set(AMGX_INCLUDE_EXTERNAL True CACHE BOOL "Include external 3rd party libraries")
 if (AMGX_INCLUDE_EXTERNAL)
@@ -189,43 +201,23 @@ ENDIF(CMAKE_C_COMPILER_NAME MATCHES cl AND NOT CMAKE_C_COMPILER_NAME MATCHES cla
 # otherwise a workaround for extracting ${obj_all} is necessary below
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
 
-#if compiling against CUDA Toolkit 12.x +
-IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.0.0)
+IF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0.0)
 
-  SET(CUDA_ALLOW_ARCH "70;80;90")
+  SET(CUDA_ALLOW_ARCH "70;75;80;86;89;90;100;120")
 
-ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0.0)
+ELSEIF(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.0.0)
 
-  SET(CUDA_ALLOW_ARCH "70;80")
+  SET(CUDA_ALLOW_ARCH "70;75;80;86;89;90;100;120")
 
 ELSE()
 
-  MESSAGE(FATAL_ERROR "Error: CUDA minimum supported version is 11.0.")
+  MESSAGE(FATAL_ERROR "Error: CUDA minimum supported version is 12.0.")
 
 ENDIF()
 
-if(DEFINED CUDA_ARCH)
-    # User passed a CUDA_ARCH so check it matches
-    # Error if incorrect CUDA_ARCH passed
-    FOREACH(ARCH IN LISTS CUDA_ARCH)
-        message(STATUS "Checking if arch " ${ARCH} " is supported...")
-        IF(NOT ${ARCH} IN_LIST CUDA_ALLOW_ARCH)
-            message(STATUS
-                "Chosen CUDA_ARCH ${ARCH} not expected for current CUDA version. " 
-                "Please choose one or more of ${CUDA_ALLOW_ARCH}.")
-        ENDIF()
-    ENDFOREACH()
-ELSE()
-
-    # Set a default
-    SET(CUDA_ARCH "${CUDA_ALLOW_ARCH}" CACHE STRING "Target Architectures (SM60 SM70 SM80), multiple are allowed")
-
-ENDIF()
-
-# We depend on a specific version of thrust now so include the submodule
-add_subdirectory("thrust")
-find_package(Thrust REQUIRED CONFIG)
-thrust_create_target(Thrust)
+# Validate CMAKE_CUDA_ARCHITECTURES against what this CUDA version supports
+message(STATUS "CUDA ${CMAKE_CUDA_COMPILER_VERSION} supports architectures: ${CUDA_ALLOW_ARCH}")
+message(STATUS "Building for architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 
 # Add the CXX flags to the host set of CUDA flags
 string(REPLACE ";" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -237,10 +229,8 @@ add_library(amgx_libs OBJECT "")
 
 add_subdirectory("src")
 
-target_link_libraries(amgx_libs Thrust)
-
-# set arch for main libs target
-set_target_properties(amgx_libs PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+# CMAKE_CUDA_ARCHITECTURES automatically applies to all CUDA targets
+# No need to set per-target properties when set as cache variable above
 
 target_compile_options(amgx_libs PUBLIC $<$<COMPILE_LANGUAGE:CUDA>: ${CUDA_NVCC_FLAGS} >)
 
@@ -270,10 +260,7 @@ if(MPI_FOUND)
     target_link_libraries(amgxsh MPI::MPI_CXX)
 endif(MPI_FOUND)
 
-# set arch for main libs
-
-set_target_properties(amgx PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-set_target_properties(amgxsh PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
+# CMAKE_CUDA_ARCHITECTURES is inherited by all targets automatically
 
 install(FILES
   include/amgx_config.h

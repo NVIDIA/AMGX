@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -59,6 +59,9 @@ class Cusparse
         // global CUSPARSE handle for nvAMG
         cusparseHandle_t m_handle;
 
+        // Determinism flag for SpMV algorithm selection
+        bool m_determinism_flag;
+
     public:
         // Which columns should be used in A.x?
         // ALL_COLORS works always
@@ -101,6 +104,10 @@ class Cusparse
 
         // Get the handle.
         inline cusparseHandle_t get_handle() { return m_handle; }
+
+        // Determinism flag for SpMV algorithm selection
+        inline bool is_deterministic() const { return m_determinism_flag; }
+        inline void set_determinism_flag(bool flag) { m_determinism_flag = flag; }
 
         // TODO : here we declare alpha and beta consts as lower precision (VecPrec),
         // however when mixed precision for bsrmv will be supported those constants will

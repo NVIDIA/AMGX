@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -54,7 +54,9 @@ Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false), m_tmng(n
     m_devices.clear();
     m_devices.push_back(0);
     cudaSetDevice(0);
+    cudaCheckError();
     cudaFree(0);
+    cudaCheckError();
     std::string solver_value, solver_scope, default_scope;
     m_cfg->getParameter<std::string>("solver", solver_value, "default", solver_scope);
     m_cfg->getParameter<size_t>("device_mem_pool_size", m_pool_size, "default", solver_scope);
@@ -70,6 +72,7 @@ Resources::Resources() : m_cfg_self(true), m_root_pool_expanded(false), m_tmng(n
     amgx::allocate_resources(m_pool_size, m_max_alloc_size, m_scaling_factor, m_scaling_threshold, m_pool_size_limit);
     // setup NV libraries
     Cusparse &c = Cusparse::get_instance();
+    c.set_determinism_flag(m_cfg->getParameter<int>("determinism_flag", "default") != 0);
     Cublas::get_handle();
     // create and initialize thread manager
     //m_tmng = new ThreadManager();
@@ -107,8 +110,10 @@ Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const i
         m_devices.push_back(devices[i]);
         // select current device
         cudaSetDevice(devices[i]);
+        cudaCheckError();
         // create context
         cudaFree(0);
+        cudaCheckError();
         // allocate resources
         amgx::allocate_resources(m_pool_size, m_max_alloc_size, m_scaling_factor, m_scaling_threshold, m_pool_size_limit);
         m_handle_errors = m_cfg->getParameter<int>("exception_handling", solver_scope);
@@ -116,9 +121,10 @@ Resources::Resources(AMG_Configuration *cfg, void *comm, int device_num, const i
 
     // setup NV libraries
     Cusparse &c = Cusparse::get_instance();
+    c.set_determinism_flag(m_cfg->getParameter<int>("determinism_flag", "default") != 0);
     Cublas::get_handle();
     // create communicator
-    // create and initialize thread manager
+    // create and initialized thread manager
     //m_tmng = new ThreadManager();
     //m_tmng->setup_streams(m_num_streams, m_high_priority_stream, m_serialize_threads);
     // spawn threads
@@ -136,6 +142,7 @@ Resources::~Resources()
 {
     // select device 0
     cudaSetDevice(m_devices[0]);
+    cudaCheckError();
     // terminate threads
     // m_tmng->join_threads();
     // delete m_tmng;
@@ -149,6 +156,7 @@ Resources::~Resources()
     {
         // select current device
         cudaSetDevice(m_devices[i]);
+        cudaCheckError();
         // free resources
         amgx::free_resources();
     }
@@ -167,6 +175,7 @@ void Resources::expandRootPool()
         {
             // select current device
             cudaSetDevice(m_devices[i]);
+            cudaCheckError();
             memory::expandDeviceMemoryPool(m_root_pool_size, m_max_alloc_size);
         }
 

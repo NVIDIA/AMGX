@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -103,6 +103,7 @@ void Selector<TConfig>::printAggregationInfo(const IVector &aggregates, const IV
     const int num_blocks = std::min( (int)AMGX_GRID_MAX_SIZE, (int)(num_rows - 1) / threads_per_block + 1 );
     //count
     countRowSizes <<< num_blocks, threads_per_block, 0, 0>>>( R.row_offsets.raw(), size_array.raw(), num_aggregates );
+    cudaCheckError();
     cudaDeviceSynchronize();
     cudaCheckError();
     //copy to host and print
@@ -173,10 +174,21 @@ void Selector<TConfig>::assertRestriction( const IVector &R_row_offsets, const I
         used_col[i] = 0;
     }
 
-    cudaMemcpy( r_ia, R_row_offsets.raw(), sizeof(int)*R_row_offsets.size(), cudaMemcpyDeviceToHost );
-    cudaMemcpy( r_ja, R_col_indices.raw(), sizeof(int)*R_col_indices.size(), cudaMemcpyDeviceToHost );
-    cudaMemcpy( agg, aggregates.raw(), sizeof(int)*aggregates.size(), cudaMemcpyDeviceToHost );
-    cudaCheckError();
+    cudaError_t cuda_rc = cudaMemcpy( r_ia, R_row_offsets.raw(), sizeof(int)*R_row_offsets.size(), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy R_row_offsets D2H failed in agg_selector", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy( r_ja, R_col_indices.raw(), sizeof(int)*R_col_indices.size(), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy R_col_indices D2H failed in agg_selector", AMGX_ERR_CUDA_FAILURE);
+    }
+    cuda_rc = cudaMemcpy( agg, aggregates.raw(), sizeof(int)*aggregates.size(), cudaMemcpyDeviceToHost );
+    if (cuda_rc != cudaSuccess)
+    {
+        FatalError("cudaMemcpy aggregates D2H failed in agg_selector", AMGX_ERR_CUDA_FAILURE);
+    }
 
     for ( int i = 0; i < R_row_offsets.size() - 1; i++ )
     {

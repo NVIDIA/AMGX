@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -36,9 +36,13 @@ void AMG_EigenSolver<T_Config>::init()
     if ( m_with_timings )
     {
         cudaEventCreate(&m_setup_start);
+        cudaCheckError();
         cudaEventCreate(&m_setup_stop);
+        cudaCheckError();
         cudaEventCreate(&m_solve_start);
+        cudaCheckError();
         cudaEventCreate(&m_solve_stop);
+        cudaCheckError();
     }
 }
 
@@ -79,9 +83,13 @@ AMG_EigenSolver<T_Config>::AMG_EigenSolver(const AMG_EigenSolver<T_Config> &othe
     if ( m_with_timings )
     {
         cudaEventCreate(&m_setup_start);
+        cudaCheckError();
         cudaEventCreate(&m_setup_stop);
+        cudaCheckError();
         cudaEventCreate(&m_solve_start);
+        cudaCheckError();
         cudaEventCreate(&m_solve_stop);
+        cudaCheckError();
     }
 }
 
@@ -99,9 +107,13 @@ AMG_EigenSolver<T_Config> &AMG_EigenSolver<T_Config>::operator=(const AMG_EigenS
     if ( m_with_timings )
     {
         cudaEventCreate(&m_setup_start);
+        cudaCheckError();
         cudaEventCreate(&m_setup_stop);
+        cudaCheckError();
         cudaEventCreate(&m_solve_start);
+        cudaCheckError();
         cudaEventCreate(&m_solve_stop);
+        cudaCheckError();
     }
 
     return *this;
@@ -131,9 +143,13 @@ AMG_EigenSolver<T_Config>::~AMG_EigenSolver()
         cudaEventElapsedTime(&elapsed_time, m_solve_start, m_solve_stop);
         std::cerr << "AMG_EigenSolver::solve time: " << 1.0e-3 * elapsed_time << "s" << std::endl;
         cudaEventDestroy(m_setup_start);
+        cudaCheckError();
         cudaEventDestroy(m_setup_stop);
+        cudaCheckError();
         cudaEventDestroy(m_solve_start);
+        cudaCheckError();
         cudaEventDestroy(m_solve_stop);
+        cudaCheckError();
     }
 }
 
@@ -147,6 +163,7 @@ void AMG_EigenSolver<T_Config>::setup( Matrix<T_Config> &A)//&A0)
     if ( m_with_timings )
     {
         cudaEventRecord(m_setup_start);
+        cudaCheckError();
     }
 
     // postpone free syncs, use device pool
@@ -162,7 +179,9 @@ void AMG_EigenSolver<T_Config>::setup( Matrix<T_Config> &A)//&A0)
     if ( m_with_timings )
     {
         cudaEventRecord(m_setup_stop);
+        cudaCheckError();
         cudaEventSynchronize(m_setup_stop);
+        cudaCheckError();
     }
 }
 
@@ -185,6 +204,7 @@ void AMG_EigenSolver<T_Config>::pagerank_setup( Vector<T_Config> &vec)//&A0)
     if ( m_with_timings )
     {
         cudaEventRecord(m_setup_start);
+        cudaCheckError();
     }
 
     // postpone free syncs, use device pool
@@ -200,7 +220,9 @@ void AMG_EigenSolver<T_Config>::pagerank_setup( Vector<T_Config> &vec)//&A0)
     if ( m_with_timings )
     {
         cudaEventRecord(m_setup_stop);
+        cudaCheckError();
         cudaEventSynchronize(m_setup_stop);
+        cudaCheckError();
     }
 }
 
@@ -247,6 +269,7 @@ AMGX_ERROR AMG_EigenSolver<T_Config>::solve_no_throw( Vector<T_Config> &x, AMGX_
     if ( m_with_timings )
     {
         cudaEventRecord(m_solve_start);
+        cudaCheckError();
     }
 
     AMGX_ERROR e = solver->solve_no_throw( x, status );
@@ -255,7 +278,9 @@ AMGX_ERROR AMG_EigenSolver<T_Config>::solve_no_throw( Vector<T_Config> &x, AMGX_
     if ( m_with_timings )
     {
         cudaEventRecord(m_solve_stop);
+        cudaCheckError();
         cudaEventSynchronize(m_solve_stop);
+        cudaCheckError();
     }
 
     return e;

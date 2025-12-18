@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -54,6 +54,7 @@ void preamble(
 
     int dev = 0;
     cudaSetDevice(dev);
+    cudaCheckError();
 
     AMGX_initialize();
 
@@ -94,19 +95,26 @@ void run()
 
     int* rows;
     cudaMalloc(&rows, sizeof(int)*(nrows+1));
+    cudaCheckError();
     cudaMemcpy(rows, rows_h.data(), sizeof(int)*(nrows+1), cudaMemcpyDefault);
+    cudaCheckError();
 
     int* cols;
     cudaMalloc(&cols, sizeof(int)*nnz);
+    cudaCheckError();
     cudaMemcpy(cols, cols_h.data(), sizeof(int)*nnz, cudaMemcpyDefault);
+    cudaCheckError();
 
     double* vals;
     cudaMalloc(&vals, sizeof(double)*nnz);
+    cudaCheckError();
 
     UNITTEST_ASSERT_EQUAL(AMGX_matrix_upload_distributed(A, nrows, nrows, nnz, 1, 1, rows, cols, vals, NULL, dist), AMGX_RC_OK);
 
     cudaFree(rows);
+    cudaCheckError();
     cudaFree(cols);
+    cudaCheckError();
 
     cleanup(A, rsrc);
 }
@@ -130,10 +138,12 @@ void run()
     int* rows;
     cudaMallocManaged(&rows, sizeof(int)*(nrows+1));
     cudaMemcpy(rows, rows_h.data(), sizeof(int)*(nrows+1), cudaMemcpyDefault);
+    cudaCheckError();
 
     int* cols;
     cudaMallocManaged(&cols, sizeof(int)*nnz);
     cudaMemcpy(cols, cols_h.data(), sizeof(int)*nnz, cudaMemcpyDefault);
+    cudaCheckError();
 
     double* vals;
     cudaMallocManaged(&vals, sizeof(double)*nnz);
@@ -141,7 +151,9 @@ void run()
     UNITTEST_ASSERT_EQUAL(AMGX_matrix_upload_distributed(A, nrows, nrows, nnz, 1, 1, rows, cols, vals, NULL, dist), AMGX_RC_OK);
 
     cudaFree(rows);
+    cudaCheckError();
     cudaFree(cols);
+    cudaCheckError();
     cleanup(A, rsrc);
 }
 
@@ -212,19 +224,24 @@ void run()
 
     int* rows;
     cudaMallocHost(&rows, sizeof(int)*(nrows+1));
+    cudaCheckError();
     memcpy(rows, rows_h.data(), sizeof(int)*(nrows+1));
 
     int* cols;
     cudaMallocHost(&cols, sizeof(int)*nnz);
+    cudaCheckError();
     memcpy(cols, cols_h.data(), sizeof(int)*nnz);
 
     double* vals;
     cudaMallocHost(&vals, sizeof(double)*nnz);
+    cudaCheckError();
 
     UNITTEST_ASSERT_EQUAL(AMGX_matrix_upload_distributed(A, nrows, nrows, nnz, 1, 1, rows, cols, vals, NULL, dist), AMGX_RC_OK);
 
     cudaFreeHost(rows);
+    cudaCheckError();
     cudaFreeHost(cols);
+    cudaCheckError();
     cleanup(A, rsrc);
 }
 

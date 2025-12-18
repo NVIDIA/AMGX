@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -290,7 +290,11 @@ void SerialGreedySelector<T_Config>::setAggregates(Matrix<T_Config> &A,
     if ( typeid( MemorySpace ) == typeid( device_memory ) )
     {
         aggregates.resize( numRows );
-        cudaMemcpy( aggregates.raw(), agg, numRows * sizeof(IndexType), cudaMemcpyHostToDevice );
+        cudaError_t cuda_rc = cudaMemcpy( aggregates.raw(), agg, numRows * sizeof(IndexType), cudaMemcpyHostToDevice );
+        if (cuda_rc != cudaSuccess)
+        {
+            FatalError("cudaMemcpy aggregates H2D failed in serial_greedy", AMGX_ERR_CUDA_FAILURE);
+        }
         delete[] agg;
         delete[] ia;
         delete[] ja;

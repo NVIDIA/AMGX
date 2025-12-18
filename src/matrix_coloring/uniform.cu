@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -96,6 +96,7 @@ void UniformMatrixColoringBase<T_Config>::colorMatrix(Matrix<T_Config> &A)
                 int n1d = round(cbrt((double)num_rows));
                 //printf("Uniform coloring: n==%d, dim == %d, n1d == %d\n", num_rows, dim, n1d);
                 color3d <<< num_blocks, threads_per_block>>>(row_colors_ptr, num_rows, n1d);
+                cudaCheckError();
             }
             else
             {

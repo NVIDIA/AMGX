@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -234,6 +234,7 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
     }
 
     cudaDeviceSynchronize(); // why ????
+    cudaCheckError();
     bool verbose_output = 0;
     const std::string cfg_scope = "default";
     std::stringstream config_string_base;
@@ -364,19 +365,25 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
         A_d.set_initialized(0);
         A_d.addProps(CSR);
 //      cudaDeviceSynchronize();
+cudaCheckError();
         cudaEvent_t color_start, color_stop;
         cudaEventCreate(&color_start);
+        cudaCheckError();
         cudaEventCreate(&color_stop);
+        cudaCheckError();
         //A_d.colorMatrix(cfg,cfg_scope);
         //A_d.set_initialized(0);
         float elapsed_time;
         cudaEventRecord( color_start);
+        cudaCheckError();
         A_d.colorMatrix(cfg, cfg_scope);
         //amgx::testing_tools::hash_path_determinism_checker::singleton()->checkpoint("colors",  (void*)A_d.getMatrixColoring().getRowColors().raw(), A_d.getMatrixColoring().getRowColors().size()*4);
         //amgx::testing_tools::hash_path_determinism_checker::singleton()->checkpoint("cols",  (void*)A_d.col_indices.raw(), A_d.col_indices.size()*4);
         //amgx::testing_tools::hash_path_determinism_checker::singleton()->checkpoint("rows",  (void*)A_d.row_offsets.raw(), A_d.row_offsets.size()*4);
         cudaEventRecord( color_stop);
+        cudaCheckError();
         cudaEventSynchronize( color_stop);
+        cudaCheckError();
         cudaEventElapsedTime( &elapsed_time, color_start, color_stop);
         elapsed_time *= 1e-3f;
         A_d.set_initialized(1);
@@ -517,6 +524,7 @@ color_matrix_file(const std::string &filename, int max_coloring_level = 3)
     }
 
     cudaDeviceSynchronize();
+    cudaCheckError();
 }
 
 DECLARE_UNITTEST_END(MatrixColoringTest_Base);

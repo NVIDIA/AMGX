@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2013 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -726,7 +726,6 @@ void FixcolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec,
         fixcolorGSSmoothCsrKernel_NAIVE_tex<IndexType, ValueTypeA, ValueTypeB> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_diag_ptr, A_nonzero_values_ptr, Dinv_ptr,
          b_ptr, x_ptr, this->weight, num_rows_per_line, i, n, x_ptr);
-        cudaCheckError();
     }
 
     if (this->symFlag == 1)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -41,7 +41,9 @@ void ExcHalo1Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> 
     if (b.buffer_size != 0)
     {
         cudaMemcpyAsync(&(b.explicit_host_buffer[0]), b.buffer->raw(), b.buffer_size * sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
+        cudaCheckError();
         cudaStreamSynchronize(stream);
+        cudaCheckError();
     }
 
 #ifdef AMGX_WITH_MPI
@@ -95,6 +97,7 @@ void ExcHalo1Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
 
     cudaStream_t stream = get_stream();
     cudaStreamSynchronize(stream);
+    cudaCheckError();
 
     //#####################################################################
     //#     RULE: for send use what Hostbuffer copies from, in step 1;    #
@@ -252,6 +255,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> 
             if (offset != 0)
             {
                 cudaMemcpy(b.raw() + m.manager->halo_offset(0)*bsize, &(b.explicit_host_buffer[b.buffer_size]), offset * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+                cudaCheckError();
             }
         }
         else
@@ -268,6 +272,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> 
                     value_type *halo_start = b.raw() + lda * s + m.manager->halo_offset(i);
                     value_type *received_halo = rank_start + s * halo_size;
                     cudaMemcpy(halo_start, received_halo, halo_size * sizeof(value_type), cudaMemcpyDefault);
+                    cudaCheckError();
                 }
 
                 rank_start += num_cols * halo_size;
@@ -290,6 +295,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TConfig> 
                     if (size != 0)
                     {
                         cudaMemcpy(b.raw() + m.manager->halo_offset(j * neighbors + i)*bsize, &(b.explicit_host_buffer[b.buffer_size + offset]), size * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+                        cudaCheckError();
                     }
 
                     offset += size;
@@ -328,6 +334,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
             if (offset != 0)
             {
                 cudaMemcpy(b.raw() + m.manager->halo_offset(0)*bsize, b.buffer->raw() + b.buffer_size, offset * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+                cudaCheckError();
             }
         }
         else
@@ -345,6 +352,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
                     value_type *halo_start = b.raw() + lda * s + m.manager->halo_offset(i);
                     value_type *received_halo = rank_start + s * halo_size;
                     cudaMemcpy(halo_start, received_halo, halo_size * sizeof(value_type), cudaMemcpyDefault);
+                    cudaCheckError();
                 }
 
                 rank_start += num_cols * halo_size;
@@ -370,6 +378,7 @@ void ExcHalo3Functor<TConfig, Tb>::operator()(CommsMPIDirect<TConfig> &comm)
                 if (size != 0)
                 {
                     cudaMemcpy(b.raw() + m.manager->halo_offset(j * neighbors + i)*bsize, b.buffer->raw() + b.buffer_size + offset, size * sizeof(typename Tb::value_type), cudaMemcpyDefault);
+                    cudaCheckError();
                 }
 
                 offset += size;
@@ -499,7 +508,9 @@ void ExcHalo3AsyncFunctor<TConfig, Tb>::operator()(CommsMPIHostBufferStream<TCon
     if (size != 0)
     {
         cudaMemcpyAsync(b.raw() + m.manager->halo_offset(0)*bsize, &(b.explicit_host_buffer[b.buffer_size]), size * sizeof(typename Tb::value_type), cudaMemcpyDefault, stream);
+        cudaCheckError();
         cudaStreamSynchronize(stream);
+        cudaCheckError();
     }
 
 #endif

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011 - 2024 NVIDIA CORPORATION. All Rights Reserved.
+// SPDX-FileCopyrightText: 2011 - 2025 NVIDIA CORPORATION. All Rights Reserved.
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -1145,6 +1145,7 @@ void Selector<TemplateConfig<AMGX_device, V, M, I>>::compute_c_hat_opt_dispatch(
             C_hat_end,
             cf_map,
             unfine_set.raw());
+            cudaCheckError();
 }
 
 // Determines which nodes are not fine, hence excluded
@@ -1204,6 +1205,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         constexpr int nthreads = 128;
         const int nblocks = A.get_num_rows() / nthreads + 1;
         set_unfine<<<nblocks, nthreads>>>(A.get_num_rows(), cf_map.raw(), unfine.raw(), unfine_offs.raw());
+        cudaCheckError();
         thrust_wrapper::inclusive_scan<AMGX_device>(unfine.begin(), unfine.end(), unfine_offs.begin()+1);
 
         nunfine = unfine_offs[unfine_offs.size()-1];
@@ -1211,6 +1213,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
         {
             unfine_set.resize(nunfine);
             unfine_set_fill<<<nblocks, nthreads>>>(A.get_num_rows(), unfine.raw(), unfine_offs.raw(), unfine_set.raw());
+            cudaCheckError();
         }
 
         const int CTA_SIZE  = 128;
@@ -1244,6 +1247,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
                 cf_map.raw(),
                 s_con.raw(),
                 C_hat_start.raw());
+                cudaCheckError();
         }
         else
         {
@@ -1317,9 +1321,11 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             // TODO: Optimize with async copies.
             int status = 0;
             cudaMemcpy( exp_wk.get_status(), &status, sizeof(int), cudaMemcpyHostToDevice );
+            cudaCheckError();
             // Compute the set C_hat.
             int work_offset = GRID_SIZE * NUM_WARPS;
             cudaMemcpy( exp_wk.get_work_queue(), &work_offset, sizeof(int), cudaMemcpyHostToDevice );
+            cudaCheckError();
 
             // Run the computation.
             if ( avg_nz_per_row < 16 )
@@ -1337,6 +1343,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
                     exp_wk.get_keys(),
                     exp_wk.get_work_queue(),
                     exp_wk.get_status() );
+                    cudaCheckError();
             }
             else
             {
@@ -1358,6 +1365,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
             cudaCheckError();
             // Read the result from count_non_zeroes.
             cudaMemcpy( &status, exp_wk.get_status(), sizeof(int), cudaMemcpyDeviceToHost );
+            cudaCheckError();
             done = status == 0;
         }
     }
@@ -1435,6 +1443,7 @@ void Selector<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::cr
                 S2.col_indices.raw(),
                 NULL,
                 NULL);
+                cudaCheckError();
         }
         else
         {

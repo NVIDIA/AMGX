@@ -46,13 +46,7 @@ You also need NVIDIA GPU with Compute Capability >=3.0, check to see if your GPU
 
 ### <a name="cloning"></a> Cloning / Pulling
 
-In order to pull all necessary dependencies, AmgX must be cloned using the `--recursive` option, i.e.:
-
-`git clone --recursive git@github.com:nvidia/amgx.git`
-
-If you want to update a copy of the repository which was cloned without --recursive, you can use:
-
-`git submodule update --init --recursive`
+`git clone git@github.com:nvidia/amgx.git`
 
 ### <a name="building"></a> Building
 Typical build commands from the project root:

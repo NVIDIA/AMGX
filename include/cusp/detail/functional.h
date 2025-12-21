@@ -33,13 +33,3 @@ template<typename T>
 } // end namespace detail
 } // end namespace cusp
 
-// Add identity to amgx::thrust namespace for backward compatibility
-namespace amgx
-{
-namespace thrust
-{
-  template<typename T>
-  using identity = cusp::detail::identity_function<T>;
-}
-}
-

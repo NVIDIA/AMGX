@@ -91,7 +91,7 @@ void coo_add(const Matrix1& A,
 {
     typedef typename Matrix2::value_type ValueType;
 
-    coo_elementwise_transform_simple(A, B, C, amgx::thrust::identity<ValueType>());
+    coo_elementwise_transform_simple(A, B, C, identity_function<ValueType>());
 }
 
 template <typename Matrix1,

@@ -93,7 +93,7 @@ void __spmv_ell(const cusp::ell_matrix<IndexType,ValueType,cusp::device_memory>&
          amgx::thrust::raw_pointer_cast(&ell.column_indices.values[0]), 
          amgx::thrust::raw_pointer_cast(&ell.values.values[0]),
          x, y,
-         amgx::thrust::identity<ValueType>(), amgx::thrust::multiplies<ValueType>(), amgx::thrust::plus<ValueType>());
+         identity_function<ValueType>(), amgx::thrust::multiplies<ValueType>(), amgx::thrust::plus<ValueType>());
 
     if (UseCache)
         unbind_x(x);

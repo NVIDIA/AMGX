@@ -231,7 +231,7 @@ void compute_mis_states(const size_t k,
 //
 //            // map old indices into subgraph indices
 //            cusp::array1d<IndexType, MemorySpace> index_map(N);
-//            amgx::thrust::transform_exclusive_scan(retained_nodes.begin(), retained_nodes.end(), index_map.begin(), amgx::thrust::identity<IndexType>(), IndexType(0), amgx::thrust::plus<IndexType>());
+//            amgx::thrust::transform_exclusive_scan(retained_nodes.begin(), retained_nodes.end(), index_map.begin(), identity_function<IndexType>(), IndexType(0), amgx::thrust::plus<IndexType>());
 //            
 //            std::cout << "index map\n";
 //            cusp::print(index_map);

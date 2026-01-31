@@ -46,21 +46,14 @@ endif()
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
-# Get the version number as integer
-string(REPLACE "." ";" VERSION_LIST ${CUDAToolkit_VERSION})
-list(GET VERSION_LIST 0 CUDA_VERSION_MAJOR)
-list(GET VERSION_LIST 1 CUDA_VERSION_MINOR)
-list(GET VERSION_LIST 2 CUDA_VERSION_PATCH)
-
-# CUDA 13.1+ requires C++17 for Thrust/CCCL
-if (CUDA_VERSION_MAJOR GREATER 13 OR (CUDA_VERSION_MAJOR EQUAL 13 AND CUDA_VERSION_MINOR GREATER_EQUAL 1))
-    message(STATUS "CUDA ${CUDAToolkit_VERSION} detected, setting C++17 standard")
-    set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard" FORCE)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    set(CMAKE_CUDA_STANDARD 17 CACHE STRING "CUDA C++ standard" FORCE)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+# CUDA 13.1+ requires C++17 for Thrust and CUDA C++ Core Libraries
+if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "13.1")
+  message(STATUS "CUDA ${CUDAToolkit_VERSION} detected, setting C++17 standard")
+  set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard" FORCE)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CUDA_STANDARD 17 CACHE STRING "CUDA C++ standard" FORCE)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
-
 
 find_package(MPI)
 

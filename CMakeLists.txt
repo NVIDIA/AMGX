@@ -46,15 +46,6 @@ endif()
 # the project
 project (AMG LANGUAGES C CXX CUDA)
 
-# CUDA 13.1+ requires C++17 for Thrust and CUDA C++ Core Libraries
-if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "13.1")
-  message(STATUS "CUDA ${CUDAToolkit_VERSION} detected, setting C++17 standard")
-  set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard" FORCE)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CUDA_STANDARD 17 CACHE STRING "CUDA C++ standard" FORCE)
-  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-endif()
-
 find_package(MPI)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
@@ -65,7 +56,7 @@ if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
 endif(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
 
 # declare the supported configurations
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Profile;RelWithTraces" CACHE STRING "Avaialble Configuration Types" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Profile;RelWithTraces" CACHE STRING "Available Configuration Types" FORCE)
 
 # make sure a build type has been chosen!!!
 IF(NOT CMAKE_BUILD_TYPE)
@@ -73,6 +64,15 @@ IF(NOT CMAKE_BUILD_TYPE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
 find_package(CUDAToolkit 12.0 REQUIRED)
+
+# CUDA 13.1+ requires C++17 for Thrust and CUDA C++ Core Libraries
+if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "13.1")
+  message(STATUS "CUDA ${CUDAToolkit_VERSION} detected, setting C++17 standard")
+  set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard" FORCE)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CUDA_STANDARD 17 CACHE STRING "CUDA C++ standard" FORCE)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+endif()
 
 # update/define the compilation flags.
 IF(WIN32)

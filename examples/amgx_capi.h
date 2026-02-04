@@ -57,7 +57,7 @@ typedef enum
     AMGX_SOLVE_SUCCESS = 0,
     AMGX_SOLVE_FAILED = 1,
     AMGX_SOLVE_DIVERGED = 2,
-    AMGX_SOLVE_NOT_CONVERGED = 2,
+    AMGX_SOLVE_NOT_CONVERGED = 3,
 } AMGX_SOLVE_STATUS;
 
 /*********************************************************

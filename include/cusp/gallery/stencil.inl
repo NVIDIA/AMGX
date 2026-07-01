@@ -5,7 +5,7 @@
 #include <cusp/copy.h>
 #include <cusp/dia_matrix.h>
 
-#include <thrust/tuple.h>
+#include <basic_types.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 #include <thrust/count.h>
@@ -195,4 +195,3 @@ void generate_matrix_from_stencil(      MatrixType& matrix,
                             
 } // end namespace gallery
 } // end namespace cusp
-

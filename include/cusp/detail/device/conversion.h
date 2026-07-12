@@ -21,7 +21,7 @@
 #include <thrust/scan.h>
 #include <thrust/scatter.h>
 #include <thrust/sequence.h>
-#include <thrust/tuple.h>
+#include <basic_types.h>
 
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -831,4 +831,3 @@ void ell_to_hyb(const Matrix1& src, Matrix2& dst)
 } // end namespace device
 } // end namespace detail
 } // end namespace cusp
-

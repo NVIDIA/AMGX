@@ -4,6 +4,26 @@
 
 #pragma once
 
+#include <thrust/version.h>
+
+// CCCL 3 removed the legacy thrust::tuple API in favor of cuda::std::tuple.
+// Keep the existing wrapped Thrust namespace usable by AMGX and CUSP.
+#if THRUST_MAJOR_VERSION >= 3
+#include <cuda/std/tuple>
+namespace amgx
+{
+namespace thrust
+{
+using ::cuda::std::get;
+using ::cuda::std::make_tuple;
+using ::cuda::std::tuple;
+using ::cuda::std::tuple_size;
+}
+}
+#else
+#include <thrust/tuple.h>
+#endif
+
 #ifdef _WIN32
 #pragma warning (push)
 #pragma warning (disable : 4244 4267 4521)
@@ -163,4 +183,3 @@ struct TemplateMode
 };
 
 }//namespace amgx
-

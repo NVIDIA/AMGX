@@ -256,6 +256,15 @@ Chebyshev_Solver<T_Config>::solve_init( VVector &b, VVector &x, bool xIsZero )
     int offset, size;
     A.getOffsetAndSizeForView(A.getViewExterior(), &offset, &size);
 
+    // Ensure x is actually zero when xIsZero is claimed.
+    // Callers (e.g. PCG) pass xIsZero=true but may not have zeroed the buffer.
+    // Without this, solve_iteration's "x += gamma*p" accumulates onto stale data
+    // from the previous outer iteration, causing divergence.
+    if (xIsZero)
+    {
+        fill(x, types::util<ValueTypeB>::get_zero());
+    }
+
     // Run one iteration of preconditioner with zero initial guess
     if (no_preconditioner)
     {

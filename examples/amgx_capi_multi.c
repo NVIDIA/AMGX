@@ -104,7 +104,7 @@ void readGeometry( const char *fname, double **geo_x, double **geo_y, double **g
 
     if (dimension == 3)
     {
-        *geo_y = (double *)malloc(n * sizeof(double));
+        *geo_z = (double *)malloc(n * sizeof(double));
 
         for (int i = 0; i < n; i ++)
             if (3 != fscanf(fin, "%lf %lf %lf\n", *geo_x + i, *geo_y + i, *geo_z + i))

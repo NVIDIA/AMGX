@@ -650,7 +650,7 @@ typename Vector::value_type dotc(const Vector &a, const Vector &b, int offset, i
         const value_type *a_raw = a.raw() + a_first;
         const value_type *b_raw = b.raw() + b_first;
         value_type result;
-        Cublas::dot(size, a_raw, 1, b_raw, 1, &result);
+        Cublas::dotc(size, a_raw, 1, b_raw, 1, &result);
         cudaCheckError();
         return result;
     }
@@ -684,7 +684,7 @@ typename Vector::value_type dotc(const Vector &a, const Vector &b, int offseta, 
         const value_type *a_raw = a.raw() + a_first;
         const value_type *b_raw = b.raw() + b_first;
         value_type result;
-        Cublas::dot(size, a_raw, 1, b_raw, 1, &result);
+        Cublas::dotc(size, a_raw, 1, b_raw, 1, &result);
         cudaCheckError();
         return result;
     }

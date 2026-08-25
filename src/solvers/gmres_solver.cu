@@ -327,7 +327,7 @@ GMRES_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
     for ( int k = 0; k <= i; ++k )
     {
         //  H(k,i) = <V(i+1),V(k)>    //
-        m_H(k, i) = dot(A, m_V_vectors[i + 1], m_V_vectors[k]);
+        m_H(k, i) = dot(A, m_V_vectors[k], m_V_vectors[i + 1]);
         // V(i+1) -= H(k, i) * V(k)  //
         axpy( m_V_vectors[k], m_V_vectors[i + 1], types::util<ValueTypeB>::invert(m_H(k, i)), offset, size );
     }

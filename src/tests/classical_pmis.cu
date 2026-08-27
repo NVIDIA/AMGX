@@ -119,10 +119,14 @@ void run()
     UNITTEST_ASSERT_TRUE(selector != NULL);
     // we need strength of connection & weights to generate a selection
     Matrix<TConfig> A;
-    generateMatrixRandomStruct<TConfig>::generate(A, 45, false, 1, true);
-    //generateMatrixRandomStruct<TConfig>::generate(A,4500,false, 1, true);
-    cudaCheckError();
-    random_fill(A);
+    Matrix_h A_h;
+    A_h.set_initialized(0);
+    A_h.addProps(CSR);
+    MatrixCusp<TConfig_h, cusp::csr_format> wrapped_A(&A_h);
+    cusp::gallery::poisson5pt(wrapped_A, 10, 10);
+    A_h.computeDiagonal();
+    A_h.set_initialized(1);
+    A = A_h;
     cudaCheckError();
     BVector s_con(A.get_num_nz(), false);
     FVector weights(A.get_num_rows(), 0.0f);
@@ -173,6 +177,11 @@ void run()
 
 DECLARE_UNITTEST_END(ClassicalPMISTest);
 
+ClassicalPMISTest <TemplateMode<AMGX_mode_hDDI>::Type>  ClassicalPMISTest_instance_mode_hDDI;
 ClassicalPMISTest <TemplateMode<AMGX_mode_dDDI>::Type>  ClassicalPMISTest_instance_mode_dDDI;
+ClassicalPMISTest <TemplateMode<AMGX_mode_hDFI>::Type>  ClassicalPMISTest_instance_mode_hDFI;
+ClassicalPMISTest <TemplateMode<AMGX_mode_hFFI>::Type>  ClassicalPMISTest_instance_mode_hFFI;
+ClassicalPMISTest <TemplateMode<AMGX_mode_dDFI>::Type>  ClassicalPMISTest_instance_mode_dDFI;
+ClassicalPMISTest <TemplateMode<AMGX_mode_dFFI>::Type>  ClassicalPMISTest_instance_mode_dFFI;
 
 } // namespace amgx

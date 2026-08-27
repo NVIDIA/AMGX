@@ -163,7 +163,7 @@ void run()
     }
 
     IndexType num_bad =
-        thrust_wrapper::transform_reduce(rows.begin(),
+        thrust_wrapper::transform_reduce<TConfig::memSpace>(rows.begin(),
                                  rows.end(),
                                  checker, (IndexType)0, amgx::thrust::plus<IndexType>());
     cudaCheckError();
@@ -173,13 +173,6 @@ void run()
 
 DECLARE_UNITTEST_END(ClassicalPMISTest);
 
-/*
-ClassicalPMISTest <TemplateMode<AMGX_mode_hDDI>::Type>  ClassicalPMISTest_instance_mode_hDDI;
 ClassicalPMISTest <TemplateMode<AMGX_mode_dDDI>::Type>  ClassicalPMISTest_instance_mode_dDDI;
-ClassicalPMISTest <TemplateMode<AMGX_mode_hDFI>::Type>  ClassicalPMISTest_instance_mode_hDFI;
-ClassicalPMISTest <TemplateMode<AMGX_mode_hFFI>::Type>  ClassicalPMISTest_instance_mode_hFFI;
-ClassicalPMISTest <TemplateMode<AMGX_mode_dDFI>::Type>  ClassicalPMISTest_instance_mode_dDFI;
-ClassicalPMISTest <TemplateMode<AMGX_mode_dFFI>::Type>  ClassicalPMISTest_instance_mode_dFFI;
-*/
 
 } // namespace amgx

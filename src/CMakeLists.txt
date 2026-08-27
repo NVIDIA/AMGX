@@ -15,7 +15,9 @@ target_include_directories(amgx_libs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../inclu
 
 set(AMGX_INCLUDES ../include)
 
-set(tests_all ${tests_all} testframework.cu test_utils.cu unit_test.cu)
+file(GLOB TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cu")
+
+set(tests_all ${TESTS} testframework.cu test_utils.cu unit_test.cu)
 
 add_library(amgx_tests_libs OBJECT ${tests_all})
 
@@ -106,4 +108,3 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/POWER_ITERATION"
     "${CMAKE_CURRENT_SOURCE_DIR}/configs/eigen_configs/SUBSPACE_ITERATION"
     DESTINATION "lib/configs/eigen_configs")
-

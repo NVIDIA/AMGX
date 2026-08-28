@@ -493,8 +493,12 @@ void NBinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_
             this->norm_coef = sqrt(thrust_wrapper::transform_reduce<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / A.get_num_rows());
             cudaCheckError();
             thrust_wrapper::transform<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
-            thrust_wrapper::transform<AMGX_device>(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
-            thrust_wrapper::transform<AMGX_device>(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / this->norm_coef)) );
+            // left_scale/right_scale store squared factors.  Each is
+            // square-rooted by the matrix/vector scaling kernels, so folding
+            // 1/norm_coef into both squared factors gives the required
+            // combined 1/norm_coef matrix normalization.
+            thrust_wrapper::transform<AMGX_device>(left_scale.begin(), left_scale.end(), left_scale.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
+            thrust_wrapper::transform<AMGX_device>(right_scale.begin(), right_scale.end(), right_scale.begin(), vmul_scale_const<ValueTypeB>(1. / this->norm_coef) );
             cudaCheckError();
             /*thrust_wrapper::fill<AMGX_device>(rownorms.begin(), rownorms.end(), 0.);
               thrust_wrapper::fill<AMGX_device>(colnorms.begin(), colnorms.end(), 0.);
@@ -644,4 +648,3 @@ AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 
 
 } // namespace amgx
-

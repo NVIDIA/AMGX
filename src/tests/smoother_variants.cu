@@ -94,6 +94,12 @@ void run()
     check_smoother("JACOBI_L1", ",smoother_weight=0.8");
     check_smoother("CHEBYSHEV",
                    ",preconditioner=NOSOLVER,chebyshev_polynomial_order=2,chebyshev_lambda_estimate_mode=2");
+    check_smoother("CHEBYSHEV_POLY", ",chebyshev_polynomial_order=2");
+    check_smoother("GS", ",relaxation_factor=0.8");
+    check_smoother("MULTICOLOR_GS",
+                   ",smoother_weight=0.8,matrix_coloring_scheme=MIN_MAX,coloring_level=1,max_uncolored_percentage=0");
+    check_smoother("MULTICOLOR_DILU",
+                   ",smoother_weight=0.8,matrix_coloring_scheme=MIN_MAX,coloring_level=1,max_uncolored_percentage=0");
 }
 
 DECLARE_UNITTEST_END(SmootherVariants);

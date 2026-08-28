@@ -17,7 +17,7 @@ typedef Vector<typename TConfig::template setVecPrec<AMGX_vecBool>::Type> BVecto
 typedef Vector<typename TConfig::template setVecPrec<AMGX_vecFloat>::Type> FVector;
 typedef Vector<typename TConfig_h::template setVecPrec<AMGX_vecBool>::Type> BVector_h;
 
-void check_selector(const char *selector_name, const Matrix_h &host_matrix)
+void check_selector(const char *selector_name, const Matrix_h &host_matrix, bool check_independence = true)
 {
     AMG_Config cfg;
     std::string parameters = std::string("selector=") + selector_name +
@@ -28,7 +28,8 @@ void check_selector(const char *selector_name, const Matrix_h &host_matrix)
     Matrix<TConfig> A = host_matrix;
     BVector strong_connections(A.get_num_nz(), false);
     FVector weights(A.get_num_rows(), 0.0f);
-    IVector cf_map(A.get_num_rows(), UNASSIGNED);
+    const bool compatible_relaxation = std::string(selector_name) == "CR";
+    IVector cf_map(A.get_num_rows(), compatible_relaxation ? FINE : UNASSIGNED);
     IVector scratch(A.get_num_rows(), 0);
 
     Strength<TConfig> *strength = StrengthFactory<TConfig>::allocate(cfg, "default");
@@ -45,6 +46,8 @@ void check_selector(const char *selector_name, const Matrix_h &host_matrix)
     IVector_h host_cf_map = cf_map;
     BVector_h host_connections = strong_connections;
     int num_coarse = 0;
+
+    if (!check_independence) { return; }
 
     for (int row = 0; row < host_matrix.get_num_rows(); ++row)
     {
@@ -92,6 +95,10 @@ void run()
     {
         check_selector("AGGRESSIVE_PMIS", A);
         check_selector("AGGRESSIVE_HMIS", A);
+        // Compatible relaxation is device-only and does not construct a
+        // maximal independent set, so validate its complete C/F assignment
+        // without imposing the PMIS/HMIS independence invariant.
+        check_selector("CR", A, false);
     }
 }
 

@@ -189,7 +189,8 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
         ValueType alpha,
         ValueType *row_sum,
         const double max_row_sum,
-        int64_t base_index)
+        int64_t base_index,
+        bool mark_all_connections)
 {
     // One warp works on each row and hence one iteration handles
     // num_warps*numBlock rows. This means atomicAdd() is inevitable.
@@ -318,7 +319,8 @@ void computeStrongConnectionsAndWeightsKernel( const IndexType *A_rows,
             {
                 bool is_off_diagonal = aRowIt < aRowEnd && aColId != aRowId;
                 is_strongly_connected = is_off_diagonal &&
-                                        stronglyConnectedAHat( aValue, s_threshold[warpId], s_diag[warpId] );
+                                        (mark_all_connections ||
+                                         stronglyConnectedAHat( aValue, s_threshold[warpId], s_diag[warpId] ));
             }
 
             if ( is_strongly_connected && aRowIt < aRowEnd && aColId < A_num_rows)
@@ -348,7 +350,8 @@ void computeStrongConnectionsAndWeightsKernel_opt( const IndexType *A_rows,
         ValueType alpha,
         ValueType *row_sum,
         const double max_row_sum,
-        int64_t base_index)
+        int64_t base_index,
+        bool mark_all_connections)
 {
     // One warp works on each row and hence one iteration handles
     // num_warps*numBlock rows. This means atomicAdd() is inevitable.
@@ -430,7 +433,8 @@ void computeStrongConnectionsAndWeightsKernel_opt( const IndexType *A_rows,
             {
                 bool is_off_diagonal = aColId != aRowId;
                 is_strongly_connected = is_off_diagonal &&
-                                        stronglyConnectedAHat( aValue, threshold, diag );
+                                        (mark_all_connections ||
+                                         stronglyConnectedAHat( aValue, threshold, diag ));
             }
 
             if ( is_strongly_connected && aColId < A_num_rows)
@@ -511,6 +515,7 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
     bool *s_con_ptr = s_con.raw();
     float *weights_ptr = weights.raw();
     bool compute_row_sum = (max_row_sum < 1.0);
+    const bool mark_all_connections = this->marks_all_connections();
 
     if (A.get_num_rows() == 0) { compute_row_sum = false; }
 
@@ -548,7 +553,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             this->alpha,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
-                            0);
+                            0,
+                            mark_all_connections);
                 cudaCheckError();
             }
             else {
@@ -563,7 +569,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             this->alpha,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
-                            A.manager->base_index());
+                            A.manager->base_index(),
+                            mark_all_connections);
                 cudaCheckError();
             }
         }
@@ -585,7 +592,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             this->alpha,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
-                            0);
+                            0,
+                            mark_all_connections);
                 cudaCheckError();
             }
             else {
@@ -600,7 +608,8 @@ computeStrongConnectionsAndWeights_1x1(Matrix_d &A,
                             this->alpha,
                             compute_row_sum ? sums_ptr.raw() : NULL,
                             max_row_sum,
-                            A.manager->base_index());
+                            A.manager->base_index(),
+                            mark_all_connections);
                 cudaCheckError();
             }
         }
@@ -711,4 +720,3 @@ AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
 
 } // namespace amgx
-

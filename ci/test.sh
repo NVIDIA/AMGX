@@ -20,7 +20,5 @@ mkdir -p "${BUILD_DIR}"
     cd "${BUILD_DIR}"
     cmake ..
     make -j 8 all
-    # WIP: test_launcher is allowed to fail; not all tests pass
-    set +e
-    ./tests/amgx_tests_launcher
+    ./src/amgx_tests_launcher
 )

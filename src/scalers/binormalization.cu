@@ -145,7 +145,7 @@ struct std_f
 };
 
 // scaled the matrix using diag(F)*A*diag(G), f = sqrt(fabs(x)), g = sqrt(fabs(y))
-template <typename IndexType, typename MatrixType, typename VectorType>
+template <ScaleDirection direction, typename IndexType, typename MatrixType, typename VectorType>
 __global__
 void scaleMatrixDevice(int rows, IndexType *offsets, IndexType *indices, MatrixType *values,
                        VectorType *x)
@@ -158,7 +158,16 @@ void scaleMatrixDevice(int rows, IndexType *offsets, IndexType *indices, MatrixT
         {
             int j = indices[jj];
             VectorType fj = fabs(x[j]);
-            values[jj] *= sqrt(fabs(fi * fj));
+            const VectorType scale = sqrt(fabs(fi * fj));
+
+            if (direction == SCALE)
+            {
+                values[jj] *= scale;
+            }
+            else
+            {
+                values[jj] /= scale;
+            }
         }
     }
 }
@@ -375,12 +384,23 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     ValueTypeB col_min = *(amgx::thrust::min_element(colnorms.begin(), colnorms.end()));
     cudaCheckError();
     printf("Original Matrix: rowmax: %e, rowmin: %e, colmax: %e, colmin: %e\n", row_max, row_min, col_max, col_min);fflush(stdout);*/
-    scaleMatrixDevice <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), scale_vector.raw());
-    cudaCheckError();
-    ValueTypeB C_norm = sqrt(thrust_wrapper::transform_reduce<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / nrows);
-    thrust_wrapper::transform<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / C_norm) );
-    thrust_wrapper::transform<AMGX_device>(scale_vector.begin(), scale_vector.end(), scale_vector.begin(), vmul_scale_const<ValueTypeB>(sqrt(1. / C_norm)) );
-    cudaCheckError();
+    if (scaleOrUnscale == SCALE)
+    {
+        scaleMatrixDevice<SCALE> <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), scale_vector.raw());
+        cudaCheckError();
+        ValueTypeB C_norm = sqrt(thrust_wrapper::transform_reduce<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz() * A.get_block_size(), square_value<ValueTypeB>(), 0., amgx::thrust::plus<ValueTypeB>()) / nrows);
+        thrust_wrapper::transform<AMGX_device>(A.values.begin(), A.values.begin() + A.get_num_nz()*A.get_block_size(), A.values.begin(), vmul_scale_const<ValueTypeB>(1. / C_norm) );
+        // scale_vector stores squared row/column factors and is square-rooted
+        // by scaleMatrixDevice/scaleVector.  Fold the matrix normalization into
+        // that squared factor so UNSCALE exactly reverses the operation.
+        thrust_wrapper::transform<AMGX_device>(scale_vector.begin(), scale_vector.end(), scale_vector.begin(), vmul_scale_const<ValueTypeB>(1. / C_norm) );
+        cudaCheckError();
+    }
+    else
+    {
+        scaleMatrixDevice<UNSCALE> <<< 4096, 256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), scale_vector.raw());
+        cudaCheckError();
+    }
     /*thrust_wrapper::fill<AMGX_device>(rownorms.begin(), rownorms.end(), 0.);
       thrust_wrapper::fill<AMGX_device>(colnorms.begin(), colnorms.end(), 0.);
     getColRowNorms<<<4096,256>>>(nrows, A.row_offsets.raw(), A.col_indices.raw(), A.values.raw(), rownorms.raw(), colnorms.raw());
@@ -391,7 +411,6 @@ void BinormalizationScaler<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_i
     col_min = *(amgx::thrust::min_element(colnorms.begin(), colnorms.end()));
     cudaCheckError();
     printf("Scaled Matrix: rowmax: %e, rowmin: %e, colmax: %e, colmin: %e\n", row_max, row_min, col_max, col_min);fflush(stdout);*/
-    exit(0);
 }
 
 // Setup on Host
@@ -515,4 +534,3 @@ AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
 
 
 } // namespace amgx
-

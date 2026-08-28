@@ -42,6 +42,7 @@ class Strength_BaseBase : public Strength<T_Config>
 
         __host__ __device__
         virtual bool strongly_connected(ValueType val, ValueType threshold, ValueType diagonal) = 0;
+        virtual bool marks_all_connections() const { return false; }
     protected:
         virtual void computeStrongConnectionsAndWeights_1x1(Matrix<T_Config> &A,
                 BVector &s_con,
@@ -98,4 +99,3 @@ class  Strength_Base< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPre
 };
 
 } // namespace amgx
-

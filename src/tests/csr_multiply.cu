@@ -283,7 +283,7 @@ DECLARE_UNITTEST_BEGIN_EXTD(CsrMultiplyTests_Poisson7_10_10, CsrMultiplyTests_Ba
 void run()
 {
   AMG_Config cfg;
-  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 5, 10, 10, 10, cfg );
+  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 7, 10, 10, 10, cfg );
 }
 
 DECLARE_UNITTEST_END(CsrMultiplyTests_Poisson7_10_10)
@@ -298,7 +298,7 @@ DECLARE_UNITTEST_BEGIN_EXTD(CsrMultiplyTests_Poisson7_100_100, CsrMultiplyTests_
 void run()
 {
   AMG_Config cfg;
-  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 5, 100, 100, 100, cfg );
+  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 7, 100, 100, 100, cfg );
 }
 
 DECLARE_UNITTEST_END(CsrMultiplyTests_Poisson7_100_100)
@@ -313,7 +313,7 @@ DECLARE_UNITTEST_BEGIN_EXTD(CsrMultiplyTests_Poisson9_10_10, CsrMultiplyTests_Ba
 void run()
 {
   AMG_Config cfg;
-  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 5, 10, 10, 10, cfg );
+  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 9, 10, 10, 10, cfg );
 }
 
 DECLARE_UNITTEST_END(CsrMultiplyTests_Poisson9_10_10)
@@ -328,7 +328,7 @@ DECLARE_UNITTEST_BEGIN_EXTD(CsrMultiplyTests_Poisson9_100_100, CsrMultiplyTests_
 void run()
 {
   AMG_Config cfg;
-  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 5, 100, 100, 100, cfg );
+  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 9, 100, 100, 100, cfg );
 }
 
 DECLARE_UNITTEST_END(CsrMultiplyTests_Poisson9_100_100)
@@ -343,7 +343,7 @@ DECLARE_UNITTEST_BEGIN_EXTD(CsrMultiplyTests_Poisson27_10_10, CsrMultiplyTests_B
 void run()
 {
   AMG_Config cfg;
-  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 5, 10, 10, 10, cfg );
+  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 27, 10, 10, 10, cfg );
 }
 
 DECLARE_UNITTEST_END(CsrMultiplyTests_Poisson27_10_10)
@@ -358,7 +358,7 @@ DECLARE_UNITTEST_BEGIN_EXTD(CsrMultiplyTests_Poisson27_100_100, CsrMultiplyTests
 void run()
 {
   AMG_Config cfg;
-  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 5, 100, 100, 100, cfg );
+  CsrMultiplyTests_Base<T_Config>::template check_csr_multiply_poisson<T_Config::vecPrec, T_Config::matPrec>( 27, 100, 100, 100, cfg );
 }
 
 DECLARE_UNITTEST_END(CsrMultiplyTests_Poisson27_100_100)

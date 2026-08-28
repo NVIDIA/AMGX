@@ -22,6 +22,7 @@ class Strength_All : public Strength_Base<T_Config>
         {
             return true;
         }
+        bool marks_all_connections() const { return true; }
 };
 
 template<class T_Config>

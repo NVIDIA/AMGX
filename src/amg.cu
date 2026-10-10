@@ -25,6 +25,7 @@
 #include <cassert>
 #include <csr_multiply.h>
 #include <memory_info.h>
+#include <thrust_wrapper.h>
 
 #include <thrust/sort.h>
 #include <thrust/remove.h>
@@ -1559,6 +1560,14 @@ template class AMG<AMGX_vecDouble, AMGX_matFloat, AMGX_indInt>;
 template class AMG<AMGX_vecComplex, AMGX_matComplex, AMGX_indInt>;
 template class AMG<AMGX_vecDoubleComplex, AMGX_matComplex, AMGX_indInt>;
 template class AMG<AMGX_vecDoubleComplex, AMGX_matDoubleComplex, AMGX_indInt>;
+
+// Emits the device code of thrust::sequence on integer vectors, which the
+// inline Matrix::colorMatrix used here launches. Without it, nvcc 13 builds
+// a launch of a null kernel ("invalid device function" in classical AMG).
+void instantiate_device_integer_sequence(Vector<TemplateConfig<AMGX_device, AMGX_vecInt, AMGX_matDouble, AMGX_indInt> > &v)
+{
+    thrust_wrapper::sequence<AMGX_device>(v.begin(), v.end());
+}
 
 } // namespace amgx
 

@@ -460,6 +460,8 @@ void Hash_set<Key_type, SMEM_SIZE, NUM_HASH_FCTS, WARP_SIZE>::load_index( int co
         ptr[idx] = key;
     }
 
+    // Each lane indexes slots that other lanes have just written.
+    utils::syncwarp();
     // Build the local index.
     index.build_smem_index( m_smem_keys );
     m_gmem_count = utils::any( m_gmem_count );

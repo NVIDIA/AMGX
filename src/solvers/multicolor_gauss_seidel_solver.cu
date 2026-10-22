@@ -43,64 +43,70 @@ void setupBlockGSSmooth1x1(const IndexType *row_offsets, const IndexType *column
 }
 
 
+// Inverts, without pivoting, a bsize x bsize block held one entry per lane: the lane
+// lane0 + i * bsize + j holds entry (i, j) and receives entry (i, j) of the inverse. The
+// arithmetic is that of compute_block_inverse_row_major; the pivot row and column travel by
+// shuffle instead of shared memory. Every lane of the warp must call it.
+template<typename ValueTypeA, int bsize>
+__device__ __forceinline__
+ValueTypeA compute_block_inverse_in_lanes(ValueTypeA a, const int i_ind, const int j_ind, const int lane0)
+{
+#pragma unroll
+    for (int row = 0; row < bsize; row++)
+    {
+        const ValueTypeA pivot = utils::shfl(a, lane0 + row * bsize + row);
+        const ValueTypeA a_row_j = utils::shfl(a, lane0 + row * bsize + j_ind);
+        const ValueTypeA a_i_row = utils::shfl(a, lane0 + i_ind * bsize + row);
+        const ValueTypeA diag = isNotCloseToZero(pivot) ? ValueTypeA(1) / pivot : ValueTypeA(1) / epsilon(pivot);
+
+        if (i_ind == row)
+        {
+            a = (j_ind == row) ? diag : a * diag;
+        }
+        else if (j_ind == row)
+        {
+            a = -(a * diag);
+        }
+        else
+        {
+            a = -(a_i_row * (a_row_j * diag)) + a;
+        }
+    }
+
+    return a;
+}
+
+// Inverts the diagonal blocks, bsize * bsize <= 32: each block row is owned by bsize_sq
+// consecutive lanes, blockrows_per_warp of them per warp. The block rows of a warp leave the loop
+// at different iterations, so the whole warp runs it in step; lanes without a block row (the
+// warp's last 32 - blockrows_per_warp * bsize_sq, and those past the matrix) only take part in
+// the exchange.
 template<typename IndexType, typename ValueTypeA, int blockrows_per_cta, int blockrows_per_warp, int bsize, int bsize_sq>
 __global__
 void setupBlockGSSmooth3by3BlockDiaCsrKernel(const IndexType *row_offsets, const IndexType *column_indices, const ValueTypeA *values, const IndexType *dia_indices, ValueTypeA *Dinv, const int num_block_rows)
 
 {
-    int warp_id = threadIdx.x / 32;
-    int warp_thread_id = threadIdx.x & 31;
-
-    // padding row blocks to fit in a single warp
-    if ( warp_thread_id >= blockrows_per_warp * bsize_sq ) { return; }
-
-    // new thread id with padding
-    int tid = warp_id * blockrows_per_warp * bsize_sq + warp_thread_id;
-    int cta_blockrow_id = tid / bsize_sq;
-    int blockrow_id = blockIdx.x * blockrows_per_cta + cta_blockrow_id;
-    const int mat_entry_index = tid - cta_blockrow_id * bsize_sq;
+    static_assert(bsize_sq == bsize * bsize && blockrows_per_warp * bsize_sq <= 32, "a block row must fit within one warp");
+    const int warp_id = threadIdx.x / 32;
+    const int warp_thread_id = threadIdx.x & 31;
+    const int warp_blockrow_id = warp_thread_id / bsize_sq;
+    const int mat_entry_index = warp_thread_id - warp_blockrow_id * bsize_sq;
     const int i_ind = mat_entry_index / bsize;
     const int j_ind = mat_entry_index - i_ind * bsize;
-    __shared__ ValueTypeA s_Amat[bsize_sq * blockrows_per_cta ];
-    ValueTypeA e_out;
+    const int lane0 = warp_thread_id - mat_entry_index;
+    const bool padding = warp_blockrow_id >= blockrows_per_warp;
+    int blockrow_id = blockIdx.x * blockrows_per_cta + warp_id * blockrows_per_warp + warp_blockrow_id;
 
-    while (blockrow_id < num_block_rows)
+    for (; utils::any(!padding && blockrow_id < num_block_rows); blockrow_id += gridDim.x * blockrows_per_cta)
     {
-        int offset = blockrow_id * bsize_sq + mat_entry_index;
-        // Store the diagonal
-        e_out = values[bsize_sq * dia_indices[blockrow_id] + mat_entry_index];
-        // Each thread stores its entry in s_Amat
-        s_Amat[tid] = e_out;
-        compute_block_inverse_row_major<IndexType, ValueTypeA, blockrows_per_cta, bsize, bsize_sq>
-        ( s_Amat, cta_blockrow_id * bsize_sq, offset, i_ind, j_ind, Dinv );
-        blockrow_id += gridDim.x * blockrows_per_cta;
-    }
-}
+        const bool active = !padding && blockrow_id < num_block_rows;
+        const ValueTypeA e = active ? values[bsize_sq * dia_indices[blockrow_id] + mat_entry_index] : ValueTypeA(0);
+        const ValueTypeA inverse = compute_block_inverse_in_lanes<ValueTypeA, bsize>(e, i_ind, j_ind, lane0);
 
-template<typename IndexType, typename ValueTypeA, int threads_per_block, int halfwarps_per_block, int bsize, int log_bsize, int bsize_sq, int log_bsize_sq>
-__global__
-void setupBlockGSSmooth4by4BlockDiaCsrKernel_V2(const IndexType *row_offsets, const IndexType *column_indices, const ValueTypeA *values, const IndexType *dia_indices, ValueTypeA *Dinv, const int num_block_rows)
-
-{
-    const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    int halfwarp_id = tid >> log_bsize_sq;
-    const int block_halfwarp_id = threadIdx.x >> log_bsize_sq;
-    const int mat_entry_index = threadIdx.x & (bsize_sq - 1);
-    const int i_ind = mat_entry_index >> log_bsize;
-    const int j_ind = mat_entry_index & (bsize - 1);
-    __shared__ ValueTypeA s_Amat[bsize_sq * halfwarps_per_block ];
-    ValueTypeA e_out;
-
-    while (halfwarp_id < num_block_rows)
-    {
-        int offset = halfwarp_id * bsize_sq + mat_entry_index;
-        // Store the diagonal
-        e_out = values[bsize_sq * dia_indices[halfwarp_id] + mat_entry_index];
-        // Each thread stores its entry in s_Amat
-        s_Amat[threadIdx.x] = e_out;
-        compute_block_inverse_row_major<IndexType, ValueTypeA, halfwarps_per_block, bsize, bsize_sq>
-        ( s_Amat, block_halfwarp_id * bsize_sq, offset, i_ind, j_ind, Dinv );
-        halfwarp_id += gridDim.x * blockDim.x >> log_bsize_sq;
+        if (active)
+        {
+            Dinv[blockrow_id * bsize_sq + mat_entry_index] = inverse;
+        }
     }
 }
 
@@ -200,77 +206,83 @@ void setupBlockGSSmoothBlockDiaCsrKernel_V2(const IndexType *row_offsets, const 
 }
 
 // Kernel to smooth, NAIVE implementation with texture
-template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int eighthwarps_per_block, int bsize, int log_bsize, int half_bsize>
+template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int bsize, int log_bsize>
 __global__
 void multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2(const IndexType *row_offsets, const IndexType *column_indices, const IndexType *dia_indices, const ValueTypeA *nonzero_values, const ValueTypeA *Dinv,
         const ValueTypeB *b, const ValueTypeB *x, ValueTypeB weight, const int *sorted_rows_by_color, const int num_rows_per_color, const int num_block_rows, ValueTypeB *xout)
 {
     const int vec_entry_index = threadIdx.x & (bsize - 1);
-    const int block_eighthwarp_id = threadIdx.x >> log_bsize;
     const int tid = blockDim.x * blockIdx.x + threadIdx.x;
     int eighthwarp_id = tid >> log_bsize;
-    volatile __shared__ ValueTypeB s_xtemp[ bsize * eighthwarps_per_block ];
-    ValueTypeB bmAx, xin;
-    ValueTypeB temp[bsize];
-    int offset, i, s_offset;
+    ValueTypeB temp[bsize], v[bsize];
 
-    while (eighthwarp_id < num_rows_per_color)
+    // Each of the bsize lanes of a block row computes one entry of the residual, reading whole
+    // blocks of x itself; the lanes then exchange their residual entries by shuffle. The block rows
+    // of a warp leave the loop at different iterations, so the whole warp runs it in step and
+    // lanes without a block row only take part in the exchange.
+    for (; utils::any(eighthwarp_id < num_rows_per_color); eighthwarp_id += (gridDim.x * blockDim.x >> log_bsize))
     {
-        i = sorted_rows_by_color[eighthwarp_id];
-        offset = i * bsize + vec_entry_index;
-        bmAx = b[offset];
-        // Contribution from diagonal
-        xin = x[offset];
-        s_xtemp[threadIdx.x] = xin;
-        // Load dia_values and do matrix multiply
-        s_offset = block_eighthwarp_id * bsize;
-        loadAsVector<bsize>(nonzero_values + dia_indices[i]*bsize * bsize + vec_entry_index * bsize, temp);
+        const bool active = eighthwarp_id < num_rows_per_color;
+        const int i = active ? sorted_rows_by_color[eighthwarp_id] : 0;
+        ValueTypeB bmAx = 0., xin = 0.;
+
+        if (active)
+        {
+            bmAx = b[i * bsize + vec_entry_index];
+            xin = x[i * bsize + vec_entry_index];
+            // Contribution from diagonal
+            loadAsVector<bsize>(x + i * bsize, v);
+            loadAsVector<bsize>(nonzero_values + dia_indices[i]*bsize * bsize + vec_entry_index * bsize, temp);
 #pragma unroll
 
-        for (int m = 0; m < bsize; m++)
-        {
-            bmAx -= temp[m] * s_xtemp[s_offset + m];
-        }
-
-        // Contribution from each nonzero column
-        int jmax = row_offsets[i + 1];
-
-        for (int jind = row_offsets[i]; jind < jmax; jind++)
-        {
-            IndexType jcol = column_indices[jind];
-
-            if (jcol != i)
+            for (int m = 0; m < bsize; m++)
             {
-                offset = jcol * bsize + vec_entry_index;
-                s_xtemp[threadIdx.x] = x[offset];
-                // Load nonzero_values
-                offset = jind * bsize * bsize + vec_entry_index * bsize;
-                loadAsVector<bsize>(nonzero_values + offset, temp);
-                s_offset = block_eighthwarp_id * bsize;
+                bmAx -= temp[m] * v[m];
+            }
+
+            // Contribution from each nonzero column
+            int jmax = row_offsets[i + 1];
+
+            for (int jind = row_offsets[i]; jind < jmax; jind++)
+            {
+                IndexType jcol = column_indices[jind];
+
+                if (jcol != i)
+                {
+                    loadAsVector<bsize>(x + jcol * bsize, v);
+                    // Load nonzero_values
+                    loadAsVector<bsize>(nonzero_values + jind * bsize * bsize + vec_entry_index * bsize, temp);
 #pragma unroll
 
-                for (int m = 0; m < bsize; m++)
-                {
-                    bmAx -= temp[m] * s_xtemp[s_offset + m];
+                    for (int m = 0; m < bsize; m++)
+                    {
+                        bmAx -= temp[m] * v[m];
+                    }
                 }
             }
         }
 
-        s_xtemp[threadIdx.x] = bmAx;
-        bmAx = 0.;
-        // Load Dinv and multiply to RHS
-        offset = i * bsize * bsize + vec_entry_index * bsize;
-        loadAsVector<bsize>(Dinv + offset, temp);
-        s_offset = block_eighthwarp_id * bsize;
 #pragma unroll
 
         for (int m = 0; m < bsize; m++)
         {
-            bmAx += temp[m] * s_xtemp[s_offset + m];
+            v[m] = utils::shfl(bmAx, m, bsize);
         }
 
-        xout[i * bsize + vec_entry_index] = xin + weight * bmAx;
-        eighthwarp_id +=  (gridDim.x * blockDim.x >> log_bsize);
+        if (active)
+        {
+            // Load Dinv and multiply to RHS
+            loadAsVector<bsize>(Dinv + i * bsize * bsize + vec_entry_index * bsize, temp);
+            ValueTypeB dx = 0.;
+#pragma unroll
+
+            for (int m = 0; m < bsize; m++)
+            {
+                dx += temp[m] * v[m];
+            }
+
+            xout[i * bsize + vec_entry_index] = xin + weight * dx;
+        }
     }
 }
 
@@ -723,12 +735,16 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const IndexType *A_dia_idx_ptr = A.diag.raw();
     ValueTypeA *Dinv_ptr = this->Dinv.raw();
     const ValueTypeA *A_nonzero_values_ptr = A.values.raw();
-    // MUST BE MULTIPLE OF 16
-    const int threads_per_block = 512;
-    const int halfwarps_per_block = threads_per_block / 16;
-    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / halfwarps_per_block + 1);
-    cudaFuncSetCacheConfig(setupBlockGSSmooth4by4BlockDiaCsrKernel_V2<IndexType, ValueTypeA, threads_per_block, halfwarps_per_block, 4, 2, 16, 4>, cudaFuncCachePreferL1);
-    setupBlockGSSmooth4by4BlockDiaCsrKernel_V2<IndexType, ValueTypeA, threads_per_block, halfwarps_per_block, 4, 2, 16, 4> <<< num_blocks, threads_per_block>>>
+    // A multiple of 32: the kernel exchanges entries with full-warp shuffles.
+    const int bsize = 4;
+    const int bsize_sq = bsize * bsize;
+    const int WARP_SIZE = 32;
+    const int threads_per_block = 256;
+    const int blockrows_per_warp = WARP_SIZE / bsize_sq;
+    const int blockrows_per_cta = (threads_per_block / WARP_SIZE) * blockrows_per_warp;
+    const int num_blocks = std::min(AMGX_GRID_MAX_SIZE, (int) (A.get_num_rows() - 1) / blockrows_per_cta + 1);
+    cudaFuncSetCacheConfig(setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq>, cudaFuncCachePreferL1);
+    setupBlockGSSmooth3by3BlockDiaCsrKernel<IndexType, ValueTypeA, blockrows_per_cta, blockrows_per_warp, bsize, bsize_sq> <<< num_blocks, threads_per_block>>>
     (A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, A_dia_idx_ptr, Dinv_ptr, A.get_num_rows());
     cudaCheckError();
 }
@@ -769,7 +785,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const IndexType *A_dia_idx_ptr = A.diag.raw();
     ValueTypeA *Dinv_ptr = this->Dinv.raw();
     const ValueTypeA *A_nonzero_values_ptr = A.values.raw();
-    // MUST BE MULTIPLE OF 16
+    // A multiple of 32: the kernel exchanges entries with full-warp shuffles.
     const int bsize = 3;
     const int bsize_sq = bsize * bsize;
     const int WARP_SIZE = 32;
@@ -793,7 +809,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const IndexType *A_dia_idx_ptr = A.diag.raw();
     ValueTypeA *Dinv_ptr = this->Dinv.raw();
     const ValueTypeA *A_nonzero_values_ptr = A.values.raw();
-    // MUST BE MULTIPLE OF 16
+    // A multiple of 32: the kernel exchanges entries with full-warp shuffles.
     const int bsize = 2;
     const int bsize_sq = bsize * bsize;
     const int WARP_SIZE = 32;
@@ -817,7 +833,7 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
     const IndexType *A_dia_idx_ptr = A.diag.raw();
     ValueTypeA *Dinv_ptr = this->Dinv.raw();
     const ValueTypeA *A_nonzero_values_ptr = A.values.raw();
-    // MUST BE MULTIPLE OF 16
+    // A multiple of 32: the kernel exchanges entries with full-warp shuffles.
     const int bsize = 5;
     const int bsize_sq = bsize * bsize;
     const int WARP_SIZE = 32;
@@ -1275,8 +1291,8 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
         const int threads_per_block = 512;
         const int eightwarps_per_block = threads_per_block / 4;
         const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / eightwarps_per_block + 1 );
-        cudaFuncSetCacheConfig(multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2>, cudaFuncCachePreferL1);
-        multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2> <<< num_blocks, threads_per_block>>>
+        cudaFuncSetCacheConfig(multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, 4, 2>, cudaFuncCachePreferL1);
+        multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, 4, 2> <<< num_blocks, threads_per_block>>>
         (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
          b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);
         cudaCheckError();
@@ -1294,8 +1310,8 @@ void MulticolorGaussSeidelSolver<TemplateConfig<AMGX_device, t_vecPrec, t_matPre
             const int threads_per_block = 512;
             const int eightwarps_per_block = threads_per_block / 4;
             const int num_blocks = std::min( AMGX_GRID_MAX_SIZE, (int)(num_rows_per_color - 1) / eightwarps_per_block + 1 );
-            cudaFuncSetCacheConfig(multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2>, cudaFuncCachePreferL1);
-            multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2> <<< num_blocks, threads_per_block>>>
+            cudaFuncSetCacheConfig(multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, 4, 2>, cudaFuncCachePreferL1);
+            multicolorGSSmooth4by4BlockDiaCsrKernel_NAIVE_tex_readDinv2<IndexType, ValueTypeA, ValueTypeB, 4, 2> <<< num_blocks, threads_per_block>>>
             (A_row_offsets_ptr, A_column_indices_ptr, A_dia_idx_ptr, A_nonzero_values_ptr, Dinv_ptr,
              b_ptr, x_ptr, this->weight, A_sorted_rows_by_color_ptr + color_offset, num_rows_per_color, A.get_num_rows(), x_ptr);
             cudaCheckError();

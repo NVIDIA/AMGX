@@ -964,8 +964,9 @@ void Cusparse::bsrmv_internal( const int color,
 
     cusparseCheckError(cusparseSetStream(Cusparse::get_instance().m_handle, stream));
 
+    // E holds one block per row: row and column indices are both m_seq_offsets.
     bsrxmv_internal( Cusparse::get_instance().m_handle, direction, CUSPARSE_OPERATION_NON_TRANSPOSE, colorNum,
-                     A.get_num_rows(), A.get_num_cols(), A.get_num_nz(), &alphaConst,
+                     A.get_num_rows(), A.get_num_cols(), A.get_num_rows(), &alphaConst,
                      A.cuMatDescr,
                      E.raw(),
                      A.getMatrixColoring().getSortedRowsByColor().raw() + colorStart,

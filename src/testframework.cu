@@ -87,6 +87,7 @@ void UnitTestDriver::register_test(UnitTest *test)
     {
 #define AMGX_CASE_LINE(CASE) case CASE: test_by_name->second[std::string(ModeString<CASE>::getName())] = test; break;
             AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+            AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
 #undef AMGX_CASE_LINE
     }
 }

@@ -29,8 +29,6 @@
 namespace amgx
 {
 
-#define USE_EXPERIMENTAL_4x4
-
 template <class Matrix, class Vector>
 class Multiply_1x1;
 template <class Matrix, class Vector, class IVector>
@@ -332,71 +330,6 @@ void multiplyMM(const Matrix<TConfig> &A, const Matrix<TConfig> &B, Matrix<TConf
 // KERNELS
 // --------------------------------
 
-template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int eighthwarps_per_block, int bsize, int log_bsize, int half_bsize, bool ROW_MAJOR>
-__global__
-void blockDiaCsrMultiplyKernel(const IndexType *row_offsets,
-                               const IndexType *column_indices,
-                               const ValueTypeA *nonzero_values,
-                               const ValueTypeB *B,
-                               ValueTypeB *C,
-                               const IndexType num_block_rows,
-                               const IndexType row_offset)
-{
-    const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    int eighthwarp_id = row_offset + (tid >> log_bsize);
-    const int block_eighthwarp_id = threadIdx.x >> log_bsize;
-    const int vec_entry_index = threadIdx.x & (bsize - 1);
-    volatile __shared__ ValueTypeB s_xtemp[ bsize * eighthwarps_per_block ];
-    ValueTypeB C_temp;
-    int offset, s_offset;
-    ValueTypeB temp[bsize];
-
-    while (eighthwarp_id < num_block_rows)
-    {
-        //i = eighthwarp_id;
-        C_temp = types::util<ValueTypeB>::get_zero();
-        // Contribution from each nonzero column
-        int jmax = row_offsets[eighthwarp_id + 1];
-
-        for (int jind = row_offsets[eighthwarp_id]; jind < jmax; jind++)
-        {
-            IndexType jcol = column_indices[jind];
-            offset = jcol * bsize + vec_entry_index;
-            types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
-            // Load nonzero_values
-            s_offset = block_eighthwarp_id * bsize;
-
-            if (ROW_MAJOR)
-            {
-                offset = jind * bsize * bsize + vec_entry_index * bsize;
-                loadAsVector<bsize>(nonzero_values + offset, temp);
-            }
-            else
-            {
-                offset = jind * bsize * bsize + vec_entry_index;
-#pragma unroll
-
-                for (int m = 0; m < bsize; m++)
-                {
-                    types::util<ValueTypeA>::to_uptype(nonzero_values[offset + bsize * m], temp[m]);
-                }
-            }
-
-#pragma unroll
-
-            for (int m = 0; m < bsize; m++)
-            {
-                C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-            }
-        }
-
-        C[eighthwarp_id * bsize + vec_entry_index] = C_temp;
-        eighthwarp_id += gridDim.x * blockDim.x >> log_bsize;
-    }
-}
-
-#ifdef USE_EXPERIMENTAL_4x4
-
 template< typename IndexType, typename ValueTypeA, typename ValueTypeB, int CTA_SIZE, bool ROW_MAJOR >
 __global__
 __launch_bounds__( CTA_SIZE, 16 )
@@ -410,122 +343,61 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
         const int row_offset )
 {
     const int nHalfWarps = CTA_SIZE / 16; // Number of half warps per CTA.
-    const int laneId = threadIdx.x % warpSize;
     const int halfWarpId = threadIdx.x / 16;
     const int halfLaneId = threadIdx.x % 16;
     const int halfLaneId_div_4 = halfLaneId / 4;
     const int halfLaneId_mod_4 = halfLaneId % 4;
-    const int laneId_div_16 = laneId / 16;
-    const int upperHalf = 16 * laneId_div_16;
-    // Shared memory needed to exchange X and delta.
-    __shared__ volatile ValueTypeB s_mem[CTA_SIZE];
-    // Each thread keeps its own pointer to shared memory to avoid some extra computations.
-    volatile ValueTypeB *my_s_mem = &s_mem[16 * halfWarpId];
+    // Each lane holds one entry of a 4x4 block and multiplies it by this entry of an x block.
+    const int x_entry = ROW_MAJOR ? halfLaneId_mod_4 : halfLaneId_div_4;
+    // A half warp works on one block row: its lanes exchange x entries with register shuffles
+    // and run the row's loop together, independently of the other half warp.
+    const unsigned int half_warp_mask = 0xffffu << ( threadIdx.x & 16 );
 
-    // Iterate over the rows of the matrix. One warp per two rows.
+    // Iterate over the rows of the matrix. One half warp per row.
     for ( int aRowId = blockIdx.x * nHalfWarps + halfWarpId ; aRowId < num_block_rows ; aRowId += gridDim.x * nHalfWarps )
     {
-        unsigned int active_mask = utils::activemask();
-        // Load one block of B.
-        ValueTypeB my_Ax = types::util<ValueTypeB>::get_zero();
-
         // The diagonal.
-        if ( halfLaneId_div_4 == 0 )
+        ValueTypeB my_Ax = types::util<ValueTypeB>::get_zero();
+        ValueTypeA my_val = nonzero_values[16 * dia_ptr[aRowId] + halfLaneId];
+        my_Ax = my_Ax + my_val * B[4 * aRowId + x_entry];
+        // The off-diagonal blocks, four per step: lane (i, j) of the half warp loads entry j of
+        // the x block of the step's i-th block.
+        const int aColEnd = row_offsets[aRowId + 1];
+
+        for ( int aColIt = row_offsets[aRowId] ; aColIt < aColEnd ; aColIt += 4 )
         {
-            types::util<ValueTypeB>::volcast( B[4 * aRowId + halfLaneId_mod_4], my_s_mem + halfLaneId);
-        }
+            ValueTypeB my_x = types::util<ValueTypeB>::get_zero();
 
-        // Load the diagonal.
-        int diagId = dia_ptr[aRowId];
-        // Update my values.
-        ValueTypeA my_val = nonzero_values[16 * diagId + halfLaneId];
-
-        if ( ROW_MAJOR )
-        {
-            my_Ax = my_Ax + my_val * types::util<ValueTypeB>::volcast(my_s_mem[halfLaneId_mod_4]);
-        }
-        else
-        {
-            my_Ax = my_Ax + my_val * types::util<ValueTypeB>::volcast(my_s_mem[halfLaneId_div_4]);
-        }
-
-        // The range of the rows.
-        int aColBegin = row_offsets[aRowId + 0];
-        int aColEnd   = row_offsets[aRowId + 1];
-
-        // Each warp load column indices of 16 nonzero blocks
-        for ( ; utils::any( aColBegin < aColEnd, active_mask ) ; aColBegin += 16 )
-        {
-            int aColIt = aColBegin + halfLaneId;
-            // Get the ID of the column.
-            int aColId = -1;
-
-            if ( aColIt < aColEnd )
+            if ( aColIt + halfLaneId_div_4 < aColEnd )
             {
-                aColId = column_indices[aColIt];
+                my_x = B[4 * column_indices[aColIt + halfLaneId_div_4] + halfLaneId_mod_4];
             }
 
-            // Count the number of active columns.
-            int vote =  utils::ballot(aColId != -1, active_mask);
-            // The number of iterations.
-            int nCols = max( __popc( vote & 0x0000ffff ), __popc( vote & 0xffff0000 ) );
-
-            // Loop over columns. We compute 8 columns per iteration.
-            for ( int k = 0 ; k < nCols ; k += 4 )
-            {
-                int my_k = k + halfLaneId_div_4;
-                // Exchange column indices.
-                int waColId = utils::shfl( aColId, upperHalf + my_k, warpSize, active_mask );
-                // Load 8 blocks of X if needed.
-                ValueTypeB my_x = types::util<ValueTypeB>::get_zero();
-
-                if ( waColId != -1 )
-                {
-                    my_x = B[4 * waColId + halfLaneId_mod_4];
-                }
-
-                types::util<ValueTypeB>::volcast( my_x, my_s_mem + halfLaneId);
-                // Load 8 blocks of A.
 #pragma unroll
 
-                for ( int i = 0 ; i < 4 ; ++i )
+            for ( int i = 0 ; i < 4 ; ++i )
+            {
+                my_val = types::util<ValueTypeA>::get_zero();
+
+                if ( aColIt + i < aColEnd )
                 {
-                    int w_aColTmp = aColBegin + k + i, w_aColIt = -1;
-
-                    if ( w_aColTmp < aColEnd )
-                    {
-                        w_aColIt = w_aColTmp;
-                    }
-
-                    ValueTypeA my_val = types::util<ValueTypeA>::get_zero();
-
-                    if ( w_aColIt != -1 )
-                    {
-                        my_val = nonzero_values[16 * w_aColIt + halfLaneId];
-                    }
-
-                    if ( ROW_MAJOR )
-                    {
-                        my_Ax = my_Ax + my_val * types::util<ValueTypeB>::volcast(my_s_mem[4 * i + halfLaneId_mod_4]);
-                    }
-                    else
-                    {
-                        my_Ax = my_Ax + my_val * types::util<ValueTypeB>::volcast(my_s_mem[4 * i + halfLaneId_div_4]);
-                    }
+                    my_val = nonzero_values[16 * (aColIt + i) + halfLaneId];
                 }
-            } // Loop over k
-        } // Loop over aColIt
+
+                my_Ax = my_Ax + my_val * utils::shfl( my_x, 4 * i + x_entry, 16, half_warp_mask );
+            }
+        }
 
         // Reduce bmAx terms.
         if ( ROW_MAJOR )
         {
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 1, warpSize, active_mask );
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 2, warpSize, active_mask );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 1, warpSize, half_warp_mask );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 2, warpSize, half_warp_mask );
         }
         else
         {
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 4, warpSize, active_mask );
-            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 8, warpSize, active_mask );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 4, warpSize, half_warp_mask );
+            my_Ax = my_Ax + utils::shfl_xor( my_Ax, 8, warpSize, half_warp_mask );
         }
 
         // Store the results.
@@ -546,100 +418,75 @@ void blockDiaCsrMultiplyKernelDiaProps_4x4( const IndexType *row_offsets,
     }
 }
 
-#else
-
-template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int eighthwarps_per_block, int bsize, int log_bsize, int half_bsize, int bsize_sq, bool ROW_MAJOR>
-__global__
-void blockDiaCsrMultiplyKernelDiaProps_4x4(const IndexType *row_offsets,
-        const IndexType *column_indices,
-        const IndexType *dia_ptr,
-        const ValueTypeA *nonzero_values,
-        const ValueTypeB *B,
-        ValueTypeB *C,
-        const int num_block_rows,
-        const int row_offset)
+// Adds the product of a bsize x bsize block of A and the matching block of x to C_temp. Each of
+// the bsize lanes of a block row owns the contiguous slice vec_entry_index of the block, so no
+// data moves between lanes. Row-major: the slice is a row, and its product with the x block is
+// the lane's entry of C, accumulated in C_temp[0]. Column-major: the slice is a column, and its
+// product with entry vec_entry_index of x adds to every entry of the block row of C, accumulated
+// in C_temp and summed over the lanes of the block row by sumBlockRow.
+template<int bsize, bool ROW_MAJOR, typename ValueTypeA, typename ValueTypeB>
+static __device__ __forceinline__ void multiplyBlock(const ValueTypeA *block, const ValueTypeB *x, int vec_entry_index, ValueTypeB (&C_temp)[bsize])
 {
-    const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    int eighthwarp_id = row_offset + (tid >> log_bsize);
-    const int block_eighthwarp_id = threadIdx.x >> log_bsize;
-    const int vec_entry_index = threadIdx.x & (bsize - 1);
-    volatile __shared__ ValueTypeB s_xtemp[ bsize * eighthwarps_per_block ];
-    ValueTypeB C_temp;
-    int offset, s_offset;
+    ValueTypeB a[bsize];
+    loadAsVector<bsize>(block + vec_entry_index * bsize, a);
 
-    while (eighthwarp_id < num_block_rows)
+    if (ROW_MAJOR)
     {
-        //i = eighthwarp_id;
-        C_temp = types::util<ValueTypeB>::get_zero();
-        // Contribution from diagonal
-        offset = eighthwarp_id * bsize + vec_entry_index;
-        types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
-        // Load dia_values and do matrix multiply
-        s_offset = block_eighthwarp_id * bsize;
-        ValueTypeA temp[bsize];
-
-        if (ROW_MAJOR)
-        {
-            loadAsVector<bsize>(nonzero_values + bsize_sq * dia_ptr[eighthwarp_id] + vec_entry_index * bsize, temp);
-        }
-        else
-        {
-#pragma unroll
-
-            for (int m = 0; m < bsize; m++)
-            {
-                temp[m] = nonzero_values[bsize_sq * dia_ptr[eighthwarp_id] + vec_entry_index + bsize * m];
-            }
-        }
-
+        ValueTypeB x_block[bsize];
+        loadAsVector<bsize>(x, x_block);
 #pragma unroll
 
         for (int m = 0; m < bsize; m++)
         {
-            C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
+            C_temp[0] = C_temp[0] + a[m] * x_block[m];
         }
+    }
+    else
+    {
+        const ValueTypeB x_entry = __cachingLoad(&x[vec_entry_index]);
+#pragma unroll
 
-        // Contribution from each nonzero column
-        int jmax = row_offsets[eighthwarp_id + 1];
-
-        for (int jind = row_offsets[eighthwarp_id]; jind < jmax; jind++)
+        for (int m = 0; m < bsize; m++)
         {
-            IndexType jcol = column_indices[jind];
-            offset = jcol * bsize + vec_entry_index;
-            types::util<ValueTypeB>::volcast(__cachingLoad(&B[offset]), s_xtemp + threadIdx.x);
-            // Load nonzero_values
-            s_offset = block_eighthwarp_id * bsize;
-
-            if (ROW_MAJOR)
-            {
-                offset = jind * bsize_sq + vec_entry_index * bsize;
-                loadAsVector<bsize>(nonzero_values + offset, temp);
-            }
-            else
-            {
-                offset = jind * bsize_sq + vec_entry_index;
-#pragma unroll
-
-                for (int m = 0; m < bsize; m++)
-                {
-                    temp[m] = nonzero_values[offset + bsize * m];
-                }
-            }
-
-#pragma unroll
-
-            for (int m = 0; m < bsize; m++)
-            {
-                C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-            }
+            C_temp[m] = C_temp[m] + a[m] * x_entry;
         }
-
-        C[eighthwarp_id * bsize + vec_entry_index] = C_temp;
-        eighthwarp_id += gridDim.x * blockDim.x >> log_bsize;
     }
 }
 
-#endif
+// v[i] for an i known only at run time, without indexing the register array dynamically.
+template<int bsize, typename ValueTypeB>
+static __device__ __forceinline__ ValueTypeB blockEntry(const ValueTypeB (&v)[bsize], int i)
+{
+    ValueTypeB entry = v[0];
+#pragma unroll
+
+    for (int m = 1; m < bsize; m++)
+    {
+        if (i == m) { entry = v[m]; }
+    }
+
+    return entry;
+}
+
+// Entry vec_entry_index of the sum of C_temp over the bsize lanes of the block row, whose first
+// lane is row_lane: in step k each lane passes on its partial sum of the entry of the lane k
+// places on.
+template<int bsize, typename ValueTypeB>
+static __device__ __forceinline__ ValueTypeB sumBlockRow(const ValueTypeB (&C_temp)[bsize], int vec_entry_index, int row_lane)
+{
+    const unsigned int row_mask = (0xffffffffu >> (32 - bsize)) << row_lane;
+    ValueTypeB sum = blockEntry(C_temp, vec_entry_index);
+#pragma unroll
+
+    for (int k = 1; k < bsize; k++)
+    {
+        const int to = vec_entry_index + k < bsize ? vec_entry_index + k : vec_entry_index + k - bsize;
+        const int from = vec_entry_index >= k ? vec_entry_index - k : vec_entry_index - k + bsize;
+        sum = sum + utils::shfl(blockEntry(C_temp, to), row_lane + from, warpSize, row_mask);
+    }
+
+    return sum;
+}
 
 // implementation for arbitrary block size
 template<typename IndexType, typename ValueTypeA, typename ValueTypeB, int blockrows_per_cta, int blockrows_per_warp, int bsize, int diag, bool ROW_MAJOR>
@@ -653,6 +500,7 @@ void blockDiaCsrMultiplyKernelDiaProps(const IndexType *row_offsets,
                                        const int num_block_rows,
                                        const int row_offset)
 {
+    static_assert(blockrows_per_warp * bsize <= 32, "the lanes of a block row must lie in one warp");
     int warp_id = threadIdx.x / 32;
     int warp_thread_id = threadIdx.x & 31;
 
@@ -662,47 +510,23 @@ void blockDiaCsrMultiplyKernelDiaProps(const IndexType *row_offsets,
     // new thread id with padding
     int tid = warp_id * blockrows_per_warp * bsize + warp_thread_id;
     int eighthwarp_id = row_offset + blockIdx.x * blockrows_per_cta + tid / bsize;
-    const int block_eighthwarp_id = tid / bsize;
     const int vec_entry_index = tid % bsize;
     const int bsize_sq = bsize * bsize;
-    volatile __shared__ ValueTypeB s_xtemp[ bsize * blockrows_per_cta ];
-    ValueTypeB C_temp;
-    int offset, s_offset;
 
     while (eighthwarp_id < num_block_rows)
     {
-        C_temp = types::util<ValueTypeB>::get_zero();
-        ValueTypeB temp[bsize];
+        ValueTypeB C_temp[bsize];
+#pragma unroll
 
+        for (int m = 0; m < bsize; m++)
+        {
+            C_temp[m] = types::util<ValueTypeB>::get_zero();
+        }
+
+        // Contribution from diagonal
         if ( diag )
         {
-            // Contribution from diagonal
-            offset = eighthwarp_id * bsize + vec_entry_index;
-            types::util<ValueTypeB>::volcast( __cachingLoad(&B[offset]), s_xtemp + tid);
-            // Load dia_values and do matrix multiply
-            s_offset = block_eighthwarp_id * bsize;
-
-            if (ROW_MAJOR)
-            {
-                loadAsVector<bsize>(nonzero_values + bsize_sq * dia_ptr[eighthwarp_id] + vec_entry_index * bsize, temp);
-            }
-            else
-            {
-                offset = dia_ptr[eighthwarp_id] * bsize_sq + vec_entry_index;
-#pragma unroll
-
-                for (int m = 0; m < bsize; m++)
-                {
-                    types::util<ValueTypeA>::to_uptype(nonzero_values[offset + bsize * m], temp[m]);
-                }
-            }
-
-#pragma unroll
-
-            for (int m = 0; m < bsize; m++)
-            {
-                C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-            }
+            multiplyBlock<bsize, ROW_MAJOR>(nonzero_values + bsize_sq * dia_ptr[eighthwarp_id], B + eighthwarp_id * bsize, vec_entry_index, C_temp);
         }
 
         // Contribution from each nonzero column
@@ -710,37 +534,16 @@ void blockDiaCsrMultiplyKernelDiaProps(const IndexType *row_offsets,
 
         for (int jind = row_offsets[eighthwarp_id]; jind < jmax; jind++)
         {
-            IndexType jcol = column_indices[jind];
-            offset = jcol * bsize + vec_entry_index;
-            types::util<ValueTypeB>::volcast( __cachingLoad(&B[offset]), s_xtemp + tid);
-            // Load nonzero_values
-            s_offset = block_eighthwarp_id * bsize;
-
-            if (ROW_MAJOR)
-            {
-                offset = jind * bsize_sq + vec_entry_index * bsize;
-                loadAsVector<bsize>(nonzero_values + offset, temp);
-            }
-            else
-            {
-                offset = jind * bsize_sq + vec_entry_index;
-#pragma unroll
-
-                for (int m = 0; m < bsize; m++)
-                {
-                    types::util<ValueTypeA>::to_uptype(nonzero_values[offset + bsize * m], temp[m]);
-                }
-            }
-
-#pragma unroll
-
-            for (int m = 0; m < bsize; m++)
-            {
-                C_temp = C_temp + temp[m] * types::util<ValueTypeB>::volcast(s_xtemp[s_offset + m]);
-            }
+            multiplyBlock<bsize, ROW_MAJOR>(nonzero_values + bsize_sq * jind, B + column_indices[jind] * bsize, vec_entry_index, C_temp);
         }
 
-        C[eighthwarp_id * bsize + vec_entry_index] = C_temp;
+        if (!ROW_MAJOR)
+        {
+            // The lanes of a block row run the same iterations, so they get here together.
+            C_temp[0] = sumBlockRow(C_temp, vec_entry_index, warp_thread_id - vec_entry_index);
+        }
+
+        C[eighthwarp_id * bsize + vec_entry_index] = C_temp[0];
         eighthwarp_id += gridDim.x * blockrows_per_cta;
     }
 }
@@ -978,30 +781,31 @@ class Multiply_4x4
                 ValueTypeB *C_ptr = C.raw();
                 cudaCheckError();
                 const unsigned int threads_per_block = 128;
-                const int eightwarps_per_block = threads_per_block / 4;
-                const int num_warps_per_cta = threads_per_block / 32;
-                const int num_blocks =  std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows + num_warps_per_cta - 1) / num_warps_per_cta); // (int) (A.get_num_rows()-1)/eightwarps_per_block + 1;
 
                 if (!A.hasProps(DIAG))
                 {
+                    const int blockrows_per_warp = 32 / 4;
+                    const int blockrows_per_cta = (threads_per_block / 32) * blockrows_per_warp;
+                    const int num_blocks =  std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows - 1) / blockrows_per_cta + 1);
+
                     if (A.getBlockFormat() == ROW_MAJOR)
                     {
-                        cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, true>, cudaFuncCachePreferL1);
-                        blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 4, 0, true>, cudaFuncCachePreferL1);
+                        blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 4, 0, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
                         cudaCheckError();
                     }
                     else
                     {
-                        cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, false>, cudaFuncCachePreferL1);
-                        blockDiaCsrMultiplyKernel<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
+                        cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 4, 0, false>, cudaFuncCachePreferL1);
+                        blockDiaCsrMultiplyKernelDiaProps<IndexType, ValueTypeA, ValueTypeB, blockrows_per_cta, blockrows_per_warp, 4, 0, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
                         cudaCheckError();
                     }
-
                 }
                 else
                 {
+                    const int num_warps_per_cta = threads_per_block / 32;
+                    const int num_blocks =  std::min(AMGX_GRID_MAX_SIZE, (int) (num_rows + num_warps_per_cta - 1) / num_warps_per_cta);
 
-#ifdef USE_EXPERIMENTAL_4x4
                     if ( A.getBlockFormat() == ROW_MAJOR )
                     {
                         blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, threads_per_block, true > <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
@@ -1012,22 +816,6 @@ class Multiply_4x4
                         blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, threads_per_block, false > <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
                         cudaCheckError();
                     }
-#else
-
-                    if (A.getBlockFormat() == ROW_MAJOR)
-                    {
-                        cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, true>, cudaFuncCachePreferL1);
-                        blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, true> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
-                        cudaCheckError();
-                    }
-                    else
-                    {
-                        cudaFuncSetCacheConfig(blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, false>, cudaFuncCachePreferL1);
-                        blockDiaCsrMultiplyKernelDiaProps_4x4<IndexType, ValueTypeA, ValueTypeB, eightwarps_per_block, 4, 2, 2, 16, false> <<< num_blocks, threads_per_block>>>(A_row_offsets_ptr, A_column_indices_ptr, A_dia_ind_ptr, A_nonzero_values_ptr, B_ptr, C_ptr, offset + num_rows, offset);
-                        cudaCheckError();
-                    }
-
-#endif
                 }
                 cudaCheckError();
             }

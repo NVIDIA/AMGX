@@ -227,8 +227,8 @@ __device__ inline void loadAsVector(const cuComplex *src, cuDoubleComplex *dst)
 {
     if (NUM_ELEMENTS % 2 == 0)
     {
-        double4 _t;
-        const double4 *src_ = reinterpret_cast<const double4 *>(src);
+        float4 _t;
+        const float4 *src_ = reinterpret_cast<const float4 *>(src);
 #pragma unroll
         for (int i = 0; i < NUM_ELEMENTS / 2; i++)
         {

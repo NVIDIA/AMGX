@@ -338,8 +338,8 @@ static __device__ __forceinline__ cuComplex shfl( cuComplex r, int lane, int bou
 
 static __device__ __forceinline__ cuDoubleComplex shfl( cuDoubleComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-    double re = shfl( cuCreal(r), lane, mask, bound );
-    double im = shfl( cuCimag(r), lane, mask, bound );
+    double re = shfl( cuCreal(r), lane, bound, mask );
+    double im = shfl( cuCimag(r), lane, bound, mask );
     return make_cuDoubleComplex( re, im );
 }
 
@@ -388,8 +388,8 @@ static __device__ __forceinline__ cuComplex shfl_xor( cuComplex r, int lane_mask
 
 static __device__ __forceinline__ cuDoubleComplex shfl_xor( cuDoubleComplex r, int lane_mask, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-    double re = shfl_xor( cuCreal(r), lane_mask, mask, bound );
-    double im = shfl_xor( cuCimag(r), lane_mask, mask, bound );
+    double re = shfl_xor( cuCreal(r), lane_mask, bound, mask );
+    double im = shfl_xor( cuCimag(r), lane_mask, bound, mask );
     return make_cuDoubleComplex( re, im );
 }
 
@@ -437,8 +437,8 @@ static __device__ __forceinline__ cuComplex shfl_down( cuComplex r, int lane, in
 
 static __device__ __forceinline__ cuDoubleComplex shfl_down( cuDoubleComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-    double re = shfl_down( cuCreal(r), lane, bound );
-    double im = shfl_down( cuCimag(r), lane, bound );
+    double re = shfl_down( cuCreal(r), lane, bound, mask );
+    double im = shfl_down( cuCimag(r), lane, bound, mask );
     return make_cuDoubleComplex( re, im );
 }
 
@@ -487,8 +487,8 @@ static __device__ __forceinline__ cuComplex shfl_up( cuComplex r, int lane, int 
 
 static __device__ __forceinline__ cuDoubleComplex shfl_up( cuDoubleComplex r, int lane, int bound = warpSize, unsigned int mask = DEFAULT_MASK )
 {
-    double re = shfl_up( cuCreal(r), lane, bound );
-    double im = shfl_up( cuCimag(r), lane, bound );
+    double re = shfl_up( cuCreal(r), lane, bound, mask );
+    double im = shfl_up( cuCimag(r), lane, bound, mask );
     return make_cuDoubleComplex( re, im );
 }
 

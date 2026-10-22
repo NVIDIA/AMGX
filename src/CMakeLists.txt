@@ -15,7 +15,7 @@ target_include_directories(amgx_libs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../inclu
 
 set(AMGX_INCLUDES ../include)
 
-set(tests_all ${tests_all} testframework.cu test_utils.cu unit_test.cu)
+set(tests_all ${tests_all} testframework.cu test_utils.cu unit_test.cu tests/block_spmv.cu)
 
 add_library(amgx_tests_libs OBJECT ${tests_all})
 

@@ -610,6 +610,8 @@ void Classical_AMG_Level_Base<T_Config>::restrictResidual(VVector &r, VVector &r
 #else
         int desired_size = std::max(P.manager->halo_offsets[P.manager->neighbors.size()], Ac.manager->halo_offsets[Ac.manager->neighbors.size()] * rr.get_block_size());
 #endif
+        // R*r below writes one entry per row of R, which can exceed both halo offsets
+        desired_size = std::max(desired_size, R.get_num_rows() * rr.get_block_size());
         rr.resize(desired_size);
     }
 

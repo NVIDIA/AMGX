@@ -364,7 +364,7 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
         }
 
         std::vector< ValueTypeB > tempvB(pb->size());
-        thrust::copy(&(*pb)[0], &(*pb)[pb->size()-1], tempvB.begin());
+        thrust::copy(pb->begin(), pb->end(), tempvB.begin());
 
         tempv.resize(A.get_num_rows()*A.get_block_dimy());
 
@@ -385,7 +385,7 @@ bool MatrixIO<T_Config>::writeSystemBinary(const char *fname, const Matrix<T_Con
         }
 
         std::vector< ValueTypeB > tempvB(px->size());
-        thrust::copy(&(*px)[0], &(*px)[px->size()-1], tempvB.begin());
+        thrust::copy(px->begin(), px->end(), tempvB.begin());
 
         tempv.resize(A.get_num_rows()*A.get_block_dimy());
 

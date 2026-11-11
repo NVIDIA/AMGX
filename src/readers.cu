@@ -1030,7 +1030,6 @@ bool ReadMatrixMarket<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec>
 
                 if (i == j)
                 {
-                    idiag++;
                     has_zero_diagonal_element = true;
 
                     if (check_zero_diagonal)

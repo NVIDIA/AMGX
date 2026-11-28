@@ -547,7 +547,7 @@ compute_c_hat_kernel( int A_num_rows,
                     }
 
                     // Is it an off-diagonal element.
-                    is_off_diagonal = b_col_it < b_col_end && b_col_id != uniform_b_row_id;
+                    is_off_diagonal = b_col_it < b_col_end && b_col_id != uniform_b_row_id && b_col_id != a_row_id;
                     // Is it a strongly connected node.
                     is_strongly_connected = is_off_diagonal && s_con[b_col_it];
                     // Is it a coarse and strongly-connected column.
